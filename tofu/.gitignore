@@ -1,0 +1,15 @@
+# Local provider plugins and workspace data
+.terraform/
+
+# State should only ever live in the remote backend
+*.tfstate
+*.tfstate.*
+
+# Variable files may contain credentials
+*.tfvars
+*.tfvars.json
+
+# Saved plans
+*.tfplan
+
+# .terraform.lock.hcl is intentionally NOT ignored - it is committed.
