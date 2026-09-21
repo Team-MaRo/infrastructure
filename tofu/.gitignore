@@ -12,4 +12,7 @@
 # Saved plans
 *.tfplan
 
+# Raw cf-terraforming output, refactored into the module by hand
+generated/
+
 # .terraform.lock.hcl is intentionally NOT ignored - it is committed.

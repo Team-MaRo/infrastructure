@@ -192,6 +192,58 @@ it, so `tofu init` reports "Signature validation was skipped". Its hash is pinne
 signature-verified - and this is the provider the API token is handed to. That is the
 trade-off taken against doing the PUT from a plain script.
 
+### Cloudflare is a separate root module
+
+`tofu/cloudflare/` has its own state (`key = cloudflare/terraform.tfstate`, same
+bucket) because DNS and the cluster should not be able to block each other. Running
+`tofu` there is a separate `init`/`plan`, with its own two tokens.
+
+There are **two Cloudflare accounts under two different logins**, which is why
+`providers.tf` declares `cloudflare.personal` and `cloudflare.arepazo` as aliases and
+**no default provider** - every resource must name its account, so a mistake fails to
+resolve instead of writing to the wrong place. Tokens must be scoped to
+`All zones from an account`; with `All zones` either token reaches both accounts and the
+split is decorative.
+
+Things that will bite:
+
+- The provider is **v5**, which was regenerated from Cloudflare's OpenAPI spec. The
+  resource is `cloudflare_dns_record`; the v4 name `cloudflare_record` is gone, so most
+  examples found online do not apply.
+- Import IDs: `cloudflare_zone` is `<zone_id>`, `cloudflare_dns_record` is
+  `<zone_id>/<dns_record_id>`, `cloudflare_zone_setting` is `<zone_id>/<setting_id>`.
+- `cloudflare_zone` has almost no writable surface - `account.id`, `name`, `paused`,
+  `type`, `vanity_name_servers`, and everything else is read-only. It is kept anyway
+  because it records which account owns which zone.
+- Every A/AAAA record is proxied, and `proxied = true` forces `ttl = 1`. A generated
+  record with any other TTL will fight the API.
+- cf-terraforming can *generate* HCL for zones, records and settings, but only lists
+  `cloudflare_dns_record` as import-capable for v5. The zone and zone-setting import
+  blocks come from `local.zones`/`local.setting_pairs` via `for_each`, not from the
+  tool. Also, `--resource-type cloudflare_zone` ignores `--zone` and dumps every zone
+  the token can see, so its output needs deduplicating.
+
+### Records Cloudflare owns but OpenTofu now tracks
+
+Seven AAAA records point at `100::` with `meta.origin_worker_id` set and
+`meta.read_only = true` - `d3strukt0r.dev` apex and www, `weleda-webcenter-text-export`,
+`robines.space` apex and www, `wundexpertinplus.com` apex and www. Cloudflare creates
+and maintains these for Workers routes. They imported cleanly, but if a Worker route
+changes Cloudflare rewrites them and a plan will report drift that nothing in this repo
+caused. Do not "fix" that drift blindly - check the Workers config first.
+
+`_acme-challenge.portainer.d3strukt0r.dev` exists twice (`f6b035be` from 2026-08-31 and
+`1a87e754` from 2024-05-17, both TTL 120), leftovers from ACME validation. Both are
+imported so the plan stays clean; removing the stale one is a deliberate change.
+
+### Zones exist that no delegation check covers
+
+The `ns_delegation` check in the cluster module covers exactly the ten domains
+registered at Infomaniak. Two further zones are delegated to Cloudflare but registered
+elsewhere - `wundexpertinplus.com` at GoDaddy and `arepazo.ch` at an unidentified `.ch`
+registrar. Nothing verifies their delegation. Extending the check needs a second list,
+since `local.domains` in `tofu/domains.tf` is specifically the Infomaniak set.
+
 ### Not managed here
 
 The Object Storage bucket itself (the hcloud provider has no resource for it), the
