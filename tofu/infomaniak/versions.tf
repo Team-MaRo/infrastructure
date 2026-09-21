@@ -2,11 +2,6 @@ terraform {
   required_version = ">= 1.5"
 
   required_providers {
-    hcloud = {
-      source  = "hetznercloud/hcloud"
-      version = "~> 1.69"
-    }
-
     # Reads NS delegation straight from the TLD registry.
     dns = {
       source  = "hashicorp/dns"
@@ -27,11 +22,12 @@ terraform {
     }
   }
 
-  # Hetzner Object Storage, bucket has Object Lock enabled.
-  # Credentials come from AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY.
+  # Own state, so a lapsed domain or a DNS resolution failure cannot break a plan for
+  # the cluster. Data sources error rather than warn, which is exactly what used to
+  # couple the two.
   backend "s3" {
     bucket = "d3strukt0r-tfstate"
-    key    = "k3s/terraform.tfstate"
+    key    = "infomaniak/terraform.tfstate"
     region = "nbg1"
 
     endpoints = {
