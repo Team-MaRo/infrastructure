@@ -6,6 +6,25 @@ terraform {
       source  = "hetznercloud/hcloud"
       version = "~> 1.69"
     }
+
+    # Reads NS delegation straight from the TLD registry.
+    dns = {
+      source  = "hashicorp/dns"
+      version = "~> 3.6"
+    }
+
+    # Shells out to dig for DS records, which the dns provider cannot read.
+    external = {
+      source  = "hashicorp/external"
+      version = "~> 2.4"
+    }
+
+    # Corrects nameserver delegation. Infomaniak's own provider cannot: its domain
+    # surface is only zones and records hosted at Infomaniak.
+    terracurl = {
+      source  = "devops-rob/terracurl"
+      version = "~> 2.11"
+    }
   }
 
   # Hetzner Object Storage, bucket has Object Lock enabled.
