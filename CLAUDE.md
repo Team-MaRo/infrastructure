@@ -131,8 +131,72 @@ minutes. During that window `tofu init` fails with
 listing buckets. That is not a permissions problem - wait and retry before touching
 ACLs, bucket policies or `use_path_style`.
 
+### Domains: verified against DNS, corrected through the API
+
+Ten domains are registered at Infomaniak and delegated to Cloudflare; Infomaniak is
+registrar only. `tofu/domains.tf` declares the expected delegation and DNSSEC state,
+and `tofu/domains_checks.tf` asserts against reality on every plan.
+
+There is deliberately no registrar resource. Infomaniak's API has
+`PUT /2/domains/{domain}/nameservers` but **no GET** - `GET /2/domains/domains`
+returns `contacts, created_at, expires_at, id, is_premium, name, options,
+resale_status, status, tld` and nothing about nameservers. Without a read there can be
+no import and no drift detection, so a resource would claim success forever. The
+`Infomaniak/infomaniak` provider does not help either: its domain surface is only
+zones and records *hosted at Infomaniak*, which these domains do not use.
+
+So the TLD registry is queried instead, which is authoritative for delegation:
+
+- `data "dns_ns_record_set"` reads the NS records. Its `nameservers` attribute is
+  already sorted by the provider.
+- `data "external"` runs `tofu/scripts/ds-lookup.sh`, which shells out to `dig DS`.
+  The dns provider has no DS data source, and Infomaniak's readable
+  `GET /2/domains/{domain}/dnssec/check` needs a bearer token - `data "http"` persists
+  its request headers into state, so the token would land in the state file.
+
+Two consequences worth knowing:
+
+- **Check block failures are warnings, not errors.** They print on every `tofu plan`
+  but do not fail the command or block an apply. That is intentional so a transient
+  DNS hiccup cannot block cluster work. For a hard failure, move the condition into a
+  `postcondition` on the data source.
+- **`dig` must be on PATH** wherever OpenTofu runs, and a plan now does ~20 DNS
+  lookups.
+
+Correcting drift is handled by `tofu/domains_nameservers.tf`. Because Infomaniak's
+provider cannot do it, a `terracurl_request` issues the `PUT` directly:
+
+- `for_each = toset(local.delegation_drift)` - the resource **only exists for domains
+  that have actually drifted**. In a steady state there are zero instances, so a plan
+  is empty and no request is ever sent needlessly. Once a correction lands the instance
+  disappears again.
+- `headers_wo` and `request_body_wo` are **write-only**, so neither the token nor the
+  body is stored in state. That matters because the state bucket has Object Lock: a
+  secret written there could not be purged, only rotated. OpenTofu 1.12 supports
+  write-only attributes; the body is write-only purely to avoid a standing
+  "use the WriteOnly version" warning, which would drown out the check warnings that
+  drift detection relies on.
+- `skip_read = true` because there is no GET to read back, and `skip_destroy = true`
+  because destroying a delegation setting is meaningless.
+- A `precondition` fails with a readable message if a correction is needed but
+  `TF_VAR_infomaniak_token` is unset, rather than sending `Bearer `. That token is
+  created at <https://manager.infomaniak.com/v3/ng/profile/user/token/list> with
+  scopes `domain:write` and `domain:read`, and is shown only once.
+
+Registry NS changes take time to propagate, so a plan run shortly after a correction
+may still see the old delegation and re-issue the PUT. It is idempotent.
+
+`devops-rob/terracurl` is third-party and the OpenTofu registry holds no GPG key for
+it, so `tofu init` reports "Signature validation was skipped". Its hash is pinned in
+`.terraform.lock.hcl`, which catches later tampering, but the first download was not
+signature-verified - and this is the provider the API token is handed to. That is the
+trade-off taken against doing the PUT from a plain script.
+
 ### Not managed here
 
-The Object Storage bucket itself (the hcloud provider has no resource for it) and the
+The Object Storage bucket itself (the hcloud provider has no resource for it), the
 per-server primary IPs (`public_net` is deliberately omitted from `hcloud_server`, and
-the provider suppresses that diff when unset).
+the provider suppresses that diff when unset), and the Cloudflare zones and records -
+those are a separate, later piece of work. Registrar contacts, transfers and renewals
+are out of scope too, as is domain expiry monitoring (readable via `expires_at`, but
+it needs a bearer token).
