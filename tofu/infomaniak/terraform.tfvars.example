@@ -1,0 +1,9 @@
+# Copy to terraform.tfvars and fill in. terraform.tfvars is gitignored; this example is
+# not, because it holds no values.
+#
+# https://manager.infomaniak.com/v3/ng/profile/user/token/list
+# Scopes: domain:write (for the PUT) and domain:read (so the token can be verified).
+#
+# Only needed when nameserver delegation has actually drifted - the checks themselves
+# read public DNS and need no credential at all.
+infomaniak_token = ""

@@ -1,0 +1,8 @@
+# Copy to terraform.tfvars and fill in. terraform.tfvars is gitignored; this example is
+# not, because it holds no values.
+#
+# https://dash.cloudflare.com/profile/api-tokens - one token per account, each with
+# Zone/Zone Read, Zone/DNS Edit, Zone/Zone Settings Edit, and zone resources scoped to
+# "All zones from an account" rather than "All zones".
+cloudflare_token_personal = ""
+cloudflare_token_arepazo  = ""

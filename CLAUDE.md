@@ -20,18 +20,22 @@ needs only its own credentials.
 
 ## Commands
 
-Every module needs the S3 backend credentials; beyond that each needs only its own.
-Credentials come from the environment and must never be written into a `.tf` file:
+No credential is ever exported by hand, and no value belongs in a `.tf` file. Each
+module reads its own token from a gitignored `terraform.tfvars` next to its `.tf` files:
+`hcloud_token` for k3s, `infomaniak_token` for infomaniak, and the two
+`cloudflare_token_*` for cloudflare. Every module ships a `terraform.tfvars.example`.
 
-```sh
-export AWS_ACCESS_KEY_ID=...      # Hetzner Object Storage access key, all modules
-export AWS_SECRET_ACCESS_KEY=...
+The **backend** is the exception. Backend blocks cannot interpolate, so no variable can
+supply the Object Storage keys. All three therefore carry
+`profile = "d3strukt0r-hetzner"` and read them from `~/.aws/credentials`. The profile
+name is account-scoped on purpose - profiles are global to `~/.aws`, so a bare
+`hetzner` would collide with any second Hetzner account. If a plan cannot reach the
+state bucket, check that file first: there is no environment variable to fall back on
+by design.
 
-export HCLOUD_TOKEN=...                      # tofu/k3s
-export TF_VAR_infomaniak_token=...           # tofu/infomaniak, only to correct drift
-export TF_VAR_cloudflare_token_personal=...  # tofu/cloudflare
-export TF_VAR_cloudflare_token_arepazo=...
-```
+`tofu/k3s` declares `variable "hcloud_token"` and passes it to the provider explicitly
+rather than relying on the provider's own `HCLOUD_TOKEN` lookup, so all three modules
+get their credentials the same way.
 
 ```sh
 cd tofu/k3s         # or tofu/infomaniak, or tofu/cloudflare
@@ -129,11 +133,23 @@ works (it is a resize with a reboot, not a replace).
 ### State backend
 
 Hetzner Object Storage bucket `d3strukt0r-tfstate` in **nbg1** (not fsn1), via the S3
-backend with `use_lockfile = true`. Hetzner is S3-compatible but not AWS, so all the
-`skip_*` flags in `tofu/k3s/versions.tf` are required; `skip_s3_checksum = true`
-specifically is what makes lock-object writes succeed. The bucket has versioning and
-Object Lock enabled, so every state write creates a version that cannot be deleted
-until its retention expires.
+backend with `use_lockfile = true` and `profile = "d3strukt0r-hetzner"`. Changing
+anything in a backend block means `tofu init -reconfigure` on the next run.
+
+Hetzner is S3-compatible but not AWS, so all the `skip_*` flags in
+`tofu/k3s/versions.tf` are required; `skip_s3_checksum = true` specifically is what
+makes lock-object writes succeed.
+
+Versioning and Object Lock are both enabled on the bucket, but
+`get-object-lock-configuration` returns no `Rule`, so there is **no default retention**
+- and the S3 backend never sends per-object retention headers. Every apply therefore
+adds a version that accumulates but stays deletable. Old versions can be pruned with
+`aws s3api delete-object --version-id`; nothing is locked.
+
+```sh
+aws s3api list-object-versions --bucket d3strukt0r-tfstate --prefix k3s/ \
+  --profile d3strukt0r-hetzner --endpoint-url https://nbg1.your-objectstorage.com
+```
 
 Freshly generated Hetzner S3 credentials propagate across their gateways over several
 minutes. During that window `tofu init` fails with
@@ -184,15 +200,16 @@ provider cannot do it, a `terracurl_request` issues the `PUT` directly:
   is empty and no request is ever sent needlessly. Once a correction lands the instance
   disappears again.
 - `headers_wo` and `request_body_wo` are **write-only**, so neither the token nor the
-  body is stored in state. That matters because the state bucket has Object Lock: a
-  secret written there could not be purged, only rotated. OpenTofu 1.12 supports
+  body is stored in state. A secret in state would land in a versioned bucket, where
+  purging it means hunting down every version that contains it - possible, since no
+  retention rule is set, but far easier never to write it. OpenTofu 1.12 supports
   write-only attributes; the body is write-only purely to avoid a standing
   "use the WriteOnly version" warning, which would drown out the check warnings that
   drift detection relies on.
 - `skip_read = true` because there is no GET to read back, and `skip_destroy = true`
   because destroying a delegation setting is meaningless.
 - A `precondition` fails with a readable message if a correction is needed but
-  `TF_VAR_infomaniak_token` is unset, rather than sending `Bearer `. That token is
+  `infomaniak_token` is unset, rather than sending `Bearer `. That token is
   created at <https://manager.infomaniak.com/v3/ng/profile/user/token/list> with
   scopes `domain:write` and `domain:read`, and is shown only once.
 

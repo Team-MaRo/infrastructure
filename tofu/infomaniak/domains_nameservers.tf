@@ -3,7 +3,7 @@
 # with a harmless GET). Shown once on creation, and deactivated after a year of
 # inactivity - which this token will hit, since it is used only when delegation drifts.
 variable "infomaniak_token" {
-  description = "Infomaniak API token with scopes domain:write and domain:read, used only to correct nameserver delegation. Set via TF_VAR_infomaniak_token. Create at https://manager.infomaniak.com/v3/ng/profile/user/token/list"
+  description = "Infomaniak API token with scopes domain:write and domain:read, used only to correct nameserver delegation. Set in terraform.tfvars. Create at https://manager.infomaniak.com/v3/ng/profile/user/token/list"
   type        = string
   sensitive   = true
   default     = ""
@@ -28,9 +28,9 @@ resource "terracurl_request" "nameservers" {
   url    = "https://api.infomaniak.com/2/domains/${each.key}/nameservers"
   method = "PUT"
 
-  # Write-only: the token is sent but never written to state. That matters here
-  # because the state bucket has Object Lock, so a leaked secret could not be purged,
-  # only rotated.
+  # Write-only: the token is sent but never written to state. A secret in state would
+  # land in a versioned bucket, where purging it means finding every version holding
+  # it - doable, but far easier never to write it in the first place.
   headers_wo = {
     Authorization  = "Bearer ${var.infomaniak_token}"
     "Content-Type" = "application/json"
@@ -54,7 +54,7 @@ resource "terracurl_request" "nameservers" {
   lifecycle {
     precondition {
       condition     = var.infomaniak_token != ""
-      error_message = "Delegation for ${each.key} has drifted and needs correcting, but no Infomaniak token is set. Export TF_VAR_infomaniak_token and re-run."
+      error_message = "Delegation for ${each.key} has drifted and needs correcting, but no Infomaniak token is set. Put infomaniak_token in tofu/infomaniak/terraform.tfvars and re-run."
     }
   }
 }
