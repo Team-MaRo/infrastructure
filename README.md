@@ -79,3 +79,54 @@ The token is sent through write-only attributes, so it never reaches the state f
 It is only needed when a correction is actually pending; ordinary plans do not use it.
 
 The DNSSEC probe shells out to `dig`, so it has to be on PATH.
+
+# cloudflare
+
+DNS for every zone lives in Cloudflare, across **two separate accounts** under two
+separate logins. `tofu/cloudflare/` is its own root module with its own state key, so a
+Cloudflare outage or an expired token cannot block work on the cluster.
+
+| Account | Nameservers | Zones |
+|---|---|---|
+| personal | `brenda` / `wesley`.ns.cloudflare.com | the ten Infomaniak domains, plus `wundexpertinplus.com` (GoDaddy) |
+| arepazo | `abdullah` / `fish`.ns.cloudflare.com | `arepazo.ch` |
+
+Both providers are aliased and there is deliberately **no default provider**, so every
+resource has to name its account. Getting it wrong is a configuration error rather than
+a silent write to the wrong zone.
+
+It manages the zones, every DNS record, and six security and TLS zone settings
+(`ssl`, `always_use_https`, `min_tls_version`, `automatic_https_rewrites`, `tls_1_3`,
+`security_level`). Page rules, WAF, Workers and the remaining ~54 zone settings stay in
+the dashboard.
+
+## Running it
+
+Two API tokens, one per account, from <https://dash.cloudflare.com/profile/api-tokens>.
+Each needs Zone/Zone **Read**, Zone/DNS **Edit**, Zone/Zone Settings **Edit**, and its
+zone resources scoped to `All zones from an account` - not `All zones`, which would
+reach both accounts and make the split meaningless.
+
+```sh
+cd tofu/cloudflare
+export TF_VAR_cloudflare_token_personal=...
+export TF_VAR_cloudflare_token_arepazo=...
+tofu init
+tofu plan
+```
+
+The provider's own `CLOUDFLARE_API_TOKEN` variable is intentionally unused - with two
+accounts, one implicit token would authenticate against whichever it happens to belong
+to.
+
+## Regenerating from Cloudflare
+
+`scripts/generate.sh` dumps HCL and import blocks for every zone in both accounts into
+`generated/`, using [cf-terraforming](https://github.com/cloudflare/cf-terraforming)
+(`brew install cf-terraforming`). Useful when adopting a new zone.
+
+That output is raw material, not something to use directly: it names every resource
+`terraform_managed_resource_<id>`, omits the `provider` attribute this module requires,
+and Cloudflare themselves note that generated resources do not always pass
+`terraform validate`. `generated/` is gitignored and is a subdirectory, so OpenTofu
+never parses it.
