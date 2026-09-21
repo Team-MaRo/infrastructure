@@ -8,23 +8,33 @@ Infrastructure for a small k3s cluster on Hetzner Cloud (`Team-MaRo/infrastructu
 Three nodes in nbg1, private network, one public firewall. There is no application
 code here - everything is declarative infrastructure.
 
-- `tofu/` - OpenTofu config for the Hetzner Cloud layer
+- `tofu/k3s/` - the Hetzner Cloud layer
+- `tofu/infomaniak/` - registrar-side delegation and DNSSEC checks
+- `tofu/cloudflare/` - both Cloudflare accounts, zones, records and TLS settings
 - `cloud-init/k3s.yaml` - node bootstrap, consumed over HTTPS (see below)
 - `ansible/`, `kubernetes/` - planned, not present yet
 
+Each of the three is a **separate root module with its own state key** in the same
+bucket. They are deliberately independent: none can break another's plan, and each
+needs only its own credentials.
+
 ## Commands
 
-All OpenTofu work happens in `tofu/`. Credentials come from the environment and must
-never be written into a `.tf` file:
+Every module needs the S3 backend credentials; beyond that each needs only its own.
+Credentials come from the environment and must never be written into a `.tf` file:
 
 ```sh
-export HCLOUD_TOKEN=...
-export AWS_ACCESS_KEY_ID=...      # Hetzner Object Storage access key
+export AWS_ACCESS_KEY_ID=...      # Hetzner Object Storage access key, all modules
 export AWS_SECRET_ACCESS_KEY=...
+
+export HCLOUD_TOKEN=...                      # tofu/k3s
+export TF_VAR_infomaniak_token=...           # tofu/infomaniak, only to correct drift
+export TF_VAR_cloudflare_token_personal=...  # tofu/cloudflare
+export TF_VAR_cloudflare_token_arepazo=...
 ```
 
 ```sh
-cd tofu
+cd tofu/k3s         # or tofu/infomaniak, or tofu/cloudflare
 tofu fmt            # must produce no output
 tofu validate
 tofu init
@@ -50,7 +60,7 @@ hcloud firewall list -o json
   `0 to add, 0 to change, 0 to destroy`. If a plan shows `forces replacement`,
   `must be replaced` or `will be destroyed`, that is a bug in the config - fix the
   config and re-plan.
-- Adoption of existing resources goes through `import` blocks in `tofu/imports.tf`,
+- Adoption of existing resources goes through `import` blocks in `tofu/k3s/imports.tf`,
   not `tofu import` CLI calls, so it stays reviewable in git.
 
 ## Architecture
@@ -58,7 +68,7 @@ hcloud firewall list -o json
 ### Everything was created by hand and adopted afterwards
 
 The Hetzner resources predate this repo; they were clicked together in the console.
-`tofu/imports.tf` adopts each one by its live ID. The config therefore describes
+`tofu/k3s/imports.tf` adopts each one by its live ID. The config therefore describes
 reality rather than an ideal, which is why some values look arbitrary:
 
 - The three nodes are **not** the same type: `k3s-01` and `k3s-02` are `cx33`,
@@ -67,7 +77,7 @@ reality rather than an ideal, which is why some values look arbitrary:
   `k3s-03` = 10.0.0.4.
 - The network is `10.0.0.0/16` but its single auto-created subnet is `10.0.0.0/24`.
 
-`tofu/locals.tf` holds the `servers` map, which is the single source of truth: it
+`tofu/k3s/locals.tf` holds the `servers` map, which is the single source of truth: it
 drives `hcloud_server`, `hcloud_server_network` **and** the `for_each` import blocks
 (the live server IDs live in that map). Adding a node means adding one map entry.
 
@@ -120,7 +130,7 @@ works (it is a resize with a reboot, not a replace).
 
 Hetzner Object Storage bucket `d3strukt0r-tfstate` in **nbg1** (not fsn1), via the S3
 backend with `use_lockfile = true`. Hetzner is S3-compatible but not AWS, so all the
-`skip_*` flags in `tofu/versions.tf` are required; `skip_s3_checksum = true`
+`skip_*` flags in `tofu/k3s/versions.tf` are required; `skip_s3_checksum = true`
 specifically is what makes lock-object writes succeed. The bucket has versioning and
 Object Lock enabled, so every state write creates a version that cannot be deleted
 until its retention expires.
@@ -134,8 +144,8 @@ ACLs, bucket policies or `use_path_style`.
 ### Domains: verified against DNS, corrected through the API
 
 Ten domains are registered at Infomaniak and delegated to Cloudflare; Infomaniak is
-registrar only. `tofu/domains.tf` declares the expected delegation and DNSSEC state,
-and `tofu/domains_checks.tf` asserts against reality on every plan.
+registrar only. `tofu/infomaniak/domains.tf` declares the expected delegation and DNSSEC state,
+and `tofu/infomaniak/domains_checks.tf` asserts against reality on every plan.
 
 There is deliberately no registrar resource. Infomaniak's API has
 `PUT /2/domains/{domain}/nameservers` but **no GET** - `GET /2/domains/domains`
@@ -149,7 +159,7 @@ So the TLD registry is queried instead, which is authoritative for delegation:
 
 - `data "dns_ns_record_set"` reads the NS records. Its `nameservers` attribute is
   already sorted by the provider.
-- `data "external"` runs `tofu/scripts/ds-lookup.sh`, which shells out to `dig DS`.
+- `data "external"` runs `tofu/infomaniak/scripts/ds-lookup.sh`, which shells out to `dig DS`.
   The dns provider has no DS data source, and Infomaniak's readable
   `GET /2/domains/{domain}/dnssec/check` needs a bearer token - `data "http"` persists
   its request headers into state, so the token would land in the state file.
@@ -157,13 +167,16 @@ So the TLD registry is queried instead, which is authoritative for delegation:
 Two consequences worth knowing:
 
 - **Check block failures are warnings, not errors.** They print on every `tofu plan`
-  but do not fail the command or block an apply. That is intentional so a transient
-  DNS hiccup cannot block cluster work. For a hard failure, move the condition into a
-  `postcondition` on the data source.
+  but do not fail the command or block an apply. For a hard failure, move the condition
+  into a `postcondition` on the data source.
+- **The data sources themselves do error**, unlike the checks. A lapsed domain, a typo
+  in `local.domains` or a DNS outage makes `tofu plan` fail *in this module*. That is
+  why this is a separate root module: it used to live alongside the cluster, where the
+  same failure blocked Hetzner work for an unrelated reason.
 - **`dig` must be on PATH** wherever OpenTofu runs, and a plan now does ~20 DNS
   lookups.
 
-Correcting drift is handled by `tofu/domains_nameservers.tf`. Because Infomaniak's
+Correcting drift is handled by `tofu/infomaniak/domains_nameservers.tf`. Because Infomaniak's
 provider cannot do it, a `terracurl_request` issues the `PUT` directly:
 
 - `for_each = toset(local.delegation_drift)` - the resource **only exists for domains
@@ -192,11 +205,11 @@ it, so `tofu init` reports "Signature validation was skipped". Its hash is pinne
 signature-verified - and this is the provider the API token is handed to. That is the
 trade-off taken against doing the PUT from a plain script.
 
-### Cloudflare is a separate root module
+### The Cloudflare module
 
 `tofu/cloudflare/` has its own state (`key = cloudflare/terraform.tfstate`, same
-bucket) because DNS and the cluster should not be able to block each other. Running
-`tofu` there is a separate `init`/`plan`, with its own two tokens.
+bucket), like the other two. Running `tofu` there is a separate `init`/`plan`, with its
+own two tokens.
 
 There are **two Cloudflare accounts under two different logins**, which is why
 `providers.tf` declares `cloudflare.personal` and `cloudflare.arepazo` as aliases and
@@ -242,7 +255,7 @@ The `ns_delegation` check in the cluster module covers exactly the ten domains
 registered at Infomaniak. Two further zones are delegated to Cloudflare but registered
 elsewhere - `wundexpertinplus.com` at GoDaddy and `arepazo.ch` at an unidentified `.ch`
 registrar. Nothing verifies their delegation. Extending the check needs a second list,
-since `local.domains` in `tofu/domains.tf` is specifically the Infomaniak set.
+since `local.domains` in `tofu/infomaniak/domains.tf` is specifically the Infomaniak set.
 
 ### Not managed here
 

@@ -7,12 +7,24 @@ https://raw.githubusercontent.com/Team-MaRo/infrastructure/refs/heads/master/clo
 
 # tofu
 
-OpenTofu config for the Hetzner Cloud side of the cluster. State lives in the
-Hetzner Object Storage bucket `d3strukt0r-tfstate` (nbg1) via the S3 backend,
-with native locking.
+Three independent root modules, each with its own state key in the Hetzner Object
+Storage bucket `d3strukt0r-tfstate` (nbg1), via the S3 backend with native locking:
+
+| Module | State key | What it manages |
+|---|---|---|
+| `tofu/k3s` | `k3s/terraform.tfstate` | the Hetzner Cloud cluster |
+| `tofu/infomaniak` | `infomaniak/terraform.tfstate` | registrar delegation and DNSSEC checks |
+| `tofu/cloudflare` | `cloudflare/terraform.tfstate` | both Cloudflare accounts |
+
+Keeping them separate means none can break another's plan, and each needs only its own
+credentials. Every module still needs the two S3 keys for the backend.
+
+# tofu/k3s
+
+OpenTofu config for the Hetzner Cloud side of the cluster.
 
 The infrastructure was created by hand first and adopted afterwards, so
-`tofu/imports.tf` holds the `import` blocks for every resource.
+`tofu/k3s/imports.tf` holds the `import` blocks for every resource.
 
 Credentials come from the environment, never from a file in this repo:
 
@@ -23,7 +35,7 @@ export AWS_SECRET_ACCESS_KEY=...
 ```
 
 ```sh
-cd tofu
+cd tofu/k3s
 tofu init
 tofu plan
 ```
@@ -41,16 +53,16 @@ server types are cost-optimized and may not be available again once released,
 so any plan that would destroy or replace one fails instead. Retiring a node
 means removing that line first, deliberately.
 
-# domains
+# tofu/infomaniak
 
 Ten domains registered at Infomaniak, all delegated to Cloudflare. Infomaniak is
-registrar only, so nothing about them is *managed* from here - `tofu/domains.tf`
+registrar only, so nothing about them is *managed* from here - `tofu/infomaniak/domains.tf`
 declares the expected nameservers and DNSSEC state, and every `tofu plan` checks them
 against the TLD registry and warns on drift.
 
 Infomaniak's API can write nameservers but not read them, so detection and correction
 are split: the check reads the registry over DNS, and a `terracurl_request` in
-`tofu/domains_nameservers.tf` issues the `PUT` to fix it. That resource only exists for
+`tofu/infomaniak/domains_nameservers.tf` issues the `PUT` to fix it. That resource only exists for
 domains that have drifted, so in a steady state it plans nothing.
 
 Correcting drift needs an Infomaniak API token, created at
@@ -80,11 +92,10 @@ It is only needed when a correction is actually pending; ordinary plans do not u
 
 The DNSSEC probe shells out to `dig`, so it has to be on PATH.
 
-# cloudflare
+# tofu/cloudflare
 
 DNS for every zone lives in Cloudflare, across **two separate accounts** under two
-separate logins. `tofu/cloudflare/` is its own root module with its own state key, so a
-Cloudflare outage or an expired token cannot block work on the cluster.
+separate logins.
 
 | Account | Nameservers | Zones |
 |---|---|---|
