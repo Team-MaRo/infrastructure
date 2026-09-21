@@ -18,6 +18,12 @@ terraform {
     key    = "k3s/terraform.tfstate"
     region = "nbg1"
 
+    # Credentials come from the [d3strukt0r-hetzner] profile in ~/.aws/credentials,
+    # not from AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY. Backend blocks cannot
+    # interpolate, so a literal profile name is the only way to keep these out of the
+    # environment. The name is account-scoped because profiles are global to ~/.aws.
+    profile = "d3strukt0r-hetzner"
+
     endpoints = {
       s3 = "https://nbg1.your-objectstorage.com"
     }

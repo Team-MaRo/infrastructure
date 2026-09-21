@@ -17,7 +17,46 @@ Storage bucket `d3strukt0r-tfstate` (nbg1), via the S3 backend with native locki
 | `tofu/cloudflare` | `cloudflare/terraform.tfstate` | both Cloudflare accounts |
 
 Keeping them separate means none can break another's plan, and each needs only its own
-credentials. Every module still needs the two S3 keys for the backend.
+credentials.
+
+## Credentials
+
+Nothing needs exporting. Every module reads its own token from a gitignored
+`terraform.tfvars` beside its `.tf` files, and the state backend reads the Object
+Storage keys from an AWS profile.
+
+| Where | Holds |
+|---|---|
+| `tofu/k3s/terraform.tfvars` | `hcloud_token` |
+| `tofu/infomaniak/terraform.tfvars` | `infomaniak_token` |
+| `tofu/cloudflare/terraform.tfvars` | `cloudflare_token_personal`, `cloudflare_token_arepazo` |
+| `~/.aws/credentials`, profile `[d3strukt0r-hetzner]` | the Object Storage access key and secret |
+
+Each module ships a `terraform.tfvars.example` documenting what it needs and where to
+get it. Copy it and fill it in:
+
+```sh
+cd tofu/k3s && cp terraform.tfvars.example terraform.tfvars && $EDITOR terraform.tfvars
+```
+
+`*.tfvars` is gitignored; the `.example` files are not, because they hold no values.
+
+The backend is the one thing tfvars cannot cover - backend blocks do not interpolate, so
+no variable can reach them. Hence the profile:
+
+```ini
+# ~/.aws/credentials      chmod 600
+[d3strukt0r-hetzner]
+aws_access_key_id     = ...
+aws_secret_access_key = ...
+```
+
+and `profile = "d3strukt0r-hetzner"` in each module's `backend "s3"` block. That is a
+name, not a secret, so it is committed - which also means `tofu init` works without
+anyone needing to know which environment variables to set. It is account-scoped because
+profiles are global to `~/.aws`.
+
+The `hcloud` CLI is unaffected; it keeps its own token in `~/.config/hcloud/cli.toml`.
 
 # tofu/k3s
 
@@ -26,13 +65,7 @@ OpenTofu config for the Hetzner Cloud side of the cluster.
 The infrastructure was created by hand first and adopted afterwards, so
 `tofu/k3s/imports.tf` holds the `import` blocks for every resource.
 
-Credentials come from the environment, never from a file in this repo:
-
-```sh
-export HCLOUD_TOKEN=...
-export AWS_ACCESS_KEY_ID=...      # Hetzner Object Storage access key
-export AWS_SECRET_ACCESS_KEY=...
-```
+Needs `hcloud_token` in `tofu/k3s/terraform.tfvars` - see Credentials above.
 
 ```sh
 cd tofu/k3s
@@ -62,8 +95,8 @@ against the TLD registry and warns on drift.
 
 Infomaniak's API can write nameservers but not read them, so detection and correction
 are split: the check reads the registry over DNS, and a `terracurl_request` in
-`tofu/infomaniak/domains_nameservers.tf` issues the `PUT` to fix it. That resource only exists for
-domains that have drifted, so in a steady state it plans nothing.
+`tofu/infomaniak/domains_nameservers.tf` issues the `PUT` to fix it. That resource
+only exists for domains that have drifted, so in a steady state it plans nothing.
 
 Correcting drift needs an Infomaniak API token, created at
 <https://manager.infomaniak.com/v3/ng/profile/user/token/list> with scopes
@@ -74,16 +107,16 @@ The token is displayed once, and is deactivated after a year of inactivity - whi
 this one will reach, because it is used only when delegation drifts. A 401 later means
 recreate it, not that something is broken.
 
-```sh
-export TF_VAR_infomaniak_token=...
-```
+It goes in `tofu/infomaniak/terraform.tfvars` as `infomaniak_token`. A plan needs it
+only when delegation has actually drifted; the checks themselves read public DNS and
+need no credential.
 
 Check it before relying on it - 200 means token and scope are good, 401 a bad token,
-403 a missing scope:
+403 a missing scope (set `INFOMANIAK_TOKEN` in your shell just for this check):
 
 ```sh
 curl -sS -o /dev/null -w '%{http_code}\n' \
-  -H "Authorization: Bearer $TF_VAR_infomaniak_token" \
+  -H "Authorization: Bearer $INFOMANIAK_TOKEN" \
   https://api.infomaniak.com/2/domains/domains
 ```
 
@@ -118,10 +151,10 @@ Each needs Zone/Zone **Read**, Zone/DNS **Edit**, Zone/Zone Settings **Edit**, a
 zone resources scoped to `All zones from an account` - not `All zones`, which would
 reach both accounts and make the split meaningless.
 
+Both go in `tofu/cloudflare/terraform.tfvars`.
+
 ```sh
 cd tofu/cloudflare
-export TF_VAR_cloudflare_token_personal=...
-export TF_VAR_cloudflare_token_arepazo=...
 tofu init
 tofu plan
 ```

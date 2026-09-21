@@ -3,17 +3,17 @@
 # shows up as a diff rather than going unnoticed.
 locals {
   zone_settings = {
-    "d3st.dev" = { ssl = "flexible", always_use_https = "on", min_tls_version = "1.2", automatic_https_rewrites = "on", tls_1_3 = "on", security_level = "medium" }
-    "d3st.org" = { ssl = "flexible", always_use_https = "on", min_tls_version = "1.2", automatic_https_rewrites = "on", tls_1_3 = "on", security_level = "medium" }
-    "d3strukt0r.dev" = { ssl = "full", always_use_https = "on", min_tls_version = "1.2", automatic_https_rewrites = "on", tls_1_3 = "zrt", security_level = "medium" }
-    "d3strukt0r.me" = { ssl = "flexible", always_use_https = "off", min_tls_version = "1.2", automatic_https_rewrites = "on", tls_1_3 = "on", security_level = "medium" }
+    "d3st.dev"               = { ssl = "flexible", always_use_https = "on", min_tls_version = "1.2", automatic_https_rewrites = "on", tls_1_3 = "on", security_level = "medium" }
+    "d3st.org"               = { ssl = "flexible", always_use_https = "on", min_tls_version = "1.2", automatic_https_rewrites = "on", tls_1_3 = "on", security_level = "medium" }
+    "d3strukt0r.dev"         = { ssl = "full", always_use_https = "on", min_tls_version = "1.2", automatic_https_rewrites = "on", tls_1_3 = "zrt", security_level = "medium" }
+    "d3strukt0r.me"          = { ssl = "flexible", always_use_https = "off", min_tls_version = "1.2", automatic_https_rewrites = "on", tls_1_3 = "on", security_level = "medium" }
     "manuele-robine.wedding" = { ssl = "strict", always_use_https = "on", min_tls_version = "1.2", automatic_https_rewrites = "on", tls_1_3 = "zrt", security_level = "medium" }
-    "manuele-vaccari.ch" = { ssl = "full", always_use_https = "off", min_tls_version = "1.2", automatic_https_rewrites = "off", tls_1_3 = "zrt", security_level = "medium" }
-    "robines.space" = { ssl = "full", always_use_https = "on", min_tls_version = "1.0", automatic_https_rewrites = "on", tls_1_3 = "zrt", security_level = "medium" }
-    "rubyn.li" = { ssl = "full", always_use_https = "off", min_tls_version = "1.0", automatic_https_rewrites = "on", tls_1_3 = "on", security_level = "medium" }
-    "sponte.me" = { ssl = "full", always_use_https = "off", min_tls_version = "1.0", automatic_https_rewrites = "on", tls_1_3 = "on", security_level = "medium" }
-    "wundexpertinplus.com" = { ssl = "strict", always_use_https = "on", min_tls_version = "1.0", automatic_https_rewrites = "on", tls_1_3 = "zrt", security_level = "medium" }
-    "arepazo.ch" = { ssl = "full", always_use_https = "on", min_tls_version = "1.0", automatic_https_rewrites = "on", tls_1_3 = "zrt", security_level = "medium" }
+    "manuele-vaccari.ch"     = { ssl = "full", always_use_https = "off", min_tls_version = "1.2", automatic_https_rewrites = "off", tls_1_3 = "zrt", security_level = "medium" }
+    "robines.space"          = { ssl = "full", always_use_https = "on", min_tls_version = "1.0", automatic_https_rewrites = "on", tls_1_3 = "zrt", security_level = "medium" }
+    "rubyn.li"               = { ssl = "full", always_use_https = "off", min_tls_version = "1.0", automatic_https_rewrites = "on", tls_1_3 = "on", security_level = "medium" }
+    "sponte.me"              = { ssl = "full", always_use_https = "off", min_tls_version = "1.0", automatic_https_rewrites = "on", tls_1_3 = "on", security_level = "medium" }
+    "wundexpertinplus.com"   = { ssl = "strict", always_use_https = "on", min_tls_version = "1.0", automatic_https_rewrites = "on", tls_1_3 = "zrt", security_level = "medium" }
+    "arepazo.ch"             = { ssl = "full", always_use_https = "on", min_tls_version = "1.0", automatic_https_rewrites = "on", tls_1_3 = "zrt", security_level = "medium" }
   }
 
   # One entry per zone/setting pair, split by account because provider cannot be

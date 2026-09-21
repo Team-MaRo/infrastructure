@@ -7,17 +7,17 @@ locals {
   }
 
   zones = {
-    "d3st.dev" = { id = "314dcef02e6e2ee57f31fe56cd0dcdb2", account = "personal" }
-    "d3st.org" = { id = "fbd415128cf6970d1f88ec27bf0898c7", account = "personal" }
-    "d3strukt0r.dev" = { id = "1a6f0bb01dc074c1a03af0f173aef29f", account = "personal" }
-    "d3strukt0r.me" = { id = "572bdbbd687053ca652d80a0beb8f611", account = "personal" }
+    "d3st.dev"               = { id = "314dcef02e6e2ee57f31fe56cd0dcdb2", account = "personal" }
+    "d3st.org"               = { id = "fbd415128cf6970d1f88ec27bf0898c7", account = "personal" }
+    "d3strukt0r.dev"         = { id = "1a6f0bb01dc074c1a03af0f173aef29f", account = "personal" }
+    "d3strukt0r.me"          = { id = "572bdbbd687053ca652d80a0beb8f611", account = "personal" }
     "manuele-robine.wedding" = { id = "edb52a357e98b43f456d8be0a2824979", account = "personal" }
-    "manuele-vaccari.ch" = { id = "cbeaf02654d2fa5b4978572f4d4595d0", account = "personal" }
-    "robines.space" = { id = "925a4ca8a2379617a1aa10b275d71142", account = "personal" }
-    "rubyn.li" = { id = "8b9387dc511856989c9fa6bf261eb29a", account = "personal" }
-    "sponte.me" = { id = "d9e566857db35c2c68b4b4afd406c2dc", account = "personal" }
-    "wundexpertinplus.com" = { id = "2889e840f9c25c8c2f0283940d549746", account = "personal" }
-    "arepazo.ch" = { id = "643779bc80b781ad8246192ed73cc559", account = "arepazo" }
+    "manuele-vaccari.ch"     = { id = "cbeaf02654d2fa5b4978572f4d4595d0", account = "personal" }
+    "robines.space"          = { id = "925a4ca8a2379617a1aa10b275d71142", account = "personal" }
+    "rubyn.li"               = { id = "8b9387dc511856989c9fa6bf261eb29a", account = "personal" }
+    "sponte.me"              = { id = "d9e566857db35c2c68b4b4afd406c2dc", account = "personal" }
+    "wundexpertinplus.com"   = { id = "2889e840f9c25c8c2f0283940d549746", account = "personal" }
+    "arepazo.ch"             = { id = "643779bc80b781ad8246192ed73cc559", account = "arepazo" }
   }
 
   zone_ids = { for name, z in local.zones : name => z.id }

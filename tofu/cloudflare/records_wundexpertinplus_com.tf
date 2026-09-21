@@ -9,7 +9,7 @@ resource "cloudflare_dns_record" "wundexpertinplus_com_aaaa_apex" {
   tags     = []
   ttl      = 1
   type     = "AAAA"
-  zone_id = local.zone_ids["wundexpertinplus.com"]
+  zone_id  = local.zone_ids["wundexpertinplus.com"]
   settings = {}
 }
 
@@ -22,6 +22,6 @@ resource "cloudflare_dns_record" "wundexpertinplus_com_aaaa_www" {
   tags     = []
   ttl      = 1
   type     = "AAAA"
-  zone_id = local.zone_ids["wundexpertinplus.com"]
+  zone_id  = local.zone_ids["wundexpertinplus.com"]
   settings = {}
 }
