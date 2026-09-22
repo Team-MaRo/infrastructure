@@ -11,6 +11,7 @@ ansible/
 ├── requirements.yml          # version floors; the ansible package already satisfies them
 ├── site.yml                  # the whole estate: imports the playbooks below
 ├── k3s.yml                   # hosts: k3s  ->  roles
+├── kubeconfig.yml            # fetches the admin credential; not part of site.yml
 ├── inventories/
 │   ├── hcloud.yml            # dynamic, Hetzner API, group: k3s
 │   ├── home.yml              # static, group: home (no hosts yet)
@@ -18,6 +19,12 @@ ansible/
 │       ├── k3s.yml
 │       └── home.yml
 └── roles/
+    ├── k3s/
+    │   ├── defaults/main.yml # version and server flags
+    │   └── tasks/
+    │       ├── main.yml      # detect iface, assemble flags, install, wait
+    │       ├── server_init.yml
+    │       └── server_join.yml
     └── swap/
         ├── defaults/main.yml # swap_size and the three sysctls
         └── tasks/main.yml    # the six tasks
@@ -86,10 +93,11 @@ ansible k3s -m ansible.builtin.ping
 
 ansible-playbook k3s.yml --check --diff
 ansible-playbook k3s.yml
+ansible-playbook kubeconfig.yml  # afterwards, to get a working kubectl
 ```
 
 `site.yml` runs everything. Running a single playbook configures one type, which is more
-explicit than `--limit`.
+explicit than `--limit`. `kubeconfig.yml` is not in it - see below.
 
 Re-running is safe: every install task is guarded, so a second run reports `changed=0`.
 
@@ -105,21 +113,85 @@ attaches by, and puts the results in the **`k3s` group** rather than the plugin'
 connects - the private network is internal to Hetzner, so a laptop cannot route to
 `10.0.0.0/24`. Connections go over the public address on port 22.
 
+## The `k3s` role
+
+Brings up a three-server cluster with embedded etcd. Every node runs the control plane and
+schedules workloads, so losing one is survivable.
+
+`k3s.yml` is two plays, which is forced rather than stylistic: `--cluster-init` has to
+finish on one node before the others can join, joining uses `serial: 1` so etcd keeps a
+quorum while members are added, and `hosts:` and `serial:` are play-level settings a role
+cannot change.
+
+`k3s-01` appears literally in the host patterns. A play's pattern is resolved before any
+host is selected, so inventory variables are not available there - templating `hosts:`
+from `group_vars` fails outright. The role's `k3s_init_node` default names the same node
+and has to be kept in step with it.
+
+The playbook touches nothing but the nodes. Getting a kubeconfig onto your machine is
+`kubeconfig.yml`, below.
+
+Install tasks are guarded by `creates: /usr/local/bin/k3s`. The trade is that editing
+`defaults/main.yml` afterwards changes nothing on a running node - which is why
+`--secrets-encryption` has to be set at install time, since it cannot be enabled later
+without restarting every server.
+
+A dry run cannot cover everything: the join needs a token only a real first play produces,
+so it is skipped under `--check`. What it does verify is connectivity, private-interface
+detection and flag assembly on all three nodes.
+
+## `kubeconfig.yml`
+
+Separate from `k3s.yml` and **not** imported by `site.yml`, because it does not configure a
+server - it provisions a credential onto a workstation. Run it when you need the
+credential:
+
+```shell
+ansible-playbook kubeconfig.yml
+```
+
+What it fetches is the **break-glass** credential, not an everyday one. The kubeconfig k3s
+generates embeds a client certificate whose subject is `CN=system:admin, O=system:masters`,
+and that group bypasses RBAC entirely - its access cannot be revoked by removing bindings.
+So it lands as `~/.kube/d3strukt0r-k3s-admin.yaml` with context `d3strukt0r-k3s-admin`,
+leaving the plain name free for a scoped identity later.
+
+It goes beside `~/.kube/config` rather than into it, because the playbook writes the file
+whole and would otherwise clobber an existing one. Chain them so kubectl sees both; writes
+go to the first:
+
+```shell
+export KUBECONFIG="$HOME/.kube/config:$HOME/.kube/d3strukt0r-k3s-admin.yaml"
+```
+
+Two things are rewritten on the way out of the node. The server address, from the node's
+`127.0.0.1` to `k3s-01`'s public address - all three nodes are in the certificate's SANs,
+so if `k3s-01` is down, editing the `server:` line to another node is enough. And the
+cluster, user and context names, which k3s all calls `default`. Each replacement is
+anchored to its key (`name: default`, not `default`) because base64 contains no colon or
+space, so an anchored pattern cannot match inside the certificate blobs.
+
+**Re-run it periodically.** k3s issues 365-day certificates and renews them on startup
+within 120 days of expiry, on the node. This copy does not follow, so it eventually stops
+working until refreshed.
+
 ## The `swap` role
 
 **Written and verified, but not applied.** No playbook references it. Nothing runs on
 these nodes yet, so there is no memory pressure to measure and any tuning value would be
 guesswork.
 
-To enable it, uncomment the one line in `k3s.yml`:
+To enable it, add it to the `roles:` list of the first two plays in `k3s.yml`:
 
 ```yaml
   roles:
     - swap
+    - role: k3s
 ```
 
-That single line is the whole decision, which is why there is no `swap_enabled` flag to
-set to false and then wonder about later.
+That is the whole decision, which is why there is no `swap_enabled` flag to set to false
+and then wonder about later. k3s was installed with
+`--kubelet-arg=fail-swap-on=false`, so kubelet will not object.
 
 Provisions a 2 GB swap file and the kernel tuning that makes swap safe on a Kubernetes
 node. Values follow the *Recommended starting point* in the Kubernetes

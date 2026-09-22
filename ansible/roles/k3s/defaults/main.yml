@@ -1,0 +1,25 @@
+---
+# Pinned rather than tracking a channel, so re-running this cannot silently upgrade a live
+# cluster. v1.37.0+k3s1 was released 2026-09-14 and no patch release exists yet.
+k3s_version: v1.37.0+k3s1
+
+# The node --cluster-init runs on. The others point at its private address and take its
+# join token. Must name the same host as the play patterns in k3s.yml.
+k3s_init_node: k3s-01
+
+# Set to true by the play that bootstraps the cluster; every other node joins instead.
+k3s_cluster_init: false
+
+# Flags every server gets. The per-node ones (--node-ip, --flannel-iface, --tls-san) are
+# derived in tasks/main.yml because they depend on facts.
+#
+# --secrets-encryption encrypts Secrets at rest in etcd. It is free at install time and
+# cannot be enabled on an existing server without restarting it, which is the whole reason
+# this install was not postponed again.
+#
+# --kubelet-arg=fail-swap-on=false lets the swap role be enabled later without kubelet
+# refusing to start. Swap is off today, so the flag currently changes nothing.
+k3s_server_args:
+  - --secrets-encryption
+  - --kubelet-arg=fail-swap-on=false
+
