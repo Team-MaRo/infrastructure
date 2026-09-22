@@ -1,5 +1,12 @@
 # Copy to terraform.tfvars and fill in. terraform.tfvars is gitignored; this example is
 # not, because it holds no values.
-#
+
 # Hetzner Cloud console -> Security -> API tokens, with Read & Write.
 hcloud_token = ""
+
+# Who may reach the Kubernetes API on 6443. Full CIDRs, so /32 for a single IPv4 and
+# /128 for a single IPv6. Find your current address with:
+#   curl -s https://ifconfig.me
+# This changes when your ISP reassigns it, and kubectl stops working until you update
+# this and re-apply.
+admin_ips = ["203.0.113.7/32"]

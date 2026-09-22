@@ -48,6 +48,18 @@ resource "hcloud_firewall" "k3s_public" {
     description = "Ping/Traceroute"
   }
 
+  # The Kubernetes API, unlike every other rule here, is not open to the world. Cluster
+  # traffic between the nodes - etcd, flannel VXLAN, kubelet - needs no rule at all:
+  # Hetzner firewalls do not filter private network traffic, and everything binds to
+  # 10.0.0.0/24.
+  rule {
+    direction   = "in"
+    protocol    = "tcp"
+    port        = "6443"
+    source_ips  = var.admin_ips
+    description = "Kubernetes API (admin only)"
+  }
+
   # Label selector is the only attachment mechanism. Do not add
   # hcloud_firewall_attachment alongside this - the two fight over the same
   # API field.
