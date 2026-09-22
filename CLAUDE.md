@@ -28,7 +28,9 @@ own README; the root one is only an index.
 No credential is ever exported by hand, and no value belongs in a `.tf` file. Each
 module reads its own token from a gitignored `terraform.tfvars` next to its `.tf` files:
 `hcloud_token` for k3s, `infomaniak_token` for infomaniak, and the two
-`cloudflare_token_*` for cloudflare. Every module ships a `terraform.tfvars.example`.
+`cloudflare_token_*` for cloudflare. The k3s file also carries `admin_ips`, which is not
+a secret but is a home address, and this repo is public. Every module ships a
+`terraform.tfvars.example`.
 
 The **backend** is the exception. Backend blocks cannot interpolate, so no variable can
 supply the Object Storage keys. All three therefore carry
@@ -361,8 +363,12 @@ Neither is done yet, and one gets expensive if forgotten:
   swap then protects the node and system daemons while pods cannot use it. `LimitedSwap`
   only ever grants swap to Burstable pods anyway.
 
-Port 6443 is also still closed - `kubectl` will need a firewall rule scoped to a single
-address before it can reach the API.
+Port 6443 now has a rule, scoped to `var.admin_ips` instead of the world - but it is
+config only and has not been applied. `admin_ips` has no default on purpose: an empty
+list makes an invalid rule, and a default would risk silently opening the API. So a plan
+stops and asks for a value until `admin_ips` is set in `tofu/k3s/terraform.tfvars`. It
+takes full CIDRs (`/32` for one IPv4, `/128` for one IPv6) and goes stale whenever the
+ISP reassigns the address - `kubectl` then hangs until it is updated and re-applied.
 
 ### Not managed here
 
