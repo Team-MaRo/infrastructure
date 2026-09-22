@@ -12,7 +12,7 @@ code here - everything is declarative infrastructure.
 - `tofu/infomaniak/` - registrar-side delegation and DNSSEC checks
 - `tofu/cloudflare/` - both Cloudflare accounts, zones, records and TLS settings
 - `cloud-init/k3s.yaml` - node bootstrap, consumed over HTTPS (see below)
-- `ansible/` - configures the running nodes
+- `ansible/` - configures the running nodes and installs k3s
 - `kubernetes/` - planned, not present yet
 
 Each of the three tofu directories is a **separate root module with its own state key**
@@ -308,7 +308,7 @@ group to roles in one playbook per type; neither uses conditional `*_enabled` ga
   playbook - `k3s.yml` cannot touch a home server. **Do not write a playbook with
   `hosts: all`**, or that guarantee is gone.
 - **`site.yml` imports the per-type playbooks.** Run it for everything, or one playbook
-  for one type.
+  for one type. `kubeconfig.yml` is deliberately not among them.
 - **The k3s inventory connects over public IPs.** `network: k3s` filters to nodes on the
   private network and exposes `hcloud_private_ipv4` as a hostvar for k3s to use later,
   but `ansible_host` stays the public address - a laptop cannot route to `10.0.0.0/24`.
@@ -317,6 +317,51 @@ group to roles in one playbook per type; neither uses conditional `*_enabled` ga
 - **No `requirements.yml` install is needed.** The `ansible` package bundles
   `ansible.posix`, `community.general` and `hetzner.hcloud`; that file records floors.
 - **Host key checking is on**, because these nodes are on the public internet.
+
+### The k3s role, and why it is two plays
+
+`k3s.yml` runs `roles/k3s` in two plays rather than one. That is forced, not stylistic:
+`--cluster-init` has to finish on one node before the others can join, joining wants
+`serial: 1` so etcd keeps a quorum while members are added, and `hosts:` and `serial:` are
+play-level settings a role cannot change.
+
+- **`k3s-01` is written out literally** in the host patterns. A play's pattern is resolved
+  before any host is selected, so inventory variables are not available to it - templating
+  `hosts:` from `group_vars` fails with `'k3s_init_node' is undefined`. The role's
+  `k3s_init_node` default names the same node and has to be kept in step.
+- **The second play is `k3s:!k3s-01`**, not `all:!k3s-01`, which would sweep in `home`.
+- **The playbook touches nothing but the nodes.** Fetching a kubeconfig is
+  `ansible/kubeconfig.yml`, deliberately separate - see below.
+- **Install tasks are guarded by `creates: /usr/local/bin/k3s`**, so a re-run changes
+  nothing. The trade is that editing `defaults/main.yml` afterwards has no effect on a
+  running node - the flags have to be right the first time.
+- **A dry run cannot cover all of it.** The join needs a token only a real first play
+  produces, so it is skipped under `--check`. What a dry run does verify is connectivity,
+  private-interface detection and flag assembly on all three nodes.
+
+### The admin kubeconfig is break-glass, and is fetched separately
+
+`ansible/kubeconfig.yml` is its own playbook and is **not** imported by `site.yml`. Writing
+into `~/.kube` through `delegate_to: localhost` provisions a credential onto a workstation;
+it is not configuring a server, and it does not belong inside a role named after what it
+installs on the nodes.
+
+What it fetches is not an everyday credential. `/etc/rancher/k3s/k3s.yaml` embeds a client
+certificate whose subject is `CN=system:admin, O=system:masters`, and per the Kubernetes
+RBAC guidance any member of that group **"bypasses all RBAC rights checks and will always
+have unrestricted superuser access, which cannot be revoked by removing RoleBindings or
+ClusterRoleBindings"**. No RBAC can limit that file. Scoping everyday access therefore
+means issuing a *second* identity, not writing policy against this one - which is what the
+next stage does. Until then every `kubectl` command runs as an unrestricted superuser.
+
+It lands as `~/.kube/d3strukt0r-k3s-admin.yaml`, context `d3strukt0r-k3s-admin`, leaving
+the plain name free. It is written beside `~/.kube/config` rather than into it, because the
+playbook writes the file whole. The name rewrites are anchored to their keys
+(`name: default`, not `default`) because base64 contains no colon or space, so an anchored
+pattern cannot collide with the certificate blobs.
+
+It also expires: k3s issues 365-day certificates and renews them on startup within 120 days
+of expiry, on the node. This copy does not follow, so `kubeconfig.yml` has to be re-run.
 
 ### The swap role is written but unreferenced
 
@@ -352,23 +397,33 @@ datastore with every Secret, the cluster CA keys, the join token and a cluster-a
 kubeconfig. The answer to that threat is full-disk encryption, which on Hetzner costs
 unattended reboots - a real trade for a 3-node etcd cluster.
 
-### Two things the k3s install will need
+### Two flags the install has to set up front
 
-Neither is done yet, and one gets expensive if forgotten:
+Both are in `roles/k3s/defaults/main.yml`, and both are install-time only:
 
-- `--kubelet-arg=fail-swap-on=false`, because kubelet refuses to start on a swap-enabled
-  node.
 - `--secrets-encryption`, which is free at install time and **cannot be enabled on an
-  existing server without restarting it**. Leave `swapBehavior` at its default `NoSwap`:
-  swap then protects the node and system daemons while pods cannot use it. `LimitedSwap`
-  only ever grants swap to Burstable pods anyway.
+  existing server without restarting it**. Verify with `k3s secrets-encrypt status` on a
+  node; it should report `Enabled`.
+- `--kubelet-arg=fail-swap-on=false`, because kubelet refuses to start on a swap-enabled
+  node. Swap is off today, so this currently changes nothing - it exists so the swap role
+  can be enabled later without reinstalling k3s. Leave `swapBehavior` at its default
+  `NoSwap`: swap then protects the node and system daemons while pods cannot use it.
+  `LimitedSwap` only ever grants swap to Burstable pods anyway.
 
-Port 6443 now has a rule, scoped to `var.admin_ips` instead of the world - but it is
-config only and has not been applied. `admin_ips` has no default on purpose: an empty
-list makes an invalid rule, and a default would risk silently opening the API. So a plan
-stops and asks for a value until `admin_ips` is set in `tofu/k3s/terraform.tfvars`. It
-takes full CIDRs (`/32` for one IPv4, `/128` for one IPv6) and goes stale whenever the
-ISP reassigns the address - `kubectl` then hangs until it is updated and re-applied.
+The install pins k3s `v1.37.0+k3s1` (Kubernetes 1.37, containerd 2.3.4) on Debian 13 with
+kernel 6.12. That combination clears every requirement for **per-pod user namespaces**
+(`hostUsers: false`), which are GA and locked since Kubernetes 1.36 and need Linux 6.3+,
+containerd 2.0+ and an idmap-capable filesystem. This is the answer to wanting Podman's
+rootless property: k3s's own `--rootless` mode is experimental and, per its docs,
+multi-node rootless clusters are unsupported, so it is a single-node mode and not an
+option here.
+
+Port 6443 is open to `var.admin_ips` only, applied in commit `40ffa27`. `admin_ips` has
+no default on purpose: an empty list makes an invalid rule, and a default would risk
+silently opening the API. So a plan stops and asks for a value until `admin_ips` is set in
+`tofu/k3s/terraform.tfvars`. It takes full CIDRs (`/32` for one IPv4, `/128` for one IPv6)
+and goes stale whenever the ISP reassigns the address - `kubectl` then hangs until it is
+updated and re-applied.
 
 ### Not managed here
 

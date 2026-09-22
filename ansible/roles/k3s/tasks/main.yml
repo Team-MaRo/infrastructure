@@ -1,0 +1,42 @@
+---
+- name: Find the interface holding the private IP
+  # Derived rather than hardcoded as enp7s0: Hetzner's NIC naming is not a contract, and a
+  # wrong value here sends flannel over the public internet.
+  ansible.builtin.set_fact:
+    k3s_private_iface: >-
+      {{ ansible_facts.interfaces
+         | map('extract', ansible_facts)
+         | selectattr('ipv4', 'defined')
+         | selectattr('ipv4.address', 'equalto', hcloud_private_ipv4)
+         | map(attribute='device')
+         | first }}
+
+- name: Assemble the server flags
+  # Built once here because server_init.yml and server_join.yml differ only in
+  # --cluster-init versus --server. Every node carries all three public addresses as SANs,
+  # so the kubeconfig can be repointed at another node if this one is down.
+  ansible.builtin.set_fact:
+    k3s_common_args: >-
+      --node-ip {{ hcloud_private_ipv4 }}
+      --advertise-address {{ hcloud_private_ipv4 }}
+      --flannel-iface {{ k3s_private_iface }}
+      {% for h in groups['k3s'] | sort %}--tls-san {{ hostvars[h].hcloud_ipv4 }} {% endfor %}
+      {{ k3s_server_args | join(' ') }}
+
+- name: Show what was detected
+  ansible.builtin.debug:
+    msg: "{{ inventory_hostname }}: private {{ hcloud_private_ipv4 }} on {{ k3s_private_iface }}, public {{ hcloud_ipv4 }}"
+
+- name: Download the k3s installer
+  ansible.builtin.get_url:
+    url: https://get.k3s.io
+    dest: /usr/local/bin/k3s-install.sh
+    mode: "0755"
+
+- name: Initialise the cluster
+  ansible.builtin.import_tasks: server_init.yml
+  when: k3s_cluster_init | bool
+
+- name: Join the cluster
+  ansible.builtin.import_tasks: server_join.yml
+  when: not (k3s_cluster_init | bool)
