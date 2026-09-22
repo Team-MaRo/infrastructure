@@ -12,11 +12,16 @@ code here - everything is declarative infrastructure.
 - `tofu/infomaniak/` - registrar-side delegation and DNSSEC checks
 - `tofu/cloudflare/` - both Cloudflare accounts, zones, records and TLS settings
 - `cloud-init/k3s.yaml` - node bootstrap, consumed over HTTPS (see below)
-- `ansible/`, `kubernetes/` - planned, not present yet
+- `ansible/` - configures the running nodes
+- `kubernetes/` - planned, not present yet
 
-Each of the three is a **separate root module with its own state key** in the same
-bucket. They are deliberately independent: none can break another's plan, and each
-needs only its own credentials.
+Each of the three tofu directories is a **separate root module with its own state key**
+in the same bucket. They are deliberately independent: none can break another's plan,
+and each needs only its own credentials.
+
+The layers run in order and do not reach back: OpenTofu creates a node, cloud-init
+prepares it once as it boots, Ansible configures it from then on. Each directory has its
+own README; the root one is only an index.
 
 ## Commands
 
@@ -55,6 +60,15 @@ with its own token (context `d3strukt0r-infrastructure`), independent of
 ```sh
 hcloud server list -o json
 hcloud firewall list -o json
+```
+
+Ansible runs from `ansible/`, and every command names a fleet because there is no default
+inventory:
+
+```sh
+cd ansible
+ansible-inventory --graph          # k3s with three hosts, home empty
+ansible-playbook k3s.yml --check --diff
 ```
 
 ### Rules for OpenTofu in this repo
@@ -273,6 +287,82 @@ registered at Infomaniak. Two further zones are delegated to Cloudflare but regi
 elsewhere - `wundexpertinplus.com` at GoDaddy and `arepazo.ch` at an unidentified `.ch`
 registrar. Nothing verifies their delegation. Extending the check needs a second list,
 since `local.domains` in `tofu/infomaniak/domains.tf` is specifically the Infomaniak set.
+
+### Ansible
+
+Run **from the `ansible/` directory** - `ansible.cfg` is only read from the current
+directory, and the inventory's token lookup uses a path relative to it.
+
+The selection model is the thing to understand: **inventory decides membership, the
+playbook's `hosts:` decides what that means, and there are no feature flags.** A role
+either appears in a playbook's `roles:` list or it does not. This follows the layout in
+Ansible's own sample setup and in the Red Hat CoP good practices, both of which map a
+group to roles in one playbook per type; neither uses conditional `*_enabled` gating.
+
+- **One inventory directory, two sources.** `inventories/hcloud.yml` is dynamic (Hetzner
+  API, `label_selector: role=k3s`, `group: k3s`) and `inventories/home.yml` is static.
+  They load together, so `k3s` and `home` are groups in one inventory.
+- **A default inventory is set**, which is safe only because `hosts:` constrains each
+  playbook - `k3s.yml` cannot touch a home server. **Do not write a playbook with
+  `hosts: all`**, or that guarantee is gone.
+- **`site.yml` imports the per-type playbooks.** Run it for everything, or one playbook
+  for one type.
+- **The k3s inventory connects over public IPs.** `network: k3s` filters to nodes on the
+  private network and exposes `hcloud_private_ipv4` as a hostvar for k3s to use later,
+  but `ansible_host` stays the public address - a laptop cannot route to `10.0.0.0/24`.
+- **Its token comes from `tofu/k3s/terraform.tfvars`** via a `lookup`, rather than a
+  second copy or an environment variable. `HCLOUD_TOKEN` overrides it if that breaks.
+- **No `requirements.yml` install is needed.** The `ansible` package bundles
+  `ansible.posix`, `community.general` and `hetzner.hcloud`; that file records floors.
+- **Host key checking is on**, because these nodes are on the public internet.
+
+### The swap role is written but unreferenced
+
+No playbook lists it, so it does nothing. That is deliberate: nothing runs on these nodes
+yet, so there is nothing to measure and any tuning value would be guesswork. Enabling it
+is uncommenting one line in `ansible/k3s.yml` - that line *is* the decision, which is why
+there is no `swap_enabled` flag sitting at false.
+
+### The swap role, and what it does not claim
+
+Values follow the *Recommended starting point* in the Kubernetes swap deep-dive, not the
+values that post used while experimenting. Two are easy to misread:
+
+- **`vm.swappiness = 60` is the kernel default.** It is set explicitly to record intent,
+  which means the role currently changes nothing about swappiness. Do not call it tuned.
+  swappiness is a relative IO *cost ratio* (0-200, 100 = swap and file IO equally
+  expensive), not an eagerness dial. A low value claims swap IO is far costlier than file
+  IO - true of spinning disks, false of the local NVMe here - and does not avoid disk IO,
+  it shifts thrashing onto the page cache. If a low value is ever wanted, 1 is the floor,
+  not 0: since a 2012 vmscan change, 0 will not scan anonymous pages until severe
+  contention.
+- **`vm.min_free_kbytes` is 3% of *reported* RAM**, the upper end of the blog's
+  "2-3% of total node memory" - not a round number, because a 4 GB node reports about
+  3900 MB. Verify against `/proc/meminfo`, never a fixed figure. The blog contradicts
+  itself here: its own test used 512 MiB on a 5 GiB node, roughly 10%.
+
+`vm.watermark_scale_factor = 2000` is the one value that genuinely changes behaviour, by
+widening the reclaim window so kswapd can page out before the node hits a critical state.
+
+**Swap is deliberately not encrypted.** It would only protect paged-out memory from
+someone reading the disk offline, and the same unencrypted root filesystem holds the etcd
+datastore with every Secret, the cluster CA keys, the join token and a cluster-admin
+kubeconfig. The answer to that threat is full-disk encryption, which on Hetzner costs
+unattended reboots - a real trade for a 3-node etcd cluster.
+
+### Two things the k3s install will need
+
+Neither is done yet, and one gets expensive if forgotten:
+
+- `--kubelet-arg=fail-swap-on=false`, because kubelet refuses to start on a swap-enabled
+  node.
+- `--secrets-encryption`, which is free at install time and **cannot be enabled on an
+  existing server without restarting it**. Leave `swapBehavior` at its default `NoSwap`:
+  swap then protects the node and system daemons while pods cannot use it. `LimitedSwap`
+  only ever grants swap to Burstable pods anyway.
+
+Port 6443 is also still closed - `kubectl` will need a firewall rule scoped to a single
+address before it can reach the API.
 
 ### Not managed here
 

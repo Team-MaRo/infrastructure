@@ -1,0 +1,33 @@
+---
+# The Hetzner k3s fleet, read from the API rather than listed by hand, so the three
+# addresses are not copied out of tofu/k3s/locals.tf a third time and a fourth node needs
+# no edit here.
+plugin: hetzner.hcloud.hcloud
+
+# The same label the firewall attaches by.
+label_selector: role=k3s
+
+# Puts them in the k3s group. Without this they land in "hcloud", which says where they
+# are hosted rather than what they are - and what they are is what playbooks select on.
+group: k3s
+
+# Filters to servers on the k3s network and, as a side effect, exposes each node's address
+# in it as hcloud_private_ipv4. That is a value for k3s to be configured with; it is not
+# how Ansible connects.
+network: k3s
+
+# ansible_host stays the public IPv4 - the connect_with default. The private network is
+# internal to Hetzner, so a laptop cannot route to 10.0.0.0/24; SSH goes over the public
+# address on port 22, which the firewall opens.
+
+# Reuses the token already in tofu/k3s/terraform.tfvars rather than keeping a second copy
+# or reintroducing an environment variable. The relative path is safe because ansible.cfg
+# is only read from this directory, so commands run from here.
+#
+# If it ever fails, the plugin also reads HCLOUD_TOKEN:
+#   HCLOUD_TOKEN=$(grep -oE 'hcloud_token *= *"[^"]+"' ../tofu/k3s/terraform.tfvars \
+#     | cut -d'"' -f2) ansible-inventory --graph
+api_token: >-
+  {{ lookup('ansible.builtin.file', '../tofu/k3s/terraform.tfvars')
+     | regex_search('hcloud_token\s*=\s*"([^"]+)"', '\1')
+     | first }}

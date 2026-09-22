@@ -1,0 +1,9 @@
+---
+- name: Configure the Hetzner k3s nodes
+  hosts: k3s
+  roles: []
+    # The swap role is written and verified but not applied. Nothing runs on these nodes
+    # yet, so there is no memory pressure to measure and any tuning value would be
+    # guesswork. Uncomment to enable - that single line is the whole decision, which is
+    # why there is no swap_enabled flag.
+    # - swap

@@ -1,0 +1,6 @@
+# Collections and roles installed from Galaxy, per ansible.cfg
+.collections/
+.roles/
+
+# Retry files from failed runs
+*.retry

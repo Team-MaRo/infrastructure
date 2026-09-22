@@ -1,0 +1,5 @@
+---
+# Deliberately near-empty. The home servers share no user, network or SSH config with the
+# k3s nodes, which is why each group carries its own connection settings rather than
+# putting anything in group_vars/all.
+ansible_become: true
