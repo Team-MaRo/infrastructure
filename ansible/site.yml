@@ -1,0 +1,5 @@
+---
+# The whole estate. Run this to configure everything, or run one of the imported
+# playbooks to configure a single type - which is more explicit than --limit.
+- import_playbook: k3s.yml
+# - import_playbook: home.yml   # when there are home servers to configure

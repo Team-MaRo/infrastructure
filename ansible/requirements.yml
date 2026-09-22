@@ -1,0 +1,19 @@
+---
+# Version floors, not an installation requirement: the `ansible` package already bundles
+# all three. Installing from here pins them under .collections/, which then takes
+# precedence - useful for reproducibility, unnecessary to get started.
+#
+#   ansible-galaxy collection install -r requirements.yml
+#
+# The floors are the versions this was written against. Check what you have with
+# `ansible-galaxy collection list`.
+collections:
+  # sysctl, mount
+  - name: ansible.posix
+    version: ">=2.2.2"
+  # filesize
+  - name: community.general
+    version: ">=13.4.0"
+  # the k3s dynamic inventory plugin
+  - name: hetzner.hcloud
+    version: ">=6.12.0"

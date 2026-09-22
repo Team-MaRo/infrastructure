@@ -1,0 +1,7 @@
+---
+# The account cloud-init/k3s.yaml creates, and the only one its sshd AllowUsers permits.
+ansible_user: d3strukt0r
+
+# cloud-init grants that account NOPASSWD sudo, so escalation needs no password and the
+# default become_ask_pass = false is correct.
+ansible_become: true

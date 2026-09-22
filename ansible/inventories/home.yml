@@ -1,0 +1,9 @@
+---
+# The home servers. Static, because they are not in Hetzner and there is nothing to query.
+# Empty for now; the group exists so home.yml can be written against it when there is
+# something to configure.
+home:
+  hosts: {}
+  # hosts:
+  #   some-box:
+  #     ansible_host: 192.168.1.13

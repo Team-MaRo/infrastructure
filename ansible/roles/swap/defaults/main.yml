@@ -1,0 +1,38 @@
+---
+swap_file: /swapfile
+swap_size: 2G
+
+# The three values below follow the "Recommended starting point" from the Kubernetes swap
+# deep-dive, not the values it used while experimenting:
+# https://kubernetes.io/blog/2025/08/19/tuning-linux-swap-for-kubernetes-a-deep-dive/
+
+# 60 is the kernel default, set explicitly so the intent is recorded rather than
+# inherited. This role therefore does not change swappiness - do not read it as tuned.
+#
+# swappiness is not an "eagerness to swap" dial. The kernel defines it as the relative IO
+# cost of swapping versus filesystem paging, 0-200, where 100 means the two are equally
+# expensive: anon_prio = swappiness, file_prio = 200 - swappiness. So a low value asserts
+# that swap IO is far costlier than file IO - true of spinning disks, false of the local
+# NVMe here, where swap and the filesystem share a device. A low value does not avoid
+# disk IO either; it shifts the thrashing from anonymous pages to the page cache, which
+# can be less efficient and can help cause the contention it was meant to avoid.
+#
+# If a low value is ever wanted, 1 is the floor, not 0: since a 2012 vmscan change, 0
+# refuses to scan anonymous pages at all until severe contention.
+#
+# 60 stands until there is a workload to measure. An unmeasured 100 - which the hardware
+# would justify - is no better founded than an unmeasured 1.
+swap_swappiness: 60
+
+# 3% of RAM, the upper end of the blog's "2-3% of total node memory". Scaled rather than
+# hardcoded, because the same role serves a 4 GB cx23, an 8 GB cx33 and whatever the home
+# servers turn out to be. Derived from what the kernel reports, which is well under the
+# nominal size, so do not expect a round number: the cx23 reports 3826 MB and the cx33
+# 7757 MB, giving 117534 kB (~115 MiB) and 238295 kB (~233 MiB).
+swap_min_free_kbytes: "{{ (ansible_facts.memtotal_mb * 1024 * 0.03) | int }}"
+
+# The one value that genuinely changes behaviour: it widens the gap between the low and
+# high watermarks so kswapd has room to page out before the node hits a critical state.
+# In the blog's test this moved the reclaim window from ~337 MB to ~591 MB, which is what
+# stopped the OOM kills and unexpected evictions.
+swap_watermark_scale_factor: 2000

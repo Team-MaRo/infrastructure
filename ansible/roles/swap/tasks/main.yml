@@ -1,0 +1,59 @@
+---
+- name: Create the swap file
+  # filesize rather than a raw fallocate: idempotent, and it avoids the
+  # fallocate-on-copy-on-write trap. sparse must be false - a file with holes cannot be
+  # used as swap. 0600 or swapon complains about insecure permissions.
+  community.general.filesize:
+    path: "{{ swap_file }}"
+    size: "{{ swap_size }}"
+    sparse: false
+    owner: root
+    group: root
+    mode: "0600"
+
+- name: Read the active swap areas
+  # The guard for the two commands below, so neither runs on an already-active swap file.
+  ansible.builtin.slurp:
+    src: /proc/swaps
+  register: swap_proc_swaps
+  changed_when: false
+
+- name: Format the swap file
+  ansible.builtin.command:
+    cmd: "mkswap {{ swap_file }}"
+  when: swap_file not in (swap_proc_swaps.content | b64decode)
+  changed_when: true
+
+- name: Add the swap file to fstab
+  # state: present writes the entry without acting on it, which also stops the module
+  # treating the "none" mount point as a directory to create. nofail so a missing swap
+  # file cannot stall boot.
+  ansible.posix.mount:
+    src: "{{ swap_file }}"
+    path: none
+    fstype: swap
+    opts: sw,nofail
+    state: present
+
+- name: Enable the swap file
+  ansible.builtin.command:
+    cmd: "swapon {{ swap_file }}"
+  when: swap_file not in (swap_proc_swaps.content | b64decode)
+  changed_when: true
+
+- name: Apply the swap-related sysctls
+  # A dedicated file, mirroring how cloud-init/k3s.yaml already drops 99-k3s.conf for
+  # ip_forward. No keys overlap between the two.
+  ansible.posix.sysctl:
+    name: "{{ item.name }}"
+    value: "{{ item.value }}"
+    sysctl_file: /etc/sysctl.d/99-swap.conf
+    sysctl_set: true
+    reload: true
+    state: present
+  loop:
+    - { name: vm.swappiness, value: "{{ swap_swappiness }}" }
+    - { name: vm.min_free_kbytes, value: "{{ swap_min_free_kbytes }}" }
+    - { name: vm.watermark_scale_factor, value: "{{ swap_watermark_scale_factor }}" }
+  loop_control:
+    label: "{{ item.name }}"
