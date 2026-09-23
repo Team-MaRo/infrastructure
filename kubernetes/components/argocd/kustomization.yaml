@@ -1,0 +1,21 @@
+---
+# Argo CD itself, shared by every cluster. Applied once by ansible/roles/argocd to
+# bootstrap, then synced from git by the argocd Application in the cluster's directory under
+# kubernetes/clusters/ - the same directory both times, so Argo CD's first sync of itself
+# finds nothing to change.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: argocd
+
+resources:
+  - namespace.yaml
+  # Pinned to a release, never "stable": bumping this line is how Argo CD is upgraded, one
+  # minor version at a time, reading each minor's upgrade notes on the way.
+  #
+  # A single-file URL rather than the github.com/...//manifests/cluster-install form, which
+  # makes Kustomize shell out to git - not installed on the nodes.
+  - https://raw.githubusercontent.com/argoproj/argo-cd/v3.5.3/manifests/install.yaml
+
+patches:
+  - path: patches/dex.yaml

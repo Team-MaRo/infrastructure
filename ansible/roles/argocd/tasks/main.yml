@@ -1,0 +1,54 @@
+---
+# Runs from the admin's machine against the API, with the admin kubeconfig kubeconfig.yml
+# fetches - so it needs a network position where 6443 is open (admin_ips). Nothing is
+# copied to or run on the nodes.
+
+- name: Check whether Argo CD is already installed
+  # Bootstrap once, the same trade the k3s role makes with creates:. After the first run
+  # Argo CD manages itself from git, so Ansible must never apply these manifests again - a
+  # local checkout that differs from master would be fighting Argo CD's selfHeal.
+  #
+  # "Not found" is the expected answer on a fresh cluster and means bootstrap. Any other
+  # error - most likely 6443 unreachable from where this runs - fails here with kubectl's
+  # own message, instead of being mistaken for "not installed".
+  #
+  # check_mode: false because this only reads, so a dry run evaluates it instead of
+  # skipping it.
+  ansible.builtin.command: >-
+    kubectl --kubeconfig {{ admin_kubeconfig | expanduser }} --request-timeout=20s
+    -n argocd get deployment argocd-server
+  register: argocd_installed
+  changed_when: false
+  failed_when: argocd_installed.rc != 0 and 'NotFound' not in argocd_installed.stderr
+  check_mode: false
+
+- name: Bootstrap Argo CD
+  when: argocd_installed.rc != 0
+  block:
+    - name: Install Argo CD
+      # The same directory the argocd Application syncs, so Argo CD's first sync of itself
+      # finds nothing to change. Server-side, like that Application's ServerSideApply=true:
+      # Argo CD's CRDs are too large for the annotation client-side apply writes.
+      ansible.builtin.command: >-
+        kubectl --kubeconfig {{ admin_kubeconfig | expanduser }}
+        apply --server-side -k {{ playbook_dir }}/../kubernetes/components/argocd
+      changed_when: true
+
+    - name: Wait for Argo CD to come up
+      ansible.builtin.command: >-
+        kubectl --kubeconfig {{ admin_kubeconfig | expanduser }}
+        -n argocd rollout status {{ item }} --timeout=300s
+      loop:
+        - deployment/argocd-server
+        - deployment/argocd-repo-server
+        - statefulset/argocd-application-controller
+      changed_when: false
+
+    - name: Hand over to git
+      # This cluster's root Application, chosen by cluster_name. It syncs the cluster's
+      # directory from master - itself and the argocd Application included - so from here
+      # git is the only source.
+      ansible.builtin.command: >-
+        kubectl --kubeconfig {{ admin_kubeconfig | expanduser }}
+        apply -f {{ playbook_dir }}/../kubernetes/clusters/{{ cluster_name }}/root.yaml
+      changed_when: true

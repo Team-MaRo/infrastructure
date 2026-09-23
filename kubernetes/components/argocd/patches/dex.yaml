@@ -1,0 +1,39 @@
+---
+# Removes the bundled Dex. Zitadel will be the OIDC provider and Argo CD will talk to it
+# directly, so Dex would only ever sit idle. argocd-server contacts Dex only when dex.config
+# is set in argocd-cm, so nothing else depends on these.
+$patch: delete
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: argocd-dex-server
+---
+$patch: delete
+apiVersion: v1
+kind: Service
+metadata:
+  name: argocd-dex-server
+---
+$patch: delete
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: argocd-dex-server
+---
+$patch: delete
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: argocd-dex-server
+---
+$patch: delete
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: argocd-dex-server
+---
+$patch: delete
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: argocd-dex-server-network-policy

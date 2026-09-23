@@ -12,6 +12,7 @@ ansible/
 ├── site.yml                  # the whole estate: imports the playbooks below
 ├── k3s.yml                   # hosts: k3s  ->  roles
 ├── kubeconfig.yml            # fetches the admin credential; not part of site.yml
+├── argocd.yml                # bootstraps Argo CD from this machine; not part of site.yml
 ├── inventories/
 │   ├── hcloud.yml            # dynamic, Hetzner API, group: k3s
 │   ├── home.yml              # static, group: home (no hosts yet)
@@ -19,6 +20,8 @@ ansible/
 │       ├── k3s.yml
 │       └── home.yml
 └── roles/
+    ├── argocd/
+    │   └── tasks/main.yml    # bootstraps Argo CD once, then hands over to git
     ├── k3s/
     │   ├── defaults/main.yml # version and server flags
     │   └── tasks/
@@ -94,10 +97,12 @@ ansible k3s -m ansible.builtin.ping
 ansible-playbook k3s.yml --check --diff
 ansible-playbook k3s.yml
 ansible-playbook kubeconfig.yml  # afterwards, to get a working kubectl
+ansible-playbook argocd.yml      # then, once, to bootstrap Argo CD
 ```
 
 `site.yml` runs everything. Running a single playbook configures one type, which is more
-explicit than `--limit`. `kubeconfig.yml` is not in it - see below.
+explicit than `--limit`. `kubeconfig.yml` and `argocd.yml` are not in it - both depend on
+this machine, not only on the nodes.
 
 Re-running is safe: every install task is guarded, so a second run reports `changed=0`.
 
@@ -139,6 +144,30 @@ without restarting every server.
 A dry run cannot cover everything: the join needs a token only a real first play produces,
 so it is skipped under `--check`. What it does verify is connectivity, private-interface
 detection and flag assembly on all three nodes.
+
+## `argocd.yml` and the `argocd` role
+
+Argo CD cannot deploy itself the first time, so this installs it once from
+`../kubernetes/components/argocd/` and applies
+`../kubernetes/clusters/<cluster_name>/root.yaml`, where `cluster_name` comes from
+`inventories/group_vars/k3s.yml`. From then on Argo CD manages itself and everything else
+from git, and this finds it installed and does nothing - the same bootstrap-once trade the
+k3s role makes with `creates:`.
+
+It runs **from your machine**, not on the nodes: `kubectl` with the admin kubeconfig from
+`kubeconfig.yml` (path in `admin_kubeconfig`), applying straight from the working copy.
+So it runs after `kubeconfig.yml`, and only from an address in `admin_ips` - port 6443 is
+closed to everything else. If the API is unreachable, the first task fails with
+`kubectl`'s own error rather than mistaking it for "not installed". The play targets
+`k3s-01` only to pick up the group's variables; it makes no SSH connection.
+
+That guard is deliberate in both directions. Ansible must never re-apply those manifests
+once Argo CD owns them: a working copy that differs from `master` would be fighting Argo
+CD's self-heal. And on a rebuilt cluster the guard is absent, so it bootstraps again.
+
+**Push before running it.** The root Application syncs from GitHub, not from your working
+copy. See [`../kubernetes/README.md`](../kubernetes/README.md) for what happens after the
+bootstrap.
 
 ## `kubeconfig.yml`
 
@@ -252,13 +281,5 @@ that threat is full-disk encryption, which on Hetzner costs unattended reboots.
 
 ## Not here yet
 
-- **The k3s install.** When it happens it needs `--kubelet-arg=fail-swap-on=false`,
-  because kubelet refuses to start on a swap-enabled node, and `--secrets-encryption`,
-  which is free at install time and
-  [cannot be enabled later without restarting every server](https://docs.k3s.io/security/secrets-encryption).
-  Leave `swapBehavior` at its default `NoSwap`: swap then protects the node and system
-  daemons while pods cannot touch it, which is the right trade on a 4 GB node.
-- **Port 6443 is closed.** `kubectl` will need a firewall rule scoped to your own address
-  before it can reach the API.
 - **A `common` role.** One real role is enough to prove the layout.
 - **The home fleet's hosts.**

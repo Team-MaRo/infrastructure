@@ -5,3 +5,13 @@ ansible_user: d3strukt0r
 # cloud-init grants that account NOPASSWD sudo, so escalation needs no password and the
 # default become_ask_pass = false is correct.
 ansible_become: true
+
+# Which directory under kubernetes/clusters/ is this cluster's root. It is inventory data
+# because it identifies the cluster, not the role: a second cluster becomes a second group
+# with its own name here.
+cluster_name: prod
+
+# Where kubeconfig.yml writes this cluster's break-glass kubeconfig, and where argocd.yml
+# reads it. Outside the repo on purpose: it is a cluster-admin credential and the repo is
+# public.
+admin_kubeconfig: ~/.kube/d3strukt0r-k3s-admin.yaml
