@@ -29,10 +29,7 @@ locals {
   network_zone = "eu-central"
 
   # Which cluster a server belongs to. The firewall attaches through this label, not
-  # through per-server rules, and the Ansible inventory selects by it.
-  #
-  # role = "k3s" is the previous label, kept only while the firewall switches selectors
-  # (see firewall.tf) - removing both in one apply could leave the servers briefly
-  # unfirewalled. Drop it together with the firewall's old apply_to.
-  cluster_label = { cluster = "prod", role = "k3s" }
+  # through per-server rules, and the Ansible inventory selects by it. Changing it takes
+  # two applies - see firewall.tf.
+  cluster_label = { cluster = "prod" }
 }

@@ -63,14 +63,12 @@ resource "hcloud_firewall" "prod_public" {
   # Label selector is the only attachment mechanism. Do not add
   # hcloud_firewall_attachment alongside this - the two fight over the same
   # API field.
+  #
+  # Changing the label takes two applies. Swapping the servers' label and this selector in
+  # one apply has no guaranteed order, and servers relabelled first would briefly have no
+  # firewall. Several apply_to blocks are a union, so: add the new label and a second
+  # apply_to, apply, then remove the old ones and apply again.
   apply_to {
     label_selector = "cluster=prod"
-  }
-
-  # The previous selector, kept for one apply while the servers are relabelled. Several
-  # apply_to blocks are a union, so the servers match at least one of them at every
-  # point. Remove this together with role = "k3s" in locals.tf.
-  apply_to {
-    label_selector = "role=k3s"
   }
 }
