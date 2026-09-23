@@ -42,8 +42,8 @@
   changed_when: true
 
 - name: Apply the swap-related sysctls
-  # A dedicated file, mirroring how cloud-init/k3s.yaml already drops 99-k3s.conf for
-  # ip_forward. No keys overlap between the two.
+  # A dedicated file, mirroring how cloud-init/node.yaml already drops 99-kubernetes.conf
+  # for ip_forward. No keys overlap between the two.
   ansible.posix.sysctl:
     name: "{{ item.name }}"
     value: "{{ item.value }}"

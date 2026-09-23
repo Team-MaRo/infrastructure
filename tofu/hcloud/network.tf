@@ -1,5 +1,5 @@
-resource "hcloud_network" "k3s" {
-  name     = "k3s"
+resource "hcloud_network" "prod" {
+  name     = "prod"
   ip_range = "10.0.0.0/16"
 
   lifecycle {
@@ -10,8 +10,8 @@ resource "hcloud_network" "k3s" {
 
 # Auto-created alongside the network in the console, hence the /24 inside the
 # /16 network range.
-resource "hcloud_network_subnet" "k3s" {
-  network_id   = hcloud_network.k3s.id
+resource "hcloud_network_subnet" "prod" {
+  network_id   = hcloud_network.prod.id
   type         = "cloud"
   network_zone = local.network_zone
   ip_range     = "10.0.0.0/24"
@@ -30,8 +30,8 @@ resource "hcloud_server_network" "this" {
   for_each = local.servers
 
   server_id  = hcloud_server.this[each.key].id
-  network_id = hcloud_network.k3s.id
+  network_id = hcloud_network.prod.id
   ip         = each.value.private_ip
 
-  depends_on = [hcloud_network_subnet.k3s]
+  depends_on = [hcloud_network_subnet.prod]
 }

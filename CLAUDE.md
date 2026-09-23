@@ -4,14 +4,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-Infrastructure for a small k3s cluster on Hetzner Cloud (`Team-MaRo/infrastructure`).
-Three nodes in nbg1, private network, one public firewall. There is no application
-code here - everything is declarative infrastructure.
+Infrastructure for a small Kubernetes cluster, `prod`, on Hetzner Cloud
+(`Team-MaRo/infrastructure`), running the k3s distribution. Three nodes in nbg1, private
+network, one public firewall. There is no application code here - everything is
+declarative infrastructure.
 
-- `tofu/k3s/` - the Hetzner Cloud layer
+- `tofu/hcloud/` - the Hetzner Cloud layer
 - `tofu/infomaniak/` - registrar-side delegation and DNSSEC checks
 - `tofu/cloudflare/` - both Cloudflare accounts, zones, records and TLS settings
-- `cloud-init/k3s.yaml` - node bootstrap, consumed over HTTPS (see below)
+- `cloud-init/node.yaml` - node bootstrap, consumed over HTTPS (see below)
 - `ansible/` - configures the running nodes, installs k3s, bootstraps Argo CD
 - `kubernetes/` - what runs on the cluster, deployed by Argo CD from `master`
 
@@ -28,8 +29,8 @@ index.
 
 No credential is ever exported by hand, and no value belongs in a `.tf` file. Each
 module reads its own token from a gitignored `terraform.tfvars` next to its `.tf` files:
-`hcloud_token` for k3s, `infomaniak_token` for infomaniak, and the two
-`cloudflare_token_*` for cloudflare. The k3s file also carries `admin_ips`, which is not
+`hcloud_token` for hcloud, `infomaniak_token` for infomaniak, and the two
+`cloudflare_token_*` for cloudflare. The hcloud file also carries `admin_ips`, which is not
 a secret but is a home address, and this repo is public. Every module ships a
 `terraform.tfvars.example`.
 
@@ -41,12 +42,12 @@ name is account-scoped on purpose - profiles are global to `~/.aws`, so a bare
 state bucket, check that file first: there is no environment variable to fall back on
 by design.
 
-`tofu/k3s` declares `variable "hcloud_token"` and passes it to the provider explicitly
+`tofu/hcloud` declares `variable "hcloud_token"` and passes it to the provider explicitly
 rather than relying on the provider's own `HCLOUD_TOKEN` lookup, so all three modules
 get their credentials the same way.
 
 ```sh
-cd tofu/k3s         # or tofu/infomaniak, or tofu/cloudflare
+cd tofu/hcloud         # or tofu/infomaniak, or tofu/cloudflare
 tofu fmt            # must produce no output
 tofu validate
 tofu init
@@ -69,8 +70,8 @@ Ansible runs from `ansible/`, where `ansible.cfg` sets the default inventory:
 
 ```sh
 cd ansible
-ansible-inventory --graph          # k3s with three hosts, home empty
-ansible-playbook k3s.yml --check --diff
+ansible-inventory --graph          # prod with three hosts, home empty
+ansible-playbook prod.yml --check --diff
 ```
 
 ### Rules for OpenTofu in this repo
@@ -80,7 +81,7 @@ ansible-playbook k3s.yml --check --diff
   `0 to add, 0 to change, 0 to destroy`. If a plan shows `forces replacement`,
   `must be replaced` or `will be destroyed`, that is a bug in the config - fix the
   config and re-plan.
-- Adoption of existing resources goes through `import` blocks in `tofu/k3s/imports.tf`,
+- Adoption of existing resources goes through `import` blocks in `tofu/hcloud/imports.tf`,
   not `tofu import` CLI calls, so it stays reviewable in git.
 
 ## Architecture
@@ -88,27 +89,50 @@ ansible-playbook k3s.yml --check --diff
 ### Everything was created by hand and adopted afterwards
 
 The Hetzner resources predate this repo; they were clicked together in the console.
-`tofu/k3s/imports.tf` adopts each one by its live ID. The config therefore describes
+`tofu/hcloud/imports.tf` adopts each one by its live ID. The config therefore describes
 reality rather than an ideal, which is why some values look arbitrary:
 
-- The three nodes are **not** the same type: `k3s-01` and `k3s-02` are `cx33`,
-  `k3s-03` is `cx23`.
-- Private IPs are not in name order: `k3s-01` = 10.0.0.3, `k3s-02` = 10.0.0.2,
-  `k3s-03` = 10.0.0.4.
+- The three nodes are **not** the same type: `prod-01` and `prod-02` are `cx33`,
+  `prod-03` is `cx23`.
+- Private IPs follow the node number: `prod-NN` = `10.0.0.1NN`. Not `10.0.0.NN`, because
+  Hetzner reserves the first address of a network for its gateway, so `.1` can never be
+  assigned. Changing a node's IP replaces its network attachment - never while k3s runs
+  on it, since etcd peers find each other by these addresses.
 - The network is `10.0.0.0/16` but its single auto-created subnet is `10.0.0.0/24`.
 
-`tofu/k3s/locals.tf` holds the `servers` map, which is the single source of truth: it
+`tofu/hcloud/locals.tf` holds the `servers` map, which is the single source of truth: it
 drives `hcloud_server`, `hcloud_server_network` **and** the `for_each` import blocks
 (the live server IDs live in that map). Adding a node means adding one map entry.
+
+**The server name is the host's identity** - the OS hostname, the Kubernetes node name
+and the etcd member name. On the nodes, cloud-init runs `update_hostname` and
+`update_etc_hosts` on every boot (`preserve_hostname: false`, `manage_etc_hosts: true`)
+and by default takes the name from Hetzner's metadata. **That metadata keeps the name a
+server was created with; renaming the server does not change it.** The rename from
+`k3s-0N` to `prod-0N` showed this: after the apply the metadata still said `k3s-0N`. So
+`ansible/roles/hostname` pins the name for cloud-init with a drop-in,
+`/etc/cloud/cloud.cfg.d/90-hostname.cfg` (`hostname: <inventory name>`), and sets it
+immediately. cloud-init still does the work on every boot, just from that name. Renaming a
+server therefore means a tofu apply plus a `prod.yml` run - and **never while k3s runs on
+it**; uninstall k3s first, as that rename did.
+
+Things are named after what they are - the `prod` cluster and its nodes - not after the
+tool: `k3s` appears only where something genuinely is k3s (the Ansible role that installs
+it, its paths and flags).
 
 ### cloud-init is fetched at boot, not embedded
 
 `user_data` on every server is a two-line `#include` pointing at the raw GitHub URL of
-`cloud-init/k3s.yaml` on `master`. Consequences:
+`cloud-init/node.yaml` on `master`. Consequences:
 
-- Editing `cloud-init/k3s.yaml` and pushing changes what **newly created or rebuilt**
+- Editing `cloud-init/node.yaml` and pushing changes what **newly created or rebuilt**
   nodes get, immediately, with no OpenTofu run involved.
 - It does nothing to running nodes.
+- **`cloud-init/k3s.yaml` must stay** until `prod-01..03` are gone. It is a bare two-line
+  `#include` forwarding to `node.yaml`, because those servers were created when the file
+  had that name, and Hetzner never allows user-data to change. Without it a rebuild of one
+  of them fetches a 404 and never creates the SSH user. It holds no comments: every line
+  of an `#include` file is read as a URL. The chaining is unverified until a rebuild.
 
 ### Attributes OpenTofu cannot see
 
@@ -119,12 +143,19 @@ it only applies to nodes created from then on.
 
 ### Firewall attaches by label, not by server
 
-`hcloud_firewall.k3s_public` uses a single `apply_to { label_selector = "role=k3s" }`.
+`hcloud_firewall.prod_public` attaches by `apply_to { label_selector = "cluster=prod" }`.
 There are no per-server attachments. Two consequences:
 
-- Removing the `role = k3s` label from a server silently removes its firewall.
+- Removing the `cluster = prod` label from a server silently removes its firewall.
 - Do not add a `hcloud_firewall_attachment` resource; it fights with `apply_to` over
   the same API field. Pick one mechanism, and the chosen one is the label selector.
+
+**Changing the label needs two applies.** Swapping the servers' label and the selector in
+one apply has no guaranteed order; if the servers relabel first they are briefly
+unfirewalled, with 6443, 10250 and etcd open. Several `apply_to` blocks are a union, so:
+first add the new label and a second `apply_to`, then remove the old ones. The switch from
+`role=k3s` to `cluster=prod` was done that way - while `role = "k3s"` still appears in
+`locals.tf` and `firewall.tf`, that switch is half-finished.
 
 ### Network attachments
 
@@ -149,11 +180,14 @@ works (it is a resize with a reboot, not a replace).
 ### State backend
 
 Hetzner Object Storage bucket `d3strukt0r-tfstate` in **nbg1** (not fsn1), via the S3
-backend with `use_lockfile = true` and `profile = "d3strukt0r-hetzner"`. Changing
+backend with `use_lockfile = true` and `profile = "d3strukt0r-hetzner"`. The Hetzner
+module's key is `hcloud/terraform.tfstate`; it was `k3s/terraform.tfstate` before the
+rename and was copied with `tofu init -migrate-state`. `tofu/hcloud/moved.tf` maps the old
+resource addresses to the new ones. Changing
 anything in a backend block means `tofu init -reconfigure` on the next run.
 
 Hetzner is S3-compatible but not AWS, so all the `skip_*` flags in
-`tofu/k3s/versions.tf` are required; `skip_s3_checksum = true` specifically is what
+`tofu/hcloud/versions.tf` are required; `skip_s3_checksum = true` specifically is what
 makes lock-object writes succeed.
 
 Versioning and Object Lock are both enabled on the bucket, but
@@ -163,7 +197,7 @@ adds a version that accumulates but stays deletable. Old versions can be pruned 
 `aws s3api delete-object --version-id`; nothing is locked.
 
 ```sh
-aws s3api list-object-versions --bucket d3strukt0r-tfstate --prefix k3s/ \
+aws s3api list-object-versions --bucket d3strukt0r-tfstate --prefix hcloud/ \
   --profile d3strukt0r-hetzner --endpoint-url https://nbg1.your-objectstorage.com
 ```
 
@@ -302,17 +336,17 @@ Ansible's own sample setup and in the Red Hat CoP good practices, both of which 
 group to roles in one playbook per type; neither uses conditional `*_enabled` gating.
 
 - **One inventory directory, two sources.** `inventories/hcloud.yml` is dynamic (Hetzner
-  API, `label_selector: role=k3s`, `group: k3s`) and `inventories/home.yml` is static.
-  They load together, so `k3s` and `home` are groups in one inventory.
+  API, `label_selector: cluster=prod`, `group: prod`) and `inventories/home.yml` is static.
+  They load together, so `prod` and `home` are groups in one inventory.
 - **A default inventory is set**, which is safe only because `hosts:` constrains each
-  playbook - `k3s.yml` cannot touch a home server. **Do not write a playbook with
+  playbook - `prod.yml` cannot touch a home server. **Do not write a playbook with
   `hosts: all`**, or that guarantee is gone.
 - **`site.yml` imports the per-type playbooks.** Run it for everything, or one playbook
   for one type. `kubeconfig.yml` is deliberately not among them.
-- **The k3s inventory connects over public IPs.** `network: k3s` filters to nodes on the
-  private network and exposes `hcloud_private_ipv4` as a hostvar for k3s to use later,
+- **The prod inventory connects over public IPs.** `network: prod` filters to nodes on the
+  private network and exposes `hcloud_private_ipv4` as a hostvar for the cluster's configuration,
   but `ansible_host` stays the public address - a laptop cannot route to `10.0.0.0/24`.
-- **Its token comes from `tofu/k3s/terraform.tfvars`** via a `lookup`, rather than a
+- **Its token comes from `tofu/hcloud/terraform.tfvars`** via a `lookup`, rather than a
   second copy or an environment variable. `HCLOUD_TOKEN` overrides it if that breaks.
 - **No `requirements.yml` install is needed.** The `ansible` package bundles
   `ansible.posix`, `community.general` and `hetzner.hcloud`; that file records floors.
@@ -320,16 +354,17 @@ group to roles in one playbook per type; neither uses conditional `*_enabled` ga
 
 ### The k3s role, and why it is two plays
 
-`k3s.yml` runs `roles/k3s` in two plays rather than one. That is forced, not stylistic:
+`prod.yml` runs `roles/k3s` in two plays rather than one. That is forced, not stylistic:
 `--cluster-init` has to finish on one node before the others can join, joining wants
 `serial: 1` so etcd keeps a quorum while members are added, and `hosts:` and `serial:` are
 play-level settings a role cannot change.
 
-- **`k3s-01` is written out literally** in the host patterns. A play's pattern is resolved
+- **`prod-01` is written out literally** in the host patterns. A play's pattern is resolved
   before any host is selected, so inventory variables are not available to it - templating
-  `hosts:` from `group_vars` fails with `'k3s_init_node' is undefined`. The role's
-  `k3s_init_node` default names the same node and has to be kept in step.
-- **The second play is `k3s:!k3s-01`**, not `all:!k3s-01`, which would sweep in `home`.
+  `hosts:` from `group_vars` fails with `'k3s_init_node' is undefined`.
+  `k3s_init_node` in `group_vars/prod.yml` names the same node and has to be kept in step;
+  the role deliberately has no default for it, since it names a host.
+- **The second play is `prod:!prod-01`**, not `all:!prod-01`, which would sweep in `home`.
 - **The playbook touches nothing but the nodes.** Fetching a kubeconfig is
   `ansible/kubeconfig.yml`, deliberately separate - see below.
 - **Install tasks are guarded by `creates: /usr/local/bin/k3s`**, so a re-run changes
@@ -354,7 +389,7 @@ ClusterRoleBindings"**. No RBAC can limit that file. Scoping everyday access the
 means issuing a *second* identity, not writing policy against this one - which is what the
 next stage does. Until then every `kubectl` command runs as an unrestricted superuser.
 
-It lands as `~/.kube/d3strukt0r-k3s-admin.yaml`, context `d3strukt0r-k3s-admin`, leaving
+It lands as `~/.kube/d3strukt0r-prod-admin.yaml`, context `d3strukt0r-prod-admin`, leaving
 the plain name free. It is written beside `~/.kube/config` rather than into it, because the
 playbook writes the file whole. The name rewrites are anchored to their keys
 (`name: default`, not `default`) because base64 contains no colon or space, so an anchored
@@ -367,7 +402,7 @@ of expiry, on the node. This copy does not follow, so `kubeconfig.yml` has to be
 
 `ansible/argocd.yml` (role `argocd`) installs Argo CD from `kubernetes/components/argocd/`
 and applies `kubernetes/clusters/<cluster_name>/root.yaml` (`cluster_name: prod` in
-`inventories/group_vars/k3s.yml`), **once** - it checks for the `argocd-server` Deployment
+`inventories/group_vars/prod.yml`), **once** - it checks for the `argocd-server` Deployment
 and skips everything if present. It runs `kubectl` **from the admin's machine** with the
 admin kubeconfig (`admin_kubeconfig`, same group_vars), so it runs after `kubeconfig.yml`
 and only from an address in `admin_ips`; nothing is copied to the nodes. A guard error
@@ -405,30 +440,31 @@ self-heal.
   provide TLS. The local `admin` account is used until Zitadel exists, and stays as the
   break-glass login afterwards.
 
-### What still assumes a single cluster
+### What a second cluster would need
 
 `kubernetes/` is already laid out per cluster, because once Argo CD is bootstrapped its
-paths are live and moving them risks pruning. Everything below is cheap to change later,
-since nothing live depends on it - so it is deliberately left until a second cluster is
-actually coming:
+paths are live and moving them risks pruning. Names are per cluster too - servers,
+network, placement group, firewall, label, Ansible group and kubeconfig all say `prod`.
+What is still single-cluster is the *structure*, deliberately left until a second cluster
+is actually coming, since nothing live depends on it:
 
-- **The inventory.** `inventories/hcloud.yml` selects `role=k3s` into one `k3s` group, so
-  a second cluster's nodes in the same Hetzner project would join this one - `k3s.yml`
-  would try to make one etcd cluster of all of them. Needs a per-cluster label (e.g.
-  `cluster=prod`) turned into groups with `keyed_groups`, each group with its own
-  `cluster_name` and `k3s_init_node`.
-- **`k3s.yml`, `kubeconfig.yml` and `argocd.yml`** name `k3s-01` literally in their host
-  patterns.
-- **`tofu/k3s/`** is one root module for one cluster, and the firewall's `role=k3s`
-  selector would also attach to a second cluster's nodes.
-- **The admin kubeconfig name** `d3strukt0r-k3s-admin` is fixed: `admin_kubeconfig` in
-  group_vars and `kubeconfig_name` in `kubeconfig.yml`.
+- **Inventory.** `inventories/hcloud.yml` selects `cluster=prod` into the `prod` group. A
+  second cluster is a second source file selecting `cluster=<name>` into its own group,
+  with its own `group_vars/<name>.yml` (`cluster_name`, `k3s_init_node`,
+  `admin_kubeconfig`). A second cluster's nodes cannot leak into `prod`, because the label
+  differs.
+- **Playbooks.** `prod.yml`, `kubeconfig.yml` and `argocd.yml` name `prod-01` literally in
+  their host patterns, so each cluster needs its own copies or the plays need
+  restructuring.
+- **`tofu/hcloud/`** has one network, placement group and firewall, all for `prod`, as
+  single resources. A second cluster in the same project means turning those into
+  per-cluster maps (or a local module), with a `moved` block per address.
 
 ### The swap role is written but unreferenced
 
 No playbook lists it, so it does nothing. That is deliberate: nothing runs on these nodes
 yet, so there is nothing to measure and any tuning value would be guesswork. Enabling it
-is adding `- swap` to the `roles:` of the first two plays in `ansible/k3s.yml` - that
+is adding `- swap` to the `roles:` of the first two plays in `ansible/prod.yml` - that
 line *is* the decision, which is why there is no `swap_enabled` flag sitting at false.
 
 ### The swap role, and what it does not claim
@@ -482,7 +518,7 @@ option here.
 Port 6443 is open to `var.admin_ips` only, applied in commit `40ffa27`. `admin_ips` has
 no default on purpose: an empty list makes an invalid rule, and a default would risk
 silently opening the API. So a plan stops and asks for a value until `admin_ips` is set in
-`tofu/k3s/terraform.tfvars`. It takes full CIDRs (`/32` for one IPv4, `/128` for one IPv6)
+`tofu/hcloud/terraform.tfvars`. It takes full CIDRs (`/32` for one IPv4, `/128` for one IPv6)
 and goes stale whenever the ISP reassigns the address - `kubectl` then hangs until it is
 updated and re-applied.
 

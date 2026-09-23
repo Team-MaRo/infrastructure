@@ -13,14 +13,16 @@
 
 - name: Assemble the server flags
   # Built once here because server_init.yml and server_join.yml differ only in
-  # --cluster-init versus --server. Every node carries all three public addresses as SANs,
-  # so the kubeconfig can be repointed at another node if this one is down.
+  # --cluster-init versus --server. Every node carries the public address of every node in
+  # its cluster as a SAN, so the kubeconfig can be repointed at another node if this one is
+  # down. The cluster's nodes are the inventory group named after cluster_name - never a
+  # literal group, so the role serves any cluster.
   ansible.builtin.set_fact:
     k3s_common_args: >-
       --node-ip {{ hcloud_private_ipv4 }}
       --advertise-address {{ hcloud_private_ipv4 }}
       --flannel-iface {{ k3s_private_iface }}
-      {% for h in groups['k3s'] | sort %}--tls-san {{ hostvars[h].hcloud_ipv4 }} {% endfor %}
+      {% for h in groups[cluster_name] | sort %}--tls-san {{ hostvars[h].hcloud_ipv4 }} {% endfor %}
       {{ k3s_server_args | join(' ') }}
 
 - name: Show what was detected

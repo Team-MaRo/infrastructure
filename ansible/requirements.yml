@@ -14,6 +14,6 @@ collections:
   # filesize
   - name: community.general
     version: ">=13.4.0"
-  # the k3s dynamic inventory plugin
+  # the Hetzner dynamic inventory plugin
   - name: hetzner.hcloud
     version: ">=6.12.0"

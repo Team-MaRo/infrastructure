@@ -1,5 +1,5 @@
 ---
-# The account cloud-init/k3s.yaml creates, and the only one its sshd AllowUsers permits.
+# The account cloud-init/node.yaml creates, and the only one its sshd AllowUsers permits.
 ansible_user: d3strukt0r
 
 # cloud-init grants that account NOPASSWD sudo, so escalation needs no password and the
@@ -14,4 +14,10 @@ cluster_name: prod
 # Where kubeconfig.yml writes this cluster's break-glass kubeconfig, and where argocd.yml
 # reads it. Outside the repo on purpose: it is a cluster-admin credential and the repo is
 # public.
-admin_kubeconfig: ~/.kube/d3strukt0r-k3s-admin.yaml
+admin_kubeconfig: ~/.kube/d3strukt0r-prod-admin.yaml
+
+# The node --cluster-init runs on; the others point at its private address and take its
+# join token. Inventory data because it names a host. Must match the host patterns in
+# prod.yml, which cannot be templated from here - a play's pattern is resolved before any
+# host is selected.
+k3s_init_node: prod-01

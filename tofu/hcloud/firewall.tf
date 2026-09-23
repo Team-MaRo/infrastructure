@@ -1,5 +1,5 @@
-resource "hcloud_firewall" "k3s_public" {
-  name = "k3s-public"
+resource "hcloud_firewall" "prod_public" {
+  name = "prod-public"
 
   rule {
     direction   = "in"
@@ -63,6 +63,13 @@ resource "hcloud_firewall" "k3s_public" {
   # Label selector is the only attachment mechanism. Do not add
   # hcloud_firewall_attachment alongside this - the two fight over the same
   # API field.
+  apply_to {
+    label_selector = "cluster=prod"
+  }
+
+  # The previous selector, kept for one apply while the servers are relabelled. Several
+  # apply_to blocks are a union, so the servers match at least one of them at every
+  # point. Remove this together with role = "k3s" in locals.tf.
   apply_to {
     label_selector = "role=k3s"
   }

@@ -1,22 +1,26 @@
 resource "hcloud_server" "this" {
   for_each = local.servers
 
+  # Also the OS hostname, the Kubernetes node name and the etcd member name. At creation
+  # cloud-init takes it from Hetzner's metadata, but the metadata keeps the creation-time
+  # name, so a rename here only reaches the host through Ansible's hostname role. Never
+  # rename a server while k3s runs on it - that changes the node's identity under etcd.
   name        = each.key
   server_type = each.value.server_type
   image       = "debian-13"
   location    = local.location
 
-  labels = local.role_label
+  labels = local.cluster_label
 
   ssh_keys           = [hcloud_ssh_key.d3strukt0r.id]
-  placement_group_id = hcloud_placement_group.k3s.id
+  placement_group_id = hcloud_placement_group.prod.id
 
   delete_protection  = true
   rebuild_protection = true
 
   user_data = <<-EOT
     #include
-    https://raw.githubusercontent.com/Team-MaRo/infrastructure/refs/heads/master/cloud-init/k3s.yaml
+    https://raw.githubusercontent.com/Team-MaRo/infrastructure/refs/heads/master/cloud-init/node.yaml
   EOT
 
   lifecycle {

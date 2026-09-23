@@ -7,22 +7,22 @@ import {
 }
 
 import {
-  to = hcloud_placement_group.k3s
+  to = hcloud_placement_group.prod
   id = "1885872"
 }
 
 import {
-  to = hcloud_network.k3s
+  to = hcloud_network.prod
   id = "12670314"
 }
 
 import {
-  to = hcloud_network_subnet.k3s
+  to = hcloud_network_subnet.prod
   id = "12670314-10.0.0.0/24"
 }
 
 import {
-  to = hcloud_firewall.k3s_public
+  to = hcloud_firewall.prod_public
   id = "11653280"
 }
 
