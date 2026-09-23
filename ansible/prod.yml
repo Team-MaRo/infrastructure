@@ -1,0 +1,32 @@
+---
+# The prod cluster: three k3s servers with embedded etcd. Every node runs the control
+# plane and schedules workloads, so losing one is survivable.
+#
+# Two plays because --cluster-init has to complete on one node before the others can join
+# it, and because hosts: and serial: are play-level settings a role cannot change.
+#
+# prod-01 is written out rather than templated: a play's host pattern is resolved before
+# any host is selected, so inventory variables are not available to it. k3s_init_node in
+# group_vars/prod.yml names the same node and must be kept in step.
+#
+# Getting a kubeconfig onto your machine is kubeconfig.yml, not this playbook: that
+# provisions a credential onto a workstation rather than configuring a server.
+
+- name: Initialise the first server
+  hosts: prod-01
+  roles:
+    # Before k3s, which takes the node name from the hostname at install time.
+    - role: hostname
+      tags: hostname
+    - role: k3s
+      k3s_cluster_init: true
+
+- name: Join the remaining servers
+  # Not all:!prod-01 - that would sweep in the home group.
+  hosts: prod:!prod-01
+  # One at a time, so etcd keeps a sane quorum while members are added.
+  serial: 1
+  roles:
+    - role: hostname
+      tags: hostname
+    - k3s

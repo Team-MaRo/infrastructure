@@ -5,7 +5,7 @@ Storage bucket `d3strukt0r-tfstate` (nbg1), via the S3 backend with native locki
 
 | Module | State key | What it manages |
 |---|---|---|
-| `k3s` | `k3s/terraform.tfstate` | the Hetzner Cloud cluster |
+| `hcloud` | `hcloud/terraform.tfstate` | the Hetzner Cloud project: the `prod` cluster's servers, network, firewall |
 | `infomaniak` | `infomaniak/terraform.tfstate` | registrar delegation and DNSSEC checks |
 | `cloudflare` | `cloudflare/terraform.tfstate` | both Cloudflare accounts |
 
@@ -20,7 +20,7 @@ Storage keys from an AWS profile.
 
 | Where | Holds |
 |---|---|
-| `k3s/terraform.tfvars` | `hcloud_token` |
+| `hcloud/terraform.tfvars` | `hcloud_token` |
 | `infomaniak/terraform.tfvars` | `infomaniak_token` |
 | `cloudflare/terraform.tfvars` | `cloudflare_token_personal`, `cloudflare_token_arepazo` |
 | `~/.aws/credentials`, profile `[d3strukt0r-hetzner]` | the Object Storage access key and secret |
@@ -29,7 +29,7 @@ Each module ships a `terraform.tfvars.example` documenting what it needs and whe
 get it. Copy it and fill it in:
 
 ```sh
-cd k3s && cp terraform.tfvars.example terraform.tfvars && $EDITOR terraform.tfvars
+cd hcloud && cp terraform.tfvars.example terraform.tfvars && $EDITOR terraform.tfvars
 ```
 
 `*.tfvars` is gitignored; the `.example` files are not, because they hold no values.
@@ -51,17 +51,20 @@ profiles are global to `~/.aws`.
 
 The `hcloud` CLI is unaffected; it keeps its own token in `~/.config/hcloud/cli.toml`.
 
-## k3s
+## hcloud
 
-OpenTofu config for the Hetzner Cloud side of the cluster.
+OpenTofu config for the Hetzner Cloud project, named after the provider like the other two
+modules. Today that is the `prod` cluster: three servers, their network, placement group
+and firewall. Resources are named after the cluster, not after the Kubernetes distribution
+running on it.
 
 The infrastructure was created by hand first and adopted afterwards, so
-`k3s/imports.tf` holds the `import` blocks for every resource.
+`hcloud/imports.tf` holds the `import` blocks for every resource.
 
-Needs `hcloud_token` in `k3s/terraform.tfvars` - see Credentials above.
+Needs `hcloud_token` in `hcloud/terraform.tfvars` - see Credentials above.
 
 ```sh
-cd k3s
+cd hcloud
 tofu init
 tofu plan
 ```
@@ -71,8 +74,18 @@ Two things the servers depend on that OpenTofu cannot see:
 - `user_data` and `ssh_keys` are not returned by the Hetzner API, so both are
   under `ignore_changes` on `hcloud_server`. Changing either in the config has
   no effect on existing nodes - it only applies to newly created ones.
-- The firewall is attached purely through the `role=k3s` label selector. Adding
-  a `hcloud_firewall_attachment` resource would conflict with it.
+- The firewall is attached purely through the `cluster=prod` label selector. Adding
+  a `hcloud_firewall_attachment` resource would conflict with it. Changing that label
+  takes two applies - add the new label and a second `apply_to` first, remove the old ones
+  after - or the servers can end up briefly unfirewalled.
+- **The server name becomes the host's name**, and so the Kubernetes node name - but a
+  rename here does not reach the host by itself: Hetzner's metadata, which cloud-init reads,
+  keeps the name the server was created with. Ansible's `hostname` role applies it. Never
+  rename a server while k3s runs on it.
+
+The module used to be called `k3s`, with state key `k3s/terraform.tfstate`. `moved.tf`
+maps the old resource addresses to the new ones; the state was copied to the new key with
+`tofu init -migrate-state`.
 
 The servers, the network and its subnet carry `prevent_destroy = true`. The
 server types are cost-optimized and may not be available again once released,

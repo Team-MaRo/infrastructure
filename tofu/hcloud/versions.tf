@@ -8,14 +8,11 @@ terraform {
     }
   }
 
-  # Hetzner Object Storage, bucket has Object Lock enabled.
-  # Credentials come from AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY.
-  #
-  # The key is deliberately unchanged from when this was the only module, so moving
-  # these files into k3s/ left the state object and every resource address untouched.
+  # Hetzner Object Storage. The key used to be k3s/terraform.tfstate; after the rename
+  # it was copied here with `tofu init -migrate-state`.
   backend "s3" {
     bucket = "d3strukt0r-tfstate"
-    key    = "k3s/terraform.tfstate"
+    key    = "hcloud/terraform.tfstate"
     region = "nbg1"
 
     # Credentials come from the [d3strukt0r-hetzner] profile in ~/.aws/credentials,

@@ -1,6 +1,7 @@
 # infrastructure
 
-A small k3s cluster on Hetzner Cloud, plus the DNS and registrar configuration around it.
+A small Kubernetes cluster, `prod`, on Hetzner Cloud - running the k3s distribution - plus
+the DNS and registrar configuration around it.
 Everything is declarative; there is no application code here.
 
 | Directory | What it does |

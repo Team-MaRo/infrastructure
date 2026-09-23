@@ -10,18 +10,20 @@ ansible/
 ├── ansible.cfg
 ├── requirements.yml          # version floors; the ansible package already satisfies them
 ├── site.yml                  # the whole estate: imports the playbooks below
-├── k3s.yml                   # hosts: k3s  ->  roles
+├── prod.yml                  # hosts: prod  ->  roles
 ├── kubeconfig.yml            # fetches the admin credential; not part of site.yml
 ├── argocd.yml                # bootstraps Argo CD from this machine; not part of site.yml
 ├── inventories/
-│   ├── hcloud.yml            # dynamic, Hetzner API, group: k3s
+│   ├── hcloud.yml            # dynamic, Hetzner API, group: prod
 │   ├── home.yml              # static, group: home (no hosts yet)
 │   └── group_vars/
-│       ├── k3s.yml
+│       ├── prod.yml
 │       └── home.yml
 └── roles/
     ├── argocd/
     │   └── tasks/main.yml    # bootstraps Argo CD once, then hands over to git
+    ├── hostname/
+    │   └── tasks/main.yml    # pins the hostname to the inventory name, for cloud-init
     ├── k3s/
     │   ├── defaults/main.yml # version and server flags
     │   └── tasks/
@@ -36,9 +38,9 @@ ansible/
 **Inventory decides membership, the playbook's `hosts:` decides what that means.** There
 are no feature flags. A role either appears in a playbook's `roles:` list or it does not.
 
-Both inventory sources live in one directory and load together, so `k3s` and `home` are
+Both inventory sources live in one directory and load together, so `prod` and `home` are
 groups in a single inventory rather than separate inventories. That is what makes a
-default inventory safe: `k3s.yml` says `hosts: k3s`, so it cannot touch a home server no
+default inventory safe: `prod.yml` says `hosts: prod`, so it cannot touch a home server no
 matter what is passed. The protection is structural rather than a habit of typing `-i`.
 
 The corollary: **do not write a playbook with `hosts: all`**, or that guarantee is gone.
@@ -53,11 +55,11 @@ The pieces are the same, just placed differently:
 | the `vars:` block in `playbook.yml` | `roles/swap/defaults/main.yml` - only that role's vars |
 | `tasks/swap.yml` | `roles/swap/tasks/main.yml` - the same tasks, unchanged |
 | `include_tasks: tasks/swap.yml` | one entry in a playbook's `roles:` list |
-| `playbook.yml` | `k3s.yml`, or `site.yml` to run every type |
+| `playbook.yml` | `prod.yml`, or `site.yml` to run every type |
 
 The variables moved for one reason: precedence. Ansible ranks a playbook's `vars:` block
 *above* inventory (12 vs 4), so values kept there cannot be overridden per group or host.
-Role defaults are the weakest thing in Ansible (rank 2), so `group_vars/k3s.yml` can set
+Role defaults are the weakest thing in Ansible (rank 2), so `group_vars/prod.yml` can set
 `swap_size: 8G` for one fleet and the same role serves both.
 
 ## Prerequisites
@@ -82,8 +84,8 @@ Host key checking is **on** - these nodes are on the public internet. Seed
 ssh-keyscan 178.104.135.61 178.104.133.199 78.47.68.27 >> ~/.ssh/known_hosts
 ```
 
-`hcloud_token` must be filled in in `../tofu/k3s/terraform.tfvars`; the inventory reads it
-from there rather than keeping a second copy.
+`hcloud_token` must be filled in in `../tofu/hcloud/terraform.tfvars`; the inventory reads
+it from there rather than keeping a second copy.
 
 ## Usage
 
@@ -91,11 +93,11 @@ Run from this directory - `ansible.cfg` is only read from the current directory,
 inventory's token lookup uses a path relative to it.
 
 ```shell
-ansible-inventory --graph        # k3s with three hosts, home empty
-ansible k3s -m ansible.builtin.ping
+ansible-inventory --graph        # prod with three hosts, home empty
+ansible prod -m ansible.builtin.ping
 
-ansible-playbook k3s.yml --check --diff
-ansible-playbook k3s.yml
+ansible-playbook prod.yml --check --diff
+ansible-playbook prod.yml
 ansible-playbook kubeconfig.yml  # afterwards, to get a working kubectl
 ansible-playbook argocd.yml      # then, once, to bootstrap Argo CD
 ```
@@ -106,32 +108,44 @@ this machine, not only on the nodes.
 
 Re-running is safe: every install task is guarded, so a second run reports `changed=0`.
 
-## The k3s inventory
+## The prod inventory
 
-Dynamic, so the three addresses are not copied out of `../tofu/k3s/locals.tf` a third time
-and adding a node needs no edit here. It selects by the same `role=k3s` label the firewall
-attaches by, and puts the results in the **`k3s` group** rather than the plugin's default
+Dynamic, so the three addresses are not copied out of `../tofu/hcloud/locals.tf` a third
+time and adding a node needs no edit here. It selects by the same `cluster=prod` label the
+firewall attaches by, and puts the results in the **`prod` group** rather than the plugin's default
 `hcloud` - the group name should say what the hosts are, not where they are hosted.
 
-`network: k3s` filters to nodes on the private network and exposes each node's
-`hcloud_private_ipv4`. That is a value for k3s to be configured with, **not** how Ansible
+`network: prod` filters to nodes on the private network and exposes each node's
+`hcloud_private_ipv4`. That is a value the cluster is configured with, **not** how Ansible
 connects - the private network is internal to Hetzner, so a laptop cannot route to
 `10.0.0.0/24`. Connections go over the public address on port 22.
+
+## The `hostname` role
+
+Runs before `k3s` in both plays of `prod.yml`. cloud-init sets each node's hostname and
+`/etc/hosts` on every boot from Hetzner's metadata - but the metadata keeps the name a
+server was *created* with, so renaming a server in tofu never reaches the host by itself.
+This role writes `/etc/cloud/cloud.cfg.d/90-hostname.cfg` with `hostname:` set to the
+inventory name (the current Hetzner name), which cloud-init then uses instead, and applies
+it immediately so the k3s role, which takes the node name from the hostname at install
+time, already sees it. Tagged `hostname`, so it can run on its own:
+`ansible-playbook prod.yml --tags hostname`.
 
 ## The `k3s` role
 
 Brings up a three-server cluster with embedded etcd. Every node runs the control plane and
 schedules workloads, so losing one is survivable.
 
-`k3s.yml` is two plays, which is forced rather than stylistic: `--cluster-init` has to
+`prod.yml` is two plays, which is forced rather than stylistic: `--cluster-init` has to
 finish on one node before the others can join, joining uses `serial: 1` so etcd keeps a
 quorum while members are added, and `hosts:` and `serial:` are play-level settings a role
 cannot change.
 
-`k3s-01` appears literally in the host patterns. A play's pattern is resolved before any
+`prod-01` appears literally in the host patterns. A play's pattern is resolved before any
 host is selected, so inventory variables are not available there - templating `hosts:`
-from `group_vars` fails outright. The role's `k3s_init_node` default names the same node
-and has to be kept in step with it.
+from `group_vars` fails outright. `k3s_init_node` in `group_vars/prod.yml` names the same
+node and has to be kept in step with it. The role has no default for it on purpose: it
+names a host, which is inventory data.
 
 The playbook touches nothing but the nodes. Getting a kubeconfig onto your machine is
 `kubeconfig.yml`, below.
@@ -150,7 +164,7 @@ detection and flag assembly on all three nodes.
 Argo CD cannot deploy itself the first time, so this installs it once from
 `../kubernetes/components/argocd/` and applies
 `../kubernetes/clusters/<cluster_name>/root.yaml`, where `cluster_name` comes from
-`inventories/group_vars/k3s.yml`. From then on Argo CD manages itself and everything else
+`inventories/group_vars/prod.yml`. From then on Argo CD manages itself and everything else
 from git, and this finds it installed and does nothing - the same bootstrap-once trade the
 k3s role makes with `creates:`.
 
@@ -159,7 +173,7 @@ It runs **from your machine**, not on the nodes: `kubectl` with the admin kubeco
 So it runs after `kubeconfig.yml`, and only from an address in `admin_ips` - port 6443 is
 closed to everything else. If the API is unreachable, the first task fails with
 `kubectl`'s own error rather than mistaking it for "not installed". The play targets
-`k3s-01` only to pick up the group's variables; it makes no SSH connection.
+`prod-01` only to pick up the group's variables; it makes no SSH connection.
 
 That guard is deliberate in both directions. Ansible must never re-apply those manifests
 once Argo CD owns them: a working copy that differs from `master` would be fighting Argo
@@ -171,7 +185,7 @@ bootstrap.
 
 ## `kubeconfig.yml`
 
-Separate from `k3s.yml` and **not** imported by `site.yml`, because it does not configure a
+Separate from `prod.yml` and **not** imported by `site.yml`, because it does not configure a
 server - it provisions a credential onto a workstation. Run it when you need the
 credential:
 
@@ -182,7 +196,7 @@ ansible-playbook kubeconfig.yml
 What it fetches is the **break-glass** credential, not an everyday one. The kubeconfig k3s
 generates embeds a client certificate whose subject is `CN=system:admin, O=system:masters`,
 and that group bypasses RBAC entirely - its access cannot be revoked by removing bindings.
-So it lands as `~/.kube/d3strukt0r-k3s-admin.yaml` with context `d3strukt0r-k3s-admin`,
+So it lands as `~/.kube/d3strukt0r-prod-admin.yaml` with context `d3strukt0r-prod-admin`,
 leaving the plain name free for a scoped identity later.
 
 It goes beside `~/.kube/config` rather than into it, because the playbook writes the file
@@ -190,12 +204,12 @@ whole and would otherwise clobber an existing one. Chain them so kubectl sees bo
 go to the first:
 
 ```shell
-export KUBECONFIG="$HOME/.kube/config:$HOME/.kube/d3strukt0r-k3s-admin.yaml"
+export KUBECONFIG="$HOME/.kube/config:$HOME/.kube/d3strukt0r-prod-admin.yaml"
 ```
 
 Two things are rewritten on the way out of the node. The server address, from the node's
-`127.0.0.1` to `k3s-01`'s public address - all three nodes are in the certificate's SANs,
-so if `k3s-01` is down, editing the `server:` line to another node is enough. And the
+`127.0.0.1` to `prod-01`'s public address - all three nodes are in the certificate's SANs,
+so if `prod-01` is down, editing the `server:` line to another node is enough. And the
 cluster, user and context names, which k3s all calls `default`. Each replacement is
 anchored to its key (`name: default`, not `default`) because base64 contains no colon or
 space, so an anchored pattern cannot match inside the certificate blobs.
@@ -210,7 +224,7 @@ working until refreshed.
 these nodes yet, so there is no memory pressure to measure and any tuning value would be
 guesswork.
 
-To enable it, add it to the `roles:` list of the first two plays in `k3s.yml`:
+To enable it, add it to the `roles:` list of the first two plays in `prod.yml`:
 
 ```yaml
   roles:
@@ -238,8 +252,8 @@ nominal size, so it is not a round number:
 
 | Node | Reported RAM | `min_free_kbytes` |
 |---|---|---|
-| `k3s-03` (cx23) | 3826 MB | 117534 (~115 MiB) |
-| `k3s-01`, `k3s-02` (cx33) | 7757 MB | 238295 (~233 MiB) |
+| `prod-03` (cx23) | 3826 MB | 117534 (~115 MiB) |
+| `prod-01`, `prod-02` (cx33) | 7757 MB | 238295 (~233 MiB) |
 
 Check it against the node rather than a fixed figure:
 

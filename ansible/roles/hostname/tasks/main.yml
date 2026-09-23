@@ -1,0 +1,32 @@
+---
+# cloud-init sets the hostname and /etc/hosts on every boot (preserve_hostname: false,
+# manage_etc_hosts: true), taking the name from Hetzner's metadata. That metadata keeps the
+# name a server was *created* with - renaming the server in tofu does not reach it - so the
+# name is pinned here from the inventory, which is the current Hetzner name. cloud-init
+# keeps doing the work; it just gets the name from this drop-in instead of the metadata.
+
+- name: Pin the hostname for cloud-init
+  ansible.builtin.copy:
+    dest: /etc/cloud/cloud.cfg.d/90-hostname.cfg
+    content: |
+      # Managed by Ansible (roles/hostname). Overrides the name in Hetzner's metadata, which
+      # does not follow a server rename.
+      hostname: {{ inventory_hostname }}
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Set the hostname now
+  # Applies it without waiting for a reboot, so a role that runs next - k3s, which takes
+  # the node name from the hostname at install time - already sees the right one.
+  ansible.builtin.hostname:
+    name: "{{ inventory_hostname }}"
+    use: systemd
+
+- name: Point 127.0.1.1 at the hostname now
+  # cloud-init rewrites /etc/hosts from its template on every boot using the pinned name,
+  # so this only saves waiting for that reboot.
+  ansible.builtin.lineinfile:
+    path: /etc/hosts
+    regexp: '^127\.0\.1\.1\s'
+    line: "127.0.1.1 {{ inventory_hostname }} {{ inventory_hostname }}"

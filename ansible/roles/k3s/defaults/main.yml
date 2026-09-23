@@ -3,9 +3,8 @@
 # cluster. v1.37.0+k3s1 was released 2026-09-14 and no patch release exists yet.
 k3s_version: v1.37.0+k3s1
 
-# The node --cluster-init runs on. The others point at its private address and take its
-# join token. Must name the same host as the play patterns in k3s.yml.
-k3s_init_node: k3s-01
+# k3s_init_node - the host --cluster-init runs on - has no default: it names a host, so it
+# comes from the inventory's group_vars.
 
 # Set to true by the play that bootstraps the cluster; every other node joins instead.
 k3s_cluster_init: false

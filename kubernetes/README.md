@@ -56,7 +56,7 @@ of itself is a no-op.
 Not exposed yet. Exposing it needs TLS, which needs cert-manager. Until then:
 
 ```shell
-kubectl --context d3strukt0r-k3s-admin -n argocd port-forward svc/argocd-server 8080:443
+kubectl --context d3strukt0r-prod-admin -n argocd port-forward svc/argocd-server 8080:443
 ```
 
 then `https://localhost:8080`; expect a self-signed certificate warning.
@@ -65,9 +65,9 @@ After the first install, read the generated password, log in as `admin`, change 
 it in 1Password, and delete the secret that held the first one:
 
 ```shell
-kubectl --context d3strukt0r-k3s-admin -n argocd get secret argocd-initial-admin-secret \
+kubectl --context d3strukt0r-prod-admin -n argocd get secret argocd-initial-admin-secret \
   -o jsonpath='{.data.password}' | base64 -d
-kubectl --context d3strukt0r-k3s-admin -n argocd delete secret argocd-initial-admin-secret
+kubectl --context d3strukt0r-prod-admin -n argocd delete secret argocd-initial-admin-secret
 ```
 
 That secret is not part of `install.yaml`, so Argo CD will not recreate it.
@@ -86,7 +86,7 @@ otherwise roll it back. Fix the commit, then apply the directory by hand from th
 context:
 
 ```shell
-kubectl --context d3strukt0r-k3s-admin apply --server-side -k kubernetes/components/argocd
+kubectl --context d3strukt0r-prod-admin apply --server-side -k kubernetes/components/argocd
 ```
 
 ## When a node dies
@@ -97,7 +97,7 @@ a StatefulSet pod on a node it cannot reach. Syncing stays stopped until the nod
 back, or until you declare it gone:
 
 ```shell
-kubectl --context d3strukt0r-k3s-admin taint node <node> node.kubernetes.io/out-of-service=nodeshutdown:NoExecute
+kubectl --context d3strukt0r-prod-admin taint node <node> node.kubernetes.io/out-of-service=nodeshutdown:NoExecute
 ```
 
 Running workloads are unaffected either way; only deploying changes stops.
