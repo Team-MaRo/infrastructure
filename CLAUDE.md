@@ -154,8 +154,7 @@ There are no per-server attachments. Two consequences:
 one apply has no guaranteed order; if the servers relabel first they are briefly
 unfirewalled, with 6443, 10250 and etcd open. Several `apply_to` blocks are a union, so:
 first add the new label and a second `apply_to`, then remove the old ones. The switch from
-`role=k3s` to `cluster=prod` was done that way - while `role = "k3s"` still appears in
-`locals.tf` and `firewall.tf`, that switch is half-finished.
+`role=k3s` to `cluster=prod` was done that way.
 
 ### Network attachments
 
