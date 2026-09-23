@@ -1,0 +1,6 @@
+---
+# The upstream install.yaml assumes the namespace exists and does not create it.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: argocd

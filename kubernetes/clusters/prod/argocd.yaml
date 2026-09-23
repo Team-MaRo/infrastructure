@@ -1,0 +1,25 @@
+---
+# Argo CD managing its own installation from kubernetes/components/argocd, the definition
+# every cluster shares. Upgrades and configuration changes are commits to that directory.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: argocd
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Team-MaRo/infrastructure.git
+    targetRevision: master
+    path: kubernetes/components/argocd
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      # Required for a self-managed Argo CD: its CRDs are too large for the
+      # last-applied-configuration annotation that client-side apply writes.
+      - ServerSideApply=true

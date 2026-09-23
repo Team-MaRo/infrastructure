@@ -12,16 +12,17 @@ code here - everything is declarative infrastructure.
 - `tofu/infomaniak/` - registrar-side delegation and DNSSEC checks
 - `tofu/cloudflare/` - both Cloudflare accounts, zones, records and TLS settings
 - `cloud-init/k3s.yaml` - node bootstrap, consumed over HTTPS (see below)
-- `ansible/` - configures the running nodes and installs k3s
-- `kubernetes/` - planned, not present yet
+- `ansible/` - configures the running nodes, installs k3s, bootstraps Argo CD
+- `kubernetes/` - what runs on the cluster, deployed by Argo CD from `master`
 
 Each of the three tofu directories is a **separate root module with its own state key**
 in the same bucket. They are deliberately independent: none can break another's plan,
 and each needs only its own credentials.
 
 The layers run in order and do not reach back: OpenTofu creates a node, cloud-init
-prepares it once as it boots, Ansible configures it from then on. Each directory has its
-own README; the root one is only an index.
+prepares it once as it boots, Ansible configures it from then on, and Argo CD deploys onto
+the cluster from `kubernetes/`. Each directory has its own README; the root one is only an
+index.
 
 ## Commands
 
@@ -64,8 +65,7 @@ hcloud server list -o json
 hcloud firewall list -o json
 ```
 
-Ansible runs from `ansible/`, and every command names a fleet because there is no default
-inventory:
+Ansible runs from `ansible/`, where `ansible.cfg` sets the default inventory:
 
 ```sh
 cd ansible
@@ -363,12 +363,73 @@ pattern cannot collide with the certificate blobs.
 It also expires: k3s issues 365-day certificates and renews them on startup within 120 days
 of expiry, on the node. This copy does not follow, so `kubeconfig.yml` has to be re-run.
 
+### Argo CD: bootstrapped once, then managing itself
+
+`ansible/argocd.yml` (role `argocd`) installs Argo CD from `kubernetes/components/argocd/`
+and applies `kubernetes/clusters/<cluster_name>/root.yaml` (`cluster_name: prod` in
+`inventories/group_vars/k3s.yml`), **once** - it checks for the `argocd-server` Deployment
+and skips everything if present. It runs `kubectl` **from the admin's machine** with the
+admin kubeconfig (`admin_kubeconfig`, same group_vars), so it runs after `kubeconfig.yml`
+and only from an address in `admin_ips`; nothing is copied to the nodes. A guard error
+other than `NotFound` (typically 6443 unreachable) fails loudly instead of being read as
+"not installed". Like `kubeconfig.yml` it is not imported by `site.yml`. After that Argo CD manages
+itself and every other component from `kubernetes/` on `master`. Never re-apply those
+manifests from Ansible: a working copy that differs from `master` would fight Argo CD's
+self-heal.
+
+- **Pushing to `master` is deploying**, pruning included. Branch protection on the repo is
+  a security control. The files must also be pushed *before* the first bootstrap, because
+  `root` syncs from GitHub, not from the working copy.
+- **`kubernetes/clusters/<name>/` decides what runs where; `kubernetes/components/<app>/`
+  holds how**, shared by clusters. Each cluster directory is an app-of-apps: `root` syncs
+  the directory it lives in, so it manages itself. One Argo CD per cluster, each syncing
+  only its own directory, so no cluster can change another. A cluster that needs something
+  different gets a Kustomize overlay in its own directory, not a copy of the component.
+- **`kubernetes/components/argocd/` is Kustomize over the pinned upstream `install.yaml`**, the
+  approach Argo CD's own docs use for self-management. The base is a raw single-file URL:
+  the `github.com/...//manifests` form makes Kustomize shell out to `git`, which the nodes
+  do not have. Upgrading is bumping that URL, **one minor at a time** - Argo CD does not
+  support skipping minors.
+- **Bootstrap and self-management use the same directory**, so the first self-sync is a
+  no-op. Both apply server-side; `ServerSideApply=true` is required for a self-managed
+  Argo CD because its CRDs are too large for client-side apply's annotation.
+- **Dex is removed** by `patches/dex.yaml`; Zitadel will be the OIDC provider and Argo CD
+  will talk to it directly. `argocd-server` still mounts an optional `argocd-dex-server-tls`
+  secret volume from upstream - harmless, left alone rather than diverging from upstream.
+- **Non-HA on purpose.** Even the HA manifest keeps the application controller - the part
+  that syncs - at one replica, so HA mostly buys a UI that survives a node failure. That
+  controller is a StatefulSet, which Kubernetes will not replace on an unreachable node:
+  syncing stays stopped until the node returns or is tainted
+  `node.kubernetes.io/out-of-service`.
+- **The UI is not exposed** - port-forward from the admin context until cert-manager can
+  provide TLS. The local `admin` account is used until Zitadel exists, and stays as the
+  break-glass login afterwards.
+
+### What still assumes a single cluster
+
+`kubernetes/` is already laid out per cluster, because once Argo CD is bootstrapped its
+paths are live and moving them risks pruning. Everything below is cheap to change later,
+since nothing live depends on it - so it is deliberately left until a second cluster is
+actually coming:
+
+- **The inventory.** `inventories/hcloud.yml` selects `role=k3s` into one `k3s` group, so
+  a second cluster's nodes in the same Hetzner project would join this one - `k3s.yml`
+  would try to make one etcd cluster of all of them. Needs a per-cluster label (e.g.
+  `cluster=prod`) turned into groups with `keyed_groups`, each group with its own
+  `cluster_name` and `k3s_init_node`.
+- **`k3s.yml`, `kubeconfig.yml` and `argocd.yml`** name `k3s-01` literally in their host
+  patterns.
+- **`tofu/k3s/`** is one root module for one cluster, and the firewall's `role=k3s`
+  selector would also attach to a second cluster's nodes.
+- **The admin kubeconfig name** `d3strukt0r-k3s-admin` is fixed: `admin_kubeconfig` in
+  group_vars and `kubeconfig_name` in `kubeconfig.yml`.
+
 ### The swap role is written but unreferenced
 
 No playbook lists it, so it does nothing. That is deliberate: nothing runs on these nodes
 yet, so there is nothing to measure and any tuning value would be guesswork. Enabling it
-is uncommenting one line in `ansible/k3s.yml` - that line *is* the decision, which is why
-there is no `swap_enabled` flag sitting at false.
+is adding `- swap` to the `roles:` of the first two plays in `ansible/k3s.yml` - that
+line *is* the decision, which is why there is no `swap_enabled` flag sitting at false.
 
 ### The swap role, and what it does not claim
 

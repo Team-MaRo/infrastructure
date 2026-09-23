@@ -1,0 +1,23 @@
+---
+# Bootstraps Argo CD once; from then on Argo CD manages itself and everything else from
+# kubernetes/ on master, and this finds it installed and does nothing.
+#
+# Runs after k3s.yml and kubeconfig.yml: it talks to the API from this machine with the
+# admin kubeconfig, so it needs that file and a network position where 6443 is open. Push
+# before running it - the root Application syncs from GitHub, not from the working copy.
+#
+# Not imported by site.yml, for the same reason kubeconfig.yml is not: it depends on
+# workstation state rather than only on the nodes.
+
+- name: Bootstrap Argo CD
+  # Targets the node only to pick up the k3s group's variables (cluster_name,
+  # admin_kubeconfig); every task runs here, so no SSH connection is made.
+  hosts: k3s-01
+  gather_facts: false
+  become: false
+  tasks:
+    - name: Bootstrap Argo CD from this machine
+      ansible.builtin.include_role:
+        name: argocd
+        apply:
+          delegate_to: localhost

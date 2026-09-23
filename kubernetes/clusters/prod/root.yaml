@@ -1,0 +1,24 @@
+---
+# The root of this cluster's app-of-apps. It syncs this directory - so it manages itself
+# as well as every sibling Application. Adding a component to this cluster is adding one
+# Application file here; other clusters have their own directory and are unaffected.
+#
+# Applied once by ansible/roles/argocd; from then on git is the only source.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: root
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Team-MaRo/infrastructure.git
+    targetRevision: master
+    path: kubernetes/clusters/prod
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
