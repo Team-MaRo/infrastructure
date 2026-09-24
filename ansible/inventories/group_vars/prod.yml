@@ -21,3 +21,22 @@ admin_kubeconfig: ~/.kube/d3strukt0r-prod-admin.yaml
 # prod.yml, which cannot be templated from here - a play's pattern is resolved before any
 # host is selected.
 k3s_init_node: prod-01
+
+# Where secrets.yml reads bootstrap secrets from. Two 1Password accounts are signed in on
+# the admin's machine, so the account is pinned rather than left to op's default.
+onepassword_account: my.1password.com
+onepassword_vault: Server
+
+# The Secrets secrets.yml writes - only what the cluster needs before OpenBao can supply
+# secrets itself. Each value is one field of one 1Password item.
+cluster_secrets:
+  # Hetzner Cloud API token (read+write) for the CSI driver; the name and key are what
+  # hetznercloud/csi-driver's manifest expects. A dedicated token, so it can be revoked
+  # without touching the one OpenTofu uses.
+  - namespace: kube-system
+    name: hcloud
+    key: token
+    item: "Hetzner | Prod CSI"
+    # An API Credential item; its "credential" field is labelled "Anmeldedaten" in the
+    # German app.
+    field: credential

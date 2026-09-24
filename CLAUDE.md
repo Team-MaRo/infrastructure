@@ -497,6 +497,26 @@ self-heal.
   provide TLS. The local `admin` account is used until Zitadel exists, and stays as the
   break-glass login afterwards.
 
+### Bootstrap secrets come from 1Password, once
+
+`ansible/secrets.yml` (role `cluster_secrets`) writes the Secrets the cluster needs before
+OpenBao can supply any - today `kube-system/hcloud`, the CSI driver's Hetzner token, which
+OpenBao itself needs for its volumes. The list is `cluster_secrets` in
+`inventories/group_vars/prod.yml`; each value is one field of one 1Password item in
+`onepassword_account` (`my.1password.com`, pinned because a second, work account is signed
+in too) and `onepassword_vault` (`Server`).
+
+- **1Password is the bootstrap root of trust only.** The `op` CLI reads the values on the
+  admin's machine (Touch ID prompt); nothing in the cluster talks to 1Password. There is no
+  Ansible Vault - it would only be a second place for the same secrets.
+- **Values go to `kubectl` on stdin**, never argv, and every task is `no_log`.
+- **Server-side apply, field manager `ansible`**: client-side apply would copy the value
+  into the `last-applied-configuration` annotation. `kubectl diff --server-side` runs
+  first, read-only, so `--check` is accurate and a re-run reports `changed=0`.
+- Same shape as `argocd.yml`: runs from the Mac with the admin kubeconfig, targets
+  `prod-01` only for its variables, not imported by `site.yml`. These Secrets are not in
+  git, so Argo CD never prunes them.
+
 ### What a second cluster would need
 
 `kubernetes/` is already laid out per cluster, because once Argo CD is bootstrapped its
