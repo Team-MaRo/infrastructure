@@ -6,7 +6,7 @@ Storage bucket `d3strukt0r-tfstate` (nbg1), via the S3 backend with native locki
 | Module | State key | What it manages |
 |---|---|---|
 | `hcloud` | `hcloud/terraform.tfstate` | the Hetzner Cloud project: the `prod` cluster's servers, network, firewall |
-| `objectstorage` | `objectstorage/terraform.tfstate` | the etcd snapshot bucket, and the policies of it and of the tfstate bucket |
+| `objectstorage` | `objectstorage/terraform.tfstate` | the Object Storage buckets - etcd snapshots and this state bucket - and their policies |
 | `infomaniak` | `infomaniak/terraform.tfstate` | registrar delegation and DNSSEC checks |
 | `cloudflare` | `cloudflare/terraform.tfstate` | both Cloudflare accounts |
 
@@ -45,6 +45,19 @@ no variable can reach them. Hence the profile:
 aws_access_key_id     = ...
 aws_secret_access_key = ...
 ```
+
+For the aws CLI, which is how buckets are inspected outside OpenTofu, the same profile in
+`~/.aws/config` carries the endpoint and turns off the pager, so no command needs
+`--endpoint-url` and output is printed rather than paged:
+
+```ini
+# ~/.aws/config
+[profile d3strukt0r-hetzner]
+endpoint_url = https://nbg1.your-objectstorage.com
+cli_pager =
+```
+
+The backends set their endpoint explicitly, so this does not affect OpenTofu.
 
 and `profile = "d3strukt0r-hetzner"` in each module's `backend "s3"` block. That is a
 name, not a secret, so it is committed - which also means `tofu init` works without
@@ -112,7 +125,7 @@ the admin key" (`Deny` with `NotPrincipal`), which also covers keys that do not 
 
 | Bucket | Managed here | Policy |
 |---|---|---|
-| `d3strukt0r-tfstate` | the policy only - the bucket holds OpenTofu's own state and stays outside it | every action denied to every other key |
+| `d3strukt0r-tfstate` | bucket (created by hand, adopted through `imports.tf`) and policy | every action denied to every other key |
 | `d3strukt0r-prod-etcd` | bucket, object lock, lifecycle, policy | other keys may upload, read and delete, but not bypass the lock or change the bucket's rules |
 
 The etcd bucket locks every version for 7 days in GOVERNANCE mode, and a lifecycle rule
@@ -152,14 +165,13 @@ change to how the principal is built is proven on a bucket that does not matter 
 The proof, with the aws CLI (independent of the provider):
 
 ```sh
-alias s3o='aws --profile d3strukt0r-hetzner --endpoint-url https://nbg1.your-objectstorage.com'
-echo test > /tmp/probe && s3o s3api put-object --bucket d3strukt0r-prod-etcd --key probe --body /tmp/probe
-s3o s3api get-object --bucket d3strukt0r-prod-etcd --key probe /dev/stdout
-s3o s3api list-object-versions --bucket d3strukt0r-prod-etcd --prefix probe
+echo test > /tmp/probe && aws --profile d3strukt0r-hetzner s3api put-object --bucket d3strukt0r-prod-etcd --key probe --body /tmp/probe
+aws --profile d3strukt0r-hetzner s3api get-object --bucket d3strukt0r-prod-etcd --key probe /dev/stdout
+aws --profile d3strukt0r-hetzner s3api list-object-versions --bucket d3strukt0r-prod-etcd --prefix probe
 # refused - the version is locked:
-s3o s3api delete-object --bucket d3strukt0r-prod-etcd --key probe --version-id=<id>
+aws --profile d3strukt0r-hetzner s3api delete-object --bucket d3strukt0r-prod-etcd --key probe --version-id=<id>
 # succeeds - the admin key may bypass:
-s3o s3api delete-object --bucket d3strukt0r-prod-etcd --key probe --version-id=<id> --bypass-governance-retention
+aws --profile d3strukt0r-hetzner s3api delete-object --bucket d3strukt0r-prod-etcd --key probe --version-id=<id> --bypass-governance-retention
 ```
 
 `--version-id=<id>` with the `=`, because version IDs can start with `-`.

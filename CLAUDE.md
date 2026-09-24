@@ -10,7 +10,7 @@ network, one public firewall. There is no application code here - everything is
 declarative infrastructure.
 
 - `tofu/hcloud/` - the Hetzner Cloud layer
-- `tofu/objectstorage/` - the etcd snapshot bucket, and the policies of it and the tfstate bucket
+- `tofu/objectstorage/` - the Object Storage buckets (etcd snapshots, tfstate) and their policies
 - `tofu/infomaniak/` - registrar-side delegation and DNSSEC checks
 - `tofu/cloudflare/` - both Cloudflare accounts, zones, records and TLS settings
 - `cloud-init/node.yaml` - node bootstrap, consumed over HTTPS (see below)
@@ -82,7 +82,7 @@ ansible-playbook prod.yml --check --diff
   `0 to add, 0 to change, 0 to destroy`. If a plan shows `forces replacement`,
   `must be replaced` or `will be destroyed`, that is a bug in the config - fix the
   config and re-plan.
-- Adoption of existing resources goes through `import` blocks in `tofu/hcloud/imports.tf`,
+- Adoption of existing resources goes through `import` blocks in the module's `imports.tf`,
   not `tofu import` CLI calls, so it stays reviewable in git.
 
 ## Architecture
@@ -197,9 +197,12 @@ adds a version that accumulates but stays deletable. Old versions can be pruned 
 `aws s3api delete-object --version-id`; nothing is locked.
 
 ```sh
-aws s3api list-object-versions --bucket d3strukt0r-tfstate --prefix hcloud/ \
-  --profile d3strukt0r-hetzner --endpoint-url https://nbg1.your-objectstorage.com
+aws --profile d3strukt0r-hetzner s3api list-object-versions --bucket d3strukt0r-tfstate --prefix hcloud/
 ```
+
+That relies on `endpoint_url` (and `cli_pager =`) in the profile's `~/.aws/config`
+section - see `tofu/README.md`. Without it, add
+`--endpoint-url https://nbg1.your-objectstorage.com`.
 
 Freshly generated Hetzner S3 credentials propagate across their gateways over several
 minutes. During that window `tofu init` fails with
@@ -214,8 +217,14 @@ way to scope one is a bucket policy, so `tofu/objectstorage` writes both of its 
 `Deny` + `NotPrincipal` naming the admin key, `arn:aws:iam:::user/p<project_id>:<access_key>`
 (`local.admin_principal`). That covers keys that do not exist yet, such as the cluster's.
 
-- **`d3strukt0r-tfstate`: every action denied to every other key.** Only the policy is
-  managed; the bucket is not imported, so nothing can ever plan to destroy it. The allowed
+- **`d3strukt0r-tfstate`: every action denied to every other key** - the Hetzner web
+  console included, which reads buckets under its own identity and so shows "Ressource ist
+  blockiert" and no files. Browse it with the admin key (aws CLI, or an S3 client such as
+  Cyberduck on `nbg1.your-objectstorage.com`). The bucket predates the
+  repo and is adopted through `tofu/objectstorage/imports.tf`, with `prevent_destroy`. It
+  holds this module's own state too, so it must never leave the config. On import the
+  provider reads the custom policy as `acl = "private"`, the default, so there is no ACL
+  diff - an ACL change would clear the policy. The allowed
   key must be the one in the `[d3strukt0r-hetzner]` profile, since the backends use it and
   this module must stay able to change the policy. The provider cannot read AWS profiles
   (only its own attributes or `MINIO_*` variables), so `locals.tf` parses that section of
@@ -565,8 +574,9 @@ updated and re-applied.
 
 ### Not managed here
 
-The tfstate bucket itself - `tofu/objectstorage` manages only its policy, since the bucket
-holds OpenTofu's own state - and the per-server primary IPs (`public_net` is deliberately
-omitted from `hcloud_server`, and the provider suppresses that diff when unset). Registrar contacts, transfers and renewals
+The per-server primary IPs (`public_net` is deliberately omitted from `hcloud_server`, and
+the provider suppresses that diff when unset), and the Object Storage keys - no provider
+has a resource for them, so they and their console labels live only in the Hetzner
+console. Registrar contacts, transfers and renewals
 are out of scope too, as is domain expiry monitoring (readable via `expires_at`, but
 it needs a bearer token).
