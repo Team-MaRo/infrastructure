@@ -14,16 +14,23 @@ kubernetes/
 │   └── prod/
 │       ├── root.yaml          # syncs this directory - itself and every sibling
 │       ├── argocd.yaml        # Argo CD managing its own installation
-│       └── hcloud-csi.yaml    # persistent volumes
+│       ├── hcloud-csi.yaml    # persistent volumes
+│       └── openbao.yaml       # the secret store: Helm chart pinned here, values in components/
 └── components/                # how each component is deployed, shared by clusters
     ├── argocd/                # pinned upstream install.yaml plus patches
     │   ├── kustomization.yaml
     │   ├── namespace.yaml
     │   └── patches/dex.yaml   # removes the bundled Dex
-    └── hcloud-csi/            # Hetzner's CSI driver, pinned
-        ├── kustomization.yaml
-        └── patches/reclaim-retain.yaml
+    ├── hcloud-csi/            # Hetzner's CSI driver, pinned
+    │   ├── kustomization.yaml
+    │   └── patches/reclaim-retain.yaml
+    └── openbao/
+        └── values.yaml        # Helm values: one replica, Raft storage, static seal
 ```
+
+Components are Kustomize over a pinned upstream manifest where upstream publishes one.
+Where upstream ships only a Helm chart (OpenBao), the cluster's Application pins the chart
+and reads its values from `components/<app>/values.yaml` through a second source.
 
 The split is **what** against **how**. `clusters/<name>/` decides which components a
 cluster runs; `components/<app>/` holds the manifests, written once and shared. Each
@@ -118,6 +125,44 @@ Bump the version in the `install.yaml` URL in `components/argocd/kustomization.y
 push. It upgrades every cluster that runs the shared component. **One minor version at a
 time** - Argo CD does not support skipping minors, and each one's upgrade notes may require
 a step. Patch releases within a minor need nothing special.
+
+## OpenBao
+
+The secret store. One replica with Raft storage on a Hetzner Volume, unsealed on every start
+by a static seal key from Secret `openbao/openbao-seal` - not in git; `ansible/secrets.yml`
+writes it from 1Password. OpenBao's own configuration (secrets engines, auth, policies) is
+`tofu/openbao`.
+
+### First install
+
+1. Push; Argo CD creates the namespace and the StatefulSet. The pod waits for its Secret.
+2. `cd ansible && ansible-playbook secrets.yml` writes `openbao-seal`; the pod starts.
+3. Initialise it, **once, ever** for this storage:
+
+   ```shell
+   kubectl --context d3strukt0r-prod-admin -n openbao exec -ti openbao-0 -- bao operator init
+   ```
+
+   It prints recovery keys and the initial root token, **once**. Store all of them in
+   1Password before closing the terminal. With an auto-unseal like the static seal there are
+   no unseal keys; the recovery keys are for break-glass operations such as generating a new
+   root token.
+4. `kubectl ... -n openbao exec openbao-0 -- bao status` shows `Initialized true`,
+   `Sealed false`. Deleting the pod proves the seal: it comes back unsealed by itself.
+
+**The seal key is the one thing that must never be lost.** Without it, the data on the
+volume - and every snapshot - is unreadable. It lives in 1Password; rotating it means adding
+the new key alongside the old one (`previous_key`), never replacing it.
+
+### Reaching it from this machine
+
+```shell
+kubectl --context d3strukt0r-prod-admin -n openbao port-forward svc/openbao 8200:8200
+export BAO_ADDR=http://127.0.0.1:8200   # in the shell that runs bao
+bao status
+```
+
+The UI is then at `http://127.0.0.1:8200/ui`.
 
 ## How quickly a push arrives
 

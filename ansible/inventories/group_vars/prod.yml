@@ -40,3 +40,13 @@ cluster_secrets:
     # An API Credential item; its "credential" field is labelled "Anmeldedaten" in the
     # German app.
     field: credential
+
+  # OpenBao's static seal key: 32 random bytes, hex-encoded. OpenBao unseals itself with it
+  # on every start; losing it makes all of OpenBao's data unreadable. The namespace comes
+  # from the openbao Application, so this runs after that has synced. Written once and never
+  # edited; the recovery keys and root token from `bao operator init` are a separate item.
+  - namespace: openbao
+    name: openbao-seal
+    key: key
+    item: "OpenBao | Prod | Seal key"
+    field: credential
