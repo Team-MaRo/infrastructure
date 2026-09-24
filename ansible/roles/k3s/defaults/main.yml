@@ -22,3 +22,15 @@ k3s_server_args:
   - --secrets-encryption
   - --kubelet-arg=fail-swap-on=false
 
+# Settings that may change on a running cluster. Written to
+# /etc/rancher/k3s/config.yaml.d/50-ansible.yaml, keys as in the k3s config file (flag names
+# without the dashes); a change restarts one server at a time.
+#
+# local-storage is k3s's local-path provisioner, which keeps volumes in a directory on the
+# node's own disk - lost with the node and competing with the OS for 40 GB. Disabled, k3s
+# uninstalls it and deletes its manifest. Persistent volumes are to come from Hetzner
+# Volumes instead.
+k3s_config:
+  disable:
+    - local-storage
+

@@ -155,6 +155,13 @@ Install tasks are guarded by `creates: /usr/local/bin/k3s`. The trade is that ed
 `--secrets-encryption` has to be set at install time, since it cannot be enabled later
 without restarting every server.
 
+Settings that may change on a running cluster live in `k3s_config` instead. The role writes
+them to `/etc/rancher/k3s/config.yaml.d/50-ansible.yaml` before installing, so a new node
+starts with them, and when the file changes on a node that already runs k3s it restarts k3s
+there and waits until the API answers again. With `serial: 1` that is one server at a time,
+so etcd never loses its quorum. Today it holds `disable: [local-storage]`: k3s's local-path
+provisioner kept volumes on the node's own 40 GB disk, where they would die with the node.
+
 A dry run cannot cover everything: the join needs a token only a real first play produces,
 so it is skipped under `--check`. What it does verify is connectivity, private-interface
 detection and flag assembly on all three nodes.

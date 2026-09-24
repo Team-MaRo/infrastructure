@@ -418,8 +418,15 @@ play-level settings a role cannot change.
 - **The playbook touches nothing but the nodes.** Fetching a kubeconfig is
   `ansible/kubeconfig.yml`, deliberately separate - see below.
 - **Install tasks are guarded by `creates: /usr/local/bin/k3s`**, so a re-run changes
-  nothing. The trade is that editing `defaults/main.yml` afterwards has no effect on a
-  running node - the flags have to be right the first time.
+  nothing. The trade is that editing `k3s_server_args` afterwards has no effect on a
+  running node - those flags have to be right the first time.
+- **Everything that may change later goes in `k3s_config` instead.** The role writes it to
+  `/etc/rancher/k3s/config.yaml.d/50-ansible.yaml` (keys as in k3s's config file) before
+  the install, and on a node already running k3s a change restarts it and waits for
+  `readyz` before moving on - one node at a time, thanks to `serial: 1`. k3s reads drop-ins
+  even without a `config.yaml` (checked in its source). The first use is
+  `disable: [local-storage]`, which removed the local-path provisioner and its
+  StorageClass: node disks are 40 GB and hold the OS, and data there dies with the node.
 - **A dry run cannot cover all of it.** The join needs a token only a real first play
   produces, so it is skipped under `--check`. What a dry run does verify is connectivity,
   private-interface detection and flag assembly on all three nodes.
