@@ -1,0 +1,8 @@
+# Copy to terraform.tfvars and fill in. terraform.tfvars is gitignored; this example is
+# not, because it holds no values.
+#
+# The key itself is read from the [d3strukt0r-hetzner] profile in ~/.aws/credentials,
+# the one the backends use - see locals.tf.
+
+# The number in the Hetzner Cloud console URL: console.hetzner.com/projects/<id>/...
+project_id = ""

@@ -1,11 +1,12 @@
 # tofu
 
-Three independent root modules, each with its own state key in the Hetzner Object
+Four independent root modules, each with its own state key in the Hetzner Object
 Storage bucket `d3strukt0r-tfstate` (nbg1), via the S3 backend with native locking:
 
 | Module | State key | What it manages |
 |---|---|---|
 | `hcloud` | `hcloud/terraform.tfstate` | the Hetzner Cloud project: the `prod` cluster's servers, network, firewall |
+| `objectstorage` | `objectstorage/terraform.tfstate` | the etcd snapshot bucket, and the policies of it and of the tfstate bucket |
 | `infomaniak` | `infomaniak/terraform.tfstate` | registrar delegation and DNSSEC checks |
 | `cloudflare` | `cloudflare/terraform.tfstate` | both Cloudflare accounts |
 
@@ -21,6 +22,7 @@ Storage keys from an AWS profile.
 | Where | Holds |
 |---|---|
 | `hcloud/terraform.tfvars` | `hcloud_token` |
+| `objectstorage/terraform.tfvars` | `project_id` - the key itself is read from the profile below |
 | `infomaniak/terraform.tfvars` | `infomaniak_token` |
 | `cloudflare/terraform.tfvars` | `cloudflare_token_personal`, `cloudflare_token_arepazo` |
 | `~/.aws/credentials`, profile `[d3strukt0r-hetzner]` | the Object Storage access key and secret |
@@ -48,6 +50,11 @@ and `profile = "d3strukt0r-hetzner"` in each module's `backend "s3"` block. That
 name, not a secret, so it is committed - which also means `tofu init` works without
 anyone needing to know which environment variables to set. It is account-scoped because
 profiles are global to `~/.aws`.
+
+In the Hetzner console this key is labelled `admin (d3strukt0r-hetzner profile)`. It is
+the only key the bucket policies let into tfstate - see objectstorage below - so it is
+never handed to anything else. The label is not managed here; no provider has a resource
+for Object Storage keys.
 
 The `hcloud` CLI is unaffected; it keeps its own token in `~/.config/hcloud/cli.toml`.
 
@@ -91,6 +98,71 @@ The servers, the network and its subnet carry `prevent_destroy = true`. The
 server types are cost-optimized and may not be available again once released,
 so any plan that would destroy or replace one fails instead. Retiring a node
 means removing that line first, deliberately.
+
+## objectstorage
+
+Buckets and bucket policies, through the `aminueza/minio` provider - the one Hetzner's
+own docs use. The `aws` provider cannot even refresh a bucket here, because it reads
+Accelerate, Website, Logging, Replication and Tagging settings that Hetzner does not
+implement.
+
+**Every Hetzner S3 key reaches every bucket in the project.** There are no per-bucket
+keys. The only scoping is a bucket policy, so both policies here say "deny, unless it is
+the admin key" (`Deny` with `NotPrincipal`), which also covers keys that do not exist yet.
+
+| Bucket | Managed here | Policy |
+|---|---|---|
+| `d3strukt0r-tfstate` | the policy only - the bucket holds OpenTofu's own state and stays outside it | every action denied to every other key |
+| `d3strukt0r-prod-etcd` | bucket, object lock, lifecycle, policy | other keys may upload, read and delete, but not bypass the lock or change the bucket's rules |
+
+The etcd bucket locks every version for 7 days in GOVERNANCE mode, and a lifecycle rule
+removes versions 7 days after they are replaced or deleted. GOVERNANCE, not COMPLIANCE, so
+the admin key can still delete early - but a Hetzner key holds every permission, the
+governance bypass included, so the policy denies that bypass to every other key. A leaked
+cluster key can therefore add delete markers but cannot destroy a locked snapshot.
+
+Needs only `project_id` in `objectstorage/terraform.tfvars`. The provider cannot read
+AWS profiles, so `locals.tf` parses the `[d3strukt0r-hetzner]` section of
+`~/.aws/credentials` itself (access key line first, then the secret). That is deliberate
+beyond convenience: the tfstate policy allows exactly one key, and taking it from the file
+the backends use means the policy cannot name a different one.
+
+```sh
+cd objectstorage
+tofu init
+tofu plan
+```
+
+### A wrong principal is a lockout
+
+A policy that denies `s3:*` to everyone but `arn:aws:iam:::user/p<project_id>:<access_key>`
+also denies it to the admin key if that string is off by one character - including
+`PutBucketPolicy`, so OpenTofu cannot take the policy back. On `d3strukt0r-tfstate` that
+stops every module's backend, and only Hetzner support can remove the policy. So any
+change to how the principal is built is proven on a bucket that does not matter first:
+
+1. **Stage A** - the etcd bucket with a policy denying `s3:*` to all but the admin key:
+   the same statement as the tfstate policy, on an empty bucket.
+2. **Prove it** with the admin key: an upload, a download, and a permanent delete of a
+   locked version (see below). If any of them is denied, stop - the principal is wrong.
+3. **Stage B** - narrow the etcd policy to what only the admin key may do, and add the
+   tfstate policy.
+4. `tofu plan` in every module, which proves the backends still reach their state.
+
+The proof, with the aws CLI (independent of the provider):
+
+```sh
+alias s3o='aws --profile d3strukt0r-hetzner --endpoint-url https://nbg1.your-objectstorage.com'
+echo test > /tmp/probe && s3o s3api put-object --bucket d3strukt0r-prod-etcd --key probe --body /tmp/probe
+s3o s3api get-object --bucket d3strukt0r-prod-etcd --key probe /dev/stdout
+s3o s3api list-object-versions --bucket d3strukt0r-prod-etcd --prefix probe
+# refused - the version is locked:
+s3o s3api delete-object --bucket d3strukt0r-prod-etcd --key probe --version-id=<id>
+# succeeds - the admin key may bypass:
+s3o s3api delete-object --bucket d3strukt0r-prod-etcd --key probe --version-id=<id> --bypass-governance-retention
+```
+
+`--version-id=<id>` with the `=`, because version IDs can start with `-`.
 
 ## infomaniak
 
