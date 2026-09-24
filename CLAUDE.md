@@ -10,13 +10,14 @@ network, one public firewall. There is no application code here - everything is
 declarative infrastructure.
 
 - `tofu/hcloud/` - the Hetzner Cloud layer
+- `tofu/objectstorage/` - the etcd snapshot bucket, and the policies of it and the tfstate bucket
 - `tofu/infomaniak/` - registrar-side delegation and DNSSEC checks
 - `tofu/cloudflare/` - both Cloudflare accounts, zones, records and TLS settings
 - `cloud-init/node.yaml` - node bootstrap, consumed over HTTPS (see below)
 - `ansible/` - configures the running nodes, installs k3s, bootstraps Argo CD
 - `kubernetes/` - what runs on the cluster, deployed by Argo CD from `master`
 
-Each of the three tofu directories is a **separate root module with its own state key**
+Each of the four tofu directories is a **separate root module with its own state key**
 in the same bucket. They are deliberately independent: none can break another's plan,
 and each needs only its own credentials.
 
@@ -29,13 +30,13 @@ index.
 
 No credential is ever exported by hand, and no value belongs in a `.tf` file. Each
 module reads its own token from a gitignored `terraform.tfvars` next to its `.tf` files:
-`hcloud_token` for hcloud, `infomaniak_token` for infomaniak, and the two
-`cloudflare_token_*` for cloudflare. The hcloud file also carries `admin_ips`, which is not
-a secret but is a home address, and this repo is public. Every module ships a
-`terraform.tfvars.example`.
+`hcloud_token` for hcloud, `infomaniak_token` for infomaniak, the two
+`cloudflare_token_*` for cloudflare, and only `project_id` for objectstorage, which reads
+its key from the backend profile (see "Object Storage" below). The hcloud file also carries `admin_ips`, which is not a secret but is a
+home address, and this repo is public. Every module ships a `terraform.tfvars.example`.
 
 The **backend** is the exception. Backend blocks cannot interpolate, so no variable can
-supply the Object Storage keys. All three therefore carry
+supply the Object Storage keys. All four therefore carry
 `profile = "d3strukt0r-hetzner"` and read them from `~/.aws/credentials`. The profile
 name is account-scoped on purpose - profiles are global to `~/.aws`, so a bare
 `hetzner` would collide with any second Hetzner account. If a plan cannot reach the
@@ -43,11 +44,11 @@ state bucket, check that file first: there is no environment variable to fall ba
 by design.
 
 `tofu/hcloud` declares `variable "hcloud_token"` and passes it to the provider explicitly
-rather than relying on the provider's own `HCLOUD_TOKEN` lookup, so all three modules
+rather than relying on the provider's own `HCLOUD_TOKEN` lookup, so all modules
 get their credentials the same way.
 
 ```sh
-cd tofu/hcloud         # or tofu/infomaniak, or tofu/cloudflare
+cd tofu/hcloud         # or tofu/objectstorage, tofu/infomaniak, tofu/cloudflare
 tofu fmt            # must produce no output
 tofu validate
 tofu init
@@ -205,6 +206,47 @@ minutes. During that window `tofu init` fails with
 `operation error S3: HeadObject ... StatusCode: 403` while the key already works for
 listing buckets. That is not a permissions problem - wait and retry before touching
 ACLs, bucket policies or `use_path_style`.
+
+### Object Storage: every key reaches every bucket
+
+Hetzner S3 keys are valid for every bucket in the project, with every permission. The only
+way to scope one is a bucket policy, so `tofu/objectstorage` writes both of its policies as
+`Deny` + `NotPrincipal` naming the admin key, `arn:aws:iam:::user/p<project_id>:<access_key>`
+(`local.admin_principal`). That covers keys that do not exist yet, such as the cluster's.
+
+- **`d3strukt0r-tfstate`: every action denied to every other key.** Only the policy is
+  managed; the bucket is not imported, so nothing can ever plan to destroy it. The allowed
+  key must be the one in the `[d3strukt0r-hetzner]` profile, since the backends use it and
+  this module must stay able to change the policy. The provider cannot read AWS profiles
+  (only its own attributes or `MINIO_*` variables), so `locals.tf` parses that section of
+  `~/.aws/credentials` with `file()` + `regex()` - no second copy that could drift, and no
+  secret in state, since locals and provider configuration are not stored. The regex
+  expects `aws_access_key_id` before `aws_secret_access_key`.
+- **A wrong principal is a lockout.** It denies `s3:*` to the admin key as well, including
+  `PutBucketPolicy`, so OpenTofu cannot revert it; every backend stops and only Hetzner
+  support can remove the policy. Any change to how the principal is built is first proven
+  on the etcd bucket with the same statement - the staged procedure is in `tofu/README.md`.
+- **`d3strukt0r-prod-etcd`: object lock, GOVERNANCE, 7 days, plus a lifecycle rule** that
+  removes versions 7 days after they become noncurrent, and orphaned delete markers after
+  that. GOVERNANCE rather than COMPLIANCE so the admin key can still delete early; since a
+  Hetzner key holds the governance bypass like any permission, the policy denies
+  `s3:BypassGovernanceRetention` and all lock, lifecycle and policy changes to other keys.
+  Object lock was only possible at creation and made versioning permanent.
+- **Provider `aminueza/minio`, `s3_compat_mode` off.** The `aws` provider cannot refresh a
+  bucket here (it reads Accelerate, Website, Logging, Replication and Tagging, all
+  unimplemented). Compat mode would swallow "not implemented" errors, object lock and
+  lifecycle included, so an unsupported setting would look applied while doing nothing.
+  Off, anything Hetzner rejects fails loudly. Tagging and the provider's MinIO edition probe
+  already degrade gracefully without it. `minio_ssl` defaults to `false` and must stay set.
+- **A plan can briefly show `minio_s3_bucket_object_lock_configuration` as "will be
+  created".** The provider drops it from state when a read says the bucket or its lock
+  configuration does not exist, and Hetzner's gateways answered that once for a moment
+  during the first stage-B apply, while the setting was intact. Check with
+  `aws s3api get-object-lock-configuration` before anything else; re-applying is harmless,
+  since it writes the identical default retention.
+- **The bucket's `acl` (default `private`) clears the bucket policy** when the bucket is
+  created or its `acl` changes. Never set `acl` on these buckets - the policy resource owns
+  the policy.
 
 ### Domains: verified against DNS, corrected through the API
 
@@ -523,9 +565,8 @@ updated and re-applied.
 
 ### Not managed here
 
-The Object Storage bucket itself (the hcloud provider has no resource for it), the
-per-server primary IPs (`public_net` is deliberately omitted from `hcloud_server`, and
-the provider suppresses that diff when unset), and the Cloudflare zones and records -
-those are a separate, later piece of work. Registrar contacts, transfers and renewals
+The tfstate bucket itself - `tofu/objectstorage` manages only its policy, since the bucket
+holds OpenTofu's own state - and the per-server primary IPs (`public_net` is deliberately
+omitted from `hcloud_server`, and the provider suppresses that diff when unset). Registrar contacts, transfers and renewals
 are out of scope too, as is domain expiry monitoring (readable via `expires_at`, but
 it needs a bearer token).

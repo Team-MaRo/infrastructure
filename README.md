@@ -6,7 +6,7 @@ Everything is declarative; there is no application code here.
 
 | Directory | What it does |
 |---|---|
-| [`tofu/`](tofu/README.md) | Creates and owns the cloud resources - servers, network, firewall, DNS, registrar delegation |
+| [`tofu/`](tofu/README.md) | Creates and owns the cloud resources - servers, network, firewall, buckets, DNS, registrar delegation |
 | [`cloud-init/`](cloud-init/README.md) | Prepares a node once, at first boot |
 | [`ansible/`](ansible/README.md) | Keeps running nodes configured, installs k3s, bootstraps Argo CD |
 | [`kubernetes/`](kubernetes/README.md) | What runs on the cluster, deployed by Argo CD from `master` |
