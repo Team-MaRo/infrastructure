@@ -61,16 +61,52 @@ kubectl --context d3strukt0r-prod-admin -n argocd port-forward svc/argocd-server
 
 then `https://localhost:8080`; expect a self-signed certificate warning.
 
-After the first install, read the generated password, log in as `admin`, change it, keep
-it in 1Password, and delete the secret that held the first one:
+### After every fresh install: replace the admin password
+
+Argo CD generates the `admin` password at install and keeps it in plain text in
+`argocd-initial-admin-secret`. Replace it, in this order - deleting the secret first would
+throw away the only copy before you have logged in:
+
+1. Read the generated password:
+
+   ```shell
+   kubectl --context d3strukt0r-prod-admin -n argocd get secret argocd-initial-admin-secret \
+     -o jsonpath='{.data.password}' | base64 -d; echo
+   ```
+
+2. Port-forward as above, log in as `admin`, and go to **User Info → Update Password**. (With
+   the `argocd` CLI instead: `argocd login localhost:8080 --insecure`, then
+   `argocd account update-password`.)
+3. Store the new password in 1Password.
+4. Only now delete the secret that held the first one:
+
+   ```shell
+   kubectl --context d3strukt0r-prod-admin -n argocd delete secret argocd-initial-admin-secret
+   ```
+
+   It is not part of `install.yaml`, so Argo CD will not recreate it.
+
+### Recovering a lost admin password
+
+The local `admin` account is the break-glass login - it keeps working when SSO does not.
+If its password is lost, have Argo CD generate a new one: remove the stored hash and
+restart the server, which then writes a fresh `argocd-initial-admin-secret`.
 
 ```shell
-kubectl --context d3strukt0r-prod-admin -n argocd get secret argocd-initial-admin-secret \
-  -o jsonpath='{.data.password}' | base64 -d
-kubectl --context d3strukt0r-prod-admin -n argocd delete secret argocd-initial-admin-secret
+kubectl --context d3strukt0r-prod-admin -n argocd patch secret argocd-secret --type json \
+  -p '[{"op":"remove","path":"/data/admin.password"},{"op":"remove","path":"/data/admin.passwordMtime"}]'
+kubectl --context d3strukt0r-prod-admin -n argocd rollout restart deployment argocd-server
 ```
 
-That secret is not part of `install.yaml`, so Argo CD will not recreate it.
+Then continue with step 1 above. Setting a chosen password directly is also possible - put a
+bcrypt hash (`argocd account bcrypt --password <password>`) into `admin.password` in
+`argocd-secret` - but regenerating needs no extra tools.
+
+Once SSO is set up and `admin` is disabled (`admin.enabled: "false"` in `argocd-cm`),
+re-enable it before logging in - with a commit, not by editing `argocd-cm` by hand:
+`argocd-cm` is part of the installation Argo CD manages itself, and self-heal would revert
+a manual edit within minutes. Only if Argo CD is too broken to sync is a manual edit
+enough, because then nothing reverts it.
 
 ## Upgrading Argo CD
 
