@@ -1,0 +1,51 @@
+# Helm values for the openbao/openbao chart, shared by every cluster. The chart and its
+# version are pinned in the cluster's Application (kubernetes/clusters/<name>/openbao.yaml);
+# only values that differ from the chart's defaults are set here.
+
+# External Secrets delivers secrets into Kubernetes; the sidecar injector is not used.
+injector:
+  enabled: false
+
+server:
+  standalone:
+    # One replica, on purpose: OpenBao is only asked when a secret is created or rotated, and
+    # External Secrets has already copied every value into a Kubernetes Secret, so a pod that
+    # is moving after a node failure delays changes but breaks nothing.
+    #
+    # Raft rather than the chart's default "file" storage, even with one node: it provides
+    # snapshots (`bao operator raft snapshot save`, the chart's snapshotAgent) for backups.
+    #
+    # tls_disable until cert-manager can issue a certificate: traffic between pods and
+    # OpenBao crosses the private network unencrypted in the meantime.
+    #
+    # The static seal unseals OpenBao on every start with a 32-byte key from Secret
+    # openbao-seal, which is not in git - ansible/secrets.yml writes it from 1Password.
+    # Changing the key means rotating it through previous_key/previous_key_id, never simply
+    # replacing it: data encrypted with the old key would become unreadable.
+    config: |
+      ui = true
+
+      listener "tcp" {
+        address         = "[::]:8200"
+        cluster_address = "[::]:8201"
+        tls_disable     = 1
+      }
+
+      storage "raft" {
+        path = "/openbao/data"
+      }
+
+      seal "static" {
+        current_key_id = "1"
+        current_key    = "file:///openbao/seal/key"
+      }
+
+  volumes:
+    - name: seal
+      secret:
+        secretName: openbao-seal
+
+  volumeMounts:
+    - name: seal
+      mountPath: /openbao/seal
+      readOnly: true

@@ -1,0 +1,37 @@
+---
+# OpenBao for this cluster: the openbao/openbao Helm chart, with values from
+# kubernetes/components/openbao/values.yaml. Two sources, so the chart version is pinned here
+# while the values live with the other components.
+#
+# Needs Secret openbao/openbao-seal before the pod can start; ansible/secrets.yml writes it,
+# after this has created the namespace. Initialised once by hand (bao operator init) - see
+# kubernetes/README.md.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: openbao
+  namespace: argocd
+spec:
+  project: default
+  sources:
+    # Pinned: bumping the version is the upgrade. Chart 0.29.6 deploys OpenBao 2.6.3.
+    - repoURL: https://openbao.github.io/openbao-helm
+      chart: openbao
+      targetRevision: 0.29.6
+      helm:
+        valueFiles:
+          - $repo/kubernetes/components/openbao/values.yaml
+    - repoURL: https://github.com/Team-MaRo/infrastructure.git
+      targetRevision: master
+      ref: repo
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: openbao
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      # Not required here (no large CRDs); used for consistency with the other Applications.
+      - ServerSideApply=true

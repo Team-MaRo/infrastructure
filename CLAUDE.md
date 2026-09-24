@@ -500,8 +500,8 @@ self-heal.
 ### Bootstrap secrets come from 1Password, once
 
 `ansible/secrets.yml` (role `cluster_secrets`) writes the Secrets the cluster needs before
-OpenBao can supply any - today `kube-system/hcloud`, the CSI driver's Hetzner token, which
-OpenBao itself needs for its volumes. The list is `cluster_secrets` in
+OpenBao can supply any - `kube-system/hcloud`, the CSI driver's Hetzner token, which
+OpenBao itself needs for its volumes, and `openbao/openbao-seal`, OpenBao's own seal key. The list is `cluster_secrets` in
 `inventories/group_vars/prod.yml`; each value is one field of one 1Password item in
 `onepassword_account` (`my.1password.com`, pinned because a second, work account is signed
 in too) and `onepassword_vault` (`Server`).
@@ -544,6 +544,33 @@ v2.23.0) and its default StorageClass `hcloud-volumes`. k3s's local-path is disa
   `delete_protection` and tofu drift detection are the backstop. It is a dedicated token,
   revocable without touching OpenTofu's.
 - **Kubernetes 1.37 is not yet in the driver's CI** (k3s 1.33-1.36 when adopted).
+
+### OpenBao: one replica, Raft, a static seal from 1Password
+
+`kubernetes/clusters/prod/openbao.yaml` deploys the `openbao/openbao` Helm chart (pinned,
+0.29.6 = OpenBao 2.6.3) with values from `kubernetes/components/openbao/values.yaml` - a
+two-source Application, because OpenBao publishes only a chart. The pattern for Helm-only
+upstreams: chart pinned in the cluster's Application, values in `components/`.
+
+- **One replica, no HA preparation** (no `retry_join`), a deliberate simplicity choice like
+  Argo CD's non-HA. External Secrets copies values into Kubernetes Secrets, so OpenBao being
+  down while its pod moves delays changes but breaks no running workload.
+- **Raft storage**, not the chart's default `file`, even with one node: Raft snapshots are
+  the backup format (and the chart's `snapshotAgent` can ship them to S3).
+- **Static seal** (`seal "static"`, OpenBao 2.4+): a 32-byte key, hex, in Secret
+  `openbao/openbao-seal`, written by `ansible/secrets.yml` from 1Password item
+  `OpenBao | Prod | Seal key`. OpenBao unseals itself on every start, and the cluster never
+  talks to 1Password. **Losing that key makes the data and all snapshots unreadable.**
+  Rotation adds the new key and moves the old one to `previous_key`, never a replacement.
+- **Initialised once, by hand** (`bao operator init` via `kubectl exec`), done 2026-09-24. The
+  five recovery keys and the initial root token are in their own 1Password item,
+  `OpenBao | Prod | Recovery keys & root token`, apart from the seal key - which is written
+  once and never edited, while the root token will be revoked and regenerated. There is no
+  automation for this on purpose: it happens once per storage lifetime and its output must go
+  straight into 1Password.
+- **`tls_disable = 1`** on the listener until cert-manager exists - a known gap: traffic to
+  OpenBao crosses the private network unencrypted.
+- The injector is off; secrets reach workloads through External Secrets.
 
 ### What a second cluster would need
 

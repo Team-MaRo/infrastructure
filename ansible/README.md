@@ -196,9 +196,10 @@ bootstrap.
 
 ## `secrets.yml` and the `cluster_secrets` role
 
-Writes the Secrets the cluster needs before OpenBao can hand out any - today the Hetzner
-API token for the CSI driver (`kube-system/hcloud`), which OpenBao itself depends on for
-its volumes. Each entry in `cluster_secrets` (`inventories/group_vars/prod.yml`) names a
+Writes the Secrets the cluster needs before OpenBao can hand out any: the Hetzner API token
+for the CSI driver (`kube-system/hcloud`), which OpenBao itself depends on for its volumes,
+and OpenBao's own seal key (`openbao/openbao-seal`). The seal key's namespace is created by
+the openbao Application, so after a fresh install run this once that has synced. Each entry in `cluster_secrets` (`inventories/group_vars/prod.yml`) names a
 Secret, a key, and the 1Password item and field its value comes from, in the account and
 vault given by `onepassword_account` and `onepassword_vault`.
 
