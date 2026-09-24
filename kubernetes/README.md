@@ -13,12 +13,16 @@ kubernetes/
 ├── clusters/                  # what runs where - one directory per cluster
 │   └── prod/
 │       ├── root.yaml          # syncs this directory - itself and every sibling
-│       └── argocd.yaml        # Argo CD managing its own installation
+│       ├── argocd.yaml        # Argo CD managing its own installation
+│       └── hcloud-csi.yaml    # persistent volumes
 └── components/                # how each component is deployed, shared by clusters
-    └── argocd/                # pinned upstream install.yaml plus patches
+    ├── argocd/                # pinned upstream install.yaml plus patches
+    │   ├── kustomization.yaml
+    │   ├── namespace.yaml
+    │   └── patches/dex.yaml   # removes the bundled Dex
+    └── hcloud-csi/            # Hetzner's CSI driver, pinned
         ├── kustomization.yaml
-        ├── namespace.yaml
-        └── patches/dex.yaml   # removes the bundled Dex
+        └── patches/reclaim-retain.yaml
 ```
 
 The split is **what** against **how**. `clusters/<name>/` decides which components a
@@ -124,6 +128,32 @@ context:
 ```shell
 kubectl --context d3strukt0r-prod-admin apply --server-side -k kubernetes/components/argocd
 ```
+
+## Storage
+
+A PersistentVolumeClaim becomes a Hetzner Cloud Volume through Hetzner's CSI driver
+(`components/hcloud-csi/`), with `hcloud-volumes` as the default StorageClass. There is no
+node-local storage: k3s's local-path provisioner is disabled.
+
+A volume is not on a node. Hetzner keeps it on three physical servers and attaches it over
+the network to one node at a time; when a pod moves, the driver moves the volume with it.
+So a volume is `ReadWriteOnce` - it cannot be shared by pods on different nodes - and a
+server holds at most 16. Each is at least 10 GB and stays in nbg1.
+
+**Deleting a PVC does not delete the volume.** The class uses `reclaimPolicy: Retain`,
+because Hetzner keeps no backups of volumes and Argo CD prunes whatever leaves git. The PV
+turns `Released`, and the volume stays - and is billed - until removed by hand:
+
+```shell
+kubectl --context d3strukt0r-prod-admin get pv                     # STATUS Released
+kubectl --context d3strukt0r-prod-admin get pv <pv> -o jsonpath='{.spec.csi.volumeHandle}'; echo
+kubectl --context d3strukt0r-prod-admin delete pv <pv>
+hcloud volume delete <volume id>
+```
+
+The driver needs Secret `kube-system/hcloud`, which is not in git: `ansible/secrets.yml`
+writes it from 1Password. Upgrading is bumping the version in the URL in
+`components/hcloud-csi/kustomization.yaml`.
 
 ## When a node dies
 

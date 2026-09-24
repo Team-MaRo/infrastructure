@@ -1,0 +1,13 @@
+---
+# Upstream leaves reclaimPolicy at Delete, so deleting a PVC deletes its Hetzner Volume.
+# Hetzner keeps no backups of volumes, and Argo CD prunes whatever leaves git - one bad commit
+# would take a database with it. With Retain the PV turns Released and the volume stays
+# (and is billed) until it is deleted by hand.
+#
+# reclaimPolicy cannot be changed on an existing StorageClass, which is why this is set
+# before the first sync.
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: hcloud-volumes
+reclaimPolicy: Retain
