@@ -13,6 +13,7 @@ ansible/
 ├── prod.yml                  # hosts: prod  ->  roles
 ├── kubeconfig.yml            # fetches the admin credential; not part of site.yml
 ├── argocd.yml                # bootstraps Argo CD from this machine; not part of site.yml
+├── secrets.yml               # writes bootstrap Secrets from 1Password; not part of site.yml
 ├── inventories/
 │   ├── hcloud.yml            # dynamic, Hetzner API, group: prod
 │   ├── home.yml              # static, group: home (no hosts yet)
@@ -22,6 +23,8 @@ ansible/
 └── roles/
     ├── argocd/
     │   └── tasks/main.yml    # bootstraps Argo CD once, then hands over to git
+    ├── cluster_secrets/
+    │   └── tasks/main.yml    # diffs and server-side applies Secrets from 1Password
     ├── hostname/
     │   └── tasks/main.yml    # pins the hostname to the inventory name, for cloud-init
     ├── k3s/
@@ -100,11 +103,12 @@ ansible-playbook prod.yml --check --diff
 ansible-playbook prod.yml
 ansible-playbook kubeconfig.yml  # afterwards, to get a working kubectl
 ansible-playbook argocd.yml      # then, once, to bootstrap Argo CD
+ansible-playbook secrets.yml     # and whenever a bootstrap secret changes in 1Password
 ```
 
 `site.yml` runs everything. Running a single playbook configures one type, which is more
-explicit than `--limit`. `kubeconfig.yml` and `argocd.yml` are not in it - both depend on
-this machine, not only on the nodes.
+explicit than `--limit`. `kubeconfig.yml`, `argocd.yml` and `secrets.yml` are not in it -
+all three depend on this machine, not only on the nodes.
 
 Re-running is safe: every install task is guarded, so a second run reports `changed=0`.
 
@@ -189,6 +193,28 @@ CD's self-heal. And on a rebuilt cluster the guard is absent, so it bootstraps a
 **Push before running it.** The root Application syncs from GitHub, not from your working
 copy. See [`../kubernetes/README.md`](../kubernetes/README.md) for what happens after the
 bootstrap.
+
+## `secrets.yml` and the `cluster_secrets` role
+
+Writes the Secrets the cluster needs before OpenBao can hand out any - today the Hetzner
+API token for the CSI driver (`kube-system/hcloud`), which OpenBao itself depends on for
+its volumes. Each entry in `cluster_secrets` (`inventories/group_vars/prod.yml`) names a
+Secret, a key, and the 1Password item and field its value comes from, in the account and
+vault given by `onepassword_account` and `onepassword_vault`.
+
+1Password is the root of trust for this bootstrap only: the values are read on your machine,
+through the `op` CLI (expect a Touch ID prompt), and the cluster never talks to 1Password.
+Like `argocd.yml` it runs from your machine with the admin kubeconfig, from an address in
+`admin_ips`, and makes no SSH connection.
+
+For each Secret it first runs `kubectl diff --server-side`, which only reads - so
+`--check` shows the real answer - and applies only what differs, so a second run reports
+`changed=0`. Values reach `kubectl` on stdin, never as arguments visible in the process
+list, and every task is `no_log`. The apply is server-side because client-side apply would
+store a second copy of the value in the `last-applied-configuration` annotation.
+
+The Secrets are not in git, so Argo CD neither prunes nor overwrites them. Rotating one is
+changing it in 1Password and re-running this.
 
 ## `kubeconfig.yml`
 

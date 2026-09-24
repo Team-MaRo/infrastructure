@@ -1,0 +1,49 @@
+---
+# Runs from the admin's machine against the API, with the admin kubeconfig. Each Secret is
+# rendered here and handed to kubectl on stdin - never as an argument, where any local
+# process could read it from the process list.
+#
+# Server-side apply rather than client-side: client-side apply stores the whole object in
+# the last-applied-configuration annotation, which would put a second copy of the value on
+# the Secret. The field manager "ansible" owns only the keys written here.
+
+- name: Compare each Secret with the cluster
+  # kubectl diff exits 0 when nothing would change, 1 when something would, and above 1 on
+  # an error such as 6443 being unreachable. It only reads, so a dry run evaluates it too.
+  # no_log: the result carries the rendered Secret in its invocation.
+  ansible.builtin.command:
+    cmd: >-
+      kubectl --kubeconfig {{ admin_kubeconfig | expanduser }} --request-timeout=20s
+      diff --server-side --field-manager=ansible -f -
+    stdin: "{{ cluster_secrets_manifest | to_json }}"
+  vars:
+    cluster_secrets_manifest: &manifest
+      apiVersion: v1
+      kind: Secret
+      type: Opaque
+      metadata:
+        name: "{{ item.name }}"
+        namespace: "{{ item.namespace }}"
+      stringData: "{{ {item.key: lookup('community.general.onepassword', item.item, field=item.field, vault=onepassword_vault, account_id=onepassword_account)} }}"
+  loop: "{{ cluster_secrets }}"
+  loop_control:
+    label: "{{ item.namespace }}/{{ item.name }}"
+  register: cluster_secrets_diff
+  changed_when: cluster_secrets_diff.rc == 1
+  failed_when: cluster_secrets_diff.rc > 1
+  check_mode: false
+  no_log: true
+
+- name: Apply the Secrets that differ
+  ansible.builtin.command:
+    cmd: >-
+      kubectl --kubeconfig {{ admin_kubeconfig | expanduser }} --request-timeout=20s
+      apply --server-side --field-manager=ansible -f -
+    stdin: "{{ cluster_secrets_manifest | to_json }}"
+  vars:
+    cluster_secrets_manifest: *manifest
+  loop: "{{ cluster_secrets_diff.results | selectattr('rc', 'equalto', 1) | map(attribute='item') }}"
+  loop_control:
+    label: "{{ item.namespace }}/{{ item.name }}"
+  changed_when: true
+  no_log: true
