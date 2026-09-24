@@ -1,0 +1,8 @@
+---
+- name: Wait for the API to answer
+  ansible.builtin.command: k3s kubectl get --raw /readyz
+  changed_when: false
+  retries: 30
+  delay: 5
+  register: k3s_readyz
+  until: k3s_readyz.rc == 0

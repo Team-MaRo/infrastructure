@@ -29,6 +29,41 @@
   ansible.builtin.debug:
     msg: "{{ inventory_hostname }}: private {{ hcloud_private_ipv4 }} on {{ k3s_private_iface }}, public {{ hcloud_ipv4 }}"
 
+- name: Check whether k3s is already installed
+  ansible.builtin.stat:
+    path: /usr/local/bin/k3s
+  register: k3s_binary
+
+- name: Create the config drop-in directory
+  ansible.builtin.file:
+    path: /etc/rancher/k3s/config.yaml.d
+    state: directory
+    mode: "0755"
+
+- name: Write the k3s config drop-in
+  # Unlike the install flags, this is not behind creates:, so a change here reaches running
+  # nodes. Written before the install tasks, so a new node starts with it from the beginning.
+  # k3s reads config.yaml.d even when there is no config.yaml.
+  ansible.builtin.copy:
+    content: "{{ k3s_config | to_nice_yaml(indent=2) }}"
+    dest: /etc/rancher/k3s/config.yaml.d/50-ansible.yaml
+    mode: "0600"
+  register: k3s_config_dropin
+
+- name: Restart k3s to apply the drop-in
+  # Only on a node that already runs k3s; a fresh install reads the file when it first
+  # starts. Inline rather than a handler, so the node is back and ready before the play
+  # moves on - with serial: 1, one server restarts at a time and etcd keeps its quorum.
+  when: k3s_config_dropin.changed and k3s_binary.stat.exists
+  block:
+    - name: Restart k3s
+      ansible.builtin.systemd_service:
+        name: k3s
+        state: restarted
+
+    - name: Wait for the restarted server to be ready
+      ansible.builtin.import_tasks: wait_ready.yml
+
 - name: Download the k3s installer
   ansible.builtin.get_url:
     url: https://get.k3s.io

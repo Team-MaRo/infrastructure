@@ -11,13 +11,8 @@
   environment:
     INSTALL_K3S_VERSION: "{{ k3s_version }}"
 
-- name: Wait for the API to answer
-  ansible.builtin.command: k3s kubectl get --raw /readyz
-  changed_when: false
-  retries: 30
-  delay: 5
-  register: k3s_readyz
-  until: k3s_readyz.rc == 0
+- name: Wait for the first server to be ready
+  ansible.builtin.import_tasks: wait_ready.yml
 
 - name: Read the cluster join token
   # Kept in memory and handed to the joining servers through hostvars - server_join.yml
