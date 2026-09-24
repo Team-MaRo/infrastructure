@@ -1,0 +1,17 @@
+---
+# Check git every minute instead of every 120 s plus up to 60 s of jitter. The jitter only
+# spreads the load of many Applications polling at once, which a cluster this size does not
+# have. Git fetches over HTTPS are not subject to GitHub's API rate limits.
+#
+# Both values reach argocd-application-controller and argocd-repo-server as environment
+# variables, read at start - after a change, restart both (see kubernetes/README.md).
+#
+# A GitHub webhook would make syncs immediate instead, once argocd-server is reachable from
+# the internet.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-cm
+data:
+  timeout.reconciliation: 60s
+  timeout.reconciliation.jitter: 0s

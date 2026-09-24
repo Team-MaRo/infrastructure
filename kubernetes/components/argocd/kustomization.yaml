@@ -19,3 +19,4 @@ resources:
 
 patches:
   - path: patches/dex.yaml
+  - path: patches/argocd-cm.yaml

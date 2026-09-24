@@ -119,6 +119,20 @@ push. It upgrades every cluster that runs the shared component. **One minor vers
 time** - Argo CD does not support skipping minors, and each one's upgrade notes may require
 a step. Patch releases within a minor need nothing special.
 
+## How quickly a push arrives
+
+Argo CD checks git every 60 seconds (`patches/argocd-cm.yaml`; upstream is 120 s plus up to
+60 s of jitter). The application controller and the repo server read that interval at start,
+so after changing it, restart both once the change has synced:
+
+```shell
+kubectl --context d3strukt0r-prod-admin -n argocd rollout restart statefulset argocd-application-controller
+kubectl --context d3strukt0r-prod-admin -n argocd rollout restart deployment argocd-repo-server
+```
+
+A GitHub webhook would make syncs immediate, once `argocd-server` is reachable from the
+internet.
+
 ## When Argo CD breaks itself
 
 A bad commit to `components/argocd/` can break Argo CD, which is the thing that would
