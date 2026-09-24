@@ -1,0 +1,26 @@
+---
+# Persistent volumes for this cluster, from kubernetes/components/hcloud-csi. Needs Secret
+# kube-system/hcloud before its controller can do anything; ansible/secrets.yml writes it.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: hcloud-csi
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Team-MaRo/infrastructure.git
+    targetRevision: master
+    path: kubernetes/components/hcloud-csi
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      # Not required here - unlike the argocd Application, whose CRDs exceed the annotation
+      # limit of client-side apply. Used for consistency, so no object carries a copy of
+      # itself in last-applied-configuration, and Argo CD owns only the fields it writes.
+      - ServerSideApply=true

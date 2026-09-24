@@ -517,6 +517,34 @@ in too) and `onepassword_vault` (`Server`).
   `prod-01` only for its variables, not imported by `site.yml`. These Secrets are not in
   git, so Argo CD never prunes them.
 
+### Persistent storage is Hetzner Volumes, never the node disk
+
+`kubernetes/components/hcloud-csi/` deploys `hetznercloud/csi-driver` (pinned raw manifest,
+v2.23.0) and its default StorageClass `hcloud-volumes`. k3s's local-path is disabled
+(`k3s_config`), so nothing can put persistent data on a node's 40 GB disk.
+
+- **A volume is not node storage.** Hetzner keeps every block on three physical servers
+  and attaches the volume over the network to one server at a time; deleting a server
+  detaches, never deletes. The driver finds its server through the metadata service, so no
+  cloud controller manager is needed.
+- **Limits:** `ReadWriteOnce` only, 16 volumes per server (the driver reports it to the
+  scheduler), 10 GB minimum, nbg1 only, price linear per GB. A node that vanished without
+  being deleted keeps its volumes until tainted `node.kubernetes.io/out-of-service`.
+- **`reclaimPolicy: Retain`** (`patches/reclaim-retain.yaml`): Hetzner has **no backups of
+  volumes** and Argo CD prunes, so a deleted PVC leaves a `Released` PV and the volume, to be
+  removed by hand. reclaimPolicy is immutable on a StorageClass.
+- **Consolidate at the service, not the disk.** PVCs are namespaced and RWO, so sharing one
+  between apps does not work. One Postgres cluster (CloudNativePG, a database per app,
+  backups to S3), files in S3, Redis without a volume. Databases want the volume mounted
+  directly - never NFS, SMB or S3 as primary storage. A shared POSIX folder, if ever needed,
+  is an NFS server on one volume.
+- **The token** (`kube-system/hcloud`, from `ansible/secrets.yml`) is project-wide
+  read+write - Hetzner cannot scope tokens, and volumes must live in the servers' project.
+  The driver's code calls only volume endpoints plus a read of servers; server
+  `delete_protection` and tofu drift detection are the backstop. It is a dedicated token,
+  revocable without touching OpenTofu's.
+- **Kubernetes 1.37 is not yet in the driver's CI** (k3s 1.33-1.36 when adopted).
+
 ### What a second cluster would need
 
 `kubernetes/` is already laid out per cluster, because once Argo CD is bootstrapped its
