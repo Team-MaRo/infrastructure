@@ -368,13 +368,16 @@ caused. Do not "fix" that drift blindly - check the Workers config first.
 `1a87e754` from 2024-05-17, both TTL 120), leftovers from ACME validation. Both are
 imported so the plan stays clean; removing the stale one is a deliberate change.
 
-### Zones exist that no delegation check covers
+### Two zones have no delegation check, on purpose
 
-The `ns_delegation` check in the cluster module covers exactly the ten domains
-registered at Infomaniak. Two further zones are delegated to Cloudflare but registered
-elsewhere - `wundexpertinplus.com` at GoDaddy and `arepazo.ch` at an unidentified `.ch`
-registrar. Nothing verifies their delegation. Extending the check needs a second list,
-since `local.domains` in `tofu/infomaniak/domains.tf` is specifically the Infomaniak set.
+The `ns_delegation` check in `tofu/infomaniak` covers exactly the ten domains registered at
+Infomaniak (`local.domains` is specifically that set). Two further zones live in the
+Cloudflare accounts - `wundexpertinplus.com` (registered at GoDaddy) and `arepazo.ch` (an
+unidentified `.ch` registrar) - but those domains are registered and managed by their
+owners, and this repo's admin has no access at their registrars. A check could only warn,
+never correct, so there deliberately is none: whether they point at Cloudflare is the
+owners' concern. If one moves away, its zone and records in `tofu/cloudflare` are what to
+clean up.
 
 ### Ansible
 
