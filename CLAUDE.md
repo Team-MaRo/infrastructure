@@ -261,7 +261,7 @@ way to scope one is a bucket policy, so `tofu/objectstorage` writes both of its 
 
 ### Domains: verified against DNS, corrected through the API
 
-Ten domains are registered at Infomaniak and delegated to Cloudflare; Infomaniak is
+Nine domains are registered at Infomaniak and delegated to Cloudflare; Infomaniak is
 registrar only. `tofu/infomaniak/domains.tf` declares the expected delegation and DNSSEC state,
 and `tofu/infomaniak/domains_checks.tf` asserts against reality on every plan.
 
@@ -384,7 +384,7 @@ and removes these records itself; OpenTofu must not track them.
 
 ### Two zones have no delegation check, on purpose
 
-The `ns_delegation` check in `tofu/infomaniak` covers exactly the ten domains registered at
+The `ns_delegation` check in `tofu/infomaniak` covers exactly the nine domains registered at
 Infomaniak (`local.domains` is specifically that set). Two further zones live in the
 Cloudflare accounts - `wundexpertinplus.com` (registered at GoDaddy) and `arepazo.ch` (an
 unidentified `.ch` registrar) - but those domains are registered and managed by their

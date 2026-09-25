@@ -213,7 +213,7 @@ The token is fetched per command, so it never sits in the shell's environment or
 
 ## infomaniak
 
-Ten domains registered at Infomaniak, all delegated to Cloudflare. Infomaniak is
+Nine domains registered at Infomaniak, all delegated to Cloudflare. Infomaniak is
 registrar only, so nothing about them is *managed* from here - `infomaniak/domains.tf`
 declares the expected nameservers and DNSSEC state, and every `tofu plan` checks them
 against the TLD registry and warns on drift.
@@ -257,7 +257,7 @@ separate logins.
 
 | Account | Nameservers | Zones |
 |---|---|---|
-| personal | `brenda` / `wesley`.ns.cloudflare.com | the ten Infomaniak domains, plus `wundexpertinplus.com` (registered at GoDaddy and managed by its owner) |
+| personal | `brenda` / `wesley`.ns.cloudflare.com | the nine Infomaniak domains, plus `wundexpertinplus.com` (registered at GoDaddy and managed by its owner) |
 | arepazo | `abdullah` / `fish`.ns.cloudflare.com | `arepazo.ch` (registered and managed by its owner) |
 
 Both providers are aliased and there is deliberately **no default provider**, so every
