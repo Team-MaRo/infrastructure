@@ -6,6 +6,11 @@ What runs on the cluster, deployed by Argo CD from this directory on `master`.
 finds, pruning anything removed. There is no separate release step, which makes branch
 protection on the repository a security control rather than a formality.
 
+Pruning stops at the Application, though: deleting a file from `clusters/<name>/` removes
+only the Application, and what it deployed keeps running untracked (no Application has the
+`resources-finalizer.argocd.argoproj.io` finalizer). Removing a component for real means
+deleting its objects by hand as well.
+
 ## Layout
 
 ```
@@ -19,6 +24,7 @@ kubernetes/
 │       ├── external-secrets.yaml  # delivers OpenBao values as Kubernetes Secrets
 │       ├── system-upgrade-controller.yaml  # upgrades k3s on the nodes
 │       ├── kured.yaml             # reboots nodes after kernel updates
+│       ├── kyverno.yaml           # policies: chart pinned here, values and policies in components/
 │       ├── etcd-snapshots.yaml    # syncs the subdirectory below
 │       └── etcd-snapshots/        # prod-only: the S3 settings k3s uploads snapshots with
 └── components/                # how each component is deployed, shared by clusters
@@ -36,6 +42,11 @@ kubernetes/
     │   └── cluster-secret-store.yaml  # the store named openbao
     ├── kured/
     │   └── kustomization.yaml     # pinned release manifest plus the reboot window
+    ├── kyverno/
+    │   ├── values.yaml            # Helm values
+    │   ├── kustomization.yaml
+    │   ├── default-resources.yaml # LimitRange for every app namespace
+    │   └── rbac-limitranges.yaml  # lets Kyverno create LimitRanges
     └── system-upgrade-controller/
         ├── kustomization.yaml     # pinned release manifests
         └── plan.yaml              # which k3s version, when, one node at a time
@@ -293,6 +304,22 @@ ssh prod-03 sudo touch /var/run/reboot-required
 ```
 
 `/var/run` is a tmpfs, so the file disappears with the reboot.
+
+## Default resources
+
+Kyverno gives every app namespace a LimitRange `default-resources`. A container that sets
+no `resources` gets requests of 50m CPU, 64Mi memory and 50Mi ephemeral storage, and limits
+of 256Mi memory and 1Gi ephemeral storage - no CPU limit. Setting `resources` on a container
+overrides any of them; there is no maximum.
+
+```shell
+kubectl --context d3strukt0r-prod-admin get limitrange -A
+kubectl --context d3strukt0r-prod-admin get generatingpolicy default-resources
+```
+
+Infrastructure namespaces are excluded by a list in `components/kyverno/default-resources.yaml`.
+**Deploying a new infrastructure component means adding its namespace there in the same
+commit.**
 
 ## How quickly a push arrives
 

@@ -495,6 +495,17 @@ self-heal.
 - **Pushing to `master` is deploying**, pruning included. Branch protection on the repo is
   a security control. The files must also be pushed *before* the first bootstrap, because
   `root` syncs from GitHub, not from the working copy.
+- **Pruning does not cascade from `root` into the components.** No Application carries the
+  `resources-finalizer.argocd.argoproj.io` finalizer, so deleting a file from
+  `clusters/<name>/` makes `root` delete only the Application object - what that
+  Application deployed keeps running, orphaned and no longer tracked. A mistakenly deleted
+  Application file therefore cannot take OpenBao and its volume with it. Within one
+  Application pruning works as usual: a manifest removed from a component is deleted.
+  Really removing a component means deleting its objects by hand, or adding the finalizer
+  first and then removing the Application. For the same reason Helm's
+  `helm.sh/resource-policy: keep` (which Argo CD honours as `Delete=false`) currently
+  changes nothing here - there are no Helm releases either, since Argo CD only renders charts
+  with `helm template`; `helm list -A` shows just k3s's own Traefik.
 - **`kubernetes/clusters/<name>/` decides what runs where; `kubernetes/components/<app>/`
   holds how**, shared by clusters. Each cluster directory is an app-of-apps: `root` syncs
   the directory it lives in, so it manages itself. One Argo CD per cluster, each syncing
@@ -698,6 +709,44 @@ node, reboots it and uncordons it once it is back; then the next node may take t
 - **Only kernels set the sentinel.** A host service using an updated library keeps the old
   copy until it restarts - there is no `needrestart` on these nodes - but containers bring
   their own libraries anyway, so this only concerns the few host daemons.
+
+### Default resources through Kyverno
+
+`kubernetes/clusters/prod/kyverno.yaml` deploys the `kyverno` Helm chart (pinned, 3.9.1 =
+Kyverno v1.19.1) with `kubernetes/components/kyverno/` as values and extra resources - the
+same two-source pattern as OpenBao, plus a third source for the directory's manifests. Its
+one policy so far, `default-resources`, gives every app namespace a LimitRange, so a
+container without `resources` of its own still has requests and limits.
+
+- **Defaults, never a max.** Requests CPU `50m`, memory `64Mi`, ephemeral-storage `50Mi`;
+  limits memory `256Mi`, ephemeral-storage `1Gi`. An app that needs more sets `resources`
+  on its containers, which always wins. The ephemeral-storage limit keeps a container from
+  filling a node's 40 GB disk, which holds etcd too.
+- **No CPU limit, on purpose.** A CPU limit throttles a container even while the node is
+  idle; requests already share CPU fairly under contention.
+- **Infrastructure namespaces are excluded** by an explicit list in the policy's
+  `matchConditions` (`kube-*`, `default`, `argocd`, `openbao`, `external-secrets`,
+  `system-upgrade`, `kyverno`). Their components mostly set no resources and would be
+  OOM-killed at 256Mi. **A new infrastructure component adds its namespace to that list in
+  the commit that deploys it** - before its namespace exists, or the LimitRange is already
+  there.
+- **`GeneratingPolicy`, not `ClusterPolicy`**, which is deprecated since Kyverno's CEL-based
+  policy types. `generateExisting` covers namespaces created before the policy;
+  `synchronize` keeps the LimitRange in step with the policy and removes it with its
+  namespace - hand edits to it are reverted.
+- **Kyverno needs RBAC for what it generates.** Its background controller's own ClusterRole
+  covers only a few kinds; `rbac-limitranges.yaml` adds LimitRanges through the aggregation
+  label `rbac.kyverno.io/aggregate-to-background-controller`. Generating another kind means
+  another such role.
+- **Argo CD settings Kyverno needs**, from Kyverno's own notes: `ServerSideApply=true`
+  (huge CRDs), `ServerSideDiff=true,IncludeMutationWebhook=true` on the Application,
+  `config.preserve: false` (the default marks Kyverno's ConfigMap `helm.sh/resource-policy:
+  keep`, which would orphan it when the Application is removed; Kyverno's notes still
+  describe an older post-delete hook, which chart 3.9.1 no longer renders),
+  and `ignoreAggregatedRoles: true` in `argocd-cm`, since aggregated ClusterRoles never
+  match git. Argo CD's own defaults already exclude Kyverno's report kinds.
+- The policy was tested offline with the Kyverno CLI (`kyverno apply <policy> --resource
+  <namespaces>`), which is the quickest way to try a change before pushing.
 
 ### What a second cluster would need
 

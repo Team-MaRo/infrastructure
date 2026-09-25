@@ -1,0 +1,40 @@
+---
+# Kyverno for this cluster: the kyverno Helm chart with values from
+# kubernetes/components/kyverno/values.yaml, plus that directory's policy and RBAC.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kyverno
+  namespace: argocd
+  annotations:
+    # Compare on the server, including what Kyverno's own webhooks add, as Kyverno's Argo CD
+    # notes advise - otherwise defaulted and mutated fields show as drift.
+    argocd.argoproj.io/compare-options: ServerSideDiff=true,IncludeMutationWebhook=true
+spec:
+  project: default
+  sources:
+    # Pinned: bumping the version is the upgrade. Chart 3.9.1 deploys Kyverno v1.19.1.
+    - repoURL: https://kyverno.github.io/kyverno
+      chart: kyverno
+      targetRevision: 3.9.1
+      helm:
+        valueFiles:
+          - $repo/kubernetes/components/kyverno/values.yaml
+    - repoURL: https://github.com/Team-MaRo/infrastructure.git
+      targetRevision: master
+      ref: repo
+    - repoURL: https://github.com/Team-MaRo/infrastructure.git
+      targetRevision: master
+      path: kubernetes/components/kyverno
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kyverno
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      # Required: the chart's CRDs are too large for client-side apply's
+      # last-applied-configuration annotation.
+      - ServerSideApply=true

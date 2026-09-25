@@ -1,0 +1,6 @@
+# Helm values for the kyverno chart. Everything else stays at the chart's defaults.
+config:
+  # The default, true, marks Kyverno's ConfigMap helm.sh/resource-policy: keep, so it
+  # survives an uninstall - for reinstalling by hand with Helm. Here removal goes through
+  # Argo CD, and a kept ConfigMap would only be left behind as an orphan.
+  preserve: false

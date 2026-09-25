@@ -1,0 +1,10 @@
+---
+# What this repo adds to the kyverno Helm chart, which the cluster's Application pins. The
+# chart brings the controllers and CRDs; values.yaml next to this file is its values, not a
+# resource.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - rbac-limitranges.yaml
+  - default-resources.yaml
