@@ -636,6 +636,31 @@ across 3 x 5 files) onto each server's disk and uploads each to `d3strukt0r-prod
   decrypts the bootstrap data inside the snapshot. The token is in 1Password,
   `k3s | Prod | Server token`, copied from `/var/lib/rancher/k3s/server/token`.
 
+### k3s upgrades itself
+
+`kubernetes/components/system-upgrade-controller/` deploys Rancher's system-upgrade-controller
+(pinned release manifests, v0.20.2) and one Plan, `server`, covering all three nodes. For each
+node it runs a privileged Job that replaces the k3s binary and restarts k3s. Ansible's
+`k3s_version` is therefore only the version a node is *installed* with; the Ansible install
+never upgrades (`creates:`), and a new node catches up in the next window.
+
+- **Channel `v1.37`, not `stable` - yet.** `stable` was still 1.36 when the cluster was
+  installed at 1.37.0, and k3s-upgrade refuses to downgrade: the Job fails with
+  `Current … is higher` and leaves the node cordoned. Once `stable` reaches 1.37 the channel
+  switches to `stable`, which makes minor upgrades automatic too. Until then a minor is a
+  one-line change to the channel, **never skipping a minor** (Kubernetes' skew policy).
+  Before any minor, check that the Hetzner CSI driver supports it - its CI lagged by one.
+- **Window 03:00-06:00 Europe/Zurich, daily**, after the scheduled etcd snapshot at
+  00:00 UTC, so each upgrade starts with a fresh snapshot in Object Storage. The channel is
+  polled every 15 minutes; Jobs start only inside the window but may run past it.
+- **One node at a time, cordoned but not drained.** Restarting k3s leaves running pods alone
+  (the containerd shims survive), so a drain would only move volumes around. The API is
+  briefly unavailable on each node; etcd keeps quorum with two of three.
+- **A failed Job leaves its node cordoned.** Look at the Job's log in `system-upgrade`, fix
+  the cause, then `kubectl uncordon <node>`.
+- The script exits early when the binary is already the target version, so re-running a
+  Plan is harmless.
+
 ### What a second cluster would need
 
 `kubernetes/` is already laid out per cluster, because once Argo CD is bootstrapped its
@@ -703,8 +728,8 @@ Both are in `roles/k3s/defaults/main.yml`, and both are install-time only:
   `NoSwap`: swap then protects the node and system daemons while pods cannot use it.
   `LimitedSwap` only ever grants swap to Burstable pods anyway.
 
-The install pins k3s `v1.37.0+k3s1` (Kubernetes 1.37, containerd 2.3.4) on Debian 13 with
-kernel 6.12. That combination clears every requirement for **per-pod user namespaces**
+The cluster was installed at k3s `v1.37.0+k3s1` (Kubernetes 1.37, containerd 2.3.4) on
+Debian 13 with kernel 6.12, and upgrades itself from there (see "k3s upgrades itself"). That combination clears every requirement for **per-pod user namespaces**
 (`hostUsers: false`), which are GA and locked since Kubernetes 1.36 and need Linux 6.3+,
 containerd 2.0+ and an idmap-capable filesystem. This is the answer to wanting Podman's
 rootless property: k3s's own `--rootless` mode is experimental and, per its docs,

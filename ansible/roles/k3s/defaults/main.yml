@@ -1,6 +1,8 @@
 ---
-# Pinned rather than tracking a channel, so re-running this cannot silently upgrade a live
-# cluster. v1.37.0+k3s1 was released 2026-09-14 and no patch release exists yet.
+# The version a node is installed with - nothing more. Running nodes are upgraded by the
+# system-upgrade-controller (kubernetes/components/system-upgrade-controller), and a new node
+# installed at this version catches up in the next upgrade window. Bump it now and then so
+# new nodes do not start far behind.
 k3s_version: v1.37.0+k3s1
 
 # SHA-256 of install.sh at that release's tag. Bumping k3s_version means bumping this too:
