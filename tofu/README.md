@@ -257,8 +257,8 @@ separate logins.
 
 | Account | Nameservers | Zones |
 |---|---|---|
-| personal | `brenda` / `wesley`.ns.cloudflare.com | the ten Infomaniak domains, plus `wundexpertinplus.com` (GoDaddy) |
-| arepazo | `abdullah` / `fish`.ns.cloudflare.com | `arepazo.ch` |
+| personal | `brenda` / `wesley`.ns.cloudflare.com | the ten Infomaniak domains, plus `wundexpertinplus.com` (registered at GoDaddy and managed by its owner) |
+| arepazo | `abdullah` / `fish`.ns.cloudflare.com | `arepazo.ch` (registered and managed by its owner) |
 
 Both providers are aliased and there is deliberately **no default provider**, so every
 resource has to name its account. Getting it wrong is a configuration error rather than
