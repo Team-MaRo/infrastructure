@@ -17,6 +17,7 @@ kubernetes/
 │       ├── hcloud-csi.yaml    # persistent volumes
 │       ├── openbao.yaml       # the secret store: Helm chart pinned here, values in components/
 │       ├── external-secrets.yaml  # delivers OpenBao values as Kubernetes Secrets
+│       ├── system-upgrade-controller.yaml  # upgrades k3s on the nodes
 │       ├── etcd-snapshots.yaml    # syncs the subdirectory below
 │       └── etcd-snapshots/        # prod-only: the S3 settings k3s uploads snapshots with
 └── components/                # how each component is deployed, shared by clusters
@@ -29,9 +30,12 @@ kubernetes/
     │   └── patches/reclaim-retain.yaml
     ├── openbao/
     │   └── values.yaml        # Helm values: one replica, Raft storage, static seal
-    └── external-secrets/
-        ├── kustomization.yaml
-        └── cluster-secret-store.yaml  # the store named openbao
+    ├── external-secrets/
+    │   ├── kustomization.yaml
+    │   └── cluster-secret-store.yaml  # the store named openbao
+    └── system-upgrade-controller/
+        ├── kustomization.yaml     # pinned release manifests
+        └── plan.yaml              # which k3s version, when, one node at a time
 ```
 
 Components are Kustomize over a pinned upstream manifest where upstream publishes one.
@@ -243,6 +247,30 @@ k3s server --cluster-reset --cluster-reset-restore-path=<snapshot name> \
   --etcd-s3-region=nbg1 --etcd-s3-bucket=d3strukt0r-prod-etcd \
   --etcd-s3-access-key=<admin key> --etcd-s3-secret-key=<admin secret>
 ```
+
+## k3s upgrades
+
+The system-upgrade-controller upgrades k3s on every node by itself, following the channel
+in `components/system-upgrade-controller/plan.yaml`: one node at a time, cordoned, daily
+between 03:00 and 06:00 Zurich time.
+
+```shell
+kubectl --context d3strukt0r-prod-admin -n system-upgrade get plan server -o wide   # the version it aims for
+kubectl --context d3strukt0r-prod-admin -n system-upgrade get jobs                 # one per node and upgrade
+kubectl --context d3strukt0r-prod-admin get nodes                                  # versions, SchedulingDisabled
+```
+
+A node left `SchedulingDisabled` after a failed Job: read the Job's log, fix the cause, then
+`kubectl uncordon <node>`.
+
+The channel is `v1.37` until `stable` reaches 1.37, then `stable`:
+
+```shell
+curl -s https://update.k3s.io/v1-release/channels | jq -r '.data[] | select(.id=="stable") | .latest'
+```
+
+Until the switch, moving to the next minor is changing the channel to the next one - one
+minor at a time, after checking that the Hetzner CSI driver supports it.
 
 ## How quickly a push arrives
 

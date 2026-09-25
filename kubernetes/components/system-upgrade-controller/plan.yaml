@@ -1,0 +1,35 @@
+---
+# Every server - all nodes are servers, so there is no agent Plan - one at a time, cordoned
+# but not drained: restarting k3s leaves running pods alone, so evicting them would only
+# move volumes around for nothing.
+apiVersion: upgrade.cattle.io/v1
+kind: Plan
+metadata:
+  name: server
+  namespace: system-upgrade
+  annotations:
+    # The CRD arrives in the same sync.
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  concurrency: 1
+  cordon: true
+  nodeSelector:
+    matchExpressions:
+      - key: node-role.kubernetes.io/control-plane
+        operator: In
+        values: ["true"]
+  serviceAccountName: system-upgrade
+  upgrade:
+    image: rancher/k3s-upgrade
+  # Patch releases of 1.37. Not stable yet: stable is still on 1.36, and k3s-upgrade refuses
+  # to downgrade - the Job fails and leaves the node cordoned. Switch to
+  # https://update.k3s.io/v1-release/channels/stable once stable reaches 1.37. Until then a
+  # minor upgrade is changing this line, never skipping a minor.
+  channel: https://update.k3s.io/v1-release/channels/v1.37
+  # After the scheduled etcd snapshot at 00:00 UTC, so every upgrade starts from a fresh one
+  # in Object Storage. Jobs start only inside the window but may run past its end.
+  window:
+    days: [monday, tuesday, wednesday, thursday, friday, saturday, sunday]
+    startTime: "03:00"
+    endTime: "06:00"
+    timeZone: Europe/Zurich
