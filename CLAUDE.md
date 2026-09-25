@@ -403,8 +403,12 @@ group to roles in one playbook per type; neither uses conditional `*_enabled` ga
   but `ansible_host` stays the public address - a laptop cannot route to `10.0.0.0/24`.
 - **Its token comes from `tofu/hcloud/terraform.tfvars`** via a `lookup`, rather than a
   second copy or an environment variable. `HCLOUD_TOKEN` overrides it if that breaks.
-- **No `requirements.yml` install is needed.** The `ansible` package bundles
-  `ansible.posix`, `community.general` and `hetzner.hcloud`; that file records floors.
+- **Run `ansible-galaxy collection install -r requirements.yml` once.** The `ansible`
+  package bundles `ansible.posix`, `community.general` and `hetzner.hcloud`, but its
+  hetzner.hcloud 6.12 prints a `hcloud_datacenter` deprecation warning for every server on
+  every run - unconditionally, although nothing here uses that variable. 7.0 removed it, so
+  `requirements.yml` requires `>=7.0.0`; the install lands in `.collections/`, which takes
+  precedence over the bundle.
 - **Host key checking is on**, because these nodes are on the public internet.
 
 ### The k3s role, and why it is two plays
