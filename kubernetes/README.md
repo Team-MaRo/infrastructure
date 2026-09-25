@@ -18,6 +18,7 @@ kubernetes/
 │       ├── openbao.yaml       # the secret store: Helm chart pinned here, values in components/
 │       ├── external-secrets.yaml  # delivers OpenBao values as Kubernetes Secrets
 │       ├── system-upgrade-controller.yaml  # upgrades k3s on the nodes
+│       ├── kured.yaml             # reboots nodes after kernel updates
 │       ├── etcd-snapshots.yaml    # syncs the subdirectory below
 │       └── etcd-snapshots/        # prod-only: the S3 settings k3s uploads snapshots with
 └── components/                # how each component is deployed, shared by clusters
@@ -33,6 +34,8 @@ kubernetes/
     ├── external-secrets/
     │   ├── kustomization.yaml
     │   └── cluster-secret-store.yaml  # the store named openbao
+    ├── kured/
+    │   └── kustomization.yaml     # pinned release manifest plus the reboot window
     └── system-upgrade-controller/
         ├── kustomization.yaml     # pinned release manifests
         └── plan.yaml              # which k3s version, when, one node at a time
@@ -271,6 +274,25 @@ curl -s https://update.k3s.io/v1-release/channels | jq -r '.data[] | select(.id=
 
 Until the switch, moving to the next minor is changing the channel to the next one - one
 minor at a time, after checking that the Hetzner CSI driver supports it.
+
+## Reboots
+
+kured reboots a node when a kernel update asks for it (`/var/run/reboot-required`), one
+node at a time and only between 04:30 and 06:00 Zurich time: cordon, drain, reboot,
+uncordon.
+
+```shell
+kubectl --context d3strukt0r-prod-admin -n kube-system logs -l name=kured --prefix   # all three nodes
+```
+
+To test it, or to have a node rebooted in the next window without a kernel update, create
+the file yourself:
+
+```shell
+ssh prod-03 sudo touch /var/run/reboot-required
+```
+
+`/var/run` is a tmpfs, so the file disappears with the reboot.
 
 ## How quickly a push arrives
 

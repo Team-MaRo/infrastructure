@@ -1,0 +1,23 @@
+---
+# Coordinated reboots after kernel updates for this cluster, from kubernetes/components/kured.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kured
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Team-MaRo/infrastructure.git
+    targetRevision: master
+    path: kubernetes/components/kured
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      # Not required here; used for consistency, as in hcloud-csi.yaml.
+      - ServerSideApply=true

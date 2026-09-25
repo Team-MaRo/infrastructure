@@ -1,0 +1,31 @@
+---
+# kured reboots a node when a kernel update has left /var/run/reboot-required behind - one
+# node at a time (cordon, drain, reboot, uncordon), coordinated through a lock on its own
+# DaemonSet, so etcd never loses more than one member.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  # Pinned to a release; bumping this line is the upgrade. Everything lands in kube-system.
+  - https://github.com/kubereboot/kured/releases/download/1.23.0/kured-1.23.0-combined.yaml
+
+patches:
+  - target:
+      kind: DaemonSet
+      name: kured
+    # Last in the night's order - after k3s upgrades (02:30-03:30) and OS updates (03:30) -
+    # and done by 06:00. The sentinel is checked every 10 minutes rather than the default
+    # hour, so all three nodes fit into the 90 minutes if one kernel reached them all.
+    patch: |-
+      - op: add
+        path: /spec/template/spec/containers/0/command/-
+        value: --start-time=04:30
+      - op: add
+        path: /spec/template/spec/containers/0/command/-
+        value: --end-time=06:00
+      - op: add
+        path: /spec/template/spec/containers/0/command/-
+        value: --time-zone=Europe/Zurich
+      - op: add
+        path: /spec/template/spec/containers/0/command/-
+        value: --period=10m

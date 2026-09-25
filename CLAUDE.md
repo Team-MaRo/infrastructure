@@ -673,6 +673,7 @@ etcd members at once. All times are Europe/Zurich; the nodes' clocks stay on UTC
 | 02:00 (01:00 in winter) | etcd snapshot (00:00 UTC, k3s's schedule) |
 | 02:30-03:30 | k3s upgrades (system-upgrade-controller Plan window) |
 | 03:30 + up to 15 min | OS updates (unattended-upgrades) |
+| 04:30-06:00 | reboots by kured, only where a kernel update asks for one |
 
 **OS updates** come from the Hetzner Debian image itself: `unattended-upgrades` is enabled
 and installs from Debian and Debian-Security. `ansible/roles/os_updates` only moves its
@@ -681,6 +682,22 @@ with a drop-in, `/etc/systemd/system/apt-daily-upgrade.timer.d/50-ansible.conf`;
 evaluates the time zone in `OnCalendar` itself. `apt-daily.timer`, which refreshes the
 package lists twice a day, is left alone. Debian's `Automatic-Reboot` stays off: it would
 reboot every node at the same time.
+
+**Reboots are kured's** (`kubernetes/components/kured/`, pinned release manifest 1.23.0, in
+`kube-system`). A kernel update leaves `/var/run/reboot-required` behind - written by
+unattended-upgrades' hook in `/etc/kernel/postinst.d/` - and kured, checking every 10
+minutes inside its window, takes a lock on its own DaemonSet, cordons and **drains** the
+node, reboots it and uncordons it once it is back; then the next node may take the lock.
+
+- **Drain, unlike the k3s upgrade.** A reboot does stop every container, so pods are
+  evicted first. OpenBao moves to another node and its volume re-attaches there, so it is
+  briefly unavailable; External Secrets only delays refreshes meanwhile.
+- **A drain that cannot finish blocks the reboot** (no `--force-reboot`), and nothing ever
+  times it out (`--drain-timeout` 0): a PodDisruptionBudget allowing no disruption keeps the
+  node cordoned and waiting. `kubectl -n kube-system logs -l name=kured` shows it.
+- **Only kernels set the sentinel.** A host service using an updated library keeps the old
+  copy until it restarts - there is no `needrestart` on these nodes - but containers bring
+  their own libraries anyway, so this only concerns the few host daemons.
 
 ### What a second cluster would need
 
