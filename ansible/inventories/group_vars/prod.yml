@@ -25,7 +25,7 @@ k3s_init_node: prod-01
 # Where secrets.yml reads bootstrap secrets from. Two 1Password accounts are signed in on
 # the admin's machine, so the account is pinned rather than left to op's default.
 onepassword_account: my.1password.com
-onepassword_vault: Server
+onepassword_vault: Private
 
 # The Secrets secrets.yml writes - only what the cluster needs before OpenBao can supply
 # secrets itself. Each value is one field of one 1Password item.
