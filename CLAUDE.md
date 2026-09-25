@@ -364,9 +364,11 @@ and maintains these for Workers routes. They imported cleanly, but if a Worker r
 changes Cloudflare rewrites them and a plan will report drift that nothing in this repo
 caused. Do not "fix" that drift blindly - check the Workers config first.
 
-`_acme-challenge.portainer.d3strukt0r.dev` exists twice (`f6b035be` from 2026-08-31 and
-`1a87e754` from 2024-05-17, both TTL 120), leftovers from ACME validation. Both are
-imported so the plan stays clean; removing the stale one is a deliberate change.
+**`_acme-challenge` records are never imported.** They are DNS-01 challenge tokens: an ACME
+client creates one, Let's Encrypt reads it once, and the client should delete it again. Two
+leftovers for `portainer.d3strukt0r.dev` (from 2024-05-17 and 2026-08-31) had been imported
+to keep the plan clean and were then deleted on purpose. Once cert-manager runs it creates
+and removes these records itself; OpenTofu must not track them.
 
 ### Two zones have no delegation check, on purpose
 

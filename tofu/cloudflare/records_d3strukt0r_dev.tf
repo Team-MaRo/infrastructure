@@ -134,32 +134,6 @@ resource "cloudflare_dns_record" "d3strukt0r_dev_mx_apex_2" {
   settings = {}
 }
 
-resource "cloudflare_dns_record" "d3strukt0r_dev_txt_acme_challenge_portainer" {
-  provider = cloudflare.personal
-
-  content  = "\"MyBjbveP1ARRoyTVAa44k5NfnWm0Jb5Npe1TGIBZyqI\""
-  name     = "_acme-challenge.portainer.d3strukt0r.dev"
-  proxied  = false
-  tags     = []
-  ttl      = 120
-  type     = "TXT"
-  zone_id  = local.zone_ids["d3strukt0r.dev"]
-  settings = {}
-}
-
-resource "cloudflare_dns_record" "d3strukt0r_dev_txt_acme_challenge_portainer_2" {
-  provider = cloudflare.personal
-
-  content  = "\"cA-vwoFtEbGds71F-aUfCqj2gAJydjMb_LvbeSe3lU4\""
-  name     = "_acme-challenge.portainer.d3strukt0r.dev"
-  proxied  = false
-  tags     = []
-  ttl      = 120
-  type     = "TXT"
-  zone_id  = local.zone_ids["d3strukt0r.dev"]
-  settings = {}
-}
-
 resource "cloudflare_dns_record" "d3strukt0r_dev_txt_atproto" {
   provider = cloudflare.personal
 
