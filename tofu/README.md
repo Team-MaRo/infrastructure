@@ -265,9 +265,21 @@ resource has to name its account. Getting it wrong is a configuration error rath
 a silent write to the wrong zone.
 
 It manages the zones, every DNS record, and six security and TLS zone settings
-(`ssl`, `always_use_https`, `min_tls_version`, `automatic_https_rewrites`, `tls_1_3`,
-`security_level`). Page rules, WAF, Workers and the remaining ~54 zone settings stay in
-the dashboard.
+(`ssl_automatic_mode`, `always_use_https`, `min_tls_version`, `automatic_https_rewrites`,
+`tls_1_3`, `security_level`). Page rules, WAF, Workers and the remaining ~54 zone settings
+stay in the dashboard.
+
+The SSL mode itself (`ssl`: flexible, full, strict) is **not** managed. Every zone uses
+Automatic SSL/TLS: Cloudflare scans the origin and picks the strictest mode that works, so
+`ssl` is only the latest scan's result. Writing it would switch the zone to manual mode;
+managing `ssl_automatic_mode = "auto"` instead makes such a switch visible as drift. Every
+zone requires TLS 1.2 from visitors.
+
+What the scanner has chosen is still visible, read-only, through the `ssl_modes` output:
+
+```sh
+tofu output ssl_modes
+```
 
 ### Running it
 

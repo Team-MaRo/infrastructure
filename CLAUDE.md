@@ -339,6 +339,18 @@ split is decorative.
 
 Things that will bite:
 
+- **`ssl` is not managed; `ssl_automatic_mode = "auto"` is.** Every zone uses Automatic
+  SSL/TLS, so `ssl` is the scanner's current result and changes on its own; a plan writing it
+  would switch the zone to manual mode. `d3st.dev`, `d3st.org` and `d3strukt0r.me` are on
+  `flexible` by the scanner's choice and **loop with `301`s**: their web records point at
+  `prod.d3strukt0r.dev` (the old DigitalOcean server, `161.35.16.9`), whose Traefik
+  redirects HTTP to HTTPS but has no HTTPS route for these names. Left as is until they are
+  served by the cluster with cert-manager, where the scanner will pick `strict` by itself.
+- **Destroying a `cloudflare_zone_setting` only removes it from state** - the provider's
+  Delete is a no-op and it says so in the plan. Dropping a setting from `local.zone_settings`
+  therefore shows as destroys that change nothing in Cloudflare (the switch from `ssl` to
+  `ssl_automatic_mode` did exactly that). A `removed` block cannot do it instead: it cannot
+  address single `for_each` instances.
 - The provider is **v5**, which was regenerated from Cloudflare's OpenAPI spec. The
   resource is `cloudflare_dns_record`; the v4 name `cloudflare_record` is gone, so most
   examples found online do not apply.
