@@ -1,0 +1,24 @@
+---
+# The Secret k3s uploads etcd snapshots with, delivered by External Secrets. Its manifest
+# lives in the subdirectory, not in components/, because the bucket is this cluster's own.
+#
+# No CreateNamespace: kube-system belongs to k3s, and this Application only owns its
+# ExternalSecret.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: etcd-snapshots
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Team-MaRo/infrastructure.git
+    targetRevision: master
+    path: kubernetes/clusters/prod/etcd-snapshots
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

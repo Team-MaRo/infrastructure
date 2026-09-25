@@ -34,7 +34,14 @@ k3s_server_args:
 # node's own disk - lost with the node and competing with the OS for 40 GB. Disabled, k3s
 # uninstalls it and deletes its manifest. Persistent volumes are to come from Hetzner
 # Volumes instead.
+#
+# etcd-s3 uploads every snapshot (00:00 and 12:00, 5 kept per node) to Object Storage as
+# well. All S3 settings come from the named Secret in kube-system, which External Secrets
+# fills from OpenBao; setting any other etcd-s3-* option here would make k3s ignore it. A
+# restore cannot read the Secret - see CLAUDE.md for what it needs instead.
 k3s_config:
   disable:
     - local-storage
+  etcd-s3: true
+  etcd-s3-config-secret: k3s-etcd-snapshot-s3-config
 

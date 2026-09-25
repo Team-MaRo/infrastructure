@@ -16,7 +16,9 @@ kubernetes/
 │       ├── argocd.yaml        # Argo CD managing its own installation
 │       ├── hcloud-csi.yaml    # persistent volumes
 │       ├── openbao.yaml       # the secret store: Helm chart pinned here, values in components/
-│       └── external-secrets.yaml  # delivers OpenBao values as Kubernetes Secrets
+│       ├── external-secrets.yaml  # delivers OpenBao values as Kubernetes Secrets
+│       ├── etcd-snapshots.yaml    # syncs the subdirectory below
+│       └── etcd-snapshots/        # prod-only: the S3 settings k3s uploads snapshots with
 └── components/                # how each component is deployed, shared by clusters
     ├── argocd/                # pinned upstream install.yaml plus patches
     │   ├── kustomization.yaml
@@ -199,6 +201,48 @@ spec:
 
 The store may read all of `secret/`, so every namespace that references it reaches every
 value - fine while one admin runs the cluster.
+
+## etcd snapshots
+
+k3s uploads its twice-daily etcd snapshots to the bucket `d3strukt0r-prod-etcd` with the
+cluster's own S3 key. The ExternalSecret in `clusters/prod/etcd-snapshots/` builds Secret
+`kube-system/k3s-etcd-snapshot-s3-config` from it; `k3s_config` in Ansible points k3s at
+that Secret.
+
+Setting it up, or replacing the key:
+
+1. Create an S3 key in the Hetzner console, labelled `prod etcd snapshots`, and store it in
+   1Password as `Hetzner | S3 | prod etcd snapshots` (access key as username, secret key as
+   credential).
+2. With the port-forward to OpenBao open and `BAO_TOKEN` set (see `tofu/README.md`), copy it
+   over - the values never appear in shell history:
+
+   ```shell
+   bao kv put secret/etcd-snapshot-s3 \
+     access-key="$(op item get 'Hetzner | S3 | prod etcd snapshots' --account my.1password.com --vault Private --fields username)" \
+     secret-key="$(op item get 'Hetzner | S3 | prod etcd snapshots' --account my.1password.com --vault Private --fields credential --reveal)"
+   ```
+3. External Secrets refreshes the Secret within its interval; k3s reads it at the next
+   snapshot.
+
+Taking one by hand and listing them:
+
+```shell
+ssh prod-01 sudo k3s etcd-snapshot save
+ssh prod-01 sudo k3s etcd-snapshot ls
+kubectl --context d3strukt0r-prod-admin get etcdsnapshotfiles
+```
+
+**A restore cannot read the Secret**, since the apiserver is down. It needs the S3 settings
+as flags and the server token from 1Password (`k3s | Prod | Server token`); see the
+[k3s docs](https://docs.k3s.io/cli/etcd-snapshot) for the full procedure:
+
+```shell
+k3s server --cluster-reset --cluster-reset-restore-path=<snapshot name> \
+  --token=<server token> --etcd-s3 --etcd-s3-endpoint=nbg1.your-objectstorage.com \
+  --etcd-s3-region=nbg1 --etcd-s3-bucket=d3strukt0r-prod-etcd \
+  --etcd-s3-access-key=<admin key> --etcd-s3-secret-key=<admin secret>
+```
 
 ## How quickly a push arrives
 

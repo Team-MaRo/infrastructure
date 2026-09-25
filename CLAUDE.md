@@ -612,6 +612,30 @@ upstreams: chart pinned in the cluster's Application, values in `components/`.
   with its own token. It only sets what differs from the CRD defaults (`version` v2 and
   `mountPath` kubernetes are defaults).
 
+### etcd snapshots go to Object Storage
+
+k3s takes its scheduled snapshots (00:00 and 12:00, 5 kept per node, so about 2.5 days
+across 3 x 5 files) onto each server's disk and uploads each to `d3strukt0r-prod-etcd`.
+
+- **All S3 settings come from Secret `kube-system/k3s-etcd-snapshot-s3-config`.**
+  `k3s_config` sets only `etcd-s3: true` and `etcd-s3-config-secret`; per k3s's docs, **any
+  other `etcd-s3-*` flag makes it ignore the Secret.** The Secret is built by the
+  ExternalSecret in `kubernetes/clusters/prod/etcd-snapshots/` (Application
+  `etcd-snapshots`, in the cluster directory rather than `components/` because the bucket
+  is prod's): endpoint, region `nbg1` and bucket in git, the cluster's own S3 key from
+  OpenBao `secret/etcd-snapshot-s3` (`access-key`, `secret-key`). That key is kept in
+  1Password (`Hetzner | S3 | prod etcd snapshots`) and copied into OpenBao with `bao kv put`
+  (command in `kubernetes/README.md`); a restore uses the admin key instead. Console label
+  `prod etcd snapshots`.
+- **k3s's pruning only adds delete markers** on this versioned bucket; each version stays
+  locked 7 days and the lifecycle rule removes it afterwards. The cluster key cannot bypass
+  the lock or touch the tfstate bucket (the bucket policies, see "Object Storage").
+- **A restore cannot use the Secret** - the apiserver is not running then. It takes the S3
+  settings as CLI flags (`--etcd-s3-endpoint`, `--etcd-s3-region`, `--etcd-s3-bucket`,
+  keys from the `d3strukt0r-hetzner` profile) **and the original server token**, which
+  decrypts the bootstrap data inside the snapshot. The token is in 1Password,
+  `k3s | Prod | Server token`, copied from `/var/lib/rancher/k3s/server/token`.
+
 ### What a second cluster would need
 
 `kubernetes/` is already laid out per cluster, because once Argo CD is bootstrapped its

@@ -1,6 +1,6 @@
 # Off-node copies of the prod cluster's etcd snapshots. k3s takes them twice a day onto
-# each server's own disk - the disk they are meant to protect. Uploads start once the
-# cluster has its own key, delivered through OpenBao.
+# each server's own disk - the disk they are meant to protect - and uploads each one here
+# with the cluster's own key, delivered through OpenBao.
 #
 # The name carries the account prefix because bucket names are unique across all Hetzner
 # customers, and it can never be changed.
@@ -49,7 +49,7 @@ resource "minio_s3_bucket_lifecycle" "prod_etcd" {
   }
 }
 
-# Other keys - the cluster's, once it has one - may upload, read and delete, which on this
+# Other keys - the cluster's among them - may upload, read and delete, which on this
 # bucket only adds a delete marker, so k3s's own pruning works. What stays with the admin
 # key is everything that could destroy a locked version or loosen the rules protecting it.
 resource "minio_s3_bucket_policy" "prod_etcd" {
