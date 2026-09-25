@@ -131,7 +131,7 @@ a step. Patch releases within a minor need nothing special.
 The secret store. One replica with Raft storage on a Hetzner Volume, unsealed on every start
 by a static seal key from Secret `openbao/openbao-seal` - not in git; `ansible/secrets.yml`
 writes it from 1Password. OpenBao's own configuration (secrets engines, auth, policies) is
-`tofu/openbao`.
+`tofu/openbao` - see [`../tofu/README.md`](../tofu/README.md).
 
 ### First install
 

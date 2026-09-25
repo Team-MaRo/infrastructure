@@ -11,13 +11,14 @@ declarative infrastructure.
 
 - `tofu/hcloud/` - the Hetzner Cloud layer
 - `tofu/objectstorage/` - the Object Storage buckets (etcd snapshots, tfstate) and their policies
+- `tofu/openbao/` - OpenBao's own configuration: secrets engine, Kubernetes auth, policies
 - `tofu/infomaniak/` - registrar-side delegation and DNSSEC checks
 - `tofu/cloudflare/` - both Cloudflare accounts, zones, records and TLS settings
 - `cloud-init/node.yaml` - node bootstrap, consumed over HTTPS (see below)
 - `ansible/` - configures the running nodes, installs k3s, bootstraps Argo CD
 - `kubernetes/` - what runs on the cluster, deployed by Argo CD from `master`
 
-Each of the four tofu directories is a **separate root module with its own state key**
+Each of the five tofu directories is a **separate root module with its own state key**
 in the same bucket. They are deliberately independent: none can break another's plan,
 and each needs only its own credentials.
 
@@ -31,12 +32,13 @@ index.
 No credential is ever exported by hand, and no value belongs in a `.tf` file. Each
 module reads its own token from a gitignored `terraform.tfvars` next to its `.tf` files:
 `hcloud_token` for hcloud, `infomaniak_token` for infomaniak, the two
-`cloudflare_token_*` for cloudflare, and only `project_id` for objectstorage, which reads
-its key from the backend profile (see "Object Storage" below). The hcloud file also carries `admin_ips`, which is not a secret but is a
-home address, and this repo is public. Every module ships a `terraform.tfvars.example`.
+`cloudflare_token_*` for cloudflare, `openbao_token` for openbao, and only `project_id` for
+objectstorage, which reads its key from the backend profile (see "Object Storage" below).
+The hcloud file also carries `admin_ips`, which is not a secret but is a home address, and
+this repo is public. Every module ships a `terraform.tfvars.example`.
 
 The **backend** is the exception. Backend blocks cannot interpolate, so no variable can
-supply the Object Storage keys. All four therefore carry
+supply the Object Storage keys. All five therefore carry
 `profile = "d3strukt0r-hetzner"` and read them from `~/.aws/credentials`. The profile
 name is account-scoped on purpose - profiles are global to `~/.aws`, so a bare
 `hetzner` would collide with any second Hetzner account. If a plan cannot reach the
@@ -48,7 +50,7 @@ rather than relying on the provider's own `HCLOUD_TOKEN` lookup, so all modules
 get their credentials the same way.
 
 ```sh
-cd tofu/hcloud         # or tofu/objectstorage, tofu/infomaniak, tofu/cloudflare
+cd tofu/hcloud         # or tofu/objectstorage, tofu/openbao, tofu/infomaniak, tofu/cloudflare
 tofu fmt            # must produce no output
 tofu validate
 tofu init
@@ -571,6 +573,14 @@ upstreams: chart pinned in the cluster's Application, values in `components/`.
 - **`tls_disable = 1`** on the listener until cert-manager exists - a known gap: traffic to
   OpenBao crosses the private network unencrypted.
 - The injector is off; secrets reach workloads through External Secrets.
+- **Its configuration is `tofu/openbao`**: the KV v2 engine `secret/`, Kubernetes auth, and
+  the `external-secrets` policy and role. OpenBao is cluster-internal, so that module reaches
+  it through `kubectl port-forward svc/openbao 8200:8200` and authenticates with the root
+  token from its gitignored tfvars until an admin login exists. Secret **values** never go
+  through OpenTofu - they would land in state - but in with `bao kv put`. The ESO policy reads
+  all of `secret/`, so every namespace referencing the ClusterSecretStore reaches every value:
+  fine for a single-admin cluster, to be narrowed per namespace once others deploy. Audit
+  devices, if wanted, belong in the server config, not the API.
 
 ### What a second cluster would need
 

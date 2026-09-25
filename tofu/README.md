@@ -1,12 +1,13 @@
 # tofu
 
-Four independent root modules, each with its own state key in the Hetzner Object
+Five independent root modules, each with its own state key in the Hetzner Object
 Storage bucket `d3strukt0r-tfstate` (nbg1), via the S3 backend with native locking:
 
 | Module | State key | What it manages |
 |---|---|---|
 | `hcloud` | `hcloud/terraform.tfstate` | the Hetzner Cloud project: the `prod` cluster's servers, network, firewall |
 | `objectstorage` | `objectstorage/terraform.tfstate` | the Object Storage buckets - etcd snapshots and this state bucket - and their policies |
+| `openbao` | `openbao/terraform.tfstate` | OpenBao's configuration: the `secret/` engine, Kubernetes auth, policies and roles |
 | `infomaniak` | `infomaniak/terraform.tfstate` | registrar delegation and DNSSEC checks |
 | `cloudflare` | `cloudflare/terraform.tfstate` | both Cloudflare accounts |
 
@@ -23,6 +24,7 @@ Storage keys from an AWS profile.
 |---|---|
 | `hcloud/terraform.tfvars` | `hcloud_token` |
 | `objectstorage/terraform.tfvars` | `project_id` - the key itself is read from the profile below |
+| `openbao/terraform.tfvars` | `openbao_token` - OpenBao's root token, for now |
 | `infomaniak/terraform.tfvars` | `infomaniak_token` |
 | `cloudflare/terraform.tfvars` | `cloudflare_token_personal`, `cloudflare_token_arepazo` |
 | `~/.aws/credentials`, profile `[d3strukt0r-hetzner]` | the Object Storage access key and secret |
@@ -175,6 +177,39 @@ aws --profile d3strukt0r-hetzner s3api delete-object --bucket d3strukt0r-prod-et
 ```
 
 `--version-id=<id>` with the `=`, because version IDs can start with `-`.
+
+## openbao
+
+OpenBao's own configuration - what the Helm values in `kubernetes/components/openbao/` do
+not cover: the KV v2 secrets engine at `secret/`, Kubernetes auth, and the policy and role
+External Secrets logs in with. Uses HashiCorp's `vault` provider; OpenBao keeps Vault's API.
+
+OpenBao is only reachable inside the cluster, so open a port-forward first and keep it
+running while you plan or apply:
+
+```sh
+kubectl --context d3strukt0r-prod-admin -n openbao port-forward svc/openbao 8200:8200
+```
+
+```sh
+cd openbao
+tofu init
+tofu plan
+```
+
+`openbao/terraform.tfvars` holds `openbao_token`: the initial root token from 1Password item
+`OpenBao | Prod | Recovery keys & root token`, until OpenBao has an admin login of its own.
+
+**Secret values never go through this module.** Anything OpenTofu writes lands in its state,
+so values are put in by hand:
+
+```sh
+BAO_ADDR=http://127.0.0.1:8200 \
+BAO_TOKEN="$(op read --account my.1password.com 'op://Server/OpenBao | Prod | Recovery keys & root token/Initial Root Token')" \
+  bao kv put secret/<path> key=value
+```
+
+The token is fetched per command, so it never sits in the shell's environment or history.
 
 ## infomaniak
 
