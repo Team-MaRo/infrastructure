@@ -664,6 +664,13 @@ rootless property: k3s's own `--rootless` mode is experimental and, per its docs
 multi-node rootless clusters are unsupported, so it is a single-node mode and not an
 option here.
 
+The installer script is pinned as well: the role fetches `install.sh` from the release's
+own tag (`raw.githubusercontent.com/k3s-io/k3s/<k3s_version>/install.sh`), not from
+`get.k3s.io`, which always serves the latest script, and checks it against
+`k3s_install_sha256` - it runs as root. **Bumping `k3s_version` means bumping
+`k3s_install_sha256` too**; the command to compute it is next to the value in
+`roles/k3s/defaults/main.yml`.
+
 Port 6443 is open to `var.admin_ips` only, applied in commit `40ffa27`. `admin_ips` has
 no default on purpose: an empty list makes an invalid rule, and a default would risk
 silently opening the API. So a plan stops and asks for a value until `admin_ips` is set in
