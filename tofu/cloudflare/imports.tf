@@ -183,16 +183,6 @@ import {
 }
 
 import {
-  to = cloudflare_dns_record.d3strukt0r_dev_txt_acme_challenge_portainer
-  id = "1a6f0bb01dc074c1a03af0f173aef29f/f6b035be5e090488b8fd9014a899e529"
-}
-
-import {
-  to = cloudflare_dns_record.d3strukt0r_dev_txt_acme_challenge_portainer_2
-  id = "1a6f0bb01dc074c1a03af0f173aef29f/1a87e754e562e545d7f3014a642ddcf0"
-}
-
-import {
   to = cloudflare_dns_record.d3strukt0r_dev_txt_atproto
   id = "1a6f0bb01dc074c1a03af0f173aef29f/8f1c00ae8e480174b16b4133b090dfb0"
 }
