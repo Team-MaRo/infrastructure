@@ -506,7 +506,7 @@ OpenBao can supply any - `kube-system/hcloud`, the CSI driver's Hetzner token, w
 OpenBao itself needs for its volumes, and `openbao/openbao-seal`, OpenBao's own seal key. The list is `cluster_secrets` in
 `inventories/group_vars/prod.yml`; each value is one field of one 1Password item in
 `onepassword_account` (`my.1password.com`, pinned because a second, work account is signed
-in too) and `onepassword_vault` (`Server`).
+in too) and `onepassword_vault` (`Private`).
 
 - **1Password is the bootstrap root of trust only.** The `op` CLI reads the values on the
   admin's machine (Touch ID prompt); nothing in the cluster talks to 1Password. There is no

@@ -205,7 +205,7 @@ so values are put in by hand:
 
 ```sh
 BAO_ADDR=http://127.0.0.1:8200 \
-BAO_TOKEN="$(op read --account my.1password.com 'op://Server/OpenBao | Prod | Recovery keys & root token/Initial Root Token')" \
+BAO_TOKEN="$(op read --account my.1password.com 'op://Private/OpenBao | Prod | Recovery keys & root token/Initial Root Token')" \
   bao kv put secret/<path> key=value
 ```
 
