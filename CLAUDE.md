@@ -602,6 +602,15 @@ upstreams: chart pinned in the cluster's Application, values in `components/`.
   all of `secret/`, so every namespace referencing the ClusterSecretStore reaches every value:
   fine for a single-admin cluster, to be narrowed per namespace once others deploy. Audit
   devices, if wanted, belong in the server config, not the API.
+- **External Secrets delivers the values** (`kubernetes/clusters/prod/external-secrets.yaml`:
+  chart `external-secrets` 2.11.0 pinned, plus `kubernetes/components/external-secrets/`
+  with the `ClusterSecretStore` `openbao`). `ServerSideApply=true` is required there - the
+  chart's CRDs exceed client-side apply's annotation limit - and the store carries
+  `SkipDryRunOnMissingResource=true` because its CRD arrives in the same sync. Release name
+  and namespace are both `external-secrets`, which yields exactly the service account the
+  OpenBao role is bound to; the store sets no `serviceAccountRef`, so the operator logs in
+  with its own token. It only sets what differs from the CRD defaults (`version` v2 and
+  `mountPath` kubernetes are defaults).
 
 ### What a second cluster would need
 

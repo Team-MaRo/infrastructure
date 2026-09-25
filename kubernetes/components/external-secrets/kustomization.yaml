@@ -1,0 +1,8 @@
+---
+# What this repo adds to the external-secrets Helm chart, which the cluster's Application
+# pins. The chart itself brings the operator and its CRDs.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - cluster-secret-store.yaml

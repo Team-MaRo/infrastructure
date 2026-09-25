@@ -15,7 +15,8 @@ kubernetes/
 │       ├── root.yaml          # syncs this directory - itself and every sibling
 │       ├── argocd.yaml        # Argo CD managing its own installation
 │       ├── hcloud-csi.yaml    # persistent volumes
-│       └── openbao.yaml       # the secret store: Helm chart pinned here, values in components/
+│       ├── openbao.yaml       # the secret store: Helm chart pinned here, values in components/
+│       └── external-secrets.yaml  # delivers OpenBao values as Kubernetes Secrets
 └── components/                # how each component is deployed, shared by clusters
     ├── argocd/                # pinned upstream install.yaml plus patches
     │   ├── kustomization.yaml
@@ -24,8 +25,11 @@ kubernetes/
     ├── hcloud-csi/            # Hetzner's CSI driver, pinned
     │   ├── kustomization.yaml
     │   └── patches/reclaim-retain.yaml
-    └── openbao/
-        └── values.yaml        # Helm values: one replica, Raft storage, static seal
+    ├── openbao/
+    │   └── values.yaml        # Helm values: one replica, Raft storage, static seal
+    └── external-secrets/
+        ├── kustomization.yaml
+        └── cluster-secret-store.yaml  # the store named openbao
 ```
 
 Components are Kustomize over a pinned upstream manifest where upstream publishes one.
@@ -163,6 +167,38 @@ bao status
 ```
 
 The UI is then at `http://127.0.0.1:8200/ui`.
+
+## External Secrets
+
+Workloads never talk to OpenBao. External Secrets reads values from it and writes ordinary
+Kubernetes Secrets, through one `ClusterSecretStore` named `openbao` - OpenBao's `secret/`
+engine, logged into with the operator's own service account (role `external-secrets` in
+`tofu/openbao`).
+
+A value goes into OpenBao by hand (see `tofu/README.md` for the port-forward and token), and
+an `ExternalSecret` next to the workload pulls it in:
+
+```yaml
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: example
+  namespace: example
+spec:
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: openbao
+  target:
+    name: example            # the Kubernetes Secret that gets created
+  data:
+    - secretKey: password    # key in the Kubernetes Secret
+      remoteRef:
+        key: example         # path under secret/, i.e. secret/example
+        property: password   # field of that OpenBao secret
+```
+
+The store may read all of `secret/`, so every namespace that references it reaches every
+value - fine while one admin runs the cluster.
 
 ## How quickly a push arrives
 

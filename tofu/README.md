@@ -205,11 +205,12 @@ so values are put in by hand:
 
 ```sh
 BAO_ADDR=http://127.0.0.1:8200 \
-BAO_TOKEN="$(op read --account my.1password.com 'op://Private/OpenBao | Prod | Recovery keys & root token/Initial Root Token')" \
+BAO_TOKEN="$(op item get 'OpenBao | Prod | Recovery keys & root token' --account my.1password.com --vault Private --fields credential --reveal)" \
   bao kv put secret/<path> key=value
 ```
 
 The token is fetched per command, so it never sits in the shell's environment or history.
+`op item get` rather than `op read`: `op://` references reject the `|` in the item title.
 
 ## infomaniak
 
