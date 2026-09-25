@@ -1,0 +1,13 @@
+---
+# Kyverno's background controller creates what a GeneratingPolicy generates, and its own
+# ClusterRole covers only a few kinds. The label aggregates these rules into it.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kyverno:background-controller:limitranges
+  labels:
+    rbac.kyverno.io/aggregate-to-background-controller: "true"
+rules:
+  - apiGroups: [""]
+    resources: [limitranges]
+    verbs: [get, list, watch, create, update, patch, delete]

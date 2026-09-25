@@ -1,0 +1,61 @@
+---
+# Gives every app namespace a LimitRange, so a container that sets no resources of its own
+# gets requests and limits anyway: it can neither fill a node's 40 GB disk nor eat its
+# memory. Defaults only, no max - an app that needs more sets resources on its containers,
+# which always win over these.
+#
+# No CPU limit on purpose: a CPU limit throttles a container even while the node sits idle,
+# whereas CPU requests already share it fairly under contention.
+apiVersion: policies.kyverno.io/v1
+kind: GeneratingPolicy
+metadata:
+  name: default-resources
+  annotations:
+    # The CRD is installed by the chart in the same sync.
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  evaluation:
+    # Namespaces created before this policy get one too.
+    generateExisting:
+      enabled: true
+    # The LimitRange follows edits to this policy and goes away with its namespace.
+    synchronize:
+      enabled: true
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: [v1]
+        operations: [CREATE]
+        resources: [namespaces]
+  # Infrastructure mostly sets no resources and would be OOM-killed at these limits (Argo
+  # CD's repo server, for one). A new infrastructure component adds its namespace here in
+  # the same commit that deploys it.
+  matchConditions:
+    - name: not-infrastructure
+      expression: >-
+        !(object.metadata.name in [
+          'kube-system', 'kube-public', 'kube-node-lease', 'default',
+          'argocd', 'openbao', 'external-secrets', 'system-upgrade', 'kyverno'
+        ])
+  variables:
+    - name: limitRange
+      expression: >-
+        [
+          {
+            "apiVersion": dyn("v1"),
+            "kind": dyn("LimitRange"),
+            "metadata": dyn({
+              "name": "default-resources",
+              "namespace": object.metadata.name
+            }),
+            "spec": dyn({
+              "limits": [{
+                "type": dyn("Container"),
+                "defaultRequest": dyn({"cpu": "50m", "memory": "64Mi", "ephemeral-storage": "50Mi"}),
+                "default": dyn({"memory": "256Mi", "ephemeral-storage": "1Gi"})
+              }]
+            })
+          }
+        ]
+  generate:
+    - expression: generator.Apply(object.metadata.name, variables.limitRange)

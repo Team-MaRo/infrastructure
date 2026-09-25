@@ -15,3 +15,8 @@ metadata:
 data:
   timeout.reconciliation: 60s
   timeout.reconciliation.jitter: 0s
+  # An aggregated ClusterRole (Kyverno's controllers use them) has its rules filled in by
+  # Kubernetes from other roles, so they never match git. Without this every such role
+  # shows as permanent drift. Read live, no restart needed.
+  resource.compareoptions: |
+    ignoreAggregatedRoles: true
