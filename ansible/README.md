@@ -8,7 +8,7 @@ node once at first boot, this keeps it configured from then on.
 ```
 ansible/
 ├── ansible.cfg
-├── requirements.yml          # version floors; the ansible package already satisfies them
+├── requirements.yml          # collection floors; install once (hetzner.hcloud 7 over the bundle)
 ├── site.yml                  # the whole estate: imports the playbooks below
 ├── prod.yml                  # hosts: prod  ->  roles
 ├── kubeconfig.yml            # fetches the admin credential; not part of site.yml
@@ -71,14 +71,18 @@ Role defaults are the weakest thing in Ansible (rank 2), so `group_vars/prod.yml
 brew install ansible
 ```
 
-That is enough. The `ansible` package bundles every collection used here -
-`ansible.posix` (sysctl, mount), `community.general` (filesize) and `hetzner.hcloud` (the
-dynamic inventory). `requirements.yml` records the versions this was written against, and
-can pin them under `.collections/` if you ever want reproducibility:
+The `ansible` package bundles every collection used here - `ansible.posix` (sysctl, mount),
+`community.general` (filesize) and `hetzner.hcloud` (the dynamic inventory). Install from
+`requirements.yml` once anyway:
 
 ```shell
 ansible-galaxy collection install -r requirements.yml
 ```
+
+The bundled hetzner.hcloud is 6.12, which prints a `hcloud_datacenter` deprecation warning
+for every server on every run, although nothing here uses that variable. 7.0 removed it, so
+`requirements.yml` requires `>=7.0.0`. The install goes to `.collections/`, which takes
+precedence over the bundle.
 
 Host key checking is **on** - these nodes are on the public internet. Seed
 `known_hosts` once:

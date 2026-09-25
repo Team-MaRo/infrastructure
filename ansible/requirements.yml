@@ -1,12 +1,12 @@
 ---
-# Version floors, not an installation requirement: the `ansible` package already bundles
-# all three. Installing from here pins them under .collections/, which then takes
-# precedence - useful for reproducibility, unnecessary to get started.
+# Installed into .collections/ (ansible.cfg's collections_path), which takes precedence over
+# the collections bundled with the `ansible` package:
 #
 #   ansible-galaxy collection install -r requirements.yml
 #
-# The floors are the versions this was written against. Check what you have with
-# `ansible-galaxy collection list`.
+# The bundle satisfies the first two floors. It does not satisfy hetzner.hcloud's: until
+# the `ansible` package ships 7.x, this install is what gets the inventory plugin past 6.12.
+# Check what is in use with `ansible-galaxy collection list`.
 collections:
   # sysctl, mount
   - name: ansible.posix
@@ -14,6 +14,7 @@ collections:
   # filesize
   - name: community.general
     version: ">=13.4.0"
-  # the Hetzner dynamic inventory plugin
+  # The Hetzner dynamic inventory plugin. 7.0 removed the hcloud_datacenter host variable;
+  # 6.12 warns about it on every run even though nothing here uses it.
   - name: hetzner.hcloud
-    version: ">=6.12.0"
+    version: ">=7.0.0"
