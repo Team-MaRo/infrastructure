@@ -27,6 +27,9 @@ ansible/
     │   └── tasks/main.yml    # diffs and server-side applies Secrets from 1Password
     ├── hostname/
     │   └── tasks/main.yml    # pins the hostname to the inventory name, for cloud-init
+    ├── os_updates/
+    │   ├── defaults/main.yml # when unattended-upgrades installs
+    │   └── tasks/main.yml    # a drop-in for apt-daily-upgrade.timer
     ├── k3s/
     │   ├── defaults/main.yml # version and server flags
     │   └── tasks/
@@ -138,6 +141,19 @@ inventory name (the current Hetzner name), which cloud-init then uses instead, a
 it immediately so the k3s role, which takes the node name from the hostname at install
 time, already sees it. Tagged `hostname`, so it can run on its own:
 `ansible-playbook prod.yml --tags hostname`.
+
+## The `os_updates` role
+
+The Hetzner Debian image already installs security and stable updates every day through
+`unattended-upgrades`. This role only moves *when*: a drop-in for `apt-daily-upgrade.timer`
+sets it to 03:30 Zurich time (plus up to 15 minutes), after the k3s upgrade window and
+before kured's reboot window - see "The night's maintenance order" in `CLAUDE.md`. Tagged
+`os_updates`:
+
+```shell
+ansible-playbook prod.yml --tags os_updates
+ssh prod-01 systemctl list-timers apt-daily-upgrade.timer   # next run, in UTC
+```
 
 ## The `k3s` role
 

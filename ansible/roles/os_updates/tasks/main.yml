@@ -1,0 +1,32 @@
+---
+# The Hetzner Debian image already runs unattended-upgrades daily (Debian and
+# Debian-Security). This only moves when it installs; Automatic-Reboot stays off, because
+# kured reboots one node at a time instead of all three at once.
+
+- name: Create the timer's drop-in directory
+  ansible.builtin.file:
+    path: /etc/systemd/system/apt-daily-upgrade.timer.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Schedule unattended-upgrades
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/apt-daily-upgrade.timer.d/50-ansible.conf
+    content: |
+      # Managed by Ansible (roles/os_updates).
+      [Timer]
+      # The empty assignment clears Debian's OnCalendar; without it both schedules would apply.
+      OnCalendar=
+      OnCalendar={{ os_updates_on_calendar }}
+      RandomizedDelaySec={{ os_updates_randomized_delay }}
+    owner: root
+    group: root
+    mode: "0644"
+  register: os_updates_timer
+
+- name: Reload systemd so the timer picks up the schedule
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+  when: os_updates_timer is changed

@@ -252,7 +252,7 @@ k3s server --cluster-reset --cluster-reset-restore-path=<snapshot name> \
 
 The system-upgrade-controller upgrades k3s on every node by itself, following the channel
 in `components/system-upgrade-controller/plan.yaml`: one node at a time, cordoned, daily
-between 03:00 and 06:00 Zurich time.
+between 02:30 and 03:30 Zurich time - before the nodes' OS updates at 03:30.
 
 ```shell
 kubectl --context d3strukt0r-prod-admin -n system-upgrade get plan server -o wide   # the version it aims for
