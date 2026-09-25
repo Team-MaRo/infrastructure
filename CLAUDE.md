@@ -650,9 +650,10 @@ never upgrades (`creates:`), and a new node catches up in the next window.
   switches to `stable`, which makes minor upgrades automatic too. Until then a minor is a
   one-line change to the channel, **never skipping a minor** (Kubernetes' skew policy).
   Before any minor, check that the Hetzner CSI driver supports it - its CI lagged by one.
-- **Window 03:00-06:00 Europe/Zurich, daily**, after the scheduled etcd snapshot at
-  00:00 UTC, so each upgrade starts with a fresh snapshot in Object Storage. The channel is
-  polled every 15 minutes; Jobs start only inside the window but may run past it.
+- **Window 02:30-03:30 Europe/Zurich, daily**, after the scheduled etcd snapshot at
+  00:00 UTC, so each upgrade starts with a fresh snapshot in Object Storage, and before the
+  OS updates (see "The night's maintenance order"). The channel is polled every 15 minutes;
+  Jobs start only inside the window but may run past it.
 - **One node at a time, cordoned but not drained.** Restarting k3s leaves running pods alone
   (the containerd shims survive), so a drain would only move volumes around. The API is
   briefly unavailable on each node; etcd keeps quorum with two of three.
@@ -660,6 +661,26 @@ never upgrades (`creates:`), and a new node catches up in the next window.
   the cause, then `kubectl uncordon <node>`.
 - The script exits early when the binary is already the target version, so re-running a
   Plan is harmless.
+
+### The night's maintenance order
+
+Everything that restarts or changes a node happens at night and is done by 06:00 Zurich
+time, in windows that never overlap - so an upgrade and a reboot can never take out two
+etcd members at once. All times are Europe/Zurich; the nodes' clocks stay on UTC.
+
+| Time | What |
+|---|---|
+| 02:00 (01:00 in winter) | etcd snapshot (00:00 UTC, k3s's schedule) |
+| 02:30-03:30 | k3s upgrades (system-upgrade-controller Plan window) |
+| 03:30 + up to 15 min | OS updates (unattended-upgrades) |
+
+**OS updates** come from the Hetzner Debian image itself: `unattended-upgrades` is enabled
+and installs from Debian and Debian-Security. `ansible/roles/os_updates` only moves its
+`apt-daily-upgrade.timer` (Debian's default is 06:00 on the node's clock plus up to an hour)
+with a drop-in, `/etc/systemd/system/apt-daily-upgrade.timer.d/50-ansible.conf`; systemd
+evaluates the time zone in `OnCalendar` itself. `apt-daily.timer`, which refreshes the
+package lists twice a day, is left alone. Debian's `Automatic-Reboot` stays off: it would
+reboot every node at the same time.
 
 ### What a second cluster would need
 

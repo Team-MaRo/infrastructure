@@ -26,10 +26,11 @@ spec:
   # https://update.k3s.io/v1-release/channels/stable once stable reaches 1.37. Until then a
   # minor upgrade is changing this line, never skipping a minor.
   channel: https://update.k3s.io/v1-release/channels/v1.37
-  # After the scheduled etcd snapshot at 00:00 UTC, so every upgrade starts from a fresh one
-  # in Object Storage. Jobs start only inside the window but may run past its end.
+  # First in the night's order, right after the scheduled etcd snapshot at 00:00 UTC, so
+  # every upgrade starts from a fresh one in Object Storage. OS updates follow at 03:30 and
+  # kured's reboots at 04:30; Jobs start only inside the window but may run past its end.
   window:
     days: [monday, tuesday, wednesday, thursday, friday, saturday, sunday]
-    startTime: "03:00"
-    endTime: "06:00"
+    startTime: "02:30"
+    endTime: "03:30"
     timeZone: Europe/Zurich
