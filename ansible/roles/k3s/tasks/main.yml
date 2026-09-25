@@ -65,8 +65,12 @@
       ansible.builtin.import_tasks: wait_ready.yml
 
 - name: Download the k3s installer
+  # From the release's own tag rather than get.k3s.io, which always serves the latest script:
+  # the installer then matches k3s_version, a re-run reports no change until the version is
+  # bumped, and a script that does not match the checksum - it runs as root - is refused.
   ansible.builtin.get_url:
-    url: https://get.k3s.io
+    url: "https://raw.githubusercontent.com/k3s-io/k3s/{{ k3s_version | urlencode }}/install.sh"
+    checksum: "sha256:{{ k3s_install_sha256 }}"
     dest: /usr/local/bin/k3s-install.sh
     mode: "0755"
 
