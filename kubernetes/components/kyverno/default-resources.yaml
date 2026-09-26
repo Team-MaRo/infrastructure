@@ -35,7 +35,7 @@ spec:
       expression: >-
         !(object.metadata.name in [
           'kube-system', 'kube-public', 'kube-node-lease', 'default',
-          'argocd', 'openbao', 'external-secrets', 'system-upgrade', 'kyverno'
+          'argocd', 'openbao', 'external-secrets', 'system-upgrade', 'kyverno', 'cert-manager'
         ])
   variables:
     - name: limitRange
