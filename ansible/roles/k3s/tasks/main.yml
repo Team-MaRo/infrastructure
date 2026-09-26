@@ -50,11 +50,37 @@
     mode: "0600"
   register: k3s_config_dropin
 
-- name: Restart k3s to apply the drop-in
-  # Only on a node that already runs k3s; a fresh install reads the file when it first
+- name: Write the Pod Security Admission configuration
+  # Read by the API server through admission-control-config-file in k3s_config, at start -
+  # so a change here restarts k3s just like a change to the drop-in.
+  ansible.builtin.copy:
+    content: |
+      # Managed by Ansible (roles/k3s).
+      apiVersion: apiserver.config.k8s.io/v1
+      kind: AdmissionConfiguration
+      plugins:
+        - name: PodSecurity
+          configuration:
+            apiVersion: pod-security.admission.config.k8s.io/v1
+            kind: PodSecurityConfiguration
+            defaults:
+              enforce: restricted
+              enforce-version: latest
+              audit: restricted
+              audit-version: latest
+              warn: restricted
+              warn-version: latest
+            exemptions:
+              namespaces: {{ k3s_psa_exempt_namespaces | to_json }}
+    dest: /etc/rancher/k3s/psa.yaml
+    mode: "0600"
+  register: k3s_psa
+
+- name: Restart k3s to apply the drop-in and the Pod Security configuration
+  # Only on a node that already runs k3s; a fresh install reads the files when it first
   # starts. Inline rather than a handler, so the node is back and ready before the play
   # moves on - with serial: 1, one server restarts at a time and etcd keeps its quorum.
-  when: k3s_config_dropin.changed and k3s_binary.stat.exists
+  when: (k3s_config_dropin.changed or k3s_psa.changed) and k3s_binary.stat.exists
   block:
     - name: Restart k3s
       ansible.builtin.systemd_service:

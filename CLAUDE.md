@@ -729,7 +729,8 @@ container without `resources` of its own still has requests and limits.
   `system-upgrade`, `kyverno`). Their components mostly set no resources and would be
   OOM-killed at 256Mi. **A new infrastructure component adds its namespace to that list in
   the commit that deploys it** - before its namespace exists, or the LimitRange is already
-  there.
+  there - **and to `k3s_psa_exempt_namespaces`** (see "Pod Security"), if it needs more
+  than the restricted standard allows.
 - **`GeneratingPolicy`, not `ClusterPolicy`**, which is deprecated since Kyverno's CEL-based
   policy types. `generateExisting` covers namespaces created before the policy;
   `synchronize` keeps the LimitRange in step with the policy and removes it with its
@@ -747,6 +748,31 @@ container without `resources` of its own still has requests and limits.
   match git. Argo CD's own defaults already exclude Kyverno's report kinds.
 - The policy was tested offline with the Kyverno CLI (`kyverno apply <policy> --resource
   <namespaces>`), which is the quickest way to try a change before pushing.
+
+### Pod Security
+
+Every namespace runs under the **restricted** Pod Security Standard, enforced by the API
+server itself (Pod Security Admission, built into Kubernetes) - not by Kyverno. A webhook
+policy fails open when Kyverno is down; the built-in admission cannot be down while the API
+server is up. `ansible/roles/k3s` writes `/etc/rancher/k3s/psa.yaml` (an
+`AdmissionConfiguration` with defaults `enforce`, `audit` and `warn` = `restricted`,
+version `latest`) and points the API server at it through `kube-apiserver-arg:
+admission-control-config-file=...` in `k3s_config` - the shape of k3s's own hardening
+guide. A change to the file restarts k3s one node at a time, like a drop-in change.
+
+- **Restricted means**, for every container: `runAsNonRoot`, `allowPrivilegeEscalation:
+  false`, `capabilities.drop: [ALL]` (only `NET_BIND_SERVICE` may be added back),
+  `seccompProfile: RuntimeDefault`, and no host namespaces, host paths or privileged mode.
+  A pod that misses one is rejected at creation, with the reasons in the error.
+- **Infrastructure namespaces are exempt** - `k3s_psa_exempt_namespaces` in the role's
+  defaults, the same list as the Kyverno policies' exclusions. Some of it must run
+  privileged: kured and the CSI driver in `kube-system`, the upgrade Jobs in
+  `system-upgrade`. The two lists live in two places (Ansible, and the policies in
+  `kubernetes/components/kyverno/`) and have to be kept in step by hand.
+- **The namespace label can override the default.** A namespace labelled
+  `pod-security.kubernetes.io/enforce: baseline` (or `privileged`) gets that instead, so
+  whoever may edit namespaces - today only the admin - can loosen it. Prefer adding a namespace to the exemption list over
+  a label, so every exception stays in one reviewed place.
 
 ### What a second cluster would need
 

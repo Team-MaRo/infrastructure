@@ -41,9 +41,30 @@ k3s_server_args:
 # well. All S3 settings come from the named Secret in kube-system, which External Secrets
 # fills from OpenBao; setting any other etcd-s3-* option here would make k3s ignore it. A
 # restore cannot read the Secret - see CLAUDE.md for what it needs instead.
+#
+# admission-control-config-file points the API server at the Pod Security configuration the
+# role writes next to this drop-in (see k3s_psa_exempt_namespaces).
 k3s_config:
   disable:
     - local-storage
   etcd-s3: true
   etcd-s3-config-secret: k3s-etcd-snapshot-s3-config
+  kube-apiserver-arg:
+    - admission-control-config-file=/etc/rancher/k3s/psa.yaml
+
+# Pod Security Admission enforces the restricted standard on every namespace except these.
+# They hold infrastructure, some of which must run privileged (kured and the CSI driver in
+# kube-system, the upgrade Jobs in system-upgrade). The same list excludes these namespaces
+# from the Kyverno policies in kubernetes/components/kyverno/ - keep the two in step: a new
+# infrastructure component goes onto both, in the commit that deploys it.
+k3s_psa_exempt_namespaces:
+  - kube-system
+  - kube-public
+  - kube-node-lease
+  - default
+  - argocd
+  - openbao
+  - external-secrets
+  - system-upgrade
+  - kyverno
 
