@@ -602,8 +602,10 @@ upstreams: chart pinned in the cluster's Application, values in `components/`.
   once and never edited, while the root token will be revoked and regenerated. There is no
   automation for this on purpose: it happens once per storage lifetime and its output must go
   straight into 1Password.
-- **`tls_disable = 1`** on the listener until cert-manager exists - a known gap: traffic to
-  OpenBao crosses the private network unencrypted.
+- **`tls_disable = 1`** on the listener. Traffic to OpenBao is still encrypted between
+  nodes, by the pod network's WireGuard tunnels (see "Pod traffic between nodes is
+  encrypted"); TLS on the listener would only add server authentication - clients could
+  verify they talk to the real OpenBao.
 - The injector is off; secrets reach workloads through External Secrets.
 - **Its configuration is `tofu/openbao`**: the KV v2 engine `secret/`, Kubernetes auth, and
   the `external-secrets` policy and role. OpenBao is cluster-internal, so that module reaches
@@ -749,6 +751,27 @@ policy `default-resources` gives every app namespace a LimitRange, so a containe
   match git. Argo CD's own defaults already exclude Kyverno's report kinds.
 - The policy was tested offline with the Kyverno CLI (`kyverno apply <policy> --resource
   <namespaces>`), which is the quickest way to try a change before pushing.
+
+### Pod traffic between nodes is encrypted
+
+k3s's pod network, Flannel, runs the `wireguard-native` backend (`flannel-backend` in
+`k3s_config`) instead of the default `vxlan`: every pair of nodes is joined by a WireGuard
+tunnel, interface `flannel-wg`, UDP 51820 over the private interface (`--flannel-iface`).
+Each node generates its own key pair and Flannel publishes the public keys as node
+annotations; nothing to manage. So all pod-to-pod traffic that leaves a node - External
+Secrets reading from OpenBao, later databases - is encrypted on the Hetzner private network,
+without TLS per service. The control plane (API server, kubelet, etcd) already used TLS.
+
+- **The Hetzner firewall needs nothing**: it applies to the public side, not the private
+  network the tunnels use.
+- **Flannel options must be identical on all servers**, and the backend must never be
+  changed casually: while nodes disagree, cross-node pod traffic breaks. The switch from
+  `vxlan` (2026-09-26) was a rolling `prod.yml` run and then a rolling reboot of each node,
+  which clears the old `flannel.1` interface and its routes. Going back is the same with
+  `vxlan`.
+- Check it with `ip -d link show flannel-wg` (type `wireguard`) on a node and the node
+  annotation `flannel.alpha.coreos.com/backend-type` (`wireguard`). `wg` and `tcpdump` are
+  not installed on the nodes.
 
 ### Pod Security
 

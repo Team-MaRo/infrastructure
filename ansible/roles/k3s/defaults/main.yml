@@ -44,11 +44,18 @@ k3s_server_args:
 #
 # admission-control-config-file points the API server at the Pod Security configuration the
 # role writes next to this drop-in (see k3s_psa_exempt_namespaces).
+#
+# flannel-backend wireguard-native encrypts pod traffic between nodes: Flannel builds a
+# WireGuard tunnel between every pair of nodes (UDP 51820, over the private interface)
+# instead of the unencrypted VXLAN default. Flannel options must be identical on all
+# servers, and switching a running cluster breaks cross-node pod traffic until the last node
+# has restarted - then reboot each node to clear the old flannel.1 interface.
 k3s_config:
   disable:
     - local-storage
   etcd-s3: true
   etcd-s3-config-secret: k3s-etcd-snapshot-s3-config
+  flannel-backend: wireguard-native
   kube-apiserver-arg:
     - admission-control-config-file=/etc/rancher/k3s/psa.yaml
 

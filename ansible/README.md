@@ -185,7 +185,9 @@ starts with them, and when the file changes on a node that already runs k3s it r
 there and waits until the API answers again. With `serial: 1` that is one server at a time,
 so etcd never loses its quorum. Today it holds `disable: [local-storage]` (k3s's local-path
 provisioner kept volumes on the node's own 40 GB disk, where they would die with the node),
-the etcd snapshot upload to S3, and the path to the Pod Security configuration.
+the etcd snapshot upload to S3, the WireGuard backend for the pod network
+(`flannel-backend: wireguard-native`, which encrypts pod traffic between nodes), and the
+path to the Pod Security configuration.
 
 That configuration, `/etc/rancher/k3s/psa.yaml`, is written by the same role and restarts
 k3s the same way when it changes. It enforces the restricted Pod Security Standard
