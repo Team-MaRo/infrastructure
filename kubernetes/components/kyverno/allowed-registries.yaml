@@ -24,15 +24,15 @@ spec:
         apiVersions: [v1]
         operations: [CREATE, UPDATE]
         resources: [pods]
-  # The same list as in default-resources.yaml and k3s_psa_exempt_namespaces in Ansible.
-  # Infrastructure pulls from further registries (reg.kyverno.io, for one), and a chart
+  # The same list as in default-resources.yaml (k3s_psa_exempt_namespaces in Ansible holds
+  # those that need more than the restricted standard). Infrastructure pulls from further registries (reg.kyverno.io, for one), and a chart
   # update that moves its images must not break a system component.
   matchConditions:
     - name: not-infrastructure
       expression: >-
         !(object.metadata.namespace in [
           'kube-system', 'kube-public', 'kube-node-lease', 'default',
-          'argocd', 'openbao', 'external-secrets', 'system-upgrade', 'kyverno'
+          'argocd', 'openbao', 'external-secrets', 'system-upgrade', 'kyverno', 'cert-manager'
         ])
   variables:
     # Kyverno's image library reports Docker Hub as index.docker.io - for "nginx",

@@ -25,6 +25,7 @@ kubernetes/
 │       ├── system-upgrade-controller.yaml  # upgrades k3s on the nodes
 │       ├── kured.yaml             # reboots nodes after kernel updates
 │       ├── kyverno.yaml           # policies: chart pinned here, values and policies in components/
+│       ├── cert-manager.yaml      # certificates from Let's Encrypt
 │       ├── etcd-snapshots.yaml    # syncs the subdirectory below
 │       └── etcd-snapshots/        # prod-only: the S3 settings k3s uploads snapshots with
 └── components/                # how each component is deployed, shared by clusters
@@ -40,6 +41,10 @@ kubernetes/
     ├── external-secrets/
     │   ├── kustomization.yaml
     │   └── cluster-secret-store.yaml  # the store named openbao
+    ├── cert-manager/
+    │   ├── kustomization.yaml     # pinned release manifest
+    │   ├── external-secret.yaml   # the two Cloudflare tokens from OpenBao
+    │   └── cluster-issuers.yaml   # letsencrypt-staging and letsencrypt
     ├── kured/
     │   └── kustomization.yaml     # pinned release manifest plus the reboot window
     ├── kyverno/
@@ -347,6 +352,47 @@ Images must come from `docker.io`, `ghcr.io`, `quay.io`, `registry.k8s.io` or
 `public.ecr.aws` (Kyverno policy `allowed-registries`); anything else is refused when the
 Deployment - or whichever controller - is applied. A new registry is one entry in
 `components/kyverno/allowed-registries.yaml`.
+
+## Certificates
+
+cert-manager gets certificates from Let's Encrypt, proving each name through a temporary
+DNS record in Cloudflare - no DNS preparation, and the name need not be reachable. Two
+ClusterIssuers: `letsencrypt-staging` (untrusted certificates, for trying) and
+`letsencrypt`. A certificate is requested with a `Certificate` next to the workload:
+
+```yaml
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: example
+  namespace: example
+spec:
+  secretName: example-tls        # the Secret with tls.crt and tls.key
+  dnsNames: [example.d3strukt0r.dev]
+  issuerRef:
+    kind: ClusterIssuer
+    name: letsencrypt
+```
+
+```shell
+kubectl --context d3strukt0r-prod-admin get certificate -A
+kubectl --context d3strukt0r-prod-admin describe challenge -A   # while one hangs
+```
+
+The issuers use one Cloudflare token per account. Creating or replacing them:
+
+1. Cloudflare dashboard → My Profile → API Tokens → Create Token, permissions
+   `Zone → DNS → Edit` and `Zone → Zone → Read`, zone resources "All zones from an
+   account". Once in the personal login, once in the arepazo login.
+2. Store them in 1Password as `Cloudflare | cert-manager DNS (prod cluster)` and
+   `Cloudflare | Arepazo | cert-manager DNS (prod cluster)` (field `credential`).
+3. With the port-forward to OpenBao open and `BAO_TOKEN` set:
+
+   ```shell
+   bao kv put secret/cloudflare-dns \
+     personal="$(op item get 'Cloudflare | cert-manager DNS (prod cluster)' --account my.1password.com --vault Private --fields credential --reveal)" \
+     arepazo="$(op item get 'Cloudflare | Arepazo | cert-manager DNS (prod cluster)' --account my.1password.com --vault Private --fields credential --reveal)"
+   ```
 
 ## How quickly a push arrives
 

@@ -379,8 +379,8 @@ caused. Do not "fix" that drift blindly - check the Workers config first.
 **`_acme-challenge` records are never imported.** They are DNS-01 challenge tokens: an ACME
 client creates one, Let's Encrypt reads it once, and the client should delete it again. Two
 leftovers for `portainer.d3strukt0r.dev` (from 2024-05-17 and 2026-08-31) had been imported
-to keep the plan clean and were then deleted on purpose. Once cert-manager runs it creates
-and removes these records itself; OpenTofu must not track them.
+to keep the plan clean and were then deleted on purpose. cert-manager now creates and removes
+these records itself (see "Certificates: cert-manager"); OpenTofu must not track them.
 
 ### Two zones have no delegation check, on purpose
 
@@ -727,7 +727,7 @@ policy `default-resources` gives every app namespace a LimitRange, so a containe
   idle; requests already share CPU fairly under contention.
 - **Infrastructure namespaces are excluded** by an explicit list in the policy's
   `matchConditions` (`kube-*`, `default`, `argocd`, `openbao`, `external-secrets`,
-  `system-upgrade`, `kyverno`). Their components mostly set no resources and would be
+  `system-upgrade`, `kyverno`, `cert-manager`). Their components mostly set no resources and would be
   OOM-killed at 256Mi. **A new infrastructure component adds its namespace to that list in
   the commit that deploys it** - before its namespace exists, or the LimitRange is already
   there - **and to `k3s_psa_exempt_namespaces`** (see "Pod Security"), if it needs more
@@ -766,10 +766,11 @@ guide. A change to the file restarts k3s one node at a time, like a drop-in chan
   `seccompProfile: RuntimeDefault`, and no host namespaces, host paths or privileged mode.
   A pod that misses one is rejected at creation, with the reasons in the error.
 - **Infrastructure namespaces are exempt** - `k3s_psa_exempt_namespaces` in the role's
-  defaults, the same list as the Kyverno policies' exclusions. Some of it must run
-  privileged: kured and the CSI driver in `kube-system`, the upgrade Jobs in
-  `system-upgrade`. The two lists live in two places (Ansible, and the policies in
-  `kubernetes/components/kyverno/`) and have to be kept in step by hand.
+  defaults: the Kyverno policies' exclusions minus those that run restricted anyway
+  (`cert-manager`). Some of it must run privileged: kured and the CSI driver in
+  `kube-system`, the upgrade Jobs in `system-upgrade`. The lists live in two places
+  (Ansible, and the policies in `kubernetes/components/kyverno/`) and have to be kept in step
+  by hand.
 - **The namespace label can override the default.** A namespace labelled
   `pod-security.kubernetes.io/enforce: baseline` (or `privileged`) gets that instead, so
   whoever may edit namespaces - today only the admin - can loosen it. Prefer adding a namespace to the exemption list over
@@ -794,6 +795,36 @@ chart update that moves its images must not break a system component.
   image is refused when the controller is applied, not later as a pod that never appears.
 - Adding a registry is one entry in the `allowed` variable. Test a change offline first:
   `kyverno apply <policy> --resource <pods and deployments>`.
+
+### Certificates: cert-manager
+
+`kubernetes/components/cert-manager/` deploys cert-manager (pinned release manifest,
+v1.21.2; `ServerSideApply=true` is required, its CRDs are too large otherwise) and two
+ClusterIssuers: `letsencrypt-staging` for trying things, `letsencrypt` for anything serving
+traffic.
+
+- **DNS-01 over the Cloudflare API**, not HTTP-01: cert-manager proves a name by creating an
+  `_acme-challenge` TXT record and deletes it afterwards. No records need preparing, Let's
+  Encrypt never has to reach the cluster, and it works for cluster-internal names and
+  wildcards. No zone has CAA records, so Let's Encrypt may issue (CAA is a planned
+  hardening - it must then also list Cloudflare's own CAs for its edge certificates).
+- **Two tokens, one per Cloudflare account** - a token cannot span accounts. Each issuer
+  has two solvers: one selecting `arepazo.ch` (the arepazo account's only zone) with the arepazo
+  token, and one without a selector - the fallback for every other zone - with the personal
+  token. cert-manager uses the most specific match. A zone added to the arepazo account
+  must be added to that `dnsZones` list; the personal account needs nothing.
+- **Tokens**: `Zone:DNS:Edit` + `Zone:Zone:Read` on "All zones from an account", no expiry
+  (an expiring token would silently stop renewals) and **no client IP filter** - nodes may be
+  added or replaced, and a filter on today's node IPs would break cert-manager on any new
+  one. They are protected by where they live instead, in
+  1Password as `Cloudflare | cert-manager DNS (prod cluster)` and
+  `Cloudflare | Arepazo | cert-manager DNS (prod cluster)`, copied into OpenBao `secret/cloudflare-dns` (fields `personal`,
+  `arepazo`) with `bao kv put`, and delivered as Secret `cert-manager/cloudflare-api-tokens`
+  by an ExternalSecret. ClusterIssuers read their Secrets from cert-manager's own namespace.
+- **No email on the ACME accounts**: optional, this repo is public, and Let's Encrypt no
+  longer sends expiry mails. cert-manager renews by itself 30 days before expiry.
+- **Its pods run restricted** (non-root, seccomp, no capabilities), so `cert-manager` is on
+  the Kyverno exclusion lists but not in `k3s_psa_exempt_namespaces`.
 
 ### What a second cluster would need
 

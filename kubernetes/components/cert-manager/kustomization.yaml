@@ -1,0 +1,12 @@
+---
+# cert-manager, shared by every cluster: issues and renews certificates from Let's Encrypt,
+# proving domain ownership over DNS-01 through the Cloudflare API.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  # Pinned to a release; bumping this line is the upgrade. The manifest brings its own
+  # namespace, cert-manager.
+  - https://github.com/cert-manager/cert-manager/releases/download/v1.21.2/cert-manager.yaml
+  - external-secret.yaml
+  - cluster-issuers.yaml
