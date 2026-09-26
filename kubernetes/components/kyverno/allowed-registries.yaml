@@ -1,0 +1,55 @@
+---
+# App namespaces may only run images from these registries - whole hosts, not single
+# organisations. Pod Security Admission (configured in k3s) covers how a pod runs; where its
+# image comes from is nothing Kubernetes can check by itself.
+#
+# autogen extends the check to the pod templates of Deployments and the other controllers,
+# so a bad image is refused when the Deployment is applied, not later as a pod that never
+# appears.
+apiVersion: policies.kyverno.io/v1
+kind: ValidatingPolicy
+metadata:
+  name: allowed-registries
+  annotations:
+    # The CRD is installed by the chart in the same sync.
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  validationActions: [Deny]
+  autogen:
+    podControllers:
+      controllers: [deployments, statefulsets, daemonsets, jobs, cronjobs]
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: [v1]
+        operations: [CREATE, UPDATE]
+        resources: [pods]
+  # The same list as in default-resources.yaml and k3s_psa_exempt_namespaces in Ansible.
+  # Infrastructure pulls from further registries (reg.kyverno.io, for one), and a chart
+  # update that moves its images must not break a system component.
+  matchConditions:
+    - name: not-infrastructure
+      expression: >-
+        !(object.metadata.namespace in [
+          'kube-system', 'kube-public', 'kube-node-lease', 'default',
+          'argocd', 'openbao', 'external-secrets', 'system-upgrade', 'kyverno'
+        ])
+  variables:
+    # Kyverno's image library reports Docker Hub as index.docker.io - for "nginx",
+    # "rancher/x" and "docker.io/x" alike - so that is the name to list, not docker.io.
+    - name: allowed
+      expression: "['index.docker.io', 'ghcr.io', 'quay.io', 'registry.k8s.io', 'public.ecr.aws']"
+    - name: images
+      expression: >-
+        object.spec.containers.map(c, c.image)
+        + object.spec.?initContainers.orValue([]).map(c, c.image)
+        + object.spec.?ephemeralContainers.orValue([]).map(c, c.image)
+    # A reference the library cannot parse is refused rather than waved through.
+    - name: denied
+      expression: >-
+        variables.images.filter(i, !(isImage(i) && image(i).registry() in variables.allowed))
+  validations:
+    - expression: size(variables.denied) == 0
+      messageExpression: >-
+        'images must come from ' + variables.allowed.join(', ') + ', not: '
+        + variables.denied.join(', ')

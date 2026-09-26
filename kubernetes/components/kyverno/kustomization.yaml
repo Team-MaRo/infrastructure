@@ -8,3 +8,4 @@ kind: Kustomization
 resources:
   - rbac-limitranges.yaml
   - default-resources.yaml
+  - allowed-registries.yaml
