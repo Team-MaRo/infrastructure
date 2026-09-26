@@ -30,10 +30,25 @@ resource "cloudflare_dns_record" "d3strukt0r_dev_aaaa_prod_old" {
   settings = {}
 }
 
+# The prod cluster's entry point: one A and one AAAA record per node, each node's public
+# addresses. Traefik listens on every node's host network, IPv4 and IPv6 alike, and
+# Cloudflare spreads requests over the records. Services on the cluster CNAME to this name.
+# The addresses are not in any other module's state this one can read, so adding or
+# replacing a node means updating this map - until a Hetzner Load Balancer gives the cluster
+# one address.
+locals {
+  prod_nodes = {
+    "prod-01" = { ipv4 = "178.104.135.61", ipv6 = "2a01:4f8:1c1e:9487::1" }
+    "prod-02" = { ipv4 = "178.104.133.199", ipv6 = "2a01:4f8:1c16:4577::1" }
+    "prod-03" = { ipv4 = "78.47.68.27", ipv6 = "2a01:4f8:1c16:335::1" }
+  }
+}
+
 resource "cloudflare_dns_record" "d3strukt0r_dev_a_prod" {
+  for_each = local.prod_nodes
   provider = cloudflare.personal
 
-  content  = "161.35.16.9"
+  content  = each.value.ipv4
   name     = "prod.d3strukt0r.dev"
   proxied  = true
   tags     = []
@@ -44,9 +59,10 @@ resource "cloudflare_dns_record" "d3strukt0r_dev_a_prod" {
 }
 
 resource "cloudflare_dns_record" "d3strukt0r_dev_aaaa_prod" {
+  for_each = local.prod_nodes
   provider = cloudflare.personal
 
-  content  = "2a03:b0c0:3:d0::f65:2001"
+  content  = each.value.ipv6
   name     = "prod.d3strukt0r.dev"
   proxied  = true
   tags     = []
@@ -54,6 +70,17 @@ resource "cloudflare_dns_record" "d3strukt0r_dev_aaaa_prod" {
   type     = "AAAA"
   zone_id  = local.zone_ids["d3strukt0r.dev"]
   settings = {}
+}
+
+# The single records that pointed at the old server become prod-01's.
+moved {
+  from = cloudflare_dns_record.d3strukt0r_dev_a_prod
+  to   = cloudflare_dns_record.d3strukt0r_dev_a_prod["prod-01"]
+}
+
+moved {
+  from = cloudflare_dns_record.d3strukt0r_dev_aaaa_prod
+  to   = cloudflare_dns_record.d3strukt0r_dev_aaaa_prod["prod-01"]
 }
 
 resource "cloudflare_dns_record" "d3strukt0r_dev_cname_wildcard" {
