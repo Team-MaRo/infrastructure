@@ -138,12 +138,12 @@ import {
 }
 
 import {
-  to = cloudflare_dns_record.d3strukt0r_dev_a_prod
+  to = cloudflare_dns_record.d3strukt0r_dev_a_prod["prod-01"]
   id = "1a6f0bb01dc074c1a03af0f173aef29f/e84c23510803e917500c8b9225a1966f"
 }
 
 import {
-  to = cloudflare_dns_record.d3strukt0r_dev_aaaa_prod
+  to = cloudflare_dns_record.d3strukt0r_dev_aaaa_prod["prod-01"]
   id = "1a6f0bb01dc074c1a03af0f173aef29f/4f913513aa7f91ae977bf6dd17efa65a"
 }
 

@@ -105,7 +105,8 @@ reality rather than an ideal, which is why some values look arbitrary:
 
 `tofu/hcloud/locals.tf` holds the `servers` map, which is the single source of truth: it
 drives `hcloud_server`, `hcloud_server_network` **and** the `for_each` import blocks
-(the live server IDs live in that map). Adding a node means adding one map entry.
+(the live server IDs live in that map). Adding a node means adding one map entry - and its
+public IP to `local.prod_nodes` in `tofu/cloudflare`, the cluster's DNS entry point.
 
 **The server name is the host's identity** - the OS hostname, the Kubernetes node name
 and the etcd member name. On the nodes, cloud-init runs `update_hostname` and
@@ -380,8 +381,19 @@ and `old.robines.space`. `arepazo.ch` points at its IPs directly.
 - **A service moving to the cluster gets its own record**, a CNAME to
   `prod.d3strukt0r.dev`; an explicit record beats the wildcard, so that one name moves and
   everything else stays.
+- **`prod.d3strukt0r.dev` is the cluster**: one proxied A and one AAAA record per node
+  (`local.prod_nodes` in `records_d3strukt0r_dev.tf`), and Cloudflare spreads requests over
+  them. IPv6 reaches the cluster only through Traefik on the nodes' host network (see
+  "Ingress"): k3s itself runs single-stack IPv4 (pods `10.42.0.0/16`, services
+  `10.43.0.0/16`), dual-stack can only be chosen when a cluster is created, and on Hetzner it
+  would also move pod traffic onto the public interface, because private networks are
+  IPv4-only and Flannel uses one interface for both families. So pods reach IPv4 only; an
+  IPv6-only destination is out of their reach. The node IPs are
+  written there by hand (no other module's state is readable from here), so **adding or
+  replacing a node means updating that map**, until a Hetzner Load Balancer gives the
+  cluster one address.
 - The rename was done without an interruption: prod-old was created with the old IPs and the
-  CNAMEs were repointed to it first, before `prod` itself changed.
+  CNAMEs were repointed to it first, in a separate apply before `prod` itself changed.
 
 ### CAA: only Let's Encrypt
 
