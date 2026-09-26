@@ -1,5 +1,35 @@
 # DNS records for d3strukt0r.dev (personal account).
 
+# The old DigitalOcean server. Everything still served there points at this name - the
+# wildcard among them, so any *.d3strukt0r.dev without a record of its own lands there.
+# A service moving to the cluster gets its own record pointing at prod instead, which
+# beats the wildcard.
+resource "cloudflare_dns_record" "d3strukt0r_dev_a_prod_old" {
+  provider = cloudflare.personal
+
+  content  = "161.35.16.9"
+  name     = "prod-old.d3strukt0r.dev"
+  proxied  = true
+  tags     = []
+  ttl      = 1
+  type     = "A"
+  zone_id  = local.zone_ids["d3strukt0r.dev"]
+  settings = {}
+}
+
+resource "cloudflare_dns_record" "d3strukt0r_dev_aaaa_prod_old" {
+  provider = cloudflare.personal
+
+  content  = "2a03:b0c0:3:d0::f65:2001"
+  name     = "prod-old.d3strukt0r.dev"
+  proxied  = true
+  tags     = []
+  ttl      = 1
+  type     = "AAAA"
+  zone_id  = local.zone_ids["d3strukt0r.dev"]
+  settings = {}
+}
+
 resource "cloudflare_dns_record" "d3strukt0r_dev_a_prod" {
   provider = cloudflare.personal
 
@@ -29,7 +59,7 @@ resource "cloudflare_dns_record" "d3strukt0r_dev_aaaa_prod" {
 resource "cloudflare_dns_record" "d3strukt0r_dev_cname_wildcard" {
   provider = cloudflare.personal
 
-  content = "prod.d3strukt0r.dev"
+  content = "prod-old.d3strukt0r.dev"
   name    = "*.d3strukt0r.dev"
   proxied = true
   tags    = []
@@ -77,7 +107,7 @@ resource "cloudflare_dns_record" "d3strukt0r_dev_cname_ssh" {
   provider = cloudflare.personal
 
   comment = "SSH for Gitea"
-  content = "prod.d3strukt0r.dev"
+  content = "prod-old.d3strukt0r.dev"
   name    = "ssh.d3strukt0r.dev"
   proxied = false
   tags    = []

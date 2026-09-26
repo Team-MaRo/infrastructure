@@ -18,7 +18,7 @@ resource "cloudflare_dns_record" "manuele_vaccari_ch_cname_wildcard" {
 resource "cloudflare_dns_record" "manuele_vaccari_ch_cname_apex" {
   provider = cloudflare.personal
 
-  content = "prod.d3strukt0r.dev"
+  content = "prod-old.d3strukt0r.dev"
   name    = "manuele-vaccari.ch"
   proxied = true
   tags    = []
