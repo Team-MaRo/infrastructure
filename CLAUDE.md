@@ -343,7 +343,7 @@ Things that will bite:
   SSL/TLS, so `ssl` is the scanner's current result and changes on its own; a plan writing it
   would switch the zone to manual mode. `d3st.dev`, `d3st.org` and `d3strukt0r.me` are on
   `flexible` by the scanner's choice and **loop with `301`s**: their web records point at
-  `prod.d3strukt0r.dev` (the old DigitalOcean server, `161.35.16.9`), whose Traefik
+  `prod-old.d3strukt0r.dev` (the old DigitalOcean server, `161.35.16.9`), whose Traefik
   redirects HTTP to HTTPS but has no HTTPS route for these names. Left as is until they are
   served by the cluster with cert-manager, where the scanner will pick `strict` by itself.
 - **Destroying a `cloudflare_zone_setting` only removes it from state** - the provider's
@@ -366,6 +366,33 @@ Things that will bite:
   blocks come from `local.zones`/`local.setting_pairs` via `for_each`, not from the
   tool. Also, `--resource-type cloudflare_zone` ignores `--zone` and dumps every zone
   the token can see, so its output needs deduplicating.
+
+### The old server and the cluster share the names
+
+The old DigitalOcean server still serves its apps and tools. It is
+`prod-old.d3strukt0r.dev` (A and AAAA to its IPs), and every record for something it
+serves points there: the wildcard `*.d3strukt0r.dev`, `ssh.`, and the apex CNAMEs of
+`d3st.dev`, `d3st.org`, `d3strukt0r.me`, `manuele-vaccari.ch`, `manuele-robine.wedding`
+and `old.robines.space`. `arepazo.ch` points at its IPs directly.
+
+- **The wildcard is the default route**: any `*.d3strukt0r.dev` without a record of its own
+  reaches the old server, whose Traefik routes it (it keeps its hostnames unchanged).
+- **A service moving to the cluster gets its own record**, a CNAME to
+  `prod.d3strukt0r.dev`; an explicit record beats the wildcard, so that one name moves and
+  everything else stays.
+- The rename was done without an interruption: prod-old was created with the old IPs and the
+  CNAMEs were repointed to it first, before `prod` itself changed.
+
+### CAA: only Let's Encrypt
+
+Every zone has `0 issue "letsencrypt.org"` and `0 issuewild "letsencrypt.org"`
+(`records_caa.tf`), since every certificate issued for these names comes from Let's Encrypt
+- the old server's Traefik, GitHub Pages and cert-manager. Cloudflare's edge certificates
+come from Google Trust Services and SSL.com (crt.sh showed nothing else in use when this was
+set); **Cloudflare adds CAA records for its own CAs automatically** once a zone has any, and
+hides them from the dashboard and API, so they never appear as drift - after the apply that
+was `comodoca.com`, `digicert.com`, `pki.goog` and `ssl.com`, `issue` and `issuewild` each.
+`dig CAA <zone> @1.1.1.1` shows the full set. A new certificate source using another CA needs that CA added here first.
 
 ### Records Cloudflare owns but OpenTofu now tracks
 

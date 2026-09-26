@@ -18,7 +18,7 @@ resource "cloudflare_dns_record" "d3st_dev_cname_wildcard" {
 resource "cloudflare_dns_record" "d3st_dev_cname_apex" {
   provider = cloudflare.personal
 
-  content = "prod.d3strukt0r.dev"
+  content = "prod-old.d3strukt0r.dev"
   name    = "d3st.dev"
   proxied = true
   tags    = []
