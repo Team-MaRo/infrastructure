@@ -183,8 +183,13 @@ Settings that may change on a running cluster live in `k3s_config` instead. The 
 them to `/etc/rancher/k3s/config.yaml.d/50-ansible.yaml` before installing, so a new node
 starts with them, and when the file changes on a node that already runs k3s it restarts k3s
 there and waits until the API answers again. With `serial: 1` that is one server at a time,
-so etcd never loses its quorum. Today it holds `disable: [local-storage]`: k3s's local-path
-provisioner kept volumes on the node's own 40 GB disk, where they would die with the node.
+so etcd never loses its quorum. Today it holds `disable: [local-storage]` (k3s's local-path
+provisioner kept volumes on the node's own 40 GB disk, where they would die with the node),
+the etcd snapshot upload to S3, and the path to the Pod Security configuration.
+
+That configuration, `/etc/rancher/k3s/psa.yaml`, is written by the same role and restarts
+k3s the same way when it changes. It enforces the restricted Pod Security Standard
+everywhere except `k3s_psa_exempt_namespaces` - see "Pod Security" in `CLAUDE.md`.
 
 A dry run cannot cover everything: the join needs a token only a real first play produces,
 so it is skipped under `--check`. What it does verify is connectivity, private-interface

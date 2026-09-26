@@ -319,7 +319,28 @@ kubectl --context d3strukt0r-prod-admin get generatingpolicy default-resources
 
 Infrastructure namespaces are excluded by a list in `components/kyverno/default-resources.yaml`.
 **Deploying a new infrastructure component means adding its namespace there in the same
-commit.**
+commit** - and to `k3s_psa_exempt_namespaces` in Ansible if it needs more than the
+restricted standard below allows.
+
+## What an app pod must look like
+
+Every app namespace enforces the **restricted** Pod Security Standard (configured in k3s,
+see `CLAUDE.md`). A pod that breaks it is rejected when it is created, and the error lists
+what is missing. Each container needs at least:
+
+```yaml
+securityContext:
+  runAsNonRoot: true             # the image must not run as root, or set runAsUser
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop: [ALL]
+  seccompProfile:
+    type: RuntimeDefault         # may also sit once in the pod's securityContext
+```
+
+Host namespaces, host paths and privileged mode are not allowed at all. Many official images
+run as root by default; set `runAsUser` to a non-zero ID or use the image's rootless
+variant.
 
 ## How quickly a push arrives
 
