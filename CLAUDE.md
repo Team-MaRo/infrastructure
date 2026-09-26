@@ -715,8 +715,9 @@ node, reboots it and uncordons it once it is back; then the next node may take t
 `kubernetes/clusters/prod/kyverno.yaml` deploys the `kyverno` Helm chart (pinned, 3.9.1 =
 Kyverno v1.19.1) with `kubernetes/components/kyverno/` as values and extra resources - the
 same two-source pattern as OpenBao, plus a third source for the directory's manifests. Its
-one policy so far, `default-resources`, gives every app namespace a LimitRange, so a
-container without `resources` of its own still has requests and limits.
+policy `default-resources` gives every app namespace a LimitRange, so a container without
+`resources` of its own still has requests and limits; `allowed-registries` is described under
+"Allowed registries".
 
 - **Defaults, never a max.** Requests CPU `50m`, memory `64Mi`, ephemeral-storage `50Mi`;
   limits memory `256Mi`, ephemeral-storage `1Gi`. An app that needs more sets `resources`
@@ -773,6 +774,26 @@ guide. A change to the file restarts k3s one node at a time, like a drop-in chan
   `pod-security.kubernetes.io/enforce: baseline` (or `privileged`) gets that instead, so
   whoever may edit namespaces - today only the admin - can loosen it. Prefer adding a namespace to the exemption list over
   a label, so every exception stays in one reviewed place.
+
+### Allowed registries
+
+Pod Security cannot say where an image comes from, so that is Kyverno's:
+`kubernetes/components/kyverno/allowed-registries.yaml`, a `ValidatingPolicy` in `Deny`
+mode. In app namespaces every container, init container and ephemeral container must come
+from `docker.io`, `ghcr.io`, `quay.io`, `registry.k8s.io` or `public.ecr.aws` - whole hosts,
+not single organisations (user decision). Infrastructure namespaces are excluded with the
+same list as the other policies; they pull from further registries (`reg.kyverno.io`), and a
+chart update that moves its images must not break a system component.
+
+- **Docker Hub is `index.docker.io` in the list**, not `docker.io`: Kyverno's CEL image
+  library reports that registry for `nginx`, `rancher/x` and `docker.io/x` alike.
+- **Hosts match exactly** (`docker.io.evil.com` is refused), and a reference the library
+  cannot parse is refused too - `evil.example.com/x`, with a host but a single path
+  segment, is one.
+- **autogen** covers Deployments, StatefulSets, DaemonSets, Jobs and CronJobs, so a bad
+  image is refused when the controller is applied, not later as a pod that never appears.
+- Adding a registry is one entry in the `allowed` variable. Test a change offline first:
+  `kyverno apply <policy> --resource <pods and deployments>`.
 
 ### What a second cluster would need
 

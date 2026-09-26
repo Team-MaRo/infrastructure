@@ -46,6 +46,7 @@ kubernetes/
     │   ├── values.yaml            # Helm values
     │   ├── kustomization.yaml
     │   ├── default-resources.yaml # LimitRange for every app namespace
+    │   ├── allowed-registries.yaml # images only from known registries
     │   └── rbac-limitranges.yaml  # lets Kyverno create LimitRanges
     └── system-upgrade-controller/
         ├── kustomization.yaml     # pinned release manifests
@@ -341,6 +342,11 @@ securityContext:
 Host namespaces, host paths and privileged mode are not allowed at all. Many official images
 run as root by default; set `runAsUser` to a non-zero ID or use the image's rootless
 variant.
+
+Images must come from `docker.io`, `ghcr.io`, `quay.io`, `registry.k8s.io` or
+`public.ecr.aws` (Kyverno policy `allowed-registries`); anything else is refused when the
+Deployment - or whichever controller - is applied. A new registry is one entry in
+`components/kyverno/allowed-registries.yaml`.
 
 ## How quickly a push arrives
 
