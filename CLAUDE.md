@@ -866,6 +866,39 @@ chart update that moves its images must not break a system component.
 - Adding a registry is one entry in the `allowed` variable. Test a change offline first:
   `kyverno apply <policy> --resource <pods and deployments>`.
 
+### Ingress
+
+Traefik is k3s's own - k3s installs and upgrades it from its bundled chart - and is
+configured only through the `HelmChartConfig` in `kubernetes/components/traefik/`
+(Application `traefik`). It runs as a **DaemonSet on every ingress node's host network** and
+listens on the node's ports 80 and 443 itself, IPv4 and IPv6.
+
+- **Why the host network**: the cluster is single-stack IPv4, and k3s's servicelb only
+  rewrites IPv4 packets to a pod (iptables DNAT; a pod without an IPv6 address has nothing to
+  rewrite IPv6 to). On the host network Traefik accepts IPv6 directly and talks to the pods
+  over the IPv4 pod network, reaching pods on other nodes through the WireGuard tunnels. Its
+  Service is `ClusterIP` (`service.spec.type` in this chart, not `service.type`), so servicelb
+  no longer claims 80/443. Pods themselves still cannot reach IPv6-only destinations; if that
+  is ever needed, a forward proxy on the host network is the targeted fix, dual-stack (a
+  rebuild) the complete one.
+- **Ingress nodes are the ones labelled `node-role.kubernetes.io/ingress=true`**
+  (`k3s_node_labels`, today all three). **That label, the DNS map `local.prod_nodes` in
+  `tofu/cloudflare` and later a load balancer's targets must list the same nodes** - a node in
+  DNS without Traefik answers nothing. A workload-only node gets no label: no Traefik, not
+  internet-facing. There is no standard ratio; keep at least two or three for redundancy and
+  size them by traffic, not by node count.
+- **Ports below 1024 without root**: Traefik runs as UID 65532 without capabilities;
+  `net.ipv4.ip_unprivileged_port_start = 80` on the nodes (`k3s_sysctls`) lets it bind 80 and
+  443. Its other entrypoints, metrics `:9100` and `:8080`, also open on the host but are closed by
+  the Hetzner firewall.
+- **Updates replace one node at a time** (`maxUnavailable: 1`, `maxSurge: 0`): two Traefiks
+  cannot hold the same host port. That node's share of requests fails for the seconds in
+  between, as during a kured reboot - DNS keeps pointing at it.
+- **A Hetzner Load Balancer fits on top without changing Traefik**: targets by label over the
+  private network, TCP 80 and 443 passed through (TLS stays at Traefik), health checks, PROXY
+  protocol for client IPs, and one address (IPv4 and IPv6) in DNS instead of one per node. The
+  firewall could then close 80/443 on the nodes' public side.
+
 ### Certificates: cert-manager
 
 `kubernetes/components/cert-manager/` deploys cert-manager (pinned release manifest,

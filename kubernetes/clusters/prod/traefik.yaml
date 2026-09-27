@@ -1,0 +1,24 @@
+---
+# Configuration for k3s's bundled Traefik, from kubernetes/components/traefik. k3s itself
+# installs and upgrades Traefik; this only supplies its values.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: traefik
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Team-MaRo/infrastructure.git
+    targetRevision: master
+    path: kubernetes/components/traefik
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      # Not required here; used for consistency, as in hcloud-csi.yaml.
+      - ServerSideApply=true

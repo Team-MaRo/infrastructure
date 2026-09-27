@@ -26,6 +26,7 @@ kubernetes/
 │       ├── kured.yaml             # reboots nodes after kernel updates
 │       ├── kyverno.yaml           # policies: chart pinned here, values and policies in components/
 │       ├── cert-manager.yaml      # certificates from Let's Encrypt
+│       ├── traefik.yaml           # k3s's Traefik: DaemonSet on the ingress nodes' host network
 │       ├── etcd-snapshots.yaml    # syncs the subdirectory below
 │       └── etcd-snapshots/        # prod-only: the S3 settings k3s uploads snapshots with
 └── components/                # how each component is deployed, shared by clusters
@@ -41,6 +42,9 @@ kubernetes/
     ├── external-secrets/
     │   ├── kustomization.yaml
     │   └── cluster-secret-store.yaml  # the store named openbao
+    ├── traefik/
+    │   ├── kustomization.yaml
+    │   └── helmchartconfig.yaml   # values merged into k3s's bundled Traefik
     ├── cert-manager/
     │   ├── kustomization.yaml     # pinned release manifest
     │   ├── external-secret.yaml   # the two Cloudflare tokens from OpenBao
@@ -352,6 +356,22 @@ Images must come from `docker.io`, `ghcr.io`, `quay.io`, `registry.k8s.io` or
 `public.ecr.aws` (Kyverno policy `allowed-registries`); anything else is refused when the
 Deployment - or whichever controller - is applied. A new registry is one entry in
 `components/kyverno/allowed-registries.yaml`.
+
+## Ingress
+
+Traffic enters through Traefik, which k3s ships. It runs once on every node labelled
+`node-role.kubernetes.io/ingress=true` (all three today), on the node's own network, and
+listens on 80 and 443 over IPv4 and IPv6. `prod.d3strukt0r.dev` has an A and an AAAA record
+per ingress node; a service on the cluster gets a CNAME to it and an `Ingress` (class
+`traefik`, the default).
+
+```shell
+kubectl --context d3strukt0r-prod-admin -n kube-system get ds traefik -o wide
+kubectl --context d3strukt0r-prod-admin get nodes                   # ROLES shows ingress
+```
+
+Its settings are the `HelmChartConfig` in `components/traefik/`; k3s itself installs and
+upgrades Traefik.
 
 ## Certificates
 
