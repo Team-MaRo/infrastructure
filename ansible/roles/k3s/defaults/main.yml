@@ -59,6 +59,18 @@ k3s_config:
   kube-apiserver-arg:
     - admission-control-config-file=/etc/rancher/k3s/psa.yaml
 
+# Kernel settings on the node itself. ip_unprivileged_port_start lets non-root processes bind
+# ports from 80 up in the host's network namespace (it covers IPv6 too, despite the name):
+# Traefik runs on the host network, as UID 65532 without capabilities, and listens on 80 and
+# 443 directly. Pods have their own network namespaces and are not affected. The trade is that
+# any local non-root process could bind those ports too; these nodes run nothing but k3s.
+k3s_sysctls:
+  net.ipv4.ip_unprivileged_port_start: 80
+
+# Labels the role puts on the node through kubectl, since k3s's node-label only applies when a
+# node first registers. Set per cluster or host in the inventory; empty means none.
+k3s_node_labels: {}
+
 # Pod Security Admission enforces the restricted standard on every namespace except these.
 # They hold infrastructure, some of which must run privileged (kured and the CSI driver in
 # kube-system, the upgrade Jobs in system-upgrade). The same list excludes these namespaces

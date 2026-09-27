@@ -34,6 +34,18 @@
     path: /usr/local/bin/k3s
   register: k3s_binary
 
+- name: Set kernel parameters
+  # Written to one file of the role's own, so it is clear where they come from, and applied
+  # at once - none of them needs k3s restarted.
+  ansible.posix.sysctl:
+    name: "{{ item.key }}"
+    value: "{{ item.value }}"
+    sysctl_file: /etc/sysctl.d/50-ansible-k3s.conf
+    sysctl_set: true
+  loop: "{{ k3s_sysctls | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}={{ item.value }}"
+
 - name: Create the config drop-in directory
   ansible.builtin.file:
     path: /etc/rancher/k3s/config.yaml.d
@@ -107,3 +119,6 @@
 - name: Join the cluster
   ansible.builtin.import_tasks: server_join.yml
   when: not (k3s_cluster_init | bool)
+
+- name: Label the node
+  ansible.builtin.import_tasks: labels.yml

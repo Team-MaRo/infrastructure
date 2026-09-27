@@ -22,6 +22,13 @@ admin_kubeconfig: ~/.kube/d3strukt0r-prod-admin.yaml
 # host is selected.
 k3s_init_node: prod-01
 
+# Every prod node is an ingress node: Traefik runs on nodes with this label only, as a
+# DaemonSet on the host network (kubernetes/components/traefik/). The label, the DNS map in
+# tofu/cloudflare (local.prod_nodes) and later a load balancer's targets must list the same
+# nodes. A workload-only node gets no label - override this per host in host_vars.
+k3s_node_labels:
+  node-role.kubernetes.io/ingress: "true"
+
 # Where secrets.yml reads bootstrap secrets from. Two 1Password accounts are signed in on
 # the admin's machine, so the account is pinned rather than left to op's default.
 onepassword_account: my.1password.com
