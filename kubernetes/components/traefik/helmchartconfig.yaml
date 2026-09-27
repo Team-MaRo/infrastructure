@@ -1,0 +1,42 @@
+---
+# Traefik is k3s's own: k3s installs it from its bundled chart (HelmChart kube-system/traefik)
+# and merges a HelmChartConfig of the same name into its values - this is the only place it is
+# configured.
+#
+# It runs as a DaemonSet on every ingress node's host network and listens on the node's
+# ports 80 and 443 itself, IPv4 and IPv6. The cluster is single-stack IPv4, so servicelb could
+# only ever forward IPv4; on the host network Traefik accepts IPv6 directly and talks to the
+# pods over the IPv4 pod network. The ingress nodes are the ones labelled below - the same set
+# as the DNS records for prod.d3strukt0r.dev (tofu/cloudflare) and, later, a load balancer's
+# targets. Binding 80/443 without root relies on net.ipv4.ip_unprivileged_port_start = 80 on
+# the nodes (ansible/roles/k3s).
+apiVersion: helm.cattle.io/v1
+kind: HelmChartConfig
+metadata:
+  name: traefik
+  namespace: kube-system
+spec:
+  valuesContent: |-
+    deployment:
+      kind: DaemonSet
+      # Resolve cluster names although the pod uses the host's resolver otherwise.
+      dnsPolicy: ClusterFirstWithHostNet
+    nodeSelector:
+      node-role.kubernetes.io/ingress: "true"
+    hostNetwork: true
+    # Two Traefiks cannot hold the same host port, so an update replaces one node's pod at a
+    # time instead of starting the new one first. That node's share of requests fails for the
+    # few seconds in between; a load balancer with health checks would close that gap.
+    updateStrategy:
+      rollingUpdate:
+        maxUnavailable: 1
+        maxSurge: 0
+    ports:
+      web:
+        port: 80
+      websecure:
+        port: 443
+    # ClusterIP instead of LoadBalancer, so servicelb stops claiming the nodes' 80 and 443.
+    service:
+      spec:
+        type: ClusterIP
