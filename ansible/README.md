@@ -35,7 +35,8 @@ ansible/
     │   └── tasks/
     │       ├── main.yml      # detect iface, assemble flags, install, wait
     │       ├── server_init.yml
-    │       └── server_join.yml
+    │       ├── server_join.yml
+    │       └── labels.yml    # node labels via kubectl
     └── swap/
         ├── defaults/main.yml # swap_size and the three sysctls
         └── tasks/main.yml    # the six tasks
@@ -188,6 +189,12 @@ provisioner kept volumes on the node's own 40 GB disk, where they would die with
 the etcd snapshot upload to S3, the WireGuard backend for the pod network
 (`flannel-backend: wireguard-native`, which encrypts pod traffic between nodes), and the
 path to the Pod Security configuration.
+
+The role also sets kernel parameters (`k3s_sysctls`, today only
+`net.ipv4.ip_unprivileged_port_start = 80`, so Traefik can listen on 80/443 on the host
+network without root) and node labels (`k3s_node_labels`, from `group_vars/prod.yml`: every
+node is an ingress node). Labels go through `k3s kubectl label` on each node, since k3s's
+`node-label` only applies when a node first registers.
 
 That configuration, `/etc/rancher/k3s/psa.yaml`, is written by the same role and restarts
 k3s the same way when it changes. It enforces the restricted Pod Security Standard

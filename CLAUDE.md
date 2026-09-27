@@ -489,6 +489,14 @@ play-level settings a role cannot change.
   even without a `config.yaml` (checked in its source). The first use is
   `disable: [local-storage]`, which removed the local-path provisioner and its
   StorageClass: node disks are 40 GB and hold the OS, and data there dies with the node.
+- **Kernel parameters (`k3s_sysctls`) and node labels (`k3s_node_labels`)** are the role's
+  too. The sysctls go to `/etc/sysctl.d/50-ansible-k3s.conf` and apply at once, without a
+  restart. Labels are set with `k3s kubectl label` on the node itself, after reading the
+  current ones, because k3s's `node-label` only applies at a node's first registration and a
+  kubelet may not set `node-role.kubernetes.io/*` on itself. That uses the admin kubeconfig
+  every server has; an agent node would need the task delegated to a server.
+  `group_vars/prod.yml` labels every node `node-role.kubernetes.io/ingress=true` (see
+  "Ingress").
 - **A dry run cannot cover all of it.** The join needs a token only a real first play
   produces, so it is skipped under `--check`. What a dry run does verify is connectivity,
   private-interface detection and flag assembly on all three nodes.

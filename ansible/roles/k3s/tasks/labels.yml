@@ -1,0 +1,28 @@
+---
+# k3s's node-label only applies when a node first registers, and a kubelet may not set
+# node-role.kubernetes.io/* labels on itself, so the labels are set as the admin, with the
+# admin kubeconfig k3s keeps on every server. An agent node has no such kubeconfig; once
+# there are agents, this has to be delegated to a server.
+#
+# The current labels are read first, so a re-run reports no change and --check stays
+# read-only. Under --check a node without k3s yet has nothing to read, so it is skipped.
+
+- name: Read the node's labels
+  ansible.builtin.command: >-
+    k3s kubectl get node {{ inventory_hostname }} -o jsonpath={.metadata.labels}
+  register: k3s_node_labels_current
+  changed_when: false
+  check_mode: false
+  when:
+    - k3s_node_labels | length > 0
+    - k3s_binary.stat.exists or not ansible_check_mode
+
+- name: Set the node's labels
+  ansible.builtin.command: >-
+    k3s kubectl label node {{ inventory_hostname }} {{ item.key }}={{ item.value }} --overwrite
+  loop: "{{ k3s_node_labels | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}={{ item.value }}"
+  when:
+    - k3s_node_labels_current is not skipped
+    - (k3s_node_labels_current.stdout | from_json).get(item.key) != item.value
