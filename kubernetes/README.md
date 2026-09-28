@@ -518,8 +518,10 @@ password:
        admin-password="$(op item get 'Grafana | Prod | Admin' --account my.1password.com --vault Private --fields password --reveal)"
    ```
 
-After the first sync, resume the `Alertmanager Watchdog` monitor in Uptime Kuma; it should
-turn green within a minute.
+As soon as the first sync is done, resume the `Alertmanager Watchdog` monitor in Uptime Kuma;
+it should turn green within a minute. While it is paused, Uptime Kuma answers every heartbeat
+with 404, and after a few minutes Alertmanager reports that as `AlertmanagerFailedToSendAlerts`.
+That alert resolves by itself about 15 minutes after the monitor is resumed.
 
 **When an alert arrives**, its message says what fired and where. The cluster's own alerts
 (`components/kube-prometheus-stack/rules.yaml`) carry what to do in their description; the

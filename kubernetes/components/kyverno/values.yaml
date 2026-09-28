@@ -4,3 +4,8 @@ config:
   # survives an uninstall - for reinstalling by hand with Helm. Here removal goes through
   # Argo CD, and a kept ConfigMap would only be left behind as an orphan.
   preserve: false
+global:
+  image:
+    # The chart pulls from reg.kyverno.io by default; the same images are published on
+    # ghcr.io, one of the registries allowed-registries.yaml admits.
+    registry: ghcr.io
