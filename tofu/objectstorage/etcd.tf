@@ -54,31 +54,46 @@ resource "minio_s3_bucket_lifecycle" "prod_etcd" {
   }
 }
 
-# Other keys - the cluster's among them - may upload, read and delete, which on this
-# bucket only adds a delete marker, so k3s's own pruning works. What stays with the admin
-# key is everything that could destroy a locked version or loosen the rules protecting it.
+# Two layers. No key but the admin's and the cluster's snapshot key reaches the bucket at
+# all - any other key the cluster holds, Loki's for one, is shut out. The snapshot key may
+# upload, read and delete, which on this bucket only adds a delete marker, so k3s's own
+# pruning works. What stays with the admin key alone is everything that could destroy a
+# locked version or loosen the rules protecting it.
 resource "minio_s3_bucket_policy" "prod_etcd" {
   bucket = minio_s3_bucket.prod_etcd.bucket
   policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [{
-      Sid          = "OnlyTheAdminKeyMayLoosenProtection"
-      Effect       = "Deny"
-      NotPrincipal = { AWS = [local.admin_principal] }
-      Action = [
-        "s3:BypassGovernanceRetention",
-        "s3:PutBucketObjectLockConfiguration",
-        "s3:PutLifecycleConfiguration",
-        "s3:PutBucketPolicy",
-        "s3:DeleteBucketPolicy",
-        "s3:DeleteBucket",
-      ]
-      # Built from the name rather than the bucket's computed arn, so the whole policy -
-      # principal included - is visible in the plan before the first apply.
-      Resource = [
-        "arn:aws:s3:::${minio_s3_bucket.prod_etcd.bucket}",
-        "arn:aws:s3:::${minio_s3_bucket.prod_etcd.bucket}/*",
-      ]
-    }]
+    Statement = [
+      {
+        Sid          = "OnlyTheSnapshotAndAdminKeys"
+        Effect       = "Deny"
+        NotPrincipal = { AWS = [local.admin_principal, local.etcd_principal] }
+        Action       = ["s3:*"]
+        Resource     = local.prod_etcd_resources
+      },
+      {
+        Sid          = "OnlyTheAdminKeyMayLoosenProtection"
+        Effect       = "Deny"
+        NotPrincipal = { AWS = [local.admin_principal] }
+        Action = [
+          "s3:BypassGovernanceRetention",
+          "s3:PutBucketObjectLockConfiguration",
+          "s3:PutLifecycleConfiguration",
+          "s3:PutBucketPolicy",
+          "s3:DeleteBucketPolicy",
+          "s3:DeleteBucket",
+        ]
+        Resource = local.prod_etcd_resources
+      },
+    ]
   })
+}
+
+locals {
+  # Built from the name rather than the bucket's computed arn, so the whole policy -
+  # principals included - is visible in the plan before the first apply.
+  prod_etcd_resources = [
+    "arn:aws:s3:::${minio_s3_bucket.prod_etcd.bucket}",
+    "arn:aws:s3:::${minio_s3_bucket.prod_etcd.bucket}/*",
+  ]
 }

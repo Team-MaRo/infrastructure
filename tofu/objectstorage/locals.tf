@@ -13,4 +13,8 @@ locals {
   # project, so the policies are written as "deny everyone but this key". If this string
   # is wrong, the admin key is "everyone" too - see the staged apply in tofu/README.md.
   admin_principal = "arn:aws:iam:::user/p${var.project_id}:${local.aws_profile.access_key}"
+
+  # The keys handed to the cluster, one per bucket they may reach.
+  etcd_principal = "arn:aws:iam:::user/p${var.project_id}:${var.etcd_access_key_id}"
+  loki_principal = "arn:aws:iam:::user/p${var.project_id}:${var.loki_access_key_id}"
 }

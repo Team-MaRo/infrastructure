@@ -122,13 +122,15 @@ Accelerate, Website, Logging, Replication and Tagging settings that Hetzner does
 implement.
 
 **Every Hetzner S3 key reaches every bucket in the project.** There are no per-bucket
-keys. The only scoping is a bucket policy, so both policies here say "deny, unless it is
-the admin key" (`Deny` with `NotPrincipal`), which also covers keys that do not exist yet.
+keys. The only scoping is a bucket policy, so every policy here says "deny, unless it is
+the admin key or this bucket's own cluster key" (`Deny` with `NotPrincipal`), which also
+covers keys that do not exist yet.
 
 | Bucket | Managed here | Policy |
 |---|---|---|
 | `d3strukt0r-tfstate` | bucket (created by hand, adopted through `imports.tf`) and policy | every action denied to every other key |
-| `d3strukt0r-prod-etcd` | bucket, object lock, lifecycle, policy | other keys may upload, read and delete, but not bypass the lock or change the bucket's rules |
+| `d3strukt0r-prod-etcd` | bucket, object lock, lifecycle, policy | only the snapshot key and the admin key; the snapshot key may upload, read and delete, but not bypass the lock or change the bucket's rules |
+| `d3strukt0r-prod-loki` | bucket, lifecycle, policy | only Loki's key and the admin key |
 
 The etcd bucket locks every version for 7 days in GOVERNANCE mode, and a lifecycle rule
 removes versions 7 days after they are replaced or deleted. GOVERNANCE, not COMPLIANCE, so
@@ -136,7 +138,9 @@ the admin key can still delete early - but a Hetzner key holds every permission,
 governance bypass included, so the policy denies that bypass to every other key. A leaked
 cluster key can therefore add delete markers but cannot destroy a locked snapshot.
 
-Needs only `project_id` in `objectstorage/terraform.tfvars`. The provider cannot read
+Needs `project_id`, `etcd_access_key_id` and `loki_access_key_id` in
+`objectstorage/terraform.tfvars` - the key IDs are the username fields of the keys'
+1Password items, never the secrets. The provider cannot read
 AWS profiles, so `locals.tf` parses the `[d3strukt0r-hetzner]` section of
 `~/.aws/credentials` itself (access key line first, then the secret). That is deliberate
 beyond convenience: the tfstate policy allows exactly one key, and taking it from the file
