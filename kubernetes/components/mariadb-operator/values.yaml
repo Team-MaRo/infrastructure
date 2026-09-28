@@ -1,0 +1,49 @@
+# Helm values for mariadb-operator; the chart version is pinned in the cluster's Application,
+# the CRDs come from their own chart and Application (mariadb-operator-crds). The operator
+# runs the app database: a primary and a replica with automatic failover, backups and
+# point-in-time recovery (kubernetes/components/mariadb).
+
+# The chart sets no securityContext at all, and namespace mariadb-operator enforces the
+# restricted Pod Security Standard. The image runs as numeric UID 65532.
+podSecurityContext: &podSecurityContext
+  runAsNonRoot: true
+  seccompProfile:
+    type: RuntimeDefault
+securityContext: &securityContext
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+# It watches every namespace, so its memory grows with the cluster; above the namespace's
+# LimitRange defaults.
+resources:
+  requests:
+    memory: 128Mi
+  limits:
+    memory: 256Mi
+metrics:
+  enabled: true
+
+webhook:
+  # A certificate from cert-manager (a self-signed Issuer of its own - an ACME issuer cannot
+  # certify .svc names), instead of the chart's cert-controller Deployment, which then is not
+  # rendered.
+  cert:
+    certManager:
+      enabled: true
+  podSecurityContext: *podSecurityContext
+  securityContext: *securityContext
+
+# Defaults for the pods the operator creates. Written fully qualified, so the registry check
+# in kubernetes/components/kyverno does not depend on how short names are resolved; each
+# MariaDB resource names its own image anyway.
+config:
+  mariadbImage:
+    repository: docker.io/library/mariadb
+  exporterImage:
+    repository: quay.io/prometheus/mysqld-exporter
+  maxscaleImage:
+    repository: docker.io/mariadb/maxscale
+  exporterMaxscaleImage:
+    repository: docker.io/mariadb/maxscale-prometheus-exporter-ubi

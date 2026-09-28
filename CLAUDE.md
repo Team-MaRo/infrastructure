@@ -1114,6 +1114,32 @@ Loki as a datasource (`additionalDataSources` in the kube-prometheus-stack value
   else is searched in the line, not labelled - Loki stays fast with few labels.
 - Alloy sends no usage statistics (`enableReporting: false`).
 
+### App database: MariaDB
+
+The apps' database is MariaDB run by the community mariadb-operator
+(`kubernetes/clusters/prod/mariadb-operator*.yaml`, charts pinned, values in
+`kubernetes/components/mariadb-operator/`): a primary and one replica with automatic failover,
+on 2 volumes (user decision, 2026-09-28).
+
+- **Why not Galera** (Percona XtraDB Cluster, MariaDB Galera): Galera decides by majority vote,
+  so 2 members lose the vote when one crashes and the survivor stops accepting writes. That
+  needs 3 volumes, or a data-less arbitrator (garbd), which no maintained operator supports.
+  Replication instead lets the operator, through the Kubernetes API, pick the new primary.
+- **The known weak spot, accepted:** on a hard node loss the failover can hang until the node
+  returns (17 minutes seen on k3s), and a node that stays dead needs manual steps
+  ([mariadb-operator#1628](https://github.com/mariadb-operator/mariadb-operator/issues/1628)).
+  The MariaDB instance's settings, alert and runbook mitigate it.
+- **The CRDs are their own Application, which never prunes.** Deleting a CRD deletes every
+  resource of its kind, so a MariaDB and its pods would go with it. The chart is 800 KB
+  (`ServerSideApply=true` required). Bump both Applications together.
+- **The webhook's certificate comes from cert-manager** (a self-signed Issuer of the chart's
+  own; an ACME issuer cannot certify `.svc` names), so the chart's cert-controller Deployment
+  is not rendered. The chart has no Helm hook Jobs.
+- **Restricted Pod Security needs explicit securityContexts** - the chart sets none. The
+  images the operator deploys are written fully qualified in `config.*` (docker.io, quay.io),
+  so the registry check does not depend on short-name resolution.
+- Kubernetes 1.37 is not yet in the operator's CI (1.36 when adopted).
+
 ### What a second cluster would need
 
 `kubernetes/` is already laid out per cluster, because once Argo CD is bootstrapped its

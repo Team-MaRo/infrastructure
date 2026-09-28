@@ -1,0 +1,28 @@
+---
+# The mariadb-operator's CRDs, from their own chart and apart from the operator's
+# Application. Deleting a CRD deletes every resource of its kind - every MariaDB, and with it
+# its pods - so this Application never prunes: a CRD dropped from the chart stays until it
+# is removed by hand, on purpose.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: mariadb-operator-crds
+  namespace: argocd
+spec:
+  project: default
+  source:
+    # Pinned: bump together with the operator in mariadb-operator.yaml.
+    repoURL: https://mariadb-operator.github.io/mariadb-operator
+    chart: mariadb-operator-crds
+    targetRevision: 26.10.1
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: mariadb-operator
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+    syncOptions:
+      # Required: the CRDs are too large for client-side apply's last-applied-configuration
+      # annotation (mariadbs.k8s.mariadb.com alone is about 380 KB).
+      - ServerSideApply=true
