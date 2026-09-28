@@ -147,6 +147,12 @@ grafana:
       memory: 256Mi
     limits:
       memory: 512Mi
+  # Logs, next to the chart's own Prometheus and Alertmanager datasources.
+  additionalDataSources:
+    - name: Loki
+      uid: loki
+      type: loki
+      url: http://loki.loki.svc:3100
 
 prometheus-node-exporter:
   # It needs the host's network, PID namespace and filesystem, which only an exempt

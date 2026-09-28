@@ -1,0 +1,37 @@
+---
+# Log storage for this cluster: the Loki Helm chart with values from
+# kubernetes/components/loki/values.yaml, plus that directory's manifests. Needs secret/loki-s3
+# in OpenBao and the bucket d3strukt0r-prod-loki (tofu/objectstorage).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: loki
+  namespace: argocd
+spec:
+  project: default
+  sources:
+    # Pinned: bumping the version is the upgrade. The chart moved from grafana/helm-charts to
+    # grafana-community; 18.13.7 deploys Loki 3.7.8.
+    - repoURL: https://grafana-community.github.io/helm-charts
+      chart: loki
+      targetRevision: 18.13.7
+      helm:
+        valueFiles:
+          - $repo/kubernetes/components/loki/values.yaml
+    - repoURL: https://github.com/Team-MaRo/infrastructure.git
+      targetRevision: master
+      ref: repo
+    - repoURL: https://github.com/Team-MaRo/infrastructure.git
+      targetRevision: master
+      path: kubernetes/components/loki
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: loki
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      # Not required here (no large CRDs); used for consistency.
+      - ServerSideApply=true
