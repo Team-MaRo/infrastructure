@@ -31,6 +31,8 @@ kubernetes/
 │       ├── kube-prometheus-stack.yaml  # metrics and alerts: chart pinned here, values in components/
 │       ├── loki.yaml              # log storage: chart pinned here, values in components/
 │       ├── alloy.yaml             # log collection on every node: chart pinned here
+│       ├── mariadb-operator-crds.yaml  # the operator's CRDs - never pruned
+│       ├── mariadb-operator.yaml  # the operator running the app database
 │       ├── etcd-snapshots.yaml    # syncs the subdirectory below
 │       └── etcd-snapshots/        # prod-only: the S3 settings k3s uploads snapshots with
 └── components/                # how each component is deployed, shared by clusters
@@ -75,6 +77,8 @@ kubernetes/
     │   ├── values.yaml            # Helm values: one instance, S3, 30 days
     │   ├── kustomization.yaml
     │   └── external-secret.yaml   # its S3 key from OpenBao
+    ├── mariadb-operator/
+    │   └── values.yaml            # Helm values: securityContexts, cert-manager, images
     ├── alloy/
     │   ├── values.yaml            # Helm values: the collection pipeline
     │   ├── kustomization.yaml

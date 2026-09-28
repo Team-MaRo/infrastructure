@@ -1,0 +1,33 @@
+---
+# The mariadb-operator for this cluster: its Helm chart with values from
+# kubernetes/components/mariadb-operator/values.yaml. Its CRDs come from
+# mariadb-operator-crds.yaml; until they exist, this Application's sync fails and retries.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: mariadb-operator
+  namespace: argocd
+spec:
+  project: default
+  sources:
+    # Pinned: bumping the version is the upgrade, together with mariadb-operator-crds.yaml.
+    - repoURL: https://mariadb-operator.github.io/mariadb-operator
+      chart: mariadb-operator
+      targetRevision: 26.10.1
+      helm:
+        valueFiles:
+          - $repo/kubernetes/components/mariadb-operator/values.yaml
+    - repoURL: https://github.com/Team-MaRo/infrastructure.git
+      targetRevision: master
+      ref: repo
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: mariadb-operator
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      # Not required here (the CRDs are in their own Application); used for consistency.
+      - ServerSideApply=true
