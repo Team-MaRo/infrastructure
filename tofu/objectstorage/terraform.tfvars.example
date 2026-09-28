@@ -9,5 +9,6 @@ project_id = ""
 
 # The access key IDs (not the secrets) of the cluster's keys - the "username" field of their
 # 1Password items. A mistyped one only shuts that key out of its own bucket.
-etcd_access_key_id = ""
-loki_access_key_id = ""
+etcd_access_key_id            = ""
+loki_access_key_id            = ""
+mariadb_backups_access_key_id = ""

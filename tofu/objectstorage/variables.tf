@@ -34,3 +34,13 @@ variable "loki_access_key_id" {
     error_message = "loki_access_key_id must be a 20-character Hetzner access key ID."
   }
 }
+
+variable "mariadb_backups_access_key_id" {
+  description = "Access key ID of the S3 key the MariaDB operator writes backups with (1Password: Hetzner | S3 | prod mariadb backups, username). Set in terraform.tfvars."
+  type        = string
+
+  validation {
+    condition     = can(regex("^[A-Z0-9]{20}$", var.mariadb_backups_access_key_id))
+    error_message = "mariadb_backups_access_key_id must be a 20-character Hetzner access key ID."
+  }
+}

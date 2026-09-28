@@ -222,10 +222,10 @@ Hetzner S3 keys are valid for every bucket in the project, with every permission
 way to scope one is a bucket policy, so `tofu/objectstorage` writes every policy as
 `Deny` + `NotPrincipal` naming the admin key, `arn:aws:iam:::user/p<project_id>:<access_key>`
 (`local.admin_principal`), plus at most the one cluster key that bucket is for
-(`local.etcd_principal`, `local.loki_principal`). That covers keys that do not exist yet, so
+(`local.etcd_principal`, `local.loki_principal`, `local.mariadb_backups_principal`). That covers keys that do not exist yet, so
 **each key the cluster holds reaches only its own bucket**. The cluster keys' access key IDs
-(not their secrets) are `etcd_access_key_id` and `loki_access_key_id` in the module's
-tfvars; a mistyped one shuts only that key out of its bucket. A `NotPrincipal` naming two
+(not their secrets) are `etcd_access_key_id`, `loki_access_key_id` and
+`mariadb_backups_access_key_id` in the module's tfvars; a mistyped one shuts only that key out of its bucket. A `NotPrincipal` naming two
 keys was proven on the Loki bucket first (2026-09-28): the admin key kept full access, and
 the etcd key got `AccessDenied` there.
 
@@ -234,7 +234,8 @@ days: a broken large upload leaves its parts behind, invisible in a listing but 
 billed. **A versioned bucket's rule also expires noncurrent versions** and then orphaned
 delete markers - versioning never forgets on its own. An unversioned bucket's rule does no
 more than the abort: its writer deletes old data itself (Loki's compactor, a backup tool's
-retention), and a second deleter could remove objects the tool still expects. Hetzner's lifecycle only removes
+retention), and a second deleter could remove objects the tool still expects. The one
+exception is `d3strukt0r-prod-mariadb-backups`, whose writer does not prune everything (see below). Hetzner's lifecycle only removes
 *orphaned* markers with `expired_object_delete_marker`; it never expires current objects,
 although uploads answer with an `Expiration` header that suggests so (tested 2026-09).
 
@@ -266,6 +267,12 @@ although uploads answer with an `Expiration` header that suggests so (tested 202
 - **`d3strukt0r-prod-loki`: unversioned, no lock**, lifecycle rule only for incomplete
   uploads; Loki's compactor deletes old logs. Only the admin key and Loki's key (console label
   `prod loki`, 1Password `Hetzner | S3 | prod loki`, OpenBao `secret/loki-s3`) reach it.
+- **`d3strukt0r-prod-mariadb-backups`: unversioned, objects expire after 35 days.** It holds the
+  MariaDB operator's physical backups and archived binary logs. The operator deletes backups
+  past their 30-day retention itself but never the binary logs, so the lifecycle rule expires
+  everything after 35 days - long enough that every kept backup still has its binary logs.
+  Only the admin key and the backup key (console label `prod mariadb backups`, 1Password
+  `Hetzner | S3 | prod mariadb backups`, OpenBao `secret/mariadb-backups-s3`) reach it.
 - **Provider `aminueza/minio`, `s3_compat_mode` off.** The `aws` provider cannot refresh a
   bucket here (it reads Accelerate, Website, Logging, Replication and Tagging, all
   unimplemented). Compat mode would swallow "not implemented" errors, object lock and
