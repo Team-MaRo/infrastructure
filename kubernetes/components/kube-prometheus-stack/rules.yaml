@@ -69,3 +69,36 @@ spec:
             description: >-
               Restarting k3s on the node renews it (sudo systemctl restart k3s, one node at a
               time); k3s certificate rotate forces it.
+
+        # Every volume, at three levels; a higher one silences the lower ones (the inhibit
+        # rules in values.yaml). A volume can be grown with a bigger PVC request - Hetzner
+        # volumes resize online - but never shrunk.
+        - alert: PersistentVolumeUsageHigh
+          expr: kubelet_volume_stats_used_bytes{job="kubelet"} / kubelet_volume_stats_capacity_bytes{job="kubelet"} > 0.80
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Volume {{ $labels.namespace }}/{{ $labels.persistentvolumeclaim }} is {{ $value | humanizePercentage }} full."
+            description: >-
+              Over 80 %. Plan to grow it (a bigger storage request on its PVC) or to reduce
+              what is kept on it.
+        - alert: PersistentVolumeUsageCritical
+          expr: kubelet_volume_stats_used_bytes{job="kubelet"} / kubelet_volume_stats_capacity_bytes{job="kubelet"} > 0.90
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Volume {{ $labels.namespace }}/{{ $labels.persistentvolumeclaim }} is {{ $value | humanizePercentage }} full."
+            description: >-
+              Over 90 %. Grow it soon (a bigger storage request on its PVC).
+        - alert: PersistentVolumeAlmostFull
+          expr: kubelet_volume_stats_used_bytes{job="kubelet"} / kubelet_volume_stats_capacity_bytes{job="kubelet"} > 0.95
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Volume {{ $labels.namespace }}/{{ $labels.persistentvolumeclaim }} is {{ $value | humanizePercentage }} full."
+            description: >-
+              Over 95 %: what writes to it will fail when it is full. Grow it now (a bigger
+              storage request on its PVC).

@@ -1005,16 +1005,20 @@ Prometheus and Grafana, which need more. node-exporter goes to `kube-system`
 (`namespaceOverride`), since it needs the host's network, PIDs and files; there is no
 LimitRange there, so it sets its own.
 
-- **Prometheus keeps 30 days** on a 30 GB volume (`retentionSize` 24 GB deletes the oldest
-  first if it fills sooner). Alertmanager and Grafana have no volume: silences and anything
+- **Prometheus keeps what fits in 8 GB** of its 10 GB volume (`retentionSize`, oldest first),
+  roughly three weeks at ~350 MB a day, capped at 30 days. It started on 30 GB and was
+  recreated at 10 GB: a volume can grow but never shrink, so the smaller start is the
+  cheaper mistake. Alertmanager and Grafana have no volume: silences and anything
   changed in Grafana's UI are lost on restart - dashboards and datasources come from the chart
   and from ConfigMaps (the sidecar reads every ConfigMap labelled `grafana_dashboard: "1"`).
 - **k3s is one process, so three scrapes are disabled** (controller manager, scheduler,
   proxy - there is nothing separate to reach), and with them their alerts and dashboards.
 - **k3s serves one shared metrics registry on every port**: the API server's and each
   kubelet's `/metrics` return the same ~64,000 series per node (measured when adopted). The
-  API server keeps them, minus histogram buckets that no rule or dashboard of the chart reads;
-  the kubelet keeps only its own families (a keep list). Without that, Prometheus would hold
+  API server keeps them, minus histogram buckets that no rule or dashboard of the chart reads
+  and minus the kubelet's own families; the kubelet keeps only its own (a keep list). Through
+  the API server, the kubelet's volume metrics would also carry `namespace="default"` instead
+  of the PVC's, and every volume alert would fire twice. Without that, Prometheus would hold
   roughly 380,000 series, half of them duplicates.
 - **etcd is scraped by a `ScrapeConfig`** (`scrape-etcd.yaml`): the private IPs, port 2381, as
   opened by `etcd-expose-metrics` in `k3s_config`, which binds to the node's own address only.
@@ -1044,6 +1048,11 @@ LimitRange there, so it sets its own.
   drain that cannot finish), a server without a successful etcd snapshot upload for 13 hours
   or with a failed one, and a k3s certificate within 30 days of expiry (k3s renews at start
   within 120 days, so this means renewal failed). Their descriptions say what to do.
+- **Volume alerts at three levels** (`rules.yaml`): 80 % warning, 90 % critical, 95 % critical
+  again, each a separate alert so every level notifies once; inhibit rules in the
+  Alertmanager config let a higher level silence the lower ones for the same PVC. They replace
+  the chart's `KubePersistentVolumeFillingUp` (disabled), which only warned at 15 % free when
+  a trend predicted it full within four days.
 - **Grafana's admin** comes from OpenBao `secret/grafana` through the ExternalSecret
   `grafana-admin`; the chart would otherwise generate a new random password on every render.
 

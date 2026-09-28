@@ -2,6 +2,12 @@
 # Application. Namespace monitoring gets Kyverno's LimitRange like any app namespace, so only
 # containers that need more than its defaults set resources here.
 
+# The chart's volume alert warns at 15 % free if a trend says it fills within 4 days, and is
+# critical at 3 % free; rules.yaml has fixed thresholds instead.
+defaultRules:
+  disabled:
+    KubePersistentVolumeFillingUp: true
+
 # k3s runs the controller manager, scheduler and proxy inside its one process, with no
 # endpoints of their own to scrape. Their alerts and dashboards go with them.
 kubeControllerManager:
@@ -22,8 +28,9 @@ kubeEtcd:
 
 # k3s serves one shared metrics registry on every component's port: the API server's
 # /metrics and each kubelet's /metrics return the same ~64,000 series. The API server keeps
-# them, minus histogram buckets no rule or dashboard of this chart reads; the kubelet keeps
-# only its own families.
+# them, minus histogram buckets no rule or dashboard of this chart reads and minus the
+# kubelet's families; the kubelet keeps only its own. Through the API server, the kubelet's
+# volume metrics would also carry namespace "default" instead of the PVC's.
 kubeApiServer:
   serviceMonitor:
     metricRelabelings:
@@ -33,6 +40,9 @@ kubeApiServer:
         sourceLabels: [__name__, le]
       - action: drop
         regex: (apiserver_request_duration_seconds|etcd_request_duration_seconds|apiserver_watch_events_dispatch_duration_seconds|apiserver_storage_list_duration_seconds|apiserver_watch_list_duration_seconds|apiserver_watch_cache_read_wait_seconds|apiserver_watch_cache_initialization_duration_seconds|apiserver_response_sizes|apiserver_watch_events_sizes|apiserver_request_body_size_bytes)_bucket
+        sourceLabels: [__name__]
+      - action: drop
+        regex: kubelet_.*|volume_manager_.*
         sourceLabels: [__name__]
 
 kubelet:
@@ -56,15 +66,17 @@ prometheusOperator:
 prometheus:
   prometheusSpec:
     retention: 30d
-    # Deletes the oldest data before the volume fills, whatever the age.
-    retentionSize: 24GB
+    # Deletes the oldest data before the volume fills, whatever the age. At about 350 MB a
+    # day, 10 GB holds roughly three weeks, so this is the limit that applies, not the 30 days.
+    # Growing the volume later (it can never shrink) means raising this with it, by hand.
+    retentionSize: 8GB
     storageSpec:
       volumeClaimTemplate:
         spec:
           accessModes: [ReadWriteOnce]
           resources:
             requests:
-              storage: 30Gi
+              storage: 10Gi
     resources:
       requests:
         cpu: 200m
@@ -114,6 +126,13 @@ alertmanager:
       - source_matchers: [alertname = "InfoInhibitor"]
         target_matchers: [severity = "info"]
         equal: [namespace]
+      # A volume's higher usage level silences its lower ones (rules.yaml).
+      - source_matchers: [alertname = "PersistentVolumeAlmostFull"]
+        target_matchers: [alertname =~ "PersistentVolumeUsageCritical|PersistentVolumeUsageHigh"]
+        equal: [namespace, persistentvolumeclaim]
+      - source_matchers: [alertname = "PersistentVolumeUsageCritical"]
+        target_matchers: [alertname = "PersistentVolumeUsageHigh"]
+        equal: [namespace, persistentvolumeclaim]
     receivers:
       - name: "null"
       - name: watchdog
