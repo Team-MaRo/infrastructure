@@ -42,6 +42,11 @@ k3s_server_args:
 # fills from OpenBao; setting any other etcd-s3-* option here would make k3s ignore it. A
 # restore cannot read the Secret - see CLAUDE.md for what it needs instead.
 #
+# etcd-expose-metrics makes etcd serve its metrics on the node's own address as well as on
+# 127.0.0.1, port 2381, so Prometheus can scrape it from a pod. That address is the private
+# IP (--node-ip), so the port never listens on the public interface. Plain HTTP, no
+# authentication - metrics only, nothing that could change etcd.
+#
 # admission-control-config-file points the API server at the Pod Security configuration the
 # role writes next to this drop-in (see k3s_psa_exempt_namespaces).
 #
@@ -55,6 +60,7 @@ k3s_config:
     - local-storage
   etcd-s3: true
   etcd-s3-config-secret: k3s-etcd-snapshot-s3-config
+  etcd-expose-metrics: true
   flannel-backend: wireguard-native
   kube-apiserver-arg:
     - admission-control-config-file=/etc/rancher/k3s/psa.yaml
