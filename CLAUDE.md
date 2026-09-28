@@ -859,10 +859,10 @@ guide. A change to the file restarts k3s one node at a time, like a drop-in chan
   `seccompProfile: RuntimeDefault`, and no host namespaces, host paths or privileged mode.
   A pod that misses one is rejected at creation, with the reasons in the error.
 - **Infrastructure namespaces are exempt** - `k3s_psa_exempt_namespaces` in the role's
-  defaults: the Kyverno policies' exclusions minus those that run restricted anyway
+  defaults: the default-resources policy's exclusions minus those that run restricted anyway
   (`cert-manager`). Some of it must run privileged: kured and the CSI driver in
   `kube-system`, the upgrade Jobs in `system-upgrade`. The lists live in two places
-  (Ansible, and the policies in `kubernetes/components/kyverno/`) and have to be kept in step
+  (Ansible, and `kubernetes/components/kyverno/default-resources.yaml`) and have to be kept in step
   by hand.
 - **The namespace label can override the default.** A namespace labelled
   `pod-security.kubernetes.io/enforce: baseline` (or `privileged`) gets that instead, so
@@ -873,11 +873,22 @@ guide. A change to the file restarts k3s one node at a time, like a drop-in chan
 
 Pod Security cannot say where an image comes from, so that is Kyverno's:
 `kubernetes/components/kyverno/allowed-registries.yaml`, a `ValidatingPolicy` in `Deny`
-mode. In app namespaces every container, init container and ephemeral container must come
-from `docker.io`, `ghcr.io`, `quay.io`, `registry.k8s.io` or `public.ecr.aws` - whole hosts,
-not single organisations (user decision). Infrastructure namespaces are excluded with the
-same list as the other policies; they pull from further registries (`reg.kyverno.io`), and a
-chart update that moves its images must not break a system component.
+mode. In every namespace, infrastructure included, every container, init
+container and ephemeral container must come from `docker.io`, `ghcr.io`, `quay.io`,
+`registry.k8s.io` or `public.ecr.aws` - whole hosts, not single organisations (user
+decision). Kyverno itself is set to pull from `ghcr.io` (`global.image.registry` in its
+values) instead of its default `reg.kyverno.io`.
+
+- **`kube-system` and `kyverno` are never checked**: Kyverno's own webhook configuration
+  (its `config.webhooks` default) keeps them out, so a broken Kyverno cannot block CoreDNS,
+  the CSI driver or its own restart. Their images happen to comply anyway.
+- **`failurePolicy: Ignore`**: with Kyverno down, pods start unchecked instead of not at all.
+  `Fail` would also stop Argo CD from restarting - the tool that repairs Kyverno - and need
+  Kyverno's webhook configuration deleted by hand. Images only come from git, so the check
+  guards against mistakes, not against someone timing a Kyverno outage.
+- **A chart update that moves its images to another registry is refused** at sync, and Argo
+  CD shows the error: either the chart gets a registry override, as Kyverno did, or the
+  registry is added to the list.
 
 - **Docker Hub is `index.docker.io` in the list**, not `docker.io`: Kyverno's CEL image
   library reports that registry for `nginx`, `rancher/x` and `docker.io/x` alike.
@@ -950,7 +961,7 @@ traffic.
 - **No email on the ACME accounts**: optional, this repo is public, and Let's Encrypt no
   longer sends expiry mails. cert-manager renews by itself 30 days before expiry.
 - **Its pods run restricted** (non-root, seccomp, no capabilities), so `cert-manager` is on
-  the Kyverno exclusion lists but not in `k3s_psa_exempt_namespaces`.
+  Kyverno's default-resources exclusions but not in `k3s_psa_exempt_namespaces`.
 
 ### Monitoring
 
@@ -974,8 +985,8 @@ configured in the UI (runbook and monitor list in `kubernetes/README.md`), not i
 - **`UPTIME_KUMA_DB_TYPE=sqlite`** skips the first-start database wizard.
 - **`enableServiceLinks: false`**: Kubernetes would inject `UPTIME_KUMA_PORT=tcp://...` for the
   Service of the same name, and Uptime Kuma reads that variable as its listen port.
-- **It runs like an app, not like infrastructure**: its namespace is on neither the Kyverno
-  exclusion lists nor the PSA exemptions. It sets only its memory, which the defaults would
+- **It runs like an app, not like infrastructure**: its namespace is on neither Kyverno's
+  default-resources exclusions nor the PSA exemptions. It sets only its memory, which the defaults would
   undersize; the generated LimitRange fills in the CPU request and ephemeral storage. Its
   image comes from Docker Hub. Its own
   namespace also means that moving it out of the cluster is deleting one namespace.
@@ -987,9 +998,9 @@ configured in the UI (runbook and monitor list in `kubernetes/README.md`), not i
 
 **kube-prometheus-stack** (`kubernetes/clusters/prod/kube-prometheus-stack.yaml`, chart
 pinned, values and extra manifests in `kubernetes/components/kube-prometheus-stack/`) runs
-Prometheus, Alertmanager and Grafana in `monitoring` - an ordinary namespace, on neither the
-Kyverno exclusion lists nor the PSA exemptions: its images all come from allowed registries,
-and the LimitRange's defaults fit most of its containers, so the values set resources only for
+Prometheus, Alertmanager and Grafana in `monitoring` - an ordinary namespace, on neither
+Kyverno's default-resources exclusions nor the PSA exemptions: the LimitRange's defaults fit
+most of its containers, so the values set resources only for
 Prometheus and Grafana, which need more. node-exporter goes to `kube-system`
 (`namespaceOverride`), since it needs the host's network, PIDs and files; there is no
 LimitRange there, so it sets its own.

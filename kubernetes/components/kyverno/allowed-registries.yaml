@@ -1,7 +1,9 @@
 ---
-# App namespaces may only run images from these registries - whole hosts, not single
-# organisations. Pod Security Admission (configured in k3s) covers how a pod runs; where its
-# image comes from is nothing Kubernetes can check by itself.
+# Every namespace may only run images from these registries - whole hosts, not single
+# organisations. Kyverno's own webhook configuration never sends kube-system and kyverno to
+# it, so a broken Kyverno cannot block CoreDNS, the CSI driver or itself; everything else,
+# infrastructure included, is checked. Pod Security Admission (configured in k3s) covers how
+# a pod runs; where its image comes from is nothing Kubernetes can check by itself.
 #
 # autogen extends the check to the pod templates of Deployments and the other controllers,
 # so a bad image is refused when the Deployment is applied, not later as a pod that never
@@ -15,6 +17,10 @@ metadata:
     argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 spec:
   validationActions: [Deny]
+  # With Kyverno down, pods start unchecked rather than not at all: Fail would also stop Argo
+  # CD from restarting, the tool that repairs Kyverno. Images only come from git, so the
+  # check guards against mistakes, not against someone racing a Kyverno outage.
+  failurePolicy: Ignore
   autogen:
     podControllers:
       controllers: [deployments, statefulsets, daemonsets, jobs, cronjobs]
@@ -24,16 +30,6 @@ spec:
         apiVersions: [v1]
         operations: [CREATE, UPDATE]
         resources: [pods]
-  # The same list as in default-resources.yaml (k3s_psa_exempt_namespaces in Ansible holds
-  # those that need more than the restricted standard). Infrastructure pulls from further registries (reg.kyverno.io, for one), and a chart
-  # update that moves its images must not break a system component.
-  matchConditions:
-    - name: not-infrastructure
-      expression: >-
-        !(object.metadata.namespace in [
-          'kube-system', 'kube-public', 'kube-node-lease', 'default',
-          'argocd', 'openbao', 'external-secrets', 'system-upgrade', 'kyverno', 'cert-manager'
-        ])
   variables:
     # Kyverno's image library reports Docker Hub as index.docker.io - for "nginx",
     # "rancher/x" and "docker.io/x" alike - so that is the name to list, not docker.io.

@@ -26,9 +26,12 @@ spec:
               cause, then kubectl uncordon {{ $labels.node }}.
 
         # Every server uploads a snapshot at 00:00 and 12:00 UTC. The counter restarts with
-        # k3s, which increase() accounts for.
+        # k3s, which increase() accounts for. Only once Prometheus holds 13 hours of data:
+        # before that, a flat counter only means the last upload happened before it started.
         - alert: EtcdSnapshotUploadMissing
-          expr: sum by (instance) (increase(k3s_etcd_snapshot_save_s3_duration_seconds_count{status="success"}[13h])) == 0
+          expr: >-
+            sum by (instance) (increase(k3s_etcd_snapshot_save_s3_duration_seconds_count{status="success"}[13h])) == 0
+            and on () (time() - max(prometheus_tsdb_lowest_timestamp_seconds)) > 13 * 3600
           labels:
             severity: warning
           annotations:
