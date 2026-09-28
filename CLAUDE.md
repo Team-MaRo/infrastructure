@@ -952,6 +952,39 @@ traffic.
 - **Its pods run restricted** (non-root, seccomp, no capabilities), so `cert-manager` is on
   the Kyverno exclusion lists but not in `k3s_psa_exempt_namespaces`.
 
+### Monitoring
+
+Each monitoring component gets its own namespace, under the restricted Pod Security
+Standard; components that need the host (node-exporter, the log collector) go to
+`kube-system` instead. The UIs are reached by port-forward only until Zitadel provides SSO.
+
+**Uptime Kuma** (`kubernetes/components/uptime-kuma/`, plain manifests, image pinned,
+namespace `uptime-kuma`) has two
+jobs: checking the websites, and receiving Alertmanager's always-firing `Watchdog` alert as a
+heartbeat - a push monitor that alerts through ntfy when the heartbeat stops, so a broken
+alerting pipeline is noticed too. Its monitors and notifications live in its SQLite database,
+configured in the UI (runbook and monitor list in `kubernetes/README.md`), not in git.
+
+- **One replica, `strategy: Recreate`**: the SQLite file sits on a ReadWriteOnce volume, which
+  only one node can attach; a rolling update would wait forever for the old pod's volume.
+- **The rootless image runs as UID 1000**, set numerically in the pod because the image only
+  names its user (`node`) and `runAsNonRoot` cannot check a name. `fsGroup` hands the fresh
+  volume, owned by root, to that group. The root filesystem is read-only and `/tmp` an
+  `emptyDir`; both were tested locally before the first deploy.
+- **`UPTIME_KUMA_DB_TYPE=sqlite`** skips the first-start database wizard.
+- **`enableServiceLinks: false`**: Kubernetes would inject `UPTIME_KUMA_PORT=tcp://...` for the
+  Service of the same name, and Uptime Kuma reads that variable as its listen port.
+- **It runs like an app, not like infrastructure**: its namespace is on neither the Kyverno
+  exclusion lists nor the PSA exemptions. It sets only its memory, which the defaults would
+  undersize; the generated LimitRange fills in the CPU request and ephemeral storage. Its
+  image comes from Docker Hub. Its own
+  namespace also means that moving it out of the cluster is deleting one namespace.
+- **It cannot report a dead cluster** while it runs inside it: a complete outage takes it down
+  too. It moves to a machine outside (the home server) later; then it checks the cluster from
+  there, and Alertmanager's heartbeat goes to that address.
+- Since 2.0, the push endpoint accepts POST, so Alertmanager's webhook can call it directly - no
+  translating proxy.
+
 ### What a second cluster would need
 
 `kubernetes/` is already laid out per cluster, because once Argo CD is bootstrapped its

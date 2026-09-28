@@ -27,6 +27,7 @@ kubernetes/
 │       ├── kyverno.yaml           # policies: chart pinned here, values and policies in components/
 │       ├── cert-manager.yaml      # certificates from Let's Encrypt
 │       ├── traefik.yaml           # k3s's Traefik: DaemonSet on the ingress nodes' host network
+│       ├── uptime-kuma.yaml       # website checks and the alerting heartbeat
 │       ├── etcd-snapshots.yaml    # syncs the subdirectory below
 │       └── etcd-snapshots/        # prod-only: the S3 settings k3s uploads snapshots with
 └── components/                # how each component is deployed, shared by clusters
@@ -57,9 +58,14 @@ kubernetes/
     │   ├── default-resources.yaml # LimitRange for every app namespace
     │   ├── allowed-registries.yaml # images only from known registries
     │   └── rbac-limitranges.yaml  # lets Kyverno create LimitRanges
-    └── system-upgrade-controller/
-        ├── kustomization.yaml     # pinned release manifests
-        └── plan.yaml              # which k3s version, when, one node at a time
+    ├── system-upgrade-controller/
+    │   ├── kustomization.yaml     # pinned release manifests
+    │   └── plan.yaml              # which k3s version, when, one node at a time
+    └── uptime-kuma/
+        ├── kustomization.yaml
+        ├── deployment.yaml        # one replica, pinned rootless image, SQLite
+        ├── pvc.yaml               # its 10 GB volume
+        └── service.yaml
 ```
 
 Components are Kustomize over a pinned upstream manifest where upstream publishes one.
@@ -105,7 +111,14 @@ already in place). Until then:
 kubectl --context d3strukt0r-prod-admin -n argocd port-forward svc/argocd-server 8080:443
 ```
 
-then `https://localhost:8080`; expect a self-signed certificate warning.
+then `https://localhost:8080`; expect a self-signed certificate warning. Uptime Kuma the same
+way:
+
+```shell
+kubectl --context d3strukt0r-prod-admin -n uptime-kuma port-forward svc/uptime-kuma 3001:3001
+```
+
+then `http://localhost:3001`.
 
 ### After every fresh install: replace the admin password
 
@@ -414,6 +427,61 @@ The issuers use one Cloudflare token per account. Creating or replacing them:
      personal="$(op item get 'Cloudflare | cert-manager DNS (prod cluster)' --account my.1password.com --vault Private --fields credential --reveal)" \
      arepazo="$(op item get 'Cloudflare | Arepazo | cert-manager DNS (prod cluster)' --account my.1password.com --vault Private --fields credential --reveal)"
    ```
+
+## Uptime Kuma
+
+Checks the websites and watches the alerting pipeline itself: Alertmanager sends its
+always-firing `Watchdog` alert to an Uptime Kuma push monitor every minute, and when that
+stops, Uptime Kuma alerts through ntfy. Its configuration lives in its database, not in git,
+so it is set up by hand once - and again only if its volume is lost. The list below is what to
+recreate.
+
+Alerts go to one ntfy.sh topic, whose name is the secret: on the free plan a topic cannot be
+reserved, so anyone who knows the name could read it.
+
+1. **ntfy**, once for all monitoring:
+   - Create the topic name with `echo "prod-alerts-$(openssl rand -hex 16)"` - the prefix says
+     what it is, the 128 random bits make it unguessable.
+   - Create an access token at ntfy.sh → Account → Access tokens, named `prod cluster alerts`,
+     **never expiring** (an expiring token would silently stop the alerts).
+   - Store both in 1Password as `ntfy | prod alerts` (topic as `username`, token as
+     `credential`), and subscribe to the topic in the ntfy Android app.
+   - Copy them into OpenBao for Alertmanager (port-forward to OpenBao open):
+
+     ```shell
+     BAO_ADDR=http://127.0.0.1:8200 BAO_TOKEN="$(op item get 'OpenBao | Prod | Recovery keys & root token' --account my.1password.com --vault Private --fields credential --reveal)" \
+       bao kv put secret/ntfy \
+         topic="$(op item get 'ntfy | prod alerts' --account my.1password.com --vault Private --fields username)" \
+         token="$(op item get 'ntfy | prod alerts' --account my.1password.com --vault Private --fields credential --reveal)"
+     ```
+
+2. Port-forward (see "Accessing the UI"), open `http://localhost:3001`, create the admin
+   account and store it in 1Password as `Uptime Kuma | Prod | Admin`. Enable 2FA under
+   Settings → Security → Two Factor Authentication, scanning the QR code into the same
+   1Password item as a one-time password.
+3. Settings → Notifications → Setup Notification: type **ntfy**, display name
+   `ntfy prod alerts`, server `https://ntfy.sh`, the topic, authentication **Access token**
+   with the token, priority 4 and DOWN priority 5, **Default enabled**. **Test** must reach the
+   phone before saving.
+4. Add New Monitor → **Push**, name `Alertmanager Watchdog`, heartbeat interval 300 s,
+   retries 1. **Pause it** until Alertmanager is deployed, or it goes DOWN after five minutes.
+   Its push URL, as shown, is `http://localhost:3001/api/push/<token>?status=up&msg=OK&ping=`;
+   put it into OpenBao with the cluster-internal host instead and without `&ping=`:
+
+   ```shell
+   BAO_ADDR=http://127.0.0.1:8200 BAO_TOKEN="$(op item get 'OpenBao | Prod | Recovery keys & root token' --account my.1password.com --vault Private --fields credential --reveal)" \
+     bao kv put secret/uptime-kuma \
+       watchdog-push-url='http://uptime-kuma.uptime-kuma.svc:3001/api/push/<token>?status=up&msg=OK'
+   ```
+
+5. One **HTTP(s)** monitor per entry in the list below, interval 60 s, retries 2.
+
+| Monitor | Type | Target |
+|---|---|---|
+| Alertmanager Watchdog | Push | Alertmanager, every minute |
+
+**Losing the volume** loses this configuration and the check history, nothing else: repeat
+the steps, and replace the push URL in OpenBao, since a new monitor gets a new token.
 
 ## How quickly a push arrives
 
