@@ -10,4 +10,5 @@ resources:
   - mariadb.yaml
   - backups.yaml
   - flush-binlogs.yaml
+  - backup-after-switchover.yaml
   - rules.yaml

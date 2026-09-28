@@ -44,3 +44,37 @@ spec:
             description: >-
               A lagging replica cannot take over without losing the transactions it lacks,
               and blocks switchovers.
+        # From the operator's status conditions (kube-state-metrics' custom resource metrics,
+        # configured in the kube-prometheus-stack values). Archiving stops at a file it cannot
+        # read, and point-in-time recovery then stays at the last good one; writes go on.
+        - alert: MariaDBBinlogArchivingFailing
+          expr: kube_customresource_condition{customresource_kind="MariaDB", namespace="mariadb", type="BinlogsArchived", status!="True"}
+          for: 30m
+          labels:
+            severity: warning
+          annotations:
+            summary: "MariaDB {{ $labels.name }} has not archived its binary logs for 30 minutes ({{ $labels.reason }})."
+            description: >-
+              Point-in-time recovery cannot go past the last archived file. The MariaDB's
+              status message names the file; follow the runbook in kubernetes/README.md
+              ("MariaDB: binary log archiving stuck").
+        # Either the last backup did not complete (a failed Job leaves Complete=False, and the
+        # True series then disappears), or none has completed for 26 hours - the nightly one
+        # plus slack. Also catches a failed backup of the after-switchover CronJob, which does
+        # not retry. Two hours is far longer than a backup runs.
+        - alert: MariaDBBackupFailed
+          expr: |-
+            max by (name) (kube_customresource_condition{customresource_kind="PhysicalBackup", namespace="mariadb", name="mariadb-daily", type="Complete", status!="True"})
+            or
+            time() - max by (name) (kube_customresource_condition{customresource_kind="PhysicalBackup", namespace="mariadb", name="mariadb-daily", type="Complete", status="True"}) > 26 * 3600
+          for: 2h
+          labels:
+            severity: warning
+            namespace: mariadb
+          annotations:
+            summary: "MariaDB's physical backup mariadb-daily has not succeeded."
+            description: >-
+              Without a fresh backup, a restore starts from an older one and replays more binary
+              logs - and those expire after 35 days. Check kubectl -n mariadb get physicalbackup
+              and the log of the latest mariadb-daily Job, then start one by hand with the
+              command in kubernetes/README.md ("MariaDB: failover hangs").
