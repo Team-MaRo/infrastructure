@@ -1,0 +1,29 @@
+---
+# k3s's embedded etcd serves its metrics on each server's private IP, port 2381
+# (etcd-expose-metrics in ansible/roles/k3s). Scraped directly, since the chart's way needs
+# an Endpoints object Argo CD does not manage. The job name matches the chart's etcd rules
+# and dashboard. A new server node is one more target here.
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: ScrapeConfig
+metadata:
+  name: kube-etcd
+  annotations:
+    # The CRD arrives with the chart in the same sync.
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  jobName: kube-etcd
+  staticConfigs:
+    - targets: ["10.0.0.101:2381"]
+      labels:
+        node: prod-01
+    - targets: ["10.0.0.102:2381"]
+      labels:
+        node: prod-02
+    - targets: ["10.0.0.103:2381"]
+      labels:
+        node: prod-03
+  # The port serves a few families of k3s's shared registry too; only etcd's own are kept.
+  metricRelabelings:
+    - action: keep
+      regex: etcd_.*|grpc_server_.*|process_.*
+      sourceLabels: [__name__]

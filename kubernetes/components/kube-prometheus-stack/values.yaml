@@ -1,0 +1,165 @@
+# Helm values for kube-prometheus-stack; the chart version is pinned in the cluster's
+# Application. Namespace monitoring gets Kyverno's LimitRange like any app namespace, so only
+# containers that need more than its defaults set resources here.
+
+# k3s runs the controller manager, scheduler and proxy inside its one process, with no
+# endpoints of their own to scrape. Their alerts and dashboards go with them.
+kubeControllerManager:
+  enabled: false
+kubeScheduler:
+  enabled: false
+kubeProxy:
+  enabled: false
+
+# etcd stays enabled for its alerts and dashboard, but the chart's Service and ServiceMonitor
+# would need an Endpoints object, which Argo CD does not manage; scrape-etcd.yaml scrapes the
+# nodes directly instead, under the job name those rules expect.
+kubeEtcd:
+  service:
+    enabled: false
+  serviceMonitor:
+    enabled: false
+
+# k3s serves one shared metrics registry on every component's port: the API server's
+# /metrics and each kubelet's /metrics return the same ~64,000 series. The API server keeps
+# them, minus histogram buckets no rule or dashboard of this chart reads; the kubelet keeps
+# only its own families.
+kubeApiServer:
+  serviceMonitor:
+    metricRelabelings:
+      # The chart's default, kept: fewer buckets for the histograms its SLO rules use.
+      - action: drop
+        regex: (etcd_request|apiserver_request_slo|apiserver_request_sli|apiserver_request)_duration_seconds_bucket;(0\.15|0\.2|0\.3|0\.35|0\.4|0\.45|0\.6|0\.7|0\.8|0\.9|1\.25|1\.5|1\.75|2|3|3\.5|4|4\.5|6|7|8|9|15|20|40|45|50)(\.0)?
+        sourceLabels: [__name__, le]
+      - action: drop
+        regex: (apiserver_request_duration_seconds|etcd_request_duration_seconds|apiserver_watch_events_dispatch_duration_seconds|apiserver_storage_list_duration_seconds|apiserver_watch_list_duration_seconds|apiserver_watch_cache_read_wait_seconds|apiserver_watch_cache_initialization_duration_seconds|apiserver_response_sizes|apiserver_watch_events_sizes|apiserver_request_body_size_bytes)_bucket
+        sourceLabels: [__name__]
+
+kubelet:
+  serviceMonitor:
+    metricRelabelings:
+      - action: keep
+        regex: kubelet_.*|volume_manager_.*|storage_operation_.*|csi_operations_.*|rest_client_.*|process_.*|go_goroutines
+        sourceLabels: [__name__]
+      # The chart's default, kept.
+      - action: drop
+        sourceLabels: [__name__, le]
+        regex: (csi_operations|storage_operation_duration)_seconds_bucket;(0.25|2.5|15|25|120|600)(\.0)?
+
+prometheusOperator:
+  # The admission webhook's certificate comes from cert-manager, instead of the chart's Helm
+  # hook Jobs, which Argo CD would run on every sync.
+  admissionWebhooks:
+    certManager:
+      enabled: true
+
+prometheus:
+  prometheusSpec:
+    retention: 30d
+    # Deletes the oldest data before the volume fills, whatever the age.
+    retentionSize: 24GB
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          accessModes: [ReadWriteOnce]
+          resources:
+            requests:
+              storage: 30Gi
+    resources:
+      requests:
+        cpu: 200m
+        memory: 1Gi
+      limits:
+        memory: 2Gi
+    # Pick up monitors, rules and scrape configs from every Application, not only from
+    # objects carrying this Helm release's label.
+    ruleSelectorNilUsesHelmValues: false
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    probeSelectorNilUsesHelmValues: false
+    scrapeConfigSelectorNilUsesHelmValues: false
+
+alertmanager:
+  alertmanagerSpec:
+    # Mounted under /etc/alertmanager/secrets/alertmanager-ntfy/, from external-secrets.yaml.
+    secrets:
+      - alertmanager-ntfy
+  # Phone notifications through ntfy.sh, one receiver per priority, since Alertmanager's
+  # webhook cannot set ntfy's priority header - it goes into the topic URL instead. The
+  # always-firing Watchdog goes to Uptime Kuma every minute as a heartbeat.
+  config:
+    route:
+      receiver: ntfy-warning
+      group_by: [namespace, alertname]
+      routes:
+        - receiver: watchdog
+          matchers: [alertname = "Watchdog"]
+          group_wait: 0s
+          group_interval: 1m
+          repeat_interval: 1m
+        - receiver: "null"
+          matchers: [alertname = "InfoInhibitor"]
+        # Informational alerts (throttling and the like) stay in Grafana, off the phone.
+        - receiver: "null"
+          matchers: [severity = "info"]
+        - receiver: ntfy-critical
+          matchers: [severity = "critical"]
+    inhibit_rules:
+      - source_matchers: [severity = "critical"]
+        target_matchers: [severity =~ "warning|info"]
+        equal: [namespace, alertname]
+      - source_matchers: [severity = "warning"]
+        target_matchers: [severity = "info"]
+        equal: [namespace, alertname]
+      - source_matchers: [alertname = "InfoInhibitor"]
+        target_matchers: [severity = "info"]
+        equal: [namespace]
+    receivers:
+      - name: "null"
+      - name: watchdog
+        webhook_configs:
+          - url_file: /etc/alertmanager/secrets/alertmanager-ntfy/watchdog-url
+            send_resolved: false
+      - name: ntfy-critical
+        webhook_configs:
+          - url_file: /etc/alertmanager/secrets/alertmanager-ntfy/url-critical
+            # Keeps a message within ntfy's size limit when many alerts fire together.
+            max_alerts: 10
+            http_config:
+              authorization:
+                credentials_file: /etc/alertmanager/secrets/alertmanager-ntfy/token
+      - name: ntfy-warning
+        webhook_configs:
+          - url_file: /etc/alertmanager/secrets/alertmanager-ntfy/url-warning
+            max_alerts: 10
+            http_config:
+              authorization:
+                credentials_file: /etc/alertmanager/secrets/alertmanager-ntfy/token
+
+grafana:
+  admin:
+    existingSecret: grafana-admin
+  # A test pod Helm would run on install; Argo CD would only ever show it as extra.
+  testFramework:
+    enabled: false
+  resources:
+    requests:
+      memory: 256Mi
+    limits:
+      memory: 512Mi
+
+prometheus-node-exporter:
+  # It needs the host's network, PID namespace and filesystem, which only an exempt
+  # namespace allows.
+  namespaceOverride: kube-system
+  # Traefik's metrics already hold 9100 on the nodes' host network.
+  service:
+    port: 9101
+    targetPort: 9101
+  # kube-system has no LimitRange, so these are its only resources.
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      memory: 128Mi

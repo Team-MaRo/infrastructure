@@ -1,0 +1,68 @@
+---
+# Alerts for what this cluster's own machinery can leave broken without anything else
+# noticing. The chart's default rules cover the rest.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: cluster
+  annotations:
+    # The CRD arrives with the chart in the same sync.
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  groups:
+    - name: cluster
+      rules:
+        # The k3s upgrade Jobs and kured cordon a node and uncordon it when done. One that
+        # stays cordoned means a failed upgrade Job or a drain that cannot finish.
+        - alert: NodeCordonedTooLong
+          expr: kube_node_spec_unschedulable == 1
+          for: 2h
+          labels:
+            severity: warning
+          annotations:
+            summary: "Node {{ $labels.node }} has been cordoned for over 2 hours."
+            description: >-
+              Check the upgrade Job in system-upgrade and kured's log in kube-system, fix the
+              cause, then kubectl uncordon {{ $labels.node }}.
+
+        # Every server uploads a snapshot at 00:00 and 12:00 UTC. The counter restarts with
+        # k3s, which increase() accounts for.
+        - alert: EtcdSnapshotUploadMissing
+          expr: sum by (instance) (increase(k3s_etcd_snapshot_save_s3_duration_seconds_count{status="success"}[13h])) == 0
+          labels:
+            severity: warning
+          annotations:
+            summary: "{{ $labels.instance }} has not uploaded an etcd snapshot for 13 hours."
+            description: >-
+              Check k3s's log on the node (journalctl -u k3s | grep -i snapshot) and the
+              Secret kube-system/k3s-etcd-snapshot-s3-config.
+        - alert: EtcdSnapshotUploadsAbsent
+          expr: absent_over_time(k3s_etcd_snapshot_save_s3_duration_seconds_count{status="success"}[13h])
+          labels:
+            severity: warning
+          annotations:
+            summary: "No server has uploaded an etcd snapshot for 13 hours."
+            description: >-
+              Check k3s's log on the nodes (journalctl -u k3s | grep -i snapshot) and the
+              Secret kube-system/k3s-etcd-snapshot-s3-config.
+        - alert: EtcdSnapshotUploadFailed
+          expr: sum by (instance) (increase(k3s_etcd_snapshot_save_s3_duration_seconds_count{status!="success"}[1h])) > 0
+          labels:
+            severity: warning
+          annotations:
+            summary: "{{ $labels.instance }} failed to upload an etcd snapshot."
+            description: >-
+              Check k3s's log on the node (journalctl -u k3s | grep -i snapshot) and the
+              Secret kube-system/k3s-etcd-snapshot-s3-config.
+
+        # k3s renews its certificates when it starts within 120 days of their expiry. One
+        # this close to expiring was not renewed, and an expired one stops the node.
+        - alert: K3sCertificateExpiring
+          expr: min by (instance, subject) (k3s_certificate_expiration_seconds) < 30 * 86400
+          labels:
+            severity: critical
+          annotations:
+            summary: "k3s certificate {{ $labels.subject }} on {{ $labels.instance }} expires in under 30 days."
+            description: >-
+              Restarting k3s on the node renews it (sudo systemctl restart k3s, one node at a
+              time); k3s certificate rotate forces it.

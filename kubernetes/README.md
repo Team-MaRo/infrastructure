@@ -28,6 +28,7 @@ kubernetes/
 │       ├── cert-manager.yaml      # certificates from Let's Encrypt
 │       ├── traefik.yaml           # k3s's Traefik: DaemonSet on the ingress nodes' host network
 │       ├── uptime-kuma.yaml       # website checks and the alerting heartbeat
+│       ├── kube-prometheus-stack.yaml  # metrics and alerts: chart pinned here, values in components/
 │       ├── etcd-snapshots.yaml    # syncs the subdirectory below
 │       └── etcd-snapshots/        # prod-only: the S3 settings k3s uploads snapshots with
 └── components/                # how each component is deployed, shared by clusters
@@ -61,6 +62,12 @@ kubernetes/
     ├── system-upgrade-controller/
     │   ├── kustomization.yaml     # pinned release manifests
     │   └── plan.yaml              # which k3s version, when, one node at a time
+    ├── kube-prometheus-stack/
+    │   ├── values.yaml            # Helm values: k3s scrape targets, retention, ntfy routing
+    │   ├── kustomization.yaml
+    │   ├── external-secrets.yaml  # ntfy URLs and token, Grafana's admin, from OpenBao
+    │   ├── scrape-etcd.yaml       # etcd's metrics on the servers' private IPs
+    │   └── rules.yaml             # this cluster's own alerts
     └── uptime-kuma/
         ├── kustomization.yaml
         ├── deployment.yaml        # one replica, pinned rootless image, SQLite
@@ -118,7 +125,17 @@ way:
 kubectl --context d3strukt0r-prod-admin -n uptime-kuma port-forward svc/uptime-kuma 3001:3001
 ```
 
-then `http://localhost:3001`.
+then `http://localhost:3001`. Grafana, Prometheus and Alertmanager:
+
+```shell
+kubectl --context d3strukt0r-prod-admin -n monitoring port-forward svc/kube-prometheus-stack-grafana 3000:80
+kubectl --context d3strukt0r-prod-admin -n monitoring port-forward svc/kube-prometheus-stack-prometheus 9090:9090
+kubectl --context d3strukt0r-prod-admin -n monitoring port-forward svc/kube-prometheus-stack-alertmanager 9093:9093
+```
+
+then `http://localhost:3000` (user `admin`, password in 1Password `Grafana | Prod | Admin`),
+`http://localhost:9090` (Status → Targets shows every scrape) and `http://localhost:9093`
+(firing alerts, silences).
 
 ### After every fresh install: replace the admin password
 
@@ -464,7 +481,8 @@ reserved, so anyone who knows the name could read it.
    with the token, priority 4 and DOWN priority 5, **Default enabled**. **Test** must reach the
    phone before saving.
 4. Add New Monitor → **Push**, name `Alertmanager Watchdog`, heartbeat interval 300 s,
-   retries 1. **Pause it** until Alertmanager is deployed, or it goes DOWN after five minutes.
+   retries 1. **Pause it** until Alertmanager is deployed (see "Metrics and alerts"), or it
+   goes DOWN after five minutes.
    Its push URL, as shown, is `http://localhost:3001/api/push/<token>?status=up&msg=OK&ping=`;
    put it into OpenBao with the cluster-internal host instead and without `&ping=`:
 
@@ -482,6 +500,40 @@ reserved, so anyone who knows the name could read it.
 
 **Losing the volume** loses this configuration and the check history, nothing else: repeat
 the steps, and replace the push URL in OpenBao, since a new monitor gets a new token.
+
+## Metrics and alerts
+
+kube-prometheus-stack: Prometheus collects metrics for 30 days, Grafana shows them, and
+Alertmanager sends alerts to the phone through the ntfy topic from "Uptime Kuma" -
+`critical` at priority 5, `warning` at 3, `info` only in Grafana. It needs, before its first
+sync, `secret/ntfy` and `secret/uptime-kuma` (see "Uptime Kuma") and Grafana's admin
+password:
+
+1. Create a password item `Grafana | Prod | Admin` in 1Password (username `admin`).
+2. With the port-forward to OpenBao open:
+
+   ```shell
+   BAO_ADDR=http://127.0.0.1:8200 BAO_TOKEN="$(op item get 'OpenBao | Prod | Recovery keys & root token' --account my.1password.com --vault Private --fields credential --reveal)" \
+     bao kv put secret/grafana \
+       admin-password="$(op item get 'Grafana | Prod | Admin' --account my.1password.com --vault Private --fields password --reveal)"
+   ```
+
+After the first sync, resume the `Alertmanager Watchdog` monitor in Uptime Kuma; it should
+turn green within a minute.
+
+**When an alert arrives**, its message says what fired and where. The cluster's own alerts
+(`components/kube-prometheus-stack/rules.yaml`) carry what to do in their description; the
+chart's are explained in the [runbooks](https://runbooks.prometheus-operator.dev/), which
+each alert links as `runbook_url`. A known cause being worked on can be silenced in
+Alertmanager's UI (Silences → New Silence), for a fixed time.
+
+**Testing the path to the phone** - an alert that resolves itself after five minutes:
+
+```shell
+kubectl --context d3strukt0r-prod-admin -n monitoring exec alertmanager-kube-prometheus-stack-alertmanager-0 -c alertmanager -- \
+  amtool alert add TestAlert severity=warning --annotation=summary="Test from the README" \
+  --end="$(date -u -v+5M +%Y-%m-%dT%H:%M:%SZ)" --alertmanager.url=http://localhost:9093
+```
 
 ## How quickly a push arrives
 
