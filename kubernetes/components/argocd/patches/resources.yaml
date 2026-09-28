@@ -1,0 +1,53 @@
+---
+# Memory for the Argo CD containers the namespace's LimitRange defaults (64Mi, limit 128Mi) do
+# not fit, from what they used when set (2026-09-28): the request about the usual use, the
+# limit about twice the highest seen. Redis and the applicationset and notifications
+# controllers stay within the defaults.
+#
+# The application controller caches every resource it manages and was the largest user in the
+# cluster, 1.2-1.6 GB.
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: argocd-application-controller
+spec:
+  template:
+    spec:
+      containers:
+        - name: argocd-application-controller
+          resources:
+            requests:
+              memory: 1280Mi
+            limits:
+              memory: 2560Mi
+---
+# Rendering Helm charts (kube-prometheus-stack, Kyverno) is where it peaks.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: argocd-repo-server
+spec:
+  template:
+    spec:
+      containers:
+        - name: argocd-repo-server
+          resources:
+            requests:
+              memory: 320Mi
+            limits:
+              memory: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: argocd-server
+spec:
+  template:
+    spec:
+      containers:
+        - name: argocd-server
+          resources:
+            requests:
+              memory: 64Mi
+            limits:
+              memory: 256Mi

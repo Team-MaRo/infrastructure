@@ -787,23 +787,35 @@ node, reboots it and uncordons it once it is back; then the next node may take t
 `kubernetes/clusters/prod/kyverno.yaml` deploys the `kyverno` Helm chart (pinned, 3.9.1 =
 Kyverno v1.19.1) with `kubernetes/components/kyverno/` as values and extra resources - the
 same two-source pattern as OpenBao, plus a third source for the directory's manifests. Its
-policy `default-resources` gives every app namespace a LimitRange, so a container without
+policy `default-resources` gives every namespace but a few system ones a LimitRange, so a container without
 `resources` of its own still has requests and limits; `allowed-registries` is described under
 "Allowed registries".
 
 - **Defaults, never a max.** Requests CPU `50m`, memory `64Mi`, ephemeral-storage `50Mi`;
-  limits memory `256Mi`, ephemeral-storage `1Gi`. An app that needs more sets `resources`
+  limits memory `128Mi`, ephemeral-storage `1Gi`. An app that needs more sets `resources`
   on its containers, which always wins. The ephemeral-storage limit keeps a container from
   filling a node's 40 GB disk, which holds etcd too.
 - **No CPU limit, on purpose.** A CPU limit throttles a container even while the node is
   idle; requests already share CPU fairly under contention.
-- **Infrastructure namespaces are excluded** by an explicit list in the policy's
-  `matchConditions` (`kube-*`, `default`, `argocd`, `openbao`, `external-secrets`,
-  `system-upgrade`, `kyverno`, `cert-manager`). Their components mostly set no resources and would be
-  OOM-killed at 256Mi. **A new infrastructure component adds its namespace to that list in
-  the commit that deploys it** - before its namespace exists, or the LimitRange is already
-  there - **and to `k3s_psa_exempt_namespaces`** (see "Pod Security"), if it needs more
-  than the restricted standard allows.
+- **A container sets its memory itself where the defaults do not fit** - more than 64Mi
+  used or a limit above 128Mi - and everywhere in `kube-system` and `system-upgrade`, which
+  have no LimitRange; through a patch or Helm value in its component. Where the defaults fit,
+  nothing is set, so there is nothing to keep in step. Without a request the scheduler reserves nothing for it (Argo CD's application controller uses
+  1.2-1.6 GB), and without a limit a leak can take the node's memory. The values were set on
+  2026-09-28 from Prometheus: the request about the usual use, the limit about twice the
+  highest seen, 128Mi at the least. They rest on a few hours of data, so an OOM kill means
+  raising that limit - `kubectl get pod` shows the restarts, `kubectl describe pod` the
+  `OOMKilled` reason. Only what k3s itself deploys (CoreDNS, metrics-server, its Helm install
+  Jobs) is left as k3s sets it.
+- **Only four namespaces are left out** (the policy's `matchConditions`): `kube-system`,
+  whose pods k3s manages; `system-upgrade`, whose k3s upgrade Jobs set no memory and must not
+  be killed halfway through replacing the binary; and the pod-less `kube-public` and
+  `kube-node-lease`. Infrastructure is covered like any app - a component that needs more
+  than the defaults sets its own values, which always win. `kyverno` gets none regardless:
+  Kyverno's own resource filter (`[*/*,kyverno,*]` in its ConfigMap) ignores its namespace,
+  and its chart sets every container's resources itself. **This list and
+  `k3s_psa_exempt_namespaces`** (see "Pod Security") **are independent**: one is about
+  default resources, the other about privileges.
 - **`GeneratingPolicy`, not `ClusterPolicy`**, which is deprecated since Kyverno's CEL-based
   policy types. `generateExisting` covers namespaces created before the policy;
   `synchronize` keeps the LimitRange in step with the policy and removes it with its
@@ -859,11 +871,10 @@ guide. A change to the file restarts k3s one node at a time, like a drop-in chan
   `seccompProfile: RuntimeDefault`, and no host namespaces, host paths or privileged mode.
   A pod that misses one is rejected at creation, with the reasons in the error.
 - **Infrastructure namespaces are exempt** - `k3s_psa_exempt_namespaces` in the role's
-  defaults: the default-resources policy's exclusions minus those that run restricted anyway
-  (`cert-manager`). Some of it must run privileged: kured and the CSI driver in
-  `kube-system`, the upgrade Jobs in `system-upgrade`. The lists live in two places
-  (Ansible, and `kubernetes/components/kyverno/default-resources.yaml`) and have to be kept in step
-  by hand.
+  defaults. Some of it must run privileged: kured and the CSI driver in `kube-system`, the
+  upgrade Jobs in `system-upgrade`. A new infrastructure component that needs more than the
+  restricted standard goes onto that list in the commit that deploys it; components that run
+  restricted anyway (`cert-manager`, `monitoring`, `loki`) are not on it.
 - **The namespace label can override the default.** A namespace labelled
   `pod-security.kubernetes.io/enforce: baseline` (or `privileged`) gets that instead, so
   whoever may edit namespaces - today only the admin - can loosen it. Prefer adding a namespace to the exemption list over
@@ -960,8 +971,8 @@ traffic.
   by an ExternalSecret. ClusterIssuers read their Secrets from cert-manager's own namespace.
 - **No email on the ACME accounts**: optional, this repo is public, and Let's Encrypt no
   longer sends expiry mails. cert-manager renews by itself 30 days before expiry.
-- **Its pods run restricted** (non-root, seccomp, no capabilities), so `cert-manager` is on
-  Kyverno's default-resources exclusions but not in `k3s_psa_exempt_namespaces`.
+- **Its pods run restricted** (non-root, seccomp, no capabilities), so `cert-manager` is not
+  in `k3s_psa_exempt_namespaces`.
 
 ### Monitoring
 
@@ -985,10 +996,9 @@ configured in the UI (runbook and monitor list in `kubernetes/README.md`), not i
 - **`UPTIME_KUMA_DB_TYPE=sqlite`** skips the first-start database wizard.
 - **`enableServiceLinks: false`**: Kubernetes would inject `UPTIME_KUMA_PORT=tcp://...` for the
   Service of the same name, and Uptime Kuma reads that variable as its listen port.
-- **It runs like an app, not like infrastructure**: its namespace is on neither Kyverno's
-  default-resources exclusions nor the PSA exemptions. It sets only its memory, which the defaults would
-  undersize; the generated LimitRange fills in the CPU request and ephemeral storage. Its
-  image comes from Docker Hub. Its own
+- **It runs like an app, not like infrastructure**: its namespace is not PSA-exempt. It sets
+  only its memory, which the defaults would undersize; the generated LimitRange fills in the
+  CPU request and ephemeral storage. Its image comes from Docker Hub. Its own
   namespace also means that moving it out of the cluster is deleting one namespace.
 - **It cannot report a dead cluster** while it runs inside it: a complete outage takes it down
   too. It moves to a machine outside (the home server) later; then it checks the cluster from
@@ -998,10 +1008,10 @@ configured in the UI (runbook and monitor list in `kubernetes/README.md`), not i
 
 **kube-prometheus-stack** (`kubernetes/clusters/prod/kube-prometheus-stack.yaml`, chart
 pinned, values and extra manifests in `kubernetes/components/kube-prometheus-stack/`) runs
-Prometheus, Alertmanager and Grafana in `monitoring` - an ordinary namespace, on neither
-Kyverno's default-resources exclusions nor the PSA exemptions: the LimitRange's defaults fit
-most of its containers, so the values set resources only for
-Prometheus and Grafana, which need more. node-exporter goes to `kube-system`
+Prometheus, Alertmanager and Grafana in `monitoring` - an ordinary namespace, not
+PSA-exempt: the LimitRange's defaults fit most of its containers, so the values set memory
+only for Prometheus and Grafana, which need more, and for Alertmanager, whose operator would
+otherwise request 200Mi. node-exporter goes to `kube-system`
 (`namespaceOverride`), since it needs the host's network, PIDs and files; there is no
 LimitRange there, so it sets its own.
 

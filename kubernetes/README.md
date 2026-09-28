@@ -37,13 +37,14 @@ kubernetes/
     ├── argocd/                # pinned upstream install.yaml plus patches
     │   ├── kustomization.yaml
     │   ├── namespace.yaml
-    │   └── patches/dex.yaml   # removes the bundled Dex
+    │   └── patches/           # argocd-cm, Dex removed, memory per container
     ├── hcloud-csi/            # Hetzner's CSI driver, pinned
     │   ├── kustomization.yaml
-    │   └── patches/reclaim-retain.yaml
+    │   └── patches/           # reclaimPolicy Retain, memory per container
     ├── openbao/
     │   └── values.yaml        # Helm values: one replica, Raft storage, static seal
     ├── external-secrets/
+    │   ├── values.yaml            # Helm values: memory
     │   ├── kustomization.yaml
     │   └── cluster-secret-store.yaml  # the store named openbao
     ├── traefik/
@@ -358,9 +359,9 @@ ssh prod-03 sudo touch /var/run/reboot-required
 
 ## Default resources
 
-Kyverno gives every app namespace a LimitRange `default-resources`. A container that sets
-no `resources` gets requests of 50m CPU, 64Mi memory and 50Mi ephemeral storage, and limits
-of 256Mi memory and 1Gi ephemeral storage - no CPU limit. Setting `resources` on a container
+Kyverno gives every namespace a LimitRange `default-resources`. A container that sets no
+`resources` gets requests of 50m CPU, 64Mi memory and 50Mi ephemeral storage, and limits of
+128Mi memory and 1Gi ephemeral storage - no CPU limit. Setting `resources` on a container
 overrides any of them; there is no maximum.
 
 ```shell
@@ -368,10 +369,12 @@ kubectl --context d3strukt0r-prod-admin get limitrange -A
 kubectl --context d3strukt0r-prod-admin get generatingpolicy default-resources
 ```
 
-Infrastructure namespaces are excluded by a list in `components/kyverno/default-resources.yaml`.
-**Deploying a new infrastructure component means adding its namespace there in the same
-commit** - and to `k3s_psa_exempt_namespaces` in Ansible if it needs more than the
-restricted standard below allows.
+Only `kube-system`, `system-upgrade`, `kube-public` and `kube-node-lease` are left out
+(`components/kyverno/default-resources.yaml`); there, every container sets its memory
+itself. `kyverno` gets none either - Kyverno ignores its own namespace - but its chart sets
+all resources. A new infrastructure component needs no entry here - only its own
+`resources` where the defaults do not fit, and a place in `k3s_psa_exempt_namespaces` in
+Ansible if it needs more than the restricted standard below allows.
 
 ## What an app pod must look like
 

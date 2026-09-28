@@ -50,11 +50,11 @@ spec:
             capabilities:
               drop:
                 - ALL
-          # Only memory differs from the namespace's LimitRange defaults: it uses about 150 MB
-          # after starting, and 2.x has had memory leaks, which 256Mi would turn into restarts.
+          # Only memory differs from the namespace's LimitRange defaults: it uses about 130-150
+          # MiB, and 2.x has had memory leaks, which 128Mi would turn into restarts.
           resources:
             requests:
-              memory: 128Mi
+              memory: 160Mi
             limits:
               memory: 512Mi
           # The image's own health check, a small binary that queries the local server.

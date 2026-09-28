@@ -40,3 +40,10 @@ spec:
     service:
       spec:
         type: ClusterIP
+    # About 30 MiB when set (2026-09-28); the limit leaves room for traffic peaks. The chart
+    # sets none, and kube-system has no LimitRange.
+    resources:
+      requests:
+        memory: 64Mi
+      limits:
+        memory: 256Mi

@@ -29,3 +29,16 @@ patches:
       - op: add
         path: /spec/template/spec/containers/0/command/-
         value: --period=10m
+  # Memory, from what it used when set (2026-09-28): about 11 MiB. The manifest sets none, and
+  # kube-system has no LimitRange.
+  - target:
+      kind: DaemonSet
+      name: kured
+    patch: |-
+      - op: add
+        path: /spec/template/spec/containers/0/resources
+        value:
+          requests:
+            memory: 32Mi
+          limits:
+            memory: 128Mi

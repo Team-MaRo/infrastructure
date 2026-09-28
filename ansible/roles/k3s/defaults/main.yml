@@ -79,10 +79,10 @@ k3s_node_labels: {}
 
 # Pod Security Admission enforces the restricted standard on every namespace except these.
 # They hold infrastructure, some of which must run privileged (kured and the CSI driver in
-# kube-system, the upgrade Jobs in system-upgrade). The same list excludes these namespaces
-# from Kyverno's default resources (kubernetes/components/kyverno/default-resources.yaml) -
-# keep the two in step: a new infrastructure component goes onto both, in the commit that
-# deploys it.
+# kube-system, the upgrade Jobs in system-upgrade). A new infrastructure component that needs
+# more than the restricted standard goes onto this list in the commit that deploys it. This is
+# about privileges only; Kyverno's default resources have a list of their own, which is much
+# shorter (kubernetes/components/kyverno/default-resources.yaml).
 k3s_psa_exempt_namespaces:
   - kube-system
   - kube-public
