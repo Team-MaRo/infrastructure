@@ -1135,6 +1135,14 @@ on 2 volumes (user decision, 2026-09-28).
 - **The webhook's certificate comes from cert-manager** (a self-signed Issuer of the chart's
   own; an ACME issuer cannot certify `.svc` names), so the chart's cert-controller Deployment
   is not rendered. The chart has no Helm hook Jobs.
+- **The operator and its webhook each run twice, on different nodes** (`ha`, `webhook.ha`,
+  required anti-affinity, PDBs). The operator performs the failover, so a single replica on
+  the primary's node would die with it and the failover would wait about five minutes for
+  Kubernetes to move it; with two, the standby takes over once the leader's 15-second lease
+  runs out. Every change to a MariaDB passes the webhook with `failurePolicy: Fail`, the
+  failover's own included: in the first failover test (2026-09-28, the primary's node powered
+  off) the single webhook pod died with the node, the failover could not write, and it hung
+  until the node was declared gone with the out-of-service taint.
 - **Restricted Pod Security needs explicit securityContexts** - the chart sets none. The
   images the operator deploys are written fully qualified in `config.*` (docker.io, quay.io),
   so the registry check does not depend on short-name resolution.

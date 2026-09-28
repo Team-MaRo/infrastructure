@@ -24,6 +24,22 @@ resources:
     memory: 256Mi
 metrics:
   enabled: true
+# Two replicas on different nodes, one active through leader election: the operator performs
+# the failover, and a single replica on the primary's node would die with it - the failover
+# would then wait for Kubernetes to move the operator, about five minutes. The standby takes over
+# once the leader's 15-second lease runs out.
+ha:
+  enabled: true
+  replicas: 2
+affinity:
+  podAntiAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      - topologyKey: kubernetes.io/hostname
+        labelSelector:
+          matchLabels:
+            app.kubernetes.io/name: mariadb-operator
+pdb:
+  enabled: true
 
 webhook:
   # A certificate from cert-manager (a self-signed Issuer of its own - an ACME issuer cannot
@@ -34,6 +50,22 @@ webhook:
       enabled: true
   podSecurityContext: *podSecurityContext
   securityContext: *securityContext
+  # Two replicas on different nodes. Every change to a MariaDB passes this webhook
+  # (failurePolicy Fail), the operator's own failover included: with one replica on the node
+  # that died with the primary, the failover could not write and hung until the node was
+  # declared gone (failover test, 2026-09-28).
+  ha:
+    enabled: true
+    replicas: 2
+  affinity:
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        - topologyKey: kubernetes.io/hostname
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: mariadb-operator-webhook
+  pdb:
+    enabled: true
 
 # Defaults for the pods the operator creates. Written fully qualified, so the registry check
 # in kubernetes/components/kyverno does not depend on how short names are resolved; each
