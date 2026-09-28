@@ -44,3 +44,13 @@ variable "mariadb_backups_access_key_id" {
     error_message = "mariadb_backups_access_key_id must be a 20-character Hetzner access key ID."
   }
 }
+
+variable "postgres_backups_access_key_id" {
+  description = "Access key ID of the S3 key CloudNativePG writes backups with (1Password: Hetzner | S3 | prod postgres backups, username). Set in terraform.tfvars."
+  type        = string
+
+  validation {
+    condition     = can(regex("^[A-Z0-9]{20}$", var.postgres_backups_access_key_id))
+    error_message = "postgres_backups_access_key_id must be a 20-character Hetzner access key ID."
+  }
+}
