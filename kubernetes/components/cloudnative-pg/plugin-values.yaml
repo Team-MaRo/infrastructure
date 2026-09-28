@@ -1,0 +1,16 @@
+# Helm values for the Barman Cloud plugin; the chart version is pinned in the cluster's
+# Application. Like the operator's chart it already meets the restricted Pod Security Standard.
+
+# It can only run as one replica: a second one never becomes ready, since the plugin serves only
+# on its leader (plugin-barman-cloud#1105). The WAL archiving itself runs in a sidecar inside each
+# PostgreSQL pod; this Deployment is needed to start new PostgreSQL pods and backups. So on a
+# node loss it leaves after 30 seconds instead of Kubernetes' default five minutes.
+tolerations:
+  - key: node.kubernetes.io/unreachable
+    operator: Exists
+    effect: NoExecute
+    tolerationSeconds: 30
+  - key: node.kubernetes.io/not-ready
+    operator: Exists
+    effect: NoExecute
+    tolerationSeconds: 30

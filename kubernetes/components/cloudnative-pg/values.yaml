@@ -1,0 +1,30 @@
+# Helm values for the CloudNativePG operator; the chart version is pinned in the cluster's
+# Application. The chart already meets the restricted Pod Security Standard (non-root, seccomp,
+# no capabilities, read-only root filesystem), so only what differs is set.
+
+# Two replicas on different nodes, one active through leader election: the operator performs
+# the failover, and a single replica on the primary's node would die with it - the failover
+# would then wait for Kubernetes to move the operator, about five minutes. The operator's webhook
+# (failurePolicy Fail) is served by every replica.
+replicaCount: 2
+affinity:
+  podAntiAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      - topologyKey: kubernetes.io/hostname
+        labelSelector:
+          matchLabels:
+            app.kubernetes.io/name: cloudnative-pg
+
+# It watches every namespace, so its memory grows with the cluster; above the namespace's
+# LimitRange defaults, like mariadb-operator's.
+resources:
+  requests:
+    memory: 128Mi
+  limits:
+    memory: 256Mi
+
+monitoring:
+  podMonitorEnabled: true
+  # A ConfigMap labelled grafana_dashboard, which Grafana's sidecar loads from every namespace.
+  grafanaDashboard:
+    create: true
