@@ -316,6 +316,16 @@ ssh prod-01 sudo k3s etcd-snapshot ls
 kubectl --context d3strukt0r-prod-admin get etcdsnapshotfiles
 ```
 
+The bucket lists only the newest 5 snapshots of all nodes together - about a day. Older ones,
+up to 7 days, are noncurrent versions; fetch one with the admin key and restore from the file
+instead of from S3 (`--cluster-reset-restore-path=<local file>`, without the `--etcd-s3*`
+flags):
+
+```shell
+aws --profile d3strukt0r-hetzner s3api list-object-versions --bucket d3strukt0r-prod-etcd --prefix etcd-snapshot-prod-01
+aws --profile d3strukt0r-hetzner s3api get-object --bucket d3strukt0r-prod-etcd --key <key> --version-id <id> <local file>
+```
+
 **A restore cannot read the Secret**, since the apiserver is down. It needs the S3 settings
 as flags and the server token from 1Password (`k3s | Prod | Server token`); see the
 [k3s docs](https://docs.k3s.io/cli/etcd-snapshot) for the full procedure:

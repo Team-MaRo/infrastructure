@@ -197,9 +197,12 @@ prometheus-node-exporter:
       memory: 128Mi
 
 kube-state-metrics:
-  # The mariadb-operator reports archiving and backups only in its objects' status conditions;
-  # this turns them into kube_customresource_condition{customresource_kind, name, type, status},
+  # Metrics from objects that report their state nowhere else. The mariadb-operator's status
+  # conditions become kube_customresource_condition{customresource_kind, name, type, status},
   # valued with the condition's lastTransitionTime (alerts in kubernetes/components/mariadb).
+  # k3s records every etcd snapshot as an ETCDSnapshotFile; each becomes
+  # kube_customresource_etcd_snapshot_created{node, name, bucket}, bucket set only for the copy
+  # in S3 (alerts in rules.yaml).
   customResourceState:
     enabled: true
     config:
@@ -231,8 +234,26 @@ kube-state-metrics:
               kind: PhysicalBackup
             labelsFromPath: *objectLabels
             metrics: *conditionMetrics
+          - groupVersionKind:
+              group: k3s.cattle.io
+              version: v1
+              kind: ETCDSnapshotFile
+            labelsFromPath:
+              name: [metadata, name]
+              node: [spec, nodeName]
+              bucket: [spec, s3, bucket]
+            metrics:
+              - name: etcd_snapshot_created
+                help: Creation time of an etcd snapshot k3s recorded.
+                each:
+                  type: Gauge
+                  gauge:
+                    path: [status, creationTime]
   rbac:
     extraRules:
       - apiGroups: [k8s.mariadb.com]
         resources: [mariadbs, physicalbackups]
+        verbs: [list, watch]
+      - apiGroups: [k3s.cattle.io]
+        resources: [etcdsnapshotfiles]
         verbs: [list, watch]

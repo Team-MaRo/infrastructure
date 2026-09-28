@@ -25,29 +25,25 @@ spec:
               Check the upgrade Job in system-upgrade and kured's log in kube-system, fix the
               cause, then kubectl uncordon {{ $labels.node }}.
 
-        # Every server uploads a snapshot at 00:00 and 12:00 UTC. The counter restarts with
-        # k3s, which increase() accounts for. Only once Prometheus holds 13 hours of data:
-        # before that, a flat counter only means the last upload happened before it started.
+        # Every server uploads a snapshot at 00:00 and 12:00 UTC. The age of each node's newest
+        # snapshot in S3 comes from k3s's own records (ETCDSnapshotFile, through kube-state-
+        # metrics), not from k3s's upload counter: after a restart the counter reappears only
+        # with the next upload, already at 1, which increase() cannot tell from no upload at
+        # all (a false alarm after the failover test, 2026-09-29). The second part covers a
+        # server with no snapshot in S3, once it has existed for 13 hours.
         - alert: EtcdSnapshotUploadMissing
           expr: >-
-            sum by (instance) (increase(k3s_etcd_snapshot_save_s3_duration_seconds_count{status="success"}[13h])) == 0
-            and on () (time() - max(prometheus_tsdb_lowest_timestamp_seconds)) > 13 * 3600
+            time() - max by (node) (kube_customresource_etcd_snapshot_created{bucket!=""}) > 13 * 3600
+            or
+            (time() - max by (node) (kube_node_created and on (node) kube_node_role{role="etcd"}) > 13 * 3600
+              unless on (node) kube_customresource_etcd_snapshot_created{bucket!=""})
           labels:
             severity: warning
           annotations:
-            summary: "{{ $labels.instance }} has not uploaded an etcd snapshot for 13 hours."
+            summary: "{{ $labels.node }} has not uploaded an etcd snapshot for 13 hours."
             description: >-
-              Check k3s's log on the node (journalctl -u k3s | grep -i snapshot) and the
-              Secret kube-system/k3s-etcd-snapshot-s3-config.
-        - alert: EtcdSnapshotUploadsAbsent
-          expr: absent_over_time(k3s_etcd_snapshot_save_s3_duration_seconds_count{status="success"}[13h])
-          labels:
-            severity: warning
-          annotations:
-            summary: "No server has uploaded an etcd snapshot for 13 hours."
-            description: >-
-              Check k3s's log on the nodes (journalctl -u k3s | grep -i snapshot) and the
-              Secret kube-system/k3s-etcd-snapshot-s3-config.
+              Check k3s's log on the node (journalctl -u k3s | grep -i snapshot), the Secret
+              kube-system/k3s-etcd-snapshot-s3-config and kubectl get etcdsnapshotfiles.
         - alert: EtcdSnapshotUploadFailed
           expr: sum by (instance) (increase(k3s_etcd_snapshot_save_s3_duration_seconds_count{status!="success"}[1h])) > 0
           labels:

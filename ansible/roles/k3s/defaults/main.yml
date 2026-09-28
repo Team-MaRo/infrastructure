@@ -37,10 +37,11 @@ k3s_server_args:
 # uninstalls it and deletes its manifest. Persistent volumes are to come from Hetzner
 # Volumes instead.
 #
-# etcd-s3 uploads every snapshot (00:00 and 12:00, 5 kept per node) to Object Storage as
-# well. All S3 settings come from the named Secret in kube-system, which External Secrets
-# fills from OpenBao; setting any other etcd-s3-* option here would make k3s ignore it. A
-# restore cannot read the Secret - see CLAUDE.md for what it needs instead.
+# etcd-s3 uploads every snapshot (00:00 and 12:00 UTC) to Object Storage as well, where the
+# retention of 5 counts all nodes together, not each one. All S3 settings come from the
+# named Secret in kube-system, which External Secrets fills from OpenBao; setting any other
+# etcd-s3-* option here would make k3s ignore it. A restore cannot read the Secret - see
+# CLAUDE.md for what it needs instead.
 #
 # etcd-expose-metrics makes etcd serve its metrics on the node's own address as well as on
 # 127.0.0.1, port 2381, so Prometheus can scrape it from a pod. That address is the private
