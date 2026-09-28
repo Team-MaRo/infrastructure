@@ -11,3 +11,26 @@ variable "project_id" {
     error_message = "project_id must be the numeric project ID from the console URL."
   }
 }
+
+# Access key IDs of the keys the cluster uses, so each bucket's policy can admit exactly its
+# own. Only the ID - the secret half stays in 1Password and OpenBao. Kept in tfvars rather
+# than git for the same reason as project_id.
+variable "etcd_access_key_id" {
+  description = "Access key ID of the S3 key k3s uploads etcd snapshots with (1Password: Hetzner | S3 | prod etcd snapshots, username). Set in terraform.tfvars."
+  type        = string
+
+  validation {
+    condition     = can(regex("^[A-Z0-9]{20}$", var.etcd_access_key_id))
+    error_message = "etcd_access_key_id must be a 20-character Hetzner access key ID."
+  }
+}
+
+variable "loki_access_key_id" {
+  description = "Access key ID of the S3 key Loki writes logs with (1Password: Hetzner | S3 | prod loki, username). Set in terraform.tfvars."
+  type        = string
+
+  validation {
+    condition     = can(regex("^[A-Z0-9]{20}$", var.loki_access_key_id))
+    error_message = "loki_access_key_id must be a 20-character Hetzner access key ID."
+  }
+}

@@ -219,9 +219,15 @@ ACLs, bucket policies or `use_path_style`.
 ### Object Storage: every key reaches every bucket
 
 Hetzner S3 keys are valid for every bucket in the project, with every permission. The only
-way to scope one is a bucket policy, so `tofu/objectstorage` writes both of its policies as
+way to scope one is a bucket policy, so `tofu/objectstorage` writes every policy as
 `Deny` + `NotPrincipal` naming the admin key, `arn:aws:iam:::user/p<project_id>:<access_key>`
-(`local.admin_principal`). That covers keys that do not exist yet, such as the cluster's.
+(`local.admin_principal`), plus at most the one cluster key that bucket is for
+(`local.etcd_principal`, `local.loki_principal`). That covers keys that do not exist yet, so
+**each key the cluster holds reaches only its own bucket**. The cluster keys' access key IDs
+(not their secrets) are `etcd_access_key_id` and `loki_access_key_id` in the module's
+tfvars; a mistyped one shuts only that key out of its bucket. A `NotPrincipal` naming two
+keys was proven on the Loki bucket first (2026-09-28): the admin key kept full access, and
+the etcd key got `AccessDenied` there.
 
 **Every bucket has a lifecycle rule** that aborts multipart uploads not completed within 7
 days: a broken large upload leaves its parts behind, invisible in a listing but stored and
@@ -254,8 +260,12 @@ although uploads answer with an `Expiration` header that suggests so (tested 202
   removes versions 7 days after they become noncurrent, and orphaned delete markers after
   that. GOVERNANCE rather than COMPLIANCE so the admin key can still delete early; since a
   Hetzner key holds the governance bypass like any permission, the policy denies
-  `s3:BypassGovernanceRetention` and all lock, lifecycle and policy changes to other keys.
-  Object lock was only possible at creation and made versioning permanent.
+  `s3:BypassGovernanceRetention` and all lock, lifecycle and policy changes to every key but
+  the admin's - the snapshot key included. A first statement shuts out every key but those
+  two entirely. Object lock was only possible at creation and made versioning permanent.
+- **`d3strukt0r-prod-loki`: unversioned, no lock**, lifecycle rule only for incomplete
+  uploads; Loki's compactor deletes old logs. Only the admin key and Loki's key (console label
+  `prod loki`, 1Password `Hetzner | S3 | prod loki`, OpenBao `secret/loki-s3`) reach it.
 - **Provider `aminueza/minio`, `s3_compat_mode` off.** The `aws` provider cannot refresh a
   bucket here (it reads Accelerate, Website, Logging, Replication and Tagging, all
   unimplemented). Compat mode would swallow "not implemented" errors, object lock and
@@ -701,7 +711,8 @@ across 3 x 5 files) onto each server's disk and uploads each to `d3strukt0r-prod
   `prod etcd snapshots`.
 - **k3s's pruning only adds delete markers** on this versioned bucket; each version stays
   locked 7 days and the lifecycle rule removes it afterwards. The cluster key cannot bypass
-  the lock or touch the tfstate bucket (the bucket policies, see "Object Storage").
+  the lock or touch any other bucket, and no other cluster key can touch this one (the
+  bucket policies, see "Object Storage").
 - **A restore cannot use the Secret** - the apiserver is not running then. It takes the S3
   settings as CLI flags (`--etcd-s3-endpoint`, `--etcd-s3-region`, `--etcd-s3-bucket`,
   keys from the `d3strukt0r-hetzner` profile) **and the original server token**, which
