@@ -1,0 +1,31 @@
+---
+# The app database for this cluster, from kubernetes/components/mariadb, run by the
+# mariadb-operator. Needs secret/mariadb and secret/mariadb-backups-s3 in OpenBao and the
+# bucket d3strukt0r-prod-mariadb-backups (tofu/objectstorage).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: mariadb
+  namespace: argocd
+  annotations:
+    # Compare on the server: the client-side diff showed the MariaDB OutOfSync after every
+    # successful sync, although a server-side apply changes nothing in it - the fields the API
+    # server defaults from the CRD's schema only look like drift client-side.
+    argocd.argoproj.io/compare-options: ServerSideDiff=true
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Team-MaRo/infrastructure.git
+    targetRevision: master
+    path: kubernetes/components/mariadb
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: mariadb
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      # Not required here (no large CRDs); used for consistency.
+      - ServerSideApply=true

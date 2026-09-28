@@ -1,0 +1,46 @@
+---
+# Alerts for the app database. The first one is the reason for the others' names: a failover
+# can hang on a hard node loss (mariadb-operator#1628), and it must not hang unnoticed.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: mariadb
+spec:
+  groups:
+    - name: mariadb
+      rules:
+        # Apps write through the Service mariadb-primary; without a ready endpoint behind it
+        # they cannot. Five minutes covers a normal failover, a restart or an upgrade.
+        - alert: MariaDBNoReadyPrimary
+          expr: absent(kube_endpointslice_endpoints{namespace="mariadb", endpointslice=~"mariadb-primary-.+", ready="true"})
+          for: 5m
+          labels:
+            severity: critical
+            namespace: mariadb
+          annotations:
+            summary: "MariaDB has had no ready primary for 5 minutes - apps cannot write."
+            description: >-
+              A failover may be hanging. Check kubectl -n mariadb get mariadb mariadb and its
+              status.replication; if the primary's node is dead, follow the runbook in
+              kubernetes/README.md ("MariaDB: failover hangs").
+        - alert: MariaDBReplicationBroken
+          expr: mysql_slave_status_slave_io_running{namespace="mariadb"} == 0 or mysql_slave_status_slave_sql_running{namespace="mariadb"} == 0
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "MariaDB replication on {{ $labels.instance }} has been stopped for 10 minutes."
+            description: >-
+              The operator rebuilds a replica whose replication stays broken from a fresh
+              backup (replica recovery); if this persists, check the MariaDB's status and the
+              operator's log (kubectl -n mariadb-operator logs deploy/mariadb-operator).
+        - alert: MariaDBReplicaLagging
+          expr: mysql_slave_status_seconds_behind_master{namespace="mariadb"} > 300
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "MariaDB replica {{ $labels.instance }} is {{ $value | humanizeDuration }} behind."
+            description: >-
+              A lagging replica cannot take over without losing the transactions it lacks,
+              and blocks switchovers.

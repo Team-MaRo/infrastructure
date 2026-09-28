@@ -1,0 +1,12 @@
+---
+# The app database, shared by every cluster: a MariaDB primary and one replica run by the
+# mariadb-operator, with daily physical backups and archived binary logs in Object Storage.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - external-secrets.yaml
+  - s3-ca.yaml
+  - mariadb.yaml
+  - backups.yaml
+  - rules.yaml

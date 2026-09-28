@@ -217,6 +217,29 @@ BAO_TOKEN="$(op item get 'OpenBao | Prod | Recovery keys & root token' --account
 The token is fetched per command, so it never sits in the shell's environment or history.
 `op item get` rather than `op read`: `op://` references reject the `|` in the item title.
 
+Two traps with `key="$(op item get ...)"`, both met while setting up MariaDB:
+
+- **A failed lookup still writes.** If the 1Password item or field is not found, `op` prints
+  an error and the substitution is empty - and `bao` stores an empty value without
+  complaint.
+- **A value starting with `@` is read as a file name** (`key=@file`), so a generated password
+  that starts with `@` fails - and the error message prints it.
+
+For generated passwords, hand the values over as JSON on stdin instead, with a check that
+none is empty:
+
+```sh
+jq -n --arg a "$(op item get '<item>' --account my.1password.com --vault Private --fields <field-a> --reveal)" \
+      --arg b "$(op item get '<item>' --account my.1password.com --vault Private --fields <field-b> --reveal)" \
+  'if ($a|length)==0 or ($b|length)==0 then error("empty value - 1Password lookup failed") else {"key-a":$a,"key-b":$b} end' \
+| BAO_ADDR=http://127.0.0.1:8200 \
+  BAO_TOKEN="$(op item get 'OpenBao | Prod | Recovery keys & root token' --account my.1password.com --vault Private --fields credential --reveal)" \
+  bao kv put secret/<path> -
+```
+
+API tokens and access keys have a fixed format without `@`, so the plain `key=value` form
+stays fine for them.
+
 ## infomaniak
 
 Nine domains registered at Infomaniak, all delegated to Cloudflare. Infomaniak is
