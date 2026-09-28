@@ -985,6 +985,57 @@ configured in the UI (runbook and monitor list in `kubernetes/README.md`), not i
 - Since 2.0, the push endpoint accepts POST, so Alertmanager's webhook can call it directly - no
   translating proxy.
 
+**kube-prometheus-stack** (`kubernetes/clusters/prod/kube-prometheus-stack.yaml`, chart
+pinned, values and extra manifests in `kubernetes/components/kube-prometheus-stack/`) runs
+Prometheus, Alertmanager and Grafana in `monitoring` - an ordinary namespace, on neither the
+Kyverno exclusion lists nor the PSA exemptions: its images all come from allowed registries,
+and the LimitRange's defaults fit most of its containers, so the values set resources only for
+Prometheus and Grafana, which need more. node-exporter goes to `kube-system`
+(`namespaceOverride`), since it needs the host's network, PIDs and files; there is no
+LimitRange there, so it sets its own.
+
+- **Prometheus keeps 30 days** on a 30 GB volume (`retentionSize` 24 GB deletes the oldest
+  first if it fills sooner). Alertmanager and Grafana have no volume: silences and anything
+  changed in Grafana's UI are lost on restart - dashboards and datasources come from the chart
+  and from ConfigMaps (the sidecar reads every ConfigMap labelled `grafana_dashboard: "1"`).
+- **k3s is one process, so three scrapes are disabled** (controller manager, scheduler,
+  proxy - there is nothing separate to reach), and with them their alerts and dashboards.
+- **k3s serves one shared metrics registry on every port**: the API server's and each
+  kubelet's `/metrics` return the same ~64,000 series per node (measured when adopted). The
+  API server keeps them, minus histogram buckets that no rule or dashboard of the chart reads;
+  the kubelet keeps only its own families (a keep list). Without that, Prometheus would hold
+  roughly 380,000 series, half of them duplicates.
+- **etcd is scraped by a `ScrapeConfig`** (`scrape-etcd.yaml`): the private IPs, port 2381, as
+  opened by `etcd-expose-metrics` in `k3s_config`, which binds to the node's own address only.
+  The chart's own way renders an Endpoints object, which Argo CD does not manage. `kubeEtcd`
+  stays enabled with its Service and ServiceMonitor off, because disabling it would drop the
+  etcd alerts and dashboard too; the job name `kube-etcd` matches them. **A new server node is
+  one more target there.**
+- **node-exporter listens on 9101**, not its default 9100: Traefik's metrics entrypoint holds
+  9100 on the same host network. Both are closed by the Hetzner firewall.
+- **The admission webhook's certificate comes from cert-manager**
+  (`admissionWebhooks.certManager`), which removes the chart's Helm hook Jobs. The chart
+  renders the webhooks without a `caBundle` and cert-manager's cainjector fills it in; since
+  git never sets the field, Argo CD sees no difference and needs no `ignoreDifferences` - as
+  with cert-manager's own webhook.
+- **Alerts go to ntfy.sh, one topic, two priorities.** Alertmanager's webhook cannot set
+  ntfy's priority header, so the priority goes into the topic URL, and there is one receiver
+  per severity: `critical` at priority 5, everything else at 3, `info` nowhere (it stays in
+  Grafana). ntfy's built-in `alertmanager` template formats the message. The URLs and token
+  are assembled by the ExternalSecret `alertmanager-ntfy` from OpenBao `secret/ntfy` and read
+  through `url_file`/`credentials_file`, so the topic - the secret on the free plan - never
+  enters git or the Alertmanager config.
+- **The Watchdog heartbeat**: the chart's always-firing `Watchdog` alert is routed to Uptime
+  Kuma's push URL (OpenBao `secret/uptime-kuma`) every minute. Uptime Kuma alerts when it has
+  not heard from it for about ten minutes - Alertmanager down, Prometheus down, or its rules
+  not evaluating.
+- **Own alerts** (`rules.yaml`): a node cordoned for over 2 hours (a failed upgrade Job or a
+  drain that cannot finish), a server without a successful etcd snapshot upload for 13 hours
+  or with a failed one, and a k3s certificate within 30 days of expiry (k3s renews at start
+  within 120 days, so this means renewal failed). Their descriptions say what to do.
+- **Grafana's admin** comes from OpenBao `secret/grafana` through the ExternalSecret
+  `grafana-admin`; the chart would otherwise generate a new random password on every render.
+
 ### What a second cluster would need
 
 `kubernetes/` is already laid out per cluster, because once Argo CD is bootstrapped its

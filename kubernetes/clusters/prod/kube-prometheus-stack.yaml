@@ -1,0 +1,37 @@
+---
+# Metrics and alerts for this cluster: the kube-prometheus-stack Helm chart with values from
+# kubernetes/components/kube-prometheus-stack/values.yaml, plus that directory's manifests.
+# Needs secret/ntfy, secret/uptime-kuma and secret/grafana in OpenBao.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kube-prometheus-stack
+  namespace: argocd
+spec:
+  project: default
+  sources:
+    # Pinned: bumping the version is the upgrade.
+    - repoURL: https://prometheus-community.github.io/helm-charts
+      chart: kube-prometheus-stack
+      targetRevision: 91.8.1
+      helm:
+        valueFiles:
+          - $repo/kubernetes/components/kube-prometheus-stack/values.yaml
+    - repoURL: https://github.com/Team-MaRo/infrastructure.git
+      targetRevision: master
+      ref: repo
+    - repoURL: https://github.com/Team-MaRo/infrastructure.git
+      targetRevision: master
+      path: kubernetes/components/kube-prometheus-stack
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      # Required: the chart's CRDs are too large for client-side apply's
+      # last-applied-configuration annotation.
+      - ServerSideApply=true

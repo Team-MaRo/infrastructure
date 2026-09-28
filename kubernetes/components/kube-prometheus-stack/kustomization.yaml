@@ -1,0 +1,11 @@
+---
+# kube-prometheus-stack, shared by every cluster: Prometheus, Alertmanager, Grafana and the
+# exporters. values.yaml is its Helm values, not a resource; the manifests below are what the
+# chart does not cover.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - external-secrets.yaml
+  - scrape-etcd.yaml
+  - rules.yaml
