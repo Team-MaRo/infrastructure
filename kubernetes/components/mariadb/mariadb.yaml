@@ -36,6 +36,12 @@ spec:
     # replica whose primary has vanished and restarts it - exactly the replica a failover
     # needs (mariadb-operator#1628).
     standaloneProbes: true
+    # Write every commit's binary log event to disk before the commit returns. The server's
+    # default, 0, leaves it to the OS: in the failover test a hard power-off lost the end of the
+    # binary log, crash recovery rolled back a commit the client had been told succeeded, and
+    # the primary came back without a row the replica had. The file was also left with a zeroed
+    # tail, at which archiving for point-in-time recovery stopped.
+    syncBinlog: 1
     replica:
       replPasswordSecretKeyRef:
         name: mariadb
@@ -82,12 +88,16 @@ spec:
       memory: 512Mi
     limits:
       memory: 1Gi
-  # The buffer pool leaves room in the 1Gi for connections and the rest. Smaller binary log
-  # files are archived sooner: the archiver uploads closed files, every ten minutes.
+  # The buffer pool leaves room in the 1Gi for connections and the rest. The archiver uploads
+  # closed binary log files every ten minutes; flush-binlogs.yaml closes the active one as
+  # often, and 128M caps a file under heavy writes. The server keeps binary logs forever by
+  # default; after 7 days they are long in Object Storage, and a replica that has been gone
+  # longer is rebuilt from a backup anyway.
   myCnf: |
     [mariadb]
     innodb_buffer_pool_size=256M
     max_binlog_size=128M
+    binlog_expire_logs_seconds=604800
 
   metrics:
     enabled: true

@@ -84,6 +84,7 @@ kubernetes/
     │   ├── kustomization.yaml
     │   ├── mariadb.yaml           # primary + replica, the failover settings
     │   ├── backups.yaml           # daily physical backup, binary log archiving, replica rebuild
+    │   ├── flush-binlogs.yaml     # closes the active binary log every 10 min, for archiving
     │   ├── external-secrets.yaml  # root/replication passwords and the S3 key from OpenBao
     │   ├── s3-ca.yaml             # the roots Hetzner's S3 certificate chains to
     │   └── rules.yaml             # alerts: no ready primary, broken or lagging replication
@@ -656,11 +657,54 @@ couple of minutes; the known case that does not is a primary whose node died har
 5. Remove the taint once the node is back or replaced:
    `kubectl --context d3strukt0r-prod-admin taint nodes <node> node.kubernetes.io/out-of-service-`.
 
+**After every unplanned failover** - also one that finished on its own - take a physical
+backup at once. The old primary's last binary log never reached the bucket, so
+point-in-time recovery cannot go past its last upload until a backup from the new primary
+exists (`LAST RECOVERABLE TIME` in `kubectl get pitr` stays put):
+
+```shell
+kubectl --context d3strukt0r-prod-admin -n mariadb patch physicalbackup mariadb-daily --type=merge -p "{\"spec\":{\"schedule\":{\"onDemand\":\"$(date +%s)\"}}}"
+```
+
+### MariaDB: binary log archiving stuck
+
+The MariaDB reports Ready=False with `Error archiving binlogs: ... error getting binary log
+mariadb-bin.NNNNNN metadata`, and `kubectl get pitr` shows no or an old `LAST RECOVERABLE
+TIME`. The archiver uploads the files in order and stops at one it cannot read - after a hard
+crash of the primary, the file that was being written. Writes are not affected, only
+point-in-time recovery.
+
+1. Confirm which file, and that later ones exist:
+   ```shell
+   kubectl --context d3strukt0r-prod-admin -n mariadb logs <primary-pod> -c agent --tail=20
+   kubectl --context d3strukt0r-prod-admin -n mariadb exec <primary-pod> -c mariadb -- bash -c 'mariadb -uroot -p"$MARIADB_ROOT_PASSWORD" -e "SHOW BINARY LOGS"'
+   ```
+2. Remove the unreadable file from the server's list - `PURGE ... TO` removes every file
+   **before** the one named, so name the one after it:
+   ```shell
+   kubectl --context d3strukt0r-prod-admin -n mariadb exec <primary-pod> -c mariadb -- bash -c 'mariadb -uroot -p"$MARIADB_ROOT_PASSWORD" -e "PURGE BINARY LOGS TO '"'"'mariadb-bin.NNNNNN+1'"'"'"'
+   ```
+3. That leaves a gap no restore can cross, so take a fresh physical backup at once - it is
+   the new starting point for everything after the gap:
+   ```shell
+   kubectl --context d3strukt0r-prod-admin -n mariadb patch physicalbackup mariadb-daily --type=merge -p "{\"spec\":{\"schedule\":{\"onDemand\":\"$(date +%s)\"}}}"
+   ```
+4. Within ten minutes the agent archives the remaining files; `kubectl get pitr` shows a
+   `LAST RECOVERABLE TIME` again and the MariaDB turns Ready.
+
 ### MariaDB: restore to a point in time
 
 A restore creates a **new** MariaDB from the backups; the running one is not touched.
 
-1. Apply a second MariaDB - a copy of `components/mariadb/mariadb.yaml` with another name
+1. Pick the target time (UTC). `strictMode` refuses any time the archive cannot reach, and
+   an operator bug also refuses one that falls inside the newest archived binary log:
+   - **As late as possible**: copy `LAST RECOVERABLE TIME` from `kubectl get pitr`
+     exactly - the end of the newest file is accepted. Leaving the time out means "now",
+     which is always refused.
+   - **A moment before an accident**: if it is refused as "timeline did not reach target
+     time" although it lies before `LAST RECOVERABLE TIME`, it is inside the newest file;
+     wait for the next upload (at most twenty minutes) and retry.
+2. Apply a second MariaDB - a copy of `components/mariadb/mariadb.yaml` with another name
    (e.g. `mariadb-restore`), without `pointInTimeRecoveryRef` and without
    `replication.replica.recovery`/`bootstrapFrom` (both point at the original's backups),
    and with:
@@ -668,13 +712,22 @@ A restore creates a **new** MariaDB from the backups; the running one is not tou
    bootstrapFrom:
      pointInTimeRecoveryRef:
        name: pitr
-     targetRecoveryTime: 2026-10-01T18:00:00Z   # UTC; omitted = as late as possible
+     targetRecoveryTime: 2026-10-01T18:00:00Z
    ```
-2. Wait for it to be ready, and **check the condition `BinlogsReplayed`**:
+   Keep `replicas: 2` - the webhook refuses replication with one.
+3. Wait for it to be ready, and **check the condition `BinlogsReplayed`**:
    `kubectl --context d3strukt0r-prod-admin -n mariadb get mariadb mariadb-restore -o jsonpath='{.status.conditions}' | jq`.
    Ready without it means only the nightly backup was restored.
-3. Copy what is needed back (`mariadb-dump` from the restored instance), or switch the app to
+4. Copy what is needed back (`mariadb-dump` from the restored instance), or switch the app to
    it. Then delete the restored MariaDB, and its PVCs and Hetzner volumes by hand (Retain).
+
+**The target time cannot be changed** once applied. A failed restore is retried by deleting
+the MariaDB, its PVCs (`storage-mariadb-restore-0`/`-1`), their PVs and the Hetzner volumes
+(`hcloud volume delete`, once they show no server) - a new MariaDB on the old volumes finds
+data there and skips the restore.
+
+A drill on 2026-09-28 restored the nightly backup plus ten minutes of binary logs in under
+two minutes, to the millisecond.
 
 ## How quickly a push arrives
 
