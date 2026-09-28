@@ -7,7 +7,9 @@ loki:
     replication_factor: 1
   schemaConfig:
     configs:
-      - from: "2026-09-28"
+      # Before the cluster existed: Alloy reads long-running containers' log files from their
+      # start, and Loki refuses lines older than the first schema.
+      - from: "2026-09-01"
         store: tsdb
         object_store: s3
         schema: v13

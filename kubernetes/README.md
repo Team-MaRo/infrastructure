@@ -539,6 +539,11 @@ chart's are explained in the [runbooks](https://runbooks.prometheus-operator.dev
 each alert links as `runbook_url`. A known cause being worked on can be silenced in
 Alertmanager's UI (Silences → New Silence), for a fixed time.
 
+**A volume alert** (80 %, 90 %, 95 %) is answered by growing the volume: raise the PVC's
+storage request - in the values or manifest that defines it, then push - and Hetzner resizes
+it while it stays mounted. A volume can never shrink; going smaller means a new volume and
+losing its data.
+
 **Testing the path to the phone** - an alert that resolves itself after five minutes:
 
 ```shell

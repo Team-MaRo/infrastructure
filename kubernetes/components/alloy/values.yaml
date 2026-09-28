@@ -29,11 +29,11 @@ alloy:
         - ALL
     seccompProfile:
       type: RuntimeDefault
-  # kube-system has no LimitRange.
+  # kube-system has no LimitRange. Measured 130-180 MiB per node after the first start.
   resources:
     requests:
       cpu: 20m
-      memory: 128Mi
+      memory: 192Mi
     limits:
       memory: 512Mi
   configMap:
