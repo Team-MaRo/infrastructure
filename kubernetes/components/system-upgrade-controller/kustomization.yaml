@@ -10,3 +10,18 @@ resources:
   - https://github.com/rancher/system-upgrade-controller/releases/download/v0.20.2/crd.yaml
   - https://github.com/rancher/system-upgrade-controller/releases/download/v0.20.2/system-upgrade-controller.yaml
   - plan.yaml
+
+patches:
+  # Memory, from what it used when set (2026-09-28): about 77 MiB at most. The manifest sets
+  # none, and system-upgrade is left out of Kyverno's LimitRange.
+  - target:
+      kind: Deployment
+      name: system-upgrade-controller
+    patch: |-
+      - op: add
+        path: /spec/template/spec/containers/0/resources
+        value:
+          requests:
+            memory: 96Mi
+          limits:
+            memory: 192Mi

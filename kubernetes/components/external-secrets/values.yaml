@@ -1,0 +1,15 @@
+# Helm values for the external-secrets chart; the chart version is pinned in the cluster's
+# Application. Memory where the namespace's LimitRange defaults (64Mi, limit 128Mi) do not
+# fit, from what the containers used when set (2026-09-28): the request about the usual use,
+# the limit about twice the highest seen. The webhook stays within the defaults.
+resources:
+  requests:
+    memory: 192Mi
+  limits:
+    memory: 512Mi
+certController:
+  resources:
+    requests:
+      memory: 96Mi
+    limits:
+      memory: 256Mi

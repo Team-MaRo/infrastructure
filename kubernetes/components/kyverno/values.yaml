@@ -9,3 +9,17 @@ global:
     # The chart pulls from reg.kyverno.io by default; the same images are published on
     # ghcr.io, one of the registries allowed-registries.yaml admits.
     registry: ghcr.io
+# The chart's 128Mi limits were too tight when measured (2026-09-28): the background controller
+# already used 104 MiB. The reports controller grows with the number of policy reports.
+backgroundController:
+  resources:
+    requests:
+      memory: 128Mi
+    limits:
+      memory: 256Mi
+reportsController:
+  resources:
+    requests:
+      memory: 128Mi
+    limits:
+      memory: 256Mi
