@@ -1,0 +1,12 @@
+---
+# Uptime Kuma, shared by every cluster: checks websites from outside their pods, and turns
+# Alertmanager's always-firing Watchdog alert into a heartbeat - if Alertmanager goes quiet,
+# Uptime Kuma notices and alerts through ntfy itself. Monitors and notifications are set up
+# in its UI and live in its SQLite database (runbook in kubernetes/README.md).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - pvc.yaml
+  - deployment.yaml
+  - service.yaml
