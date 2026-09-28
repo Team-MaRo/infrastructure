@@ -195,9 +195,12 @@ makes lock-object writes succeed.
 
 Versioning and Object Lock are both enabled on the bucket, but
 `get-object-lock-configuration` returns no `Rule`, so there is **no default retention**
-- and the S3 backend never sends per-object retention headers. Every apply therefore
-adds a version that accumulates but stays deletable. Old versions can be pruned with
-`aws s3api delete-object --version-id`; nothing is locked.
+- and the S3 backend never sends per-object retention headers. Every apply adds a version
+and every plan leaves its lock file behind as a version plus a delete marker; a lifecycle
+rule (`tofu/objectstorage/tfstate.tf`) removes versions 90 days after they are replaced,
+then the orphaned markers. So an old state can be restored for 90 days, not longer. Old
+versions can also be pruned early with `aws s3api delete-object --version-id`; nothing is
+locked.
 
 ```sh
 aws --profile d3strukt0r-hetzner s3api list-object-versions --bucket d3strukt0r-tfstate --prefix hcloud/
@@ -219,6 +222,15 @@ Hetzner S3 keys are valid for every bucket in the project, with every permission
 way to scope one is a bucket policy, so `tofu/objectstorage` writes both of its policies as
 `Deny` + `NotPrincipal` naming the admin key, `arn:aws:iam:::user/p<project_id>:<access_key>`
 (`local.admin_principal`). That covers keys that do not exist yet, such as the cluster's.
+
+**Every bucket has a lifecycle rule** that aborts multipart uploads not completed within 7
+days: a broken large upload leaves its parts behind, invisible in a listing but stored and
+billed. **A versioned bucket's rule also expires noncurrent versions** and then orphaned
+delete markers - versioning never forgets on its own. An unversioned bucket's rule does no
+more than the abort: its writer deletes old data itself (Loki's compactor, a backup tool's
+retention), and a second deleter could remove objects the tool still expects. Hetzner's lifecycle only removes
+*orphaned* markers with `expired_object_delete_marker`; it never expires current objects,
+although uploads answer with an `Expiration` header that suggests so (tested 2026-09).
 
 - **`d3strukt0r-tfstate`: every action denied to every other key** - the Hetzner web
   console included, which reads buckets under its own identity and so shows "Ressource ist
@@ -574,9 +586,9 @@ self-heal.
   controller is a StatefulSet, which Kubernetes will not replace on an unreachable node:
   syncing stays stopped until the node returns or is tainted
   `node.kubernetes.io/out-of-service`.
-- **The UI is not exposed** - port-forward from the admin context until cert-manager can
-  provide TLS. The local `admin` account is used until Zitadel exists, and stays as the
-  break-glass login afterwards.
+- **The UI is not exposed** - port-forward from the admin context. TLS would be available
+  (cert-manager and Traefik run), but the UIs open only once Zitadel provides SSO. The local
+  `admin` account is used until then, and stays as the break-glass login afterwards.
 
 ### Bootstrap secrets come from 1Password, once
 

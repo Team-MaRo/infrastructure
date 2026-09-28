@@ -19,6 +19,31 @@ resource "minio_s3_bucket" "tfstate" {
   }
 }
 
+# Every apply keeps the replaced state as a noncurrent version, and every plan leaves its lock
+# file behind as a version plus a delete marker. This removes versions 90 days after they are
+# replaced - long enough to roll a state back after a bad apply - and then the orphaned markers.
+# Current state files are never touched. Parts of an upload that never completed go after 7
+# days, as on every bucket.
+resource "minio_s3_bucket_lifecycle" "tfstate" {
+  bucket = minio_s3_bucket.tfstate.bucket
+
+  rule {
+    id = "expire-old-state"
+
+    noncurrent_version_expiration {
+      noncurrent_days = 90
+    }
+
+    expiration {
+      expired_object_delete_marker = true
+    }
+
+    abort_incomplete_multipart_upload {
+      days_after_initiation = 7
+    }
+  }
+}
+
 # This denies the admin key nothing only as long as admin_principal is right. It was proven
 # on the etcd bucket with this same statement before being applied here; see the staged
 # apply in tofu/README.md before changing how the principal is built.

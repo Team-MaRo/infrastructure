@@ -32,7 +32,8 @@ resource "minio_s3_bucket_object_lock_configuration" "prod_etcd" {
 
 # k3s prunes old snapshots itself, which on a versioned bucket only adds a delete marker.
 # This removes the hidden version 7 days later - never earlier than its lock allows - and
-# then the orphaned marker, so storage stays bounded.
+# then the orphaned marker, so storage stays bounded. Parts of an upload that never completed
+# go after 7 days, as on every bucket.
 resource "minio_s3_bucket_lifecycle" "prod_etcd" {
   bucket = minio_s3_bucket.prod_etcd.bucket
 
@@ -45,6 +46,10 @@ resource "minio_s3_bucket_lifecycle" "prod_etcd" {
 
     expiration {
       expired_object_delete_marker = true
+    }
+
+    abort_incomplete_multipart_upload {
+      days_after_initiation = 7
     }
   }
 }

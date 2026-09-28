@@ -98,7 +98,8 @@ of itself is a no-op.
 
 ## Accessing the UI
 
-Not exposed yet. Exposing it needs TLS, which needs cert-manager. Until then:
+Not exposed yet: the UIs open once Zitadel provides SSO (TLS via cert-manager and Traefik is
+already in place). Until then:
 
 ```shell
 kubectl --context d3strukt0r-prod-admin -n argocd port-forward svc/argocd-server 8080:443
