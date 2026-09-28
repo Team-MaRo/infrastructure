@@ -1,0 +1,83 @@
+# Helm values for Loki; the chart version is pinned in the cluster's Application. One Loki in
+# monolithic mode, logs in Object Storage, 30 days.
+loki:
+  # One tenant: nothing sends an X-Scope-OrgID header, and nothing needs to.
+  auth_enabled: false
+  commonConfig:
+    replication_factor: 1
+  schemaConfig:
+    configs:
+      - from: "2026-09-28"
+        store: tsdb
+        object_store: s3
+        schema: v13
+        index:
+          prefix: index_
+          period: 24h
+  storage:
+    # The Thanos object-store client, built on minio-go - the client k3s already uploads its etcd
+    # snapshots to Hetzner with. Loki's default aws-sdk-go-v2 client sends checksum headers that
+    # S3-compatible stores have rejected.
+    use_thanos_objstore: true
+    bucketNames:
+      chunks: d3strukt0r-prod-loki
+      admin: d3strukt0r-prod-loki
+    object_store:
+      s3:
+        endpoint: nbg1.your-objectstorage.com
+        region: nbg1
+        # Expanded from the environment (-config.expand-env below), filled from the Secret loki-s3.
+        access_key_id: ${LOKI_S3_ACCESS_KEY}
+        secret_access_key: ${LOKI_S3_SECRET_KEY}
+  # The compactor deletes what is older than the retention; the bucket's lifecycle rule only
+  # clears uploads that never completed.
+  compactor:
+    retention_enabled: true
+    delete_request_store: s3
+  limits_config:
+    retention_period: 720h
+
+singleBinary:
+  replicas: 1
+  extraArgs:
+    - -config.expand-env=true
+  extraEnvFrom:
+    - secretRef:
+        name: loki-s3
+  # Memory only; the CPU request comes from the namespace's LimitRange.
+  resources:
+    requests:
+      memory: 256Mi
+    limits:
+      memory: 1Gi
+
+# The chart defaults these to 3 replicas each, which it refuses next to the single binary.
+write:
+  replicas: 0
+read:
+  replicas: 0
+backend:
+  replicas: 0
+
+# No log-based alerting yet. The rules sidecar would also bring a ClusterRole reading every
+# Secret in the cluster; with it off and RBAC namespaced, the chart renders no RBAC at all.
+ruler:
+  enabled: false
+sidecar:
+  rules:
+    enabled: false
+rbac:
+  namespaced: true
+
+# Not needed for one instance: the nginx gateway, the canary and Helm test, and the memcached
+# caches - chunksCache alone would reserve several GB of memory.
+gateway:
+  enabled: false
+lokiCanary:
+  enabled: false
+test:
+  enabled: false
+resultsCache:
+  enabled: false
+chunksCache:
+  enabled: false

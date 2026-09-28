@@ -1,0 +1,36 @@
+---
+# Log collection for this cluster: the Grafana Alloy Helm chart with values from
+# kubernetes/components/alloy/values.yaml, plus that directory's manifests. A DaemonSet in
+# kube-system, the one namespace whose Pod Security exemption allows reading the nodes' logs.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: alloy
+  namespace: argocd
+spec:
+  project: default
+  sources:
+    # Pinned: bumping the version is the upgrade. 1.13.0 deploys Alloy 1.20.0.
+    - repoURL: https://grafana.github.io/helm-charts
+      chart: alloy
+      targetRevision: 1.13.0
+      helm:
+        valueFiles:
+          - $repo/kubernetes/components/alloy/values.yaml
+    - repoURL: https://github.com/Team-MaRo/infrastructure.git
+      targetRevision: master
+      ref: repo
+    - repoURL: https://github.com/Team-MaRo/infrastructure.git
+      targetRevision: master
+      path: kubernetes/components/alloy
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      # No CreateNamespace: kube-system belongs to k3s.
+      # Not required here (no large CRDs); used for consistency.
+      - ServerSideApply=true

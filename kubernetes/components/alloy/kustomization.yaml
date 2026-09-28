@@ -1,0 +1,8 @@
+---
+# Grafana Alloy, shared by every cluster: collects logs on every node and sends them to Loki.
+# values.yaml is its Helm values, not a resource.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - clusterrole.yaml

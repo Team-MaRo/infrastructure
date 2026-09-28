@@ -1,0 +1,8 @@
+---
+# Loki, shared by every cluster: stores the logs Alloy collects, in Object Storage. values.yaml
+# is its Helm values, not a resource.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - external-secret.yaml

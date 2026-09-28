@@ -29,6 +29,8 @@ kubernetes/
 │       ├── traefik.yaml           # k3s's Traefik: DaemonSet on the ingress nodes' host network
 │       ├── uptime-kuma.yaml       # website checks and the alerting heartbeat
 │       ├── kube-prometheus-stack.yaml  # metrics and alerts: chart pinned here, values in components/
+│       ├── loki.yaml              # log storage: chart pinned here, values in components/
+│       ├── alloy.yaml             # log collection on every node: chart pinned here
 │       ├── etcd-snapshots.yaml    # syncs the subdirectory below
 │       └── etcd-snapshots/        # prod-only: the S3 settings k3s uploads snapshots with
 └── components/                # how each component is deployed, shared by clusters
@@ -68,6 +70,14 @@ kubernetes/
     │   ├── external-secrets.yaml  # ntfy URLs and token, Grafana's admin, from OpenBao
     │   ├── scrape-etcd.yaml       # etcd's metrics on the servers' private IPs
     │   └── rules.yaml             # this cluster's own alerts
+    ├── loki/
+    │   ├── values.yaml            # Helm values: one instance, S3, 30 days
+    │   ├── kustomization.yaml
+    │   └── external-secret.yaml   # its S3 key from OpenBao
+    ├── alloy/
+    │   ├── values.yaml            # Helm values: the collection pipeline
+    │   ├── kustomization.yaml
+    │   └── clusterrole.yaml       # only what the pipeline reads
     └── uptime-kuma/
         ├── kustomization.yaml
         ├── deployment.yaml        # one replica, pinned rootless image, SQLite
@@ -536,6 +546,31 @@ kubectl --context d3strukt0r-prod-admin -n monitoring exec alertmanager-kube-pro
   amtool alert add TestAlert severity=warning --annotation=summary="Test from the README" \
   --end="$(date -u -v+5M +%Y-%m-%dT%H:%M:%SZ)" --alertmanager.url=http://localhost:9093
 ```
+
+## Logs
+
+Every container's log, every node's journal and the cluster's events end up in Loki for 30
+days, searchable in Grafana → Explore → datasource **Loki**. A few queries to start from:
+
+```
+{namespace="uptime-kuma"}                                  # one namespace's containers
+{namespace="monitoring", container="prometheus"} |= "error"  # lines containing "error"
+{job="node-journal", unit="k3s.service", node="prod-01"}   # k3s's own log on one node
+{job="node-journal", unit="ssh.service"}                   # SSH logins
+{job="loki.source.kubernetes_events"}                      # events: scheduling, OOM kills, pulls
+```
+
+Logs of pods that no longer exist stay searchable - `kubectl logs` only reaches running ones.
+
+**If Loki cannot write to Object Storage**, new logs still arrive but pile up on its volume,
+and its log says so:
+
+```shell
+kubectl --context d3strukt0r-prod-admin -n loki logs loki-0 | grep -i -E 'error|denied|failed to flush'
+```
+
+A `403` right after the key was created is Hetzner's propagation delay; anything persistent
+is the key in OpenBao `secret/loki-s3` or the bucket policy in `tofu/objectstorage/loki.tf`.
 
 ## How quickly a push arrives
 

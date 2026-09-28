@@ -1047,6 +1047,47 @@ LimitRange there, so it sets its own.
 - **Grafana's admin** comes from OpenBao `secret/grafana` through the ExternalSecret
   `grafana-admin`; the chart would otherwise generate a new random password on every render.
 
+**Logs: Loki and Alloy.** Alloy (`kubernetes/clusters/prod/alloy.yaml`, chart `grafana/alloy`
+pinned) runs on every node and sends that node's container logs (`/var/log/pods`) and whole
+journal (k3s, kernel, apt, sshd), plus the cluster's Kubernetes events, to Loki
+(`kubernetes/clusters/prod/loki.yaml`, chart `grafana-community/loki` pinned - the chart moved
+out of `grafana/helm-charts`), which keeps them 30 days in `d3strukt0r-prod-loki`. Grafana has
+Loki as a datasource (`additionalDataSources` in the kube-prometheus-stack values).
+
+- **Loki is one monolithic instance** in namespace `loki`, an ordinary namespace like
+  `monitoring`. The chart defaults `write`/`read`/`backend` to 3 replicas each and refuses them
+  next to `singleBinary.replicas: 1`, so they are set to 0. Gateway, canary, Helm test and the
+  memcached caches are off - `chunksCache` alone would reserve several GB. Single tenant
+  (`auth_enabled: false`).
+- **The Thanos object-store client** (`use_thanos_objstore: true`), built on minio-go - the
+  client k3s's etcd snapshots already upload to Hetzner with. Loki's default aws-sdk-go-v2
+  client sends checksum headers that S3-compatible stores have rejected. If Hetzner ever
+  refuses it, the fallback is the default client with `AWS_REQUEST_CHECKSUM_CALCULATION` and
+  `AWS_RESPONSE_CHECKSUM_VALIDATION` set to `when_required`.
+- **Its key** is its own (console label `prod loki`, OpenBao `secret/loki-s3`), delivered by
+  the ExternalSecret `loki-s3` as environment variables that `-config.expand-env` fills into
+  the config. The bucket policy admits only it and the admin key.
+- **Retention is the compactor's** (`retention_period: 720h`, `delete_request_store: s3`);
+  the bucket's lifecycle rule only clears uploads that never completed.
+- **Neither chart's RBAC is used.** Loki's rules sidecar would bring a ClusterRole reading every
+  Secret; with the ruler (log-based alerting, not used yet) and sidecar off and
+  `rbac.namespaced`, no RBAC is rendered. Alloy's chart role reads every Secret and ConfigMap
+  too, so `rbac.create: false` and `components/alloy/clusterrole.yaml` grants only pods,
+  namespaces and events.
+- **Alloy runs in `kube-system`**, the PSA-exempt namespace, because it mounts `/var/log` from
+  the host. The log files belong to root with mode 0640, so it runs as UID 0 - but with no
+  capabilities, no privilege escalation and a read-only root filesystem; as the files' owner,
+  root needs no capability to read them. Its read positions live on the node
+  (`/var/lib/alloy`), so a restarted pod neither re-sends nor skips lines, and it mounts
+  `/etc/machine-id`, by which the journal reader finds the node's own journal.
+- **Events are collected once**: the Alloy instances form a cluster, and a
+  `loki.source.kubernetes_events` watching all namespaces runs on one of them. The API keeps
+  events for an hour; Loki keeps them 30 days.
+- **Labels**: `namespace`, `pod`, `container`, `node`, `app` for containers; `job="node-journal"`,
+  `unit`, `node` for the journal; `job="loki.source.kubernetes_events"` for events. Anything
+  else is searched in the line, not labelled - Loki stays fast with few labels.
+- Alloy sends no usage statistics (`enableReporting: false`).
+
 ### What a second cluster would need
 
 `kubernetes/` is already laid out per cluster, because once Argo CD is bootstrapped its
