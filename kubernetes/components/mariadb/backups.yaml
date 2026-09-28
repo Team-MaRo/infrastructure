@@ -1,0 +1,141 @@
+---
+# A full physical backup every night at 23:30 UTC - before the etcd snapshot, the k3s upgrade
+# and the reboot windows - taken from the replica, kept 30 days. Together with the binary logs
+# archived in between (pitr below), it allows a restore to any moment in those 30 days.
+apiVersion: k8s.mariadb.com/v1alpha1
+kind: PhysicalBackup
+metadata:
+  name: mariadb-daily
+spec:
+  mariaDbRef:
+    name: mariadb
+  schedule:
+    cron: "30 23 * * *"
+    immediate: true
+  target: PreferReplica
+  maxRetention: 720h
+  compression: gzip
+  storage:
+    s3:
+      bucket: d3strukt0r-prod-mariadb-backups
+      prefix: physical
+      endpoint: nbg1.your-objectstorage.com
+      region: nbg1
+      accessKeyIdSecretKeyRef:
+        name: mariadb-backups-s3
+        key: access-key-id
+      secretAccessKeySecretKeyRef:
+        name: mariadb-backups-s3
+        key: secret-access-key
+      tls:
+        enabled: true
+        caSecretKeyRef:
+          name: s3-ca
+          key: ca.crt
+  # The backup is staged on the node's disk before the upload, which counts against the
+  # container's ephemeral storage - the namespace default of 1Gi would evict it once the
+  # database grows.
+  resources:
+    requests:
+      memory: 256Mi
+      ephemeral-storage: 1Gi
+    limits:
+      memory: 1Gi
+      ephemeral-storage: 8Gi
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 999
+    runAsGroup: 999
+    fsGroup: 999
+    seccompProfile:
+      type: RuntimeDefault
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+---
+# Never scheduled: the template the operator uses to rebuild a broken replica from a fresh
+# backup of the primary (spec.replication.replica.bootstrapFrom in mariadb.yaml).
+apiVersion: k8s.mariadb.com/v1alpha1
+kind: PhysicalBackup
+metadata:
+  name: mariadb-replica-recovery
+spec:
+  mariaDbRef:
+    name: mariadb
+    # A template, not a backup of its own: it must not wait for the MariaDB to be ready.
+    waitForIt: false
+  schedule:
+    cron: "0 0 * * *"
+    suspend: true
+  target: PreferReplica
+  compression: gzip
+  storage:
+    s3:
+      bucket: d3strukt0r-prod-mariadb-backups
+      prefix: recovery
+      endpoint: nbg1.your-objectstorage.com
+      region: nbg1
+      accessKeyIdSecretKeyRef:
+        name: mariadb-backups-s3
+        key: access-key-id
+      secretAccessKeySecretKeyRef:
+        name: mariadb-backups-s3
+        key: secret-access-key
+      tls:
+        enabled: true
+        caSecretKeyRef:
+          name: s3-ca
+          key: ca.crt
+  resources:
+    requests:
+      memory: 256Mi
+      ephemeral-storage: 1Gi
+    limits:
+      memory: 1Gi
+      ephemeral-storage: 8Gi
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 999
+    runAsGroup: 999
+    fsGroup: 999
+    seccompProfile:
+      type: RuntimeDefault
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+---
+# Archives the primary's binary logs to Object Storage (done by the agent next to MariaDB,
+# every ten minutes), so a restore can replay up to a chosen moment after a daily backup.
+# The prefix must hold nothing else. Nothing prunes the archived logs; the bucket's lifecycle
+# rule expires them after 35 days (tofu/objectstorage/mariadb-backups.tf).
+apiVersion: k8s.mariadb.com/v1alpha1
+kind: PointInTimeRecovery
+metadata:
+  name: pitr
+spec:
+  physicalBackupRef:
+    name: mariadb-daily
+  compression: gzip
+  # Refuses a restore target it cannot fully reach, instead of stopping at the last log it has.
+  strictMode: true
+  storage:
+    s3:
+      bucket: d3strukt0r-prod-mariadb-backups
+      prefix: pitr
+      endpoint: nbg1.your-objectstorage.com
+      region: nbg1
+      accessKeyIdSecretKeyRef:
+        name: mariadb-backups-s3
+        key: access-key-id
+      secretAccessKeySecretKeyRef:
+        name: mariadb-backups-s3
+        key: secret-access-key
+      tls:
+        enabled: true
+        caSecretKeyRef:
+          name: s3-ca
+          key: ca.crt

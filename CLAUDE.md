@@ -1140,6 +1140,51 @@ on 2 volumes (user decision, 2026-09-28).
   so the registry check does not depend on short-name resolution.
 - Kubernetes 1.37 is not yet in the operator's CI (1.36 when adopted).
 
+**The instance** (`kubernetes/clusters/prod/mariadb.yaml`, `kubernetes/components/mariadb/`,
+namespace `mariadb`): `MariaDB` `mariadb`, image pinned, 2 replicas on 10 GB each, one per
+node. Apps connect to the Service **`mariadb-primary`**, which follows the primary through a
+failover (`mariadb-secondary` reads from the replica).
+
+- **The mitigations for #1628:**
+  - `semiSyncWaitPoint: AfterSync` - a commit waits until the replica has it, so a failover
+    loses nothing while the replica is up.
+  - `semiSyncBootAsReplica` - a returning old primary boots read-only until configured.
+  - `standaloneProbes` - the replication-aware liveness probe would restart exactly the
+    replica a failover needs.
+  - `readinessProbe.failureThreshold: 10` - with the default 3 the replica turns unready
+    before the failover starts, leaving no candidate. The value comes from the issue thread;
+    the failover tests measure what it needs here.
+  - `MariaDBNoReadyPrimary` (critical, 5 min) - no ready endpoint behind `mariadb-primary`,
+    i.e. a failover that hangs; the runbook is in `kubernetes/README.md`.
+- **Restricted Pod Security** needs securityContexts on the pod (999, the image's mysql user -
+  setting `podSecurityContext` replaces the operator's default, so it is repeated), the
+  container, the agent, the init container and the exporter (UID 65534, the image only names
+  its user). Once the init container's block is set at all, its `image` is required: the
+  operator's own image, **bumped together with the operator**. Custom init or sidecar
+  containers cannot pass restricted (mariadb-operator#1835) - none are used.
+- **Backups** (`backups.yaml`), to `d3strukt0r-prod-mariadb-backups`:
+  - `PhysicalBackup` `mariadb-daily` at 23:30 UTC from the replica, kept 30 days. Staged on
+    the node's disk before the upload, so it sets an ephemeral-storage limit of its own.
+  - `PointInTimeRecovery` `pitr`: the agent next to the primary archives the binary logs every
+    ten minutes (hardcoded), so a restore loses at most about ten minutes. Nothing prunes
+    them; the bucket expires them after 35 days.
+  - `mariadb-replica-recovery`: a never-scheduled template the operator uses to rebuild a
+    replica whose replication stays broken.
+- **A restore always goes into a new MariaDB** (`bootstrapFrom.pointInTimeRecoveryRef` with a
+  `targetRecoveryTime`), never in place. Its success condition is `BinlogsReplayed=True`.
+  `tls.caSecretKeyRef` must be set on every S3 reference - without it the restore panics in
+  the operator yet reports Ready with only the base backup (mariadb-operator#1915). `s3-ca`
+  holds the ISRG roots Hetzner's certificate chains to; they are public and live in git.
+- **PITR works only in this replication topology**, not with Galera or a standalone instance.
+- **The root password is kept twice**: in Secret `mariadb` (from OpenBao) and in the
+  operator's own `internal-mariadb`, which it compares against to rotate a changed password.
+  An empty password synced first (a failed 1Password lookup, 2026-09-28) left
+  `internal-mariadb` empty while MariaDB initialised with the real one, and the operator
+  looped on "Access denied" until `internal-mariadb` was patched to match - the fix is in the
+  README. MariaDB itself refuses to initialise without a password, so no empty root was set.
+- **`ServerSideDiff=true` on the Application**: the client-side diff kept the MariaDB
+  OutOfSync after every successful sync, although a server-side apply changes nothing in it.
+
 ### What a second cluster would need
 
 `kubernetes/` is already laid out per cluster, because once Argo CD is bootstrapped its

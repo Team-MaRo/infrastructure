@@ -33,6 +33,7 @@ kubernetes/
 │       ├── alloy.yaml             # log collection on every node: chart pinned here
 │       ├── mariadb-operator-crds.yaml  # the operator's CRDs - never pruned
 │       ├── mariadb-operator.yaml  # the operator running the app database
+│       ├── mariadb.yaml           # the app database itself
 │       ├── etcd-snapshots.yaml    # syncs the subdirectory below
 │       └── etcd-snapshots/        # prod-only: the S3 settings k3s uploads snapshots with
 └── components/                # how each component is deployed, shared by clusters
@@ -79,6 +80,13 @@ kubernetes/
     │   └── external-secret.yaml   # its S3 key from OpenBao
     ├── mariadb-operator/
     │   └── values.yaml            # Helm values: securityContexts, cert-manager, images
+    ├── mariadb/
+    │   ├── kustomization.yaml
+    │   ├── mariadb.yaml           # primary + replica, the failover settings
+    │   ├── backups.yaml           # daily physical backup, binary log archiving, replica rebuild
+    │   ├── external-secrets.yaml  # root/replication passwords and the S3 key from OpenBao
+    │   ├── s3-ca.yaml             # the roots Hetzner's S3 certificate chains to
+    │   └── rules.yaml             # alerts: no ready primary, broken or lagging replication
     ├── alloy/
     │   ├── values.yaml            # Helm values: the collection pipeline
     │   ├── kustomization.yaml
@@ -530,10 +538,14 @@ password:
 2. With the port-forward to OpenBao open:
 
    ```shell
-   BAO_ADDR=http://127.0.0.1:8200 BAO_TOKEN="$(op item get 'OpenBao | Prod | Recovery keys & root token' --account my.1password.com --vault Private --fields credential --reveal)" \
-     bao kv put secret/grafana \
-       admin-password="$(op item get 'Grafana | Prod | Admin' --account my.1password.com --vault Private --fields password --reveal)"
+   jq -n --arg p "$(op item get 'Grafana | Prod | Admin' --account my.1password.com --vault Private --fields password --reveal)" \
+     'if ($p|length)==0 then error("empty value - 1Password lookup failed") else {"admin-password":$p} end' \
+   | BAO_ADDR=http://127.0.0.1:8200 BAO_TOKEN="$(op item get 'OpenBao | Prod | Recovery keys & root token' --account my.1password.com --vault Private --fields credential --reveal)" \
+     bao kv put secret/grafana -
    ```
+
+   JSON on stdin rather than `key=value`: a generated password may start with `@`, and a
+   failed lookup would otherwise store an empty value (see "OpenBao" in `tofu/README.md`).
 
 As soon as the first sync is done, resume the `Alertmanager Watchdog` monitor in Uptime Kuma;
 it should turn green within a minute. While it is paused, Uptime Kuma answers every heartbeat
@@ -583,6 +595,86 @@ kubectl --context d3strukt0r-prod-admin -n loki logs loki-0 | grep -i -E 'error|
 
 A `403` right after the key was created is Hetzner's propagation delay; anything persistent
 is the key in OpenBao `secret/loki-s3` or the bucket policy in `tofu/objectstorage/loki.tf`.
+
+## MariaDB
+
+The app database: a primary and a replica (mariadb-operator), backed up every night and with
+its binary logs archived every ten minutes, so it can be restored to any moment in the last
+30 days. Apps connect to **`mariadb-primary.mariadb.svc:3306`**.
+
+**Before the first sync**, its passwords and S3 key go into OpenBao (port-forward and
+`BAO_TOKEN` as in "OpenBao"):
+
+1. A 1Password item `MariaDB | Prod | Root & replication` with two generated password
+   fields, `root-password` and `repl-password`.
+2. As JSON on stdin (generated passwords may start with `@`; an empty lookup must not be
+   stored - see "OpenBao" in `tofu/README.md`):
+
+   ```shell
+   jq -n --arg r "$(op item get 'MariaDB | Prod | Root & replication' --account my.1password.com --vault Private --fields root-password --reveal)" \
+         --arg p "$(op item get 'MariaDB | Prod | Root & replication' --account my.1password.com --vault Private --fields repl-password --reveal)" \
+     'if ($r|length)==0 or ($p|length)==0 then error("empty value - 1Password lookup failed") else {"root-password":$r,"repl-password":$p} end' \
+   | BAO_ADDR=http://127.0.0.1:8200 BAO_TOKEN="$(op item get 'OpenBao | Prod | Recovery keys & root token' --account my.1password.com --vault Private --fields credential --reveal)" \
+     bao kv put secret/mariadb -
+   ```
+
+   **If an empty or wrong root password reached the cluster first**, the operator keeps its
+   own copy in Secret `internal-mariadb` and loops on "Access denied" trying to rotate it
+   from there. Copy the real value over:
+   `kubectl --context d3strukt0r-prod-admin -n mariadb patch secret internal-mariadb --type=json -p "[{\"op\":\"replace\",\"path\":\"/data/root-password\",\"value\":\"$(kubectl --context d3strukt0r-prod-admin -n mariadb get secret mariadb -o jsonpath='{.data.root-password}')\"}]"`
+3. The S3 key (`secret/mariadb-backups-s3`) - see "Object Storage" in `tofu/README.md`.
+
+Changing a password in OpenBao later does not change it in MariaDB.
+
+```shell
+kubectl --context d3strukt0r-prod-admin -n mariadb get mariadb,pods,physicalbackup,pitr
+kubectl --context d3strukt0r-prod-admin -n mariadb get mariadb mariadb -o jsonpath='{.status.replication}' | jq
+```
+
+### MariaDB: failover hangs
+
+`MariaDBNoReadyPrimary` means apps cannot write. Most failovers finish on their own within a
+couple of minutes; the known case that does not is a primary whose node died hard
+(mariadb-operator#1628) - the operator waits for the old primary until its node returns.
+
+1. Look: `kubectl --context d3strukt0r-prod-admin -n mariadb get mariadb mariadb` (status
+   column) and `get pods -o wide` - which pod was primary, on which node, is that node
+   `NotReady`?
+2. If the node comes back soon (a reboot), wait: the failover completes, or the old primary
+   simply returns.
+3. If the node is gone for good, tell Kubernetes so - its pods are then deleted and their
+   volumes released:
+   ```shell
+   kubectl --context d3strukt0r-prod-admin taint nodes <node> node.kubernetes.io/out-of-service=nodeshutdown:NoExecute
+   ```
+4. If the operator still does not promote the replica, name it primary yourself (`0` or `1`,
+   the replica's pod number):
+   ```shell
+   kubectl --context d3strukt0r-prod-admin -n mariadb patch mariadb mariadb --type=merge -p '{"spec":{"replication":{"primary":{"podIndex":1}}}}'
+   ```
+   Argo CD does not undo this - the MariaDB in git sets no `podIndex`.
+5. Remove the taint once the node is back or replaced:
+   `kubectl --context d3strukt0r-prod-admin taint nodes <node> node.kubernetes.io/out-of-service-`.
+
+### MariaDB: restore to a point in time
+
+A restore creates a **new** MariaDB from the backups; the running one is not touched.
+
+1. Apply a second MariaDB - a copy of `components/mariadb/mariadb.yaml` with another name
+   (e.g. `mariadb-restore`), without `pointInTimeRecoveryRef` and without
+   `replication.replica.recovery`/`bootstrapFrom` (both point at the original's backups),
+   and with:
+   ```yaml
+   bootstrapFrom:
+     pointInTimeRecoveryRef:
+       name: pitr
+     targetRecoveryTime: 2026-10-01T18:00:00Z   # UTC; omitted = as late as possible
+   ```
+2. Wait for it to be ready, and **check the condition `BinlogsReplayed`**:
+   `kubectl --context d3strukt0r-prod-admin -n mariadb get mariadb mariadb-restore -o jsonpath='{.status.conditions}' | jq`.
+   Ready without it means only the nightly backup was restored.
+3. Copy what is needed back (`mariadb-dump` from the restored instance), or switch the app to
+   it. Then delete the restored MariaDB, and its PVCs and Hetzner volumes by hand (Retain).
 
 ## How quickly a push arrives
 

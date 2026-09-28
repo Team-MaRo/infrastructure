@@ -1,0 +1,104 @@
+---
+# The app database: a primary and one replica with semi-synchronous replication. Apps connect
+# to the Service mariadb-primary, which follows the primary through a failover. Only settings
+# that differ from the operator's defaults are set.
+apiVersion: k8s.mariadb.com/v1alpha1
+kind: MariaDB
+metadata:
+  name: mariadb
+spec:
+  # Pinned; bumping the tag is the upgrade (one replica at a time, the primary last). The
+  # official image - the operator supports no other.
+  image: docker.io/library/mariadb:12.3.3
+  rootPasswordSecretKeyRef:
+    name: mariadb
+    key: root-password
+
+  replicas: 2
+  storage:
+    size: 10Gi
+  # One pod per node, and a drain may only ever take one of the two.
+  affinity:
+    antiAffinityEnabled: true
+  podDisruptionBudget:
+    maxUnavailable: 1
+
+  replication:
+    enabled: true
+    # A commit waits until the replica has the transaction in its relay log, before the
+    # primary commits it - so a failover loses nothing while the replica is up. The default,
+    # AfterCommit, can lose what was committed but not yet acknowledged.
+    semiSyncWaitPoint: AfterSync
+    # A node boots read-only until the operator has configured it: an old primary coming back
+    # after a failover cannot take writes in the meantime.
+    semiSyncBootAsReplica: true
+    # Plain startup and liveness probes. The replication-aware liveness probe fails on a
+    # replica whose primary has vanished and restarts it - exactly the replica a failover
+    # needs (mariadb-operator#1628).
+    standaloneProbes: true
+    replica:
+      replPasswordSecretKeyRef:
+        name: mariadb
+        key: repl-password
+      # A replica whose replication stays broken is rebuilt from a fresh physical backup of
+      # the primary (backups.yaml), without anyone deleting its volume by hand.
+      recovery:
+        enabled: true
+      bootstrapFrom:
+        physicalBackupTemplateRef:
+          name: mariadb-replica-recovery
+    agent:
+      securityContext: &containerSecurityContext
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+            - ALL
+    initContainer:
+      # Required once the block is set at all (for its securityContext): the operator's own
+      # image, so it is bumped together with the operator (kubernetes/clusters/prod/mariadb-operator*.yaml).
+      image: ghcr.io/mariadb-operator/mariadb-operator:26.10.1
+      securityContext: *containerSecurityContext
+
+  # The readiness probe stays replication-aware. With the default three failures (30 s) the
+  # replica turns unready before the operator has noticed the primary is gone, and a failover
+  # finds no candidate (#1628); ten failures (100 s) is where that stopped for others. The
+  # failover tests measure what it needs here.
+  readinessProbe:
+    failureThreshold: 10
+
+  # The restricted Pod Security Standard. Setting podSecurityContext replaces the operator's
+  # default (999, the image's mysql user), so it is repeated here.
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 999
+    runAsGroup: 999
+    fsGroup: 999
+    seccompProfile:
+      type: RuntimeDefault
+  securityContext: *containerSecurityContext
+
+  resources:
+    requests:
+      memory: 512Mi
+    limits:
+      memory: 1Gi
+  # The buffer pool leaves room in the 1Gi for connections and the rest. Smaller binary log
+  # files are archived sooner: the archiver uploads closed files, every ten minutes.
+  myCnf: |
+    [mariadb]
+    innodb_buffer_pool_size=256M
+    max_binlog_size=128M
+
+  metrics:
+    enabled: true
+    exporter:
+      # The exporter image names its user (nobody), which runAsNonRoot cannot check.
+      podSecurityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        seccompProfile:
+          type: RuntimeDefault
+      securityContext: *containerSecurityContext
+
+  pointInTimeRecoveryRef:
+    name: pitr
