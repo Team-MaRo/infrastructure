@@ -1,0 +1,136 @@
+---
+# Adds a flat `groups` claim - the user's project role keys - to Zitadel's tokens and userinfo.
+# Zitadel puts roles into a nested map (urn:zitadel:iam:org:project:roles), which Argo CD,
+# OpenBao and oauth2-proxy cannot read; they want a list of strings. Zitadel calls this
+# webhook through an Actions v2 target (tofu/zitadel) before it issues an ID token, userinfo or
+# JWT access token, and appends what it answers. If it is down, tokens come without `groups`:
+# logins still work, the UIs refuse the user (fail closed), and their local admins remain.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: zitadel-groups
+data:
+  groups.py: |
+    import json
+    from http.server import BaseHTTPRequestHandler, HTTPServer
+
+    ROLES_CLAIM = "urn:zitadel:iam:org:project:roles"
+
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_POST(self):
+            length = int(self.headers.get("Content-Length", 0))
+            context = json.loads(self.rfile.read(length) or b"{}")
+            # The roles of every project whose roles are asserted, from the claim Zitadel has
+            # already built and from the grants it sends along; both carry the role keys.
+            groups = set((context.get("userinfo") or {}).get(ROLES_CLAIM) or {})
+            for grant in context.get("user_grants") or []:
+                groups.update(grant.get("roles") or [])
+            # Always present, empty for a user without roles: OpenBao refuses a login whose
+            # token lacks the claim altogether.
+            self.answer({"append_claims": [{"key": "groups", "value": sorted(groups)}]})
+
+        def do_GET(self):
+            self.answer({})
+
+        def answer(self, body):
+            data = json.dumps(body).encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+
+
+    HTTPServer(("", 8080), Handler).serve_forever()
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zitadel-groups
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: zitadel-groups
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: zitadel-groups
+    spec:
+      securityContext:
+        # The image runs as root by default; nobody is enough for a script without files.
+        runAsUser: 65534
+        runAsGroup: 65534
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: zitadel-groups
+          # Pinned; only the standard library is used, so any Python 3 works.
+          image: docker.io/library/python:3.14.7-alpine3.24
+          command: ["python", "/app/groups.py"]
+          env:
+            # The root filesystem is read-only.
+            - name: PYTHONDONTWRITEBYTECODE
+              value: "1"
+            - name: PYTHONUNBUFFERED
+              value: "1"
+          ports:
+            - name: http
+              containerPort: 8080
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+          volumeMounts:
+            - name: script
+              mountPath: /app
+      volumes:
+        - name: script
+          configMap:
+            name: zitadel-groups
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: zitadel-groups
+spec:
+  # A fixed address, because Zitadel refuses to call private addresses: its deny list
+  # (ZITADEL_HTTPCLIENT_DENYLIST in values.yaml) blocks all of 10.0.0.0/8 but this one IP, so
+  # it still cannot reach the Kubernetes API or any other service. Free and far from where
+  # Kubernetes assigns addresses dynamically; immutable once created.
+  clusterIP: 10.43.255.250
+  selector:
+    app.kubernetes.io/name: zitadel-groups
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+# Only Zitadel itself may call it. Its answers only matter to Zitadel, so Zitadel's request
+# signature is not checked.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: zitadel-groups
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: zitadel-groups
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: zitadel
+              app.kubernetes.io/component: start
+      ports:
+        - port: http

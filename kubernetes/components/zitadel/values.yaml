@@ -68,6 +68,13 @@ env:
       secretKeyRef:
         name: zitadel-admin
         key: password
+  # Zitadel's default deny list for outgoing calls (actions, identity providers, SMTP), with
+  # 10.0.0.0/8 split so that exactly one address is left out: the groups webhook's Service,
+  # 10.43.255.250 (groups-webhook.yaml). Setting it replaces the whole default list, so every
+  # other default entry is repeated.
+  - name: ZITADEL_HTTPCLIENT_DENYLIST
+    value: >-
+      localhost,0.0.0.0/8,10.0.0.0/11,10.32.0.0/13,10.40.0.0/15,10.42.0.0/16,10.43.0.0/17,10.43.128.0/18,10.43.192.0/19,10.43.224.0/20,10.43.240.0/21,10.43.248.0/22,10.43.252.0/23,10.43.254.0/24,10.43.255.0/25,10.43.255.128/26,10.43.255.192/27,10.43.255.224/28,10.43.255.240/29,10.43.255.248/31,10.43.255.251/32,10.43.255.252/30,10.44.0.0/14,10.48.0.0/12,10.64.0.0/10,10.128.0.0/9,100.64.0.0/10,127.0.0.0/8,169.254.0.0/16,172.16.0.0/12,192.168.0.0/16,198.18.0.0/15,::/128,::1/128,fc00::/7,fe80::/10
 
 # The role and database are provisioned by CloudNativePG (database.yaml), so the init job only
 # creates the schema and needs no database admin.
