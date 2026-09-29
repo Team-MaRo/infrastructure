@@ -1,0 +1,74 @@
+---
+# Alerts for the shared PostgreSQL, from the instances' own metrics (pod-monitor.yaml).
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: postgres
+spec:
+  groups:
+    - name: postgres
+      rules:
+        # Apps write through the Service postgres-rw; without a ready endpoint behind it they
+        # cannot. Five minutes covers a normal failover, a restart or an upgrade.
+        - alert: PostgresNoReadyPrimary
+          expr: absent(kube_endpointslice_endpoints{namespace="postgres", endpointslice=~"postgres-rw-.+", ready="true"})
+          for: 5m
+          labels:
+            severity: critical
+            namespace: postgres
+          annotations:
+            summary: "PostgreSQL has had no ready primary for 5 minutes - apps cannot write."
+            description: >-
+              A failover may be hanging. Check kubectl cnpg status postgres -n postgres and the
+              operator's log (kubectl -n cnpg-system logs deploy/cloudnative-pg).
+        # The primary counts its streaming replicas; the replica reports 0, so the highest is
+        # the primary's. Without a replica every commit rests on one volume.
+        - alert: PostgresReplicaMissing
+          expr: max by (namespace) (cnpg_pg_replication_streaming_replicas{namespace="postgres"}) < 1
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "PostgreSQL has had no streaming replica for 10 minutes."
+            description: >-
+              Commits are no longer copied anywhere. Check kubectl cnpg status postgres -n
+              postgres and the replica pod; the operator recreates a replica that cannot rejoin.
+        - alert: PostgresReplicaLagging
+          expr: cnpg_pg_replication_lag{namespace="postgres"} > 300
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "PostgreSQL replica {{ $labels.pod }} is {{ $value | humanizeDuration }} behind."
+            description: >-
+              A lagging replica cannot take over without losing the transactions it lacks.
+        # Only a failure with no success since - on a quiet database no new WAL is archived
+        # for hours, which is not a problem.
+        - alert: PostgresWALArchivingFailing
+          expr: cnpg_pg_stat_archiver_last_failed_time{namespace="postgres"} > cnpg_pg_stat_archiver_last_archived_time{namespace="postgres"}
+          for: 30m
+          labels:
+            severity: warning
+          annotations:
+            summary: "PostgreSQL {{ $labels.pod }} has failed to archive WAL for 30 minutes."
+            description: >-
+              Point-in-time recovery stops at the last archived WAL, and unarchived WAL fills the
+              volume. The Barman Cloud sidecar's log in the pod says why (kubectl -n postgres logs
+              {{ $labels.pod }} -c plugin-barman-cloud).
+        # Either the last backup failed, or none has succeeded for 26 hours - the nightly one
+        # plus slack. Two hours is far longer than a backup runs.
+        - alert: PostgresBackupFailed
+          expr: |-
+            max by (namespace) (barman_cloud_cloudnative_pg_io_last_failed_backup_timestamp{namespace="postgres"})
+              > max by (namespace) (barman_cloud_cloudnative_pg_io_last_available_backup_timestamp{namespace="postgres"})
+            or
+            time() - max by (namespace) (barman_cloud_cloudnative_pg_io_last_available_backup_timestamp{namespace="postgres"}) > 26 * 3600
+          for: 2h
+          labels:
+            severity: warning
+          annotations:
+            summary: "PostgreSQL's base backup has not succeeded."
+            description: >-
+              Check kubectl -n postgres get backups and the failed Backup's status; start one by
+              hand with kubectl cnpg backup postgres -n postgres --method plugin --plugin-name
+              barman-cloud.cloudnative-pg.io.

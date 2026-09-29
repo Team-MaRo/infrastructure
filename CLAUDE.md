@@ -276,11 +276,11 @@ although uploads answer with an `Expiration` header that suggests so (tested 202
   Only the admin key and the backup key (console label `prod mariadb backups`, 1Password
   `Hetzner | S3 | prod mariadb backups`, OpenBao `secret/mariadb-backups-s3`) reach it.
 - **`d3strukt0r-prod-postgres-backups`: unversioned, lifecycle rule only for incomplete
-  uploads.** It holds CloudNativePG's base backups and archived WAL (Barman Cloud plugin), for
-  Zitadel's database. The plugin deletes base backups past their retention together with the WAL
-  they no longer need, so nothing else expires here. Only the admin key and the backup key (console
-  label `prod postgres backups`, 1Password `Hetzner | S3 | prod postgres backups`, OpenBao
-  `secret/postgres-backups-s3`) reach it.
+  uploads.** It holds CloudNativePG's base backups and archived WAL (Barman Cloud plugin) of
+  the shared PostgreSQL. The plugin deletes base backups past their retention together with the
+  WAL they no longer need, so nothing else expires here. Only the admin key and the backup key
+  (console label `prod postgres backups`, 1Password `Hetzner | S3 | prod postgres backups`,
+  OpenBao `secret/postgres-backups-s3`) reach it.
 - **Provider `aminueza/minio`, `s3_compat_mode` off.** The `aws` provider cannot refresh a
   bucket here (it reads Accelerate, Website, Logging, Replication and Tagging, all
   unimplemented). Compat mode would swallow "not implemented" errors, object lock and
@@ -1262,12 +1262,13 @@ failover (`mariadb-secondary` reads from the replica).
 - **`ServerSideDiff=true` on the Application**: the client-side diff kept the MariaDB
   OutOfSync after every successful sync, although a server-side apply changes nothing in it.
 
-### PostgreSQL for Zitadel: CloudNativePG
+### PostgreSQL: CloudNativePG
 
-Zitadel supports only PostgreSQL, so it gets its own database, run by CloudNativePG
+The shared PostgreSQL for every app that only supports it - Zitadel first - the counterpart of
+the shared MariaDB (user decision, 2026-09-29). Run by CloudNativePG
 (`kubernetes/clusters/prod/cloudnative-pg.yaml`, both charts pinned, values in
-`kubernetes/components/cloudnative-pg/`): a primary and a replica on two volumes, like MariaDB
-(user decision, 2026-09-29, built small while prod-03 waits for its resize).
+`kubernetes/components/cloudnative-pg/`): a primary and a replica on two volumes, like MariaDB,
+built small while prod-03 waits for its resize.
 
 - **Why it needs none of MariaDB's workarounds:** PostgreSQL archives its WAL continuously and
   starts a new file at least every 5 minutes (`archive_timeout`), so no flush job; and its
@@ -1294,6 +1295,42 @@ Zitadel supports only PostgreSQL, so it gets its own database, run by CloudNativ
 - Both charts meet the restricted Pod Security Standard as they are; images are on `ghcr.io`.
   The operator's metrics are scraped through the chart's PodMonitor, and its Grafana dashboard
   comes as a ConfigMap. Kubernetes 1.37 is "tested, but not supported" for 1.30.x.
+
+**The instance** (`kubernetes/clusters/prod/postgres.yaml`, `kubernetes/components/postgres/`,
+namespace `postgres`): `Cluster` `postgres`, 2 instances on 10 GB each, one per node. Apps connect
+to the Service **`postgres-rw`**, which follows the primary (`postgres-ro` reads from the
+replica).
+
+- **Settings that differ from the operator's defaults:**
+  - the image pinned to one dated build (`18.6-<build>-minimal-trixie`), since the plain tag moves
+    with every rebuild and the two instances could end up on different images;
+  - `podAntiAffinityType: required` (the default only prefers separate nodes);
+  - `primaryUpdateMethod: switchover` (the default restarts the primary in place);
+  - synchronous replication with `dataDurability: preferred` - a commit waits for the replica
+    while it is up, and the primary goes on alone while it is not, like MariaDB's semi-sync;
+  - 256Mi/512Mi and `shared_buffers` 128MB, raised with real data.
+  WAL stays on the data volume - a WAL volume per instance would make four. The initdb bootstrap
+  creates CloudNativePG's default `app` database and owner, which nothing uses.
+- **Apps get their users and databases declaratively**, as `DatabaseRole` (the docs' recommended
+  way, over the Cluster's inline `managed.roles`) and `Database` objects in `postgres`. The role's
+  password comes from a `kubernetes.io/basic-auth` Secret there, built by an ExternalSecret from
+  OpenBao `secret/postgres-apps/<app>`; the app's own namespace gets the same value by a second
+  ExternalSecret. No app reads CloudNativePG's generated Secrets. Steps in the README.
+- **Backups** (`backups.yaml`), to `d3strukt0r-prod-postgres-backups`:
+  - `ObjectStore` `postgres-backups`: WAL and base backups gzipped, `retentionPolicy: 30d`. Its
+    `instanceSidecarConfiguration` sets `AWS_REQUEST_CHECKSUM_CALCULATION` and
+    `AWS_RESPONSE_CHECKSUM_VALIDATION` to `when_required` (boto3's checksum headers, which
+    S3-compatible stores reject - the plugin docs' workaround) and 64Mi/256Mi for the sidecar,
+    whose uploads need more than the LimitRange's 128Mi. No region is set: Hetzner accepts
+    requests signed for boto3's default (tested 2026-09-29).
+  - `ScheduledBackup` `postgres-daily` at 23:00 UTC, from the replica (the cluster's default
+    target), and once right away when created.
+- **Alerts** (`rules.yaml`, from the instances' metrics through `pod-monitor.yaml` - the Cluster's
+  `enablePodMonitor` is deprecated): `PostgresNoReadyPrimary` (critical, 5 minutes),
+  `PostgresReplicaMissing`, `PostgresReplicaLagging`, `PostgresWALArchivingFailing` (a failure
+  newer than the last success - a quiet database archives nothing for hours without that being a
+  problem) and `PostgresBackupFailed` (last backup failed, or none for 26 hours).
+- **`ServerSideDiff=true` on the Application** from the start, the MariaDB lesson.
 
 ### What a second cluster would need
 

@@ -35,6 +35,7 @@ kubernetes/
 │       ├── mariadb-operator.yaml  # the operator running the app database
 │       ├── mariadb.yaml           # the app database itself
 │       ├── cloudnative-pg.yaml    # the PostgreSQL operator and its backup plugin: charts pinned here
+│       ├── postgres.yaml          # the shared PostgreSQL itself
 │       ├── etcd-snapshots.yaml    # syncs the subdirectory below
 │       └── etcd-snapshots/        # prod-only: the S3 settings k3s uploads snapshots with
 └── components/                # how each component is deployed, shared by clusters
@@ -93,6 +94,13 @@ kubernetes/
     ├── cloudnative-pg/
     │   ├── values.yaml            # Helm values: two replicas, memory, monitoring
     │   └── plugin-values.yaml     # the Barman Cloud plugin: quick move off a dead node
+    ├── postgres/
+    │   ├── kustomization.yaml
+    │   ├── cluster.yaml           # primary + replica, synchronous replication
+    │   ├── backups.yaml           # the object store, WAL archiving, the nightly base backup
+    │   ├── external-secrets.yaml  # the S3 key from OpenBao
+    │   ├── pod-monitor.yaml       # the instances' metrics
+    │   └── rules.yaml             # alerts: no ready primary, replication, archiving, backups
     ├── alloy/
     │   ├── values.yaml            # Helm values: the collection pipeline
     │   ├── kustomization.yaml
@@ -747,16 +755,36 @@ two minutes, to the millisecond.
 
 ## PostgreSQL (CloudNativePG)
 
-The operator for Zitadel's database runs in `cnpg-system`: two operator replicas, one active,
-and the Barman Cloud plugin, which ships backups and WAL to `d3strukt0r-prod-postgres-backups`.
+The shared PostgreSQL for every app that only supports it: a primary and a replica, run by
+CloudNativePG, backed up every night and with its WAL archived continuously (a new file at least
+every 5 minutes), so it can be restored to any moment in the last 30 days. Apps connect to
+**`postgres-rw.postgres.svc:5432`**. The operator runs in `cnpg-system` (two replicas, one
+active), next to the Barman Cloud plugin, which ships backups and WAL to
+`d3strukt0r-prod-postgres-backups`.
+
+**Before the first sync**, the S3 key goes into OpenBao (`secret/postgres-backups-s3`) - see
+"Object Storage" in `tofu/README.md`.
 
 ```shell
+kubectl --context d3strukt0r-prod-admin -n postgres get cluster,pods,backups,scheduledbackups
 kubectl --context d3strukt0r-prod-admin -n cnpg-system get pods,lease,certificate
-kubectl --context d3strukt0r-prod-admin get clusters.postgresql.cnpg.io -A
 ```
 
-The `cnpg` kubectl plugin (`brew install kubectl-cnpg`) adds `kubectl cnpg status <cluster>`,
-which shows the primary, replication and the archiving state in one view.
+The `cnpg` kubectl plugin (`brew install kubectl-cnpg`) adds `kubectl cnpg status postgres -n
+postgres`, which shows the primary, replication and the archiving state in one view.
+
+### PostgreSQL: adding an app
+
+1. A generated password in 1Password (`PostgreSQL | Prod | <app>`), then into OpenBao as
+   `secret/postgres-apps/<app>` with a `password` field (JSON on stdin, as for MariaDB).
+2. In `components/postgres/`: an ExternalSecret building Secret `<app>-db` of type
+   `kubernetes.io/basic-auth` (`username: <app>` as a literal, `password` from OpenBao), a
+   `DatabaseRole` (`cluster: postgres`, `name: <app>`, `login: true`, `passwordSecret: <app>-db`)
+   and a `Database` (`cluster: postgres`, `name: <app>`, `owner: <app>`).
+3. In the app's own component: an ExternalSecret reading the same `secret/postgres-apps/<app>`,
+   and host `postgres-rw.postgres.svc`. CloudNativePG serves TLS with its own CA (Secret
+   `postgres-ca` in `postgres`); how an app gets it for verifying is settled with the first app,
+   Zitadel.
 
 ## How quickly a push arrives
 

@@ -1,0 +1,50 @@
+---
+# The shared PostgreSQL for every app that only supports it: a primary and one replica with
+# synchronous replication, run by CloudNativePG. Apps connect to the Service postgres-rw, which
+# follows the primary through a failover (postgres-ro reads from the replica). Only settings that
+# differ from the operator's defaults are set; the pods meet the restricted Pod Security Standard
+# as the operator builds them.
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: postgres
+spec:
+  # Pinned to one build: the plain 18.6-minimal-trixie tag moves with every rebuild, which could
+  # give the two instances different images. Minimal: PostgreSQL without extensions nobody here
+  # uses. Bumping the tag is the upgrade (replica first, then a switchover).
+  imageName: ghcr.io/cloudnative-pg/postgresql:18.6-202609281634-minimal-trixie
+  instances: 2
+  # WAL stays on the data volume: a volume of its own per instance would be four in all.
+  storage:
+    size: 10Gi
+
+  # One instance per node, strictly (the default only prefers it).
+  affinity:
+    podAntiAffinityType: required
+  # A new image or setting reaches the replica first; the primary is then switched over
+  # instead of restarted in place, so writes pause for seconds rather than for a restart.
+  primaryUpdateMethod: switchover
+
+  postgresql:
+    # A commit waits until the replica has it, so a failover loses nothing while the replica
+    # is up. "preferred" lets the primary go on alone while the replica is gone, instead of
+    # blocking every write - the same trade as MariaDB's semi-synchronous replication.
+    synchronous:
+      method: any
+      number: 1
+      dataDurability: preferred
+    parameters:
+      shared_buffers: 128MB
+
+  resources:
+    requests:
+      memory: 256Mi
+    limits:
+      memory: 512Mi
+
+  # Continuous WAL archiving and base backups to Object Storage (backups.yaml).
+  plugins:
+    - name: barman-cloud.cloudnative-pg.io
+      isWALArchiver: true
+      parameters:
+        barmanObjectName: postgres-backups
