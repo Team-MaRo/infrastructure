@@ -948,21 +948,22 @@ kubectl --context d3strukt0r-prod-admin -n zitadel get secret iam-admin -o jsonp
 
 Then add its Uptime Kuma monitor (see "Uptime Kuma").
 
-Set by hand in the console, since they live in Zitadel's database, not in git:
+The instance's login and domain policies and the organisation's domains are in `tofu/zitadel`
+(see `tofu/README.md`): MFA required for Zitadel passwords (authenticator app or security
+key/passkey, no e-mail or SMS codes), organisation domains only after DNS verification, no login
+name suffix - so a username is the login name and must be unique across all organisations (an
+e-mail address, or a handle nobody else will take, like `D3strukt0r`). The domains
+`d3strukt0r.dev` (primary) and `d3st.dev` are verified by the `_zitadel-challenge.<domain>` TXT
+records in `tofu/cloudflare`, which stay: Zitadel re-checks them periodically, and a re-added
+domain gets a new code for the record's content.
+
+Still by hand:
 
 1. `auth-admin`: Password and Security → Multifactor Authentication → Authenticator App, the QR
-   code scanned into `Zitadel | Prod | Admin`. Log out and in once to test it.
-2. Only then: Default settings → Login Behavior and Security → **Force MFA for local
-   authenticated users only**. Allowed second factors stay TOTP and Passkey - no e-mail or SMS
-   codes, there is no provider for either.
-3. Default settings → Domain settings → **Organization Domain verification required**, so no
-   organisation can claim a domain it does not control. The login name suffix stays off, so a
-   username is the login name and must be unique across all organisations: an e-mail address,
-   or a handle nobody else will take (`D3strukt0r`, the personal user).
-4. Settings (the organisation's) → Organization Domains: add `d3strukt0r.dev` and `d3st.dev`,
-   verify each by DNS, then make `d3strukt0r.dev` primary. The challenge records
-   (`_zitadel-challenge.<domain>`) are in `tofu/cloudflare` and stay there - Zitadel re-checks
-   them periodically. A re-added domain gets a new code, which replaces the record's content.
+   code scanned into `Zitadel | Prod | Admin`, tested by logging out and in. On a fresh
+   instance this comes **before** the first `tofu apply` of `tofu/zitadel`, which requires MFA.
+2. Cloudflare dashboard → `d3strukt0r.dev` → Network → **gRPC on**: `tofu/zitadel`'s provider
+   speaks gRPC, which Cloudflare refuses otherwise.
 
 A new user gets a generated first password and the e-mail marked verified (there is no mail
 server yet), and sets up the authenticator app at the first login. **If that first login loops**
