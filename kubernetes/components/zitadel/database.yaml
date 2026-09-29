@@ -1,0 +1,55 @@
+---
+# Zitadel's role and database in the shared PostgreSQL. CloudNativePG requires a DatabaseRole,
+# its password Secret and a Database to be in the Cluster's namespace, so these objects live in
+# postgres although this component deploys them. The password comes from OpenBao
+# secret/postgres-apps/zitadel; Zitadel reads the same value in its own namespace.
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: zitadel-db
+  namespace: postgres
+spec:
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: openbao
+  target:
+    template:
+      type: kubernetes.io/basic-auth
+      metadata:
+        labels:
+          # CloudNativePG applies a role only when its spec or its password Secret changes; with
+          # this label it watches the Secret, so the first apply and every password change take
+          # effect at once.
+          cnpg.io/reload: "true"
+      data:
+        username: zitadel
+        password: "{{ .password }}"
+  data:
+    - secretKey: password
+      remoteRef:
+        key: postgres-apps/zitadel
+        property: password
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: DatabaseRole
+metadata:
+  name: zitadel
+  namespace: postgres
+spec:
+  cluster:
+    name: postgres
+  name: zitadel
+  login: true
+  passwordSecret:
+    name: zitadel-db
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: zitadel
+  namespace: postgres
+spec:
+  cluster:
+    name: postgres
+  name: zitadel
+  owner: zitadel

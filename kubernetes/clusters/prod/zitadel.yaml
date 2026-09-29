@@ -1,0 +1,29 @@
+---
+# Zitadel for this cluster, from kubernetes/components/zitadel. Needs
+# secret/postgres-apps/zitadel in OpenBao. Its database objects go to the postgres namespace
+# (see database.yaml); everything else to zitadel.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: zitadel
+  namespace: argocd
+  annotations:
+    # Compare on the server: fields the operators' webhooks default would otherwise look like
+    # drift (as for the MariaDB and PostgreSQL clusters).
+    argocd.argoproj.io/compare-options: ServerSideDiff=true
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Team-MaRo/infrastructure.git
+    targetRevision: master
+    path: kubernetes/components/zitadel
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: zitadel
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
