@@ -1383,6 +1383,56 @@ replica).
   restore drill (runbook in the README) matched row count, highest id and checksum exactly and
   took 90 seconds.
 
+### Identity: Zitadel
+
+Zitadel is the identity provider (`kubernetes/clusters/prod/zitadel.yaml`, chart `zitadel`
+pinned, values and extra objects in `kubernetes/components/zitadel/`, namespace `zitadel`): the
+one login (OIDC/SAML) for the cluster's UIs, later kubectl and the apps, at
+`https://auth.d3strukt0r.dev` (its own Cloudflare record, a CNAME to `prod`). Chosen over Keycloak
+for its footprint (user decision, 2026-09-29): a Go server that stores everything in the shared
+PostgreSQL. It runs as one replica of Zitadel and one of its separate v4 login page (Next.js, path
+`/ui/v2/login`) until prod-03's resize; while it is down, the UIs stay reachable by port-forward.
+
+- **Its database** is `components/zitadel/database.yaml` (namespace `postgres`, see "PostgreSQL");
+  the init job runs only `zitadel init zitadel` (`initJob.command`), the schema, so Zitadel never
+  needs a database admin. It connects with `sslmode=verify-full` against CloudNativePG's CA,
+  which `postgres-ca.yaml` copies into `zitadel` through External Secrets' Kubernetes provider: a
+  ServiceAccount whose Role in `postgres` may `get` only Secret `postgres-ca`, and an ExternalSecret
+  taking only `ca.crt` - never the CA's key. The pattern for every Postgres app.
+- **The masterkey** (OpenBao `secret/zitadel`, 1Password `Zitadel | Prod`) encrypts secrets in the
+  database; losing it makes them unreadable and it cannot be changed after the first start - like
+  OpenBao's seal key. Ours, not the chart's, which would generate one in a Helm hook.
+- **The chart's Helm hooks are replaced by sync waves.** Its ServiceAccounts, ConfigMaps, Role and
+  the init and setup jobs are `pre-install`/`pre-upgrade` hooks, which Argo CD runs as PreSync -
+  before this directory's Secrets and certificates exist, so the first sync hung on an init job
+  waiting for `postgres-ca`. `values.yaml` nulls the hook annotations and sets Argo CD's order
+  instead: this directory's objects in wave -1 (`commonAnnotations` in its kustomization), the
+  chart's config, ServiceAccounts and RBAC in 0, the init job in 1 and the setup job in 2 - both
+  Sync hooks, recreated on every sync and idempotent - then Zitadel and the login page in 3. Each
+  wave waits for the previous one to be healthy. The chart's post-delete cleanup job is off. The
+  setup job creates the first instance once - the organisation
+  `D3strukt0r`, the human admin `auth-admin@d3strukt0r.dev` (an e-mail as the name, since Zitadel
+  appends a domain to one without `@`; its password from `secret/zitadel` stays the login, kept in
+  1Password - no forced change, since whoever can read the copies in the cluster is cluster admin
+  anyway; the address counts as verified, Zitadel's default - there is no mail server yet) and the machine admin `iam-admin`, whose key
+  its kubectl sidecar writes to Secret `iam-admin` (no personal access token, `Pat: null`).
+- **The login page's key pair is ours** (`certificates.yaml`, a self-signed cert-manager
+  Certificate valid ten years): the login page signs its API calls with the key, and Zitadel
+  verifies them with the certificate as the system user `login-client`. The chart would generate
+  the pair with Helm's `lookup`, which Argo CD's rendering never has - a new pair on every render,
+  so the app would be permanently OutOfSync and the pair would keep rotating.
+- **`ExternalPort: 443` is required**: without it Zitadel and the login page build every URL with
+  the container port (`:8080`). TLS ends at Traefik; the chart's two Ingresses (`/` to Zitadel over
+  h2c, `/ui/v2/login` to the login page) share the certificate `auth-tls`, issued by a separate
+  Certificate rather than Ingress annotations, which would create two for one Secret. They are the
+  cluster's first Ingresses; Traefik is the default IngressClass, so none is named.
+- **Restricted Pod Security** through the chart-wide `podSecurityContext`/`securityContext`, which
+  every container takes - Zitadel, the login page and its `wait4x` init container, the jobs and the
+  setup job's `alpine/k8s` sidecars; the chart's defaults lack seccomp, no-escalation and dropped
+  capabilities.
+- The license is AGPL-3.0; running it unmodified puts no obligation on the apps that log in
+  through it.
+
 ### What a second cluster would need
 
 `kubernetes/` is already laid out per cluster, because once Argo CD is bootstrapped its

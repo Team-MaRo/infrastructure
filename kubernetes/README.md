@@ -103,8 +103,12 @@ kubernetes/
     │   ├── pod-monitor.yaml       # the instances' metrics
     │   └── rules.yaml             # alerts: no ready primary, replication, archiving, backups
     ├── zitadel/
+    │   ├── values.yaml            # Helm values: domain, database, first admin, securityContexts
     │   ├── kustomization.yaml
-    │   └── database.yaml          # its role and database, in the postgres namespace
+    │   ├── database.yaml          # its role and database, in the postgres namespace
+    │   ├── external-secrets.yaml  # masterkey, first admin password, database password
+    │   ├── postgres-ca.yaml       # copies CloudNativePG's CA certificate for verify-full
+    │   └── certificates.yaml      # auth.d3strukt0r.dev, and the login page's key pair
     ├── alloy/
     │   ├── values.yaml            # Helm values: the collection pipeline
     │   ├── kustomization.yaml
@@ -827,9 +831,11 @@ postgres`, which shows the primary, replication and the archiving state in one v
    `kubectl -n postgres get databaseroles.postgresql.cnpg.io,databases.postgresql.cnpg.io`
    (`APPLIED` true; `status.message` says why not).
 3. In the app's own component: an ExternalSecret reading the same `secret/postgres-apps/<app>`,
-   and host `postgres-rw.postgres.svc`. CloudNativePG serves TLS with its own CA (Secret
-   `postgres-ca` in `postgres`); how an app gets it for verifying is settled with the first app,
-   Zitadel.
+   host `postgres-rw.postgres.svc`, and `sslmode=verify-full` against CloudNativePG's CA. The CA
+   certificate is copied into the app's namespace by `postgres-ca.yaml` - copy Zitadel's, which
+   holds a ServiceAccount, a Role in `postgres` that may `get` only Secret `postgres-ca`, a
+   `SecretStore` (External Secrets' Kubernetes provider) and an ExternalSecret taking just
+   `ca.crt`; rename the Role and RoleBinding after the app.
 
 ### PostgreSQL: failover hangs
 
@@ -895,6 +901,47 @@ restore goes through git:
    archiving to it. Keep it as long as its restore points may matter, then delete it by hand.
    The `bootstrap` and `externalClusters` are only read at creation; leave them or remove them
    in a later commit.
+
+## Zitadel
+
+The identity provider at **`https://auth.d3strukt0r.dev`**: one login (OIDC/SAML) for the
+cluster's UIs and apps. Its data is in the shared PostgreSQL (database `zitadel`).
+
+**Before the first sync**, its secrets go into OpenBao (port-forward and `BAO_TOKEN` as in
+"OpenBao"); the database password is set up as in "PostgreSQL: adding an app":
+
+1. A 1Password item `Zitadel | Prod`: its password field is the first admin's password
+   (generated), and a field `masterkey` holds **exactly 32 characters** (letters and digits):
+
+   ```shell
+   op item create --account my.1password.com --vault Private --category password --title 'Zitadel | Prod' \
+     --generate-password='letters,digits,symbols,20' \
+     "masterkey[password]=$(LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c 32)" >/dev/null
+   ```
+2. As JSON on stdin, with the empty check:
+
+   ```shell
+   jq -n --arg m "$(op item get 'Zitadel | Prod' --account my.1password.com --vault Private --fields masterkey --reveal)" \
+         --arg a "$(op item get 'Zitadel | Prod' --account my.1password.com --vault Private --fields password --reveal)" \
+     'if ($m|length)!=32 or ($a|length)==0 then error("masterkey must be 32 characters, admin password non-empty") else {"masterkey":$m,"admin-password":$a} end' \
+   | BAO_ADDR=http://127.0.0.1:8200 BAO_TOKEN="$(op item get 'OpenBao | Prod | Recovery keys & root token' --account my.1password.com --vault Private --fields credential --reveal)" \
+     bao kv put secret/zitadel -
+   ```
+
+**The masterkey must never be lost or changed**: it encrypts the secrets in Zitadel's database.
+
+The first start creates the organisation `D3strukt0r` with the admin `auth-admin@d3strukt0r.dev`
+(the password from the item's password field, kept as the login) at
+`https://auth.d3strukt0r.dev/ui/console`, and the machine user `iam-admin`, whose key the setup
+job stores as Secret `iam-admin` in `zitadel` - copy it into 1Password too:
+
+```shell
+kubectl --context d3strukt0r-prod-admin -n zitadel get secret iam-admin -o jsonpath='{.data.iam-admin\.json}' | base64 -d
+```
+
+```shell
+kubectl --context d3strukt0r-prod-admin -n zitadel get pods,jobs,certificates,externalsecrets
+```
 
 ## How quickly a push arrives
 

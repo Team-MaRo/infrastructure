@@ -1,9 +1,17 @@
 ---
 # Zitadel, the identity provider: the single login (OIDC/SAML) for the cluster's UIs and apps.
-# The Helm chart is pinned in the cluster's Application; this directory holds what it needs
-# besides the chart, starting with its database in the shared PostgreSQL.
+# The Helm chart is pinned in the cluster's Application with values.yaml from here; these are the
+# objects it needs besides the chart.
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
+# Before the chart's objects: its jobs need these Secrets and certificates (values.yaml explains
+# the order).
+commonAnnotations:
+  argocd.argoproj.io/sync-wave: "-1"
+
 resources:
   - database.yaml
+  - external-secrets.yaml
+  - postgres-ca.yaml
+  - certificates.yaml

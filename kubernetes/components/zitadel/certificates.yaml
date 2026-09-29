@@ -1,0 +1,39 @@
+---
+# The public certificate for auth.d3strukt0r.dev, shared by the chart's two Ingresses (Zitadel
+# and its login page). Issued here rather than by Ingress annotations, which would create one
+# Certificate per Ingress for the same Secret.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: auth-tls
+spec:
+  secretName: auth-tls
+  dnsNames:
+    - auth.d3strukt0r.dev
+  issuerRef:
+    kind: ClusterIssuer
+    name: letsencrypt
+---
+# The key pair between Zitadel and its login page: the login page signs its API calls with the
+# key, Zitadel verifies them with the certificate (the chart registers it as the system user
+# login-client). The chart would generate it itself, but through Helm's lookup, which Argo CD's
+# rendering never has - a new pair on every render. Self-signed and valid for ten years, since
+# only these two pods ever see it.
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: self-signed
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: zitadel-login-service-key
+spec:
+  secretName: zitadel-login-service-key
+  commonName: login-client
+  duration: 87600h
+  issuerRef:
+    kind: Issuer
+    name: self-signed
