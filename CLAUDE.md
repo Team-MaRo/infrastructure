@@ -1273,7 +1273,9 @@ built small while prod-03 waits for its resize.
 - **Why it needs none of MariaDB's workarounds:** PostgreSQL archives its WAL continuously and
   starts a new file at least every 5 minutes (`archive_timeout`), so no flush job; and its
   timelines chain the WAL of the old and the new primary across a failover, so no backup after
-  a switch. Both are to be confirmed by the failover tests.
+  a switch. Confirmed by the tests below: a restore reached through five timelines, including the
+  last minutes before a hard power-off that the dead primary never archived - the synchronous
+  replica had them, and PostgreSQL carries them into the new timeline's first WAL file.
 - **The operator runs twice, on different nodes** (`replicaCount`, required anti-affinity,
   leader election built into the chart), for the same reason as mariadb-operator: it performs
   the failover and serves its own webhook (`failurePolicy: Fail`).
@@ -1285,10 +1287,12 @@ built small while prod-03 waits for its resize.
   (plugin-barman-cloud#1105, unreleased). The archiving itself runs in a sidecar inside each
   PostgreSQL pod; the Deployment is needed to start new PostgreSQL pods and backups, so it
   tolerates an unreachable or not-ready node for 30 seconds instead of five minutes.
-- **Watch item: archiving after a switch** (plugin-barman-cloud#828, "Expected empty archive"):
-  archiving could stop after a switchover or failover. The operator-side fix is in 1.30.1 and
-  the plugin honours it since 0.14; every report is from before. The failover tests check it;
-  the workaround would be the annotation `cnpg.io/skipEmptyWalArchiveCheck`.
+- **Archiving after a switch** (plugin-barman-cloud#828, "Expected empty archive"): reported to
+  stop archiving after a switchover or failover up to 1.30.0; the operator-side fix is in 1.30.1,
+  and the plugin honours it since 0.14. Not reproduced in four switches (2026-09-29) - each
+  timeline's WAL reached the bucket. The only "failed" archive attempts are CloudNativePG's own
+  "switchover in progress, refusing archiving", retried a second later. Should it ever appear,
+  the workaround is the annotation `cnpg.io/skipEmptyWalArchiveCheck`.
 - **The CRDs come with the operator chart**, marked `helm.sh/resource-policy: keep`, which Argo CD
   honours as `Delete=false` - so, unlike mariadb-operator's, they need no Application of their
   own. The chart renders 1.3 MB (`ServerSideApply=true` required). Bump both charts together.
@@ -1331,6 +1335,24 @@ replica).
   newer than the last success - a quiet database archives nothing for hours without that being a
   problem) and `PostgresBackupFailed` (last backup failed, or none for 26 hours).
 - **`ServerSideDiff=true` on the Application** from the start, the MariaDB lesson.
+- **A `DatabaseRole`'s password Secret must carry `cnpg.io/reload: "true"`.** CloudNativePG
+  applies a role only when its spec or its Secret changes; the first attempt raced the operator
+  adding the Secret to the instances' Role and was refused, and nothing retried it until the
+  Secret changed. The label also makes password changes apply at once. The per-app
+  ExternalSecret sets it through its template (README).
+- **Failover tests (2026-09-29)**, with a pod writing a row every second through `postgres-rw`:
+
+  | Test | Writes paused | Result |
+  |---|---|---|
+  | Planned switchover (`kubectl cnpg promote`) | ~10 s | no row lost |
+  | Primary pod deleted | ~8 s | no row lost, pod rejoined as replica |
+  | Primary's node powered off, with the active operator on it | ~96 s | no acknowledged row lost; 65 s until the node was NotReady, then 29 s for the failover |
+
+  The identity column jumps by up to 32 after each switch: PostgreSQL logs sequence values in
+  batches of 32, and a new primary continues after the logged batch - not lost rows. While the
+  replica is gone, `synchronous_standby_names` is empty (`dataDurability: preferred`). The
+  restore drill (runbook in the README) matched row count, highest id and checksum exactly and
+  took 90 seconds.
 
 ### What a second cluster would need
 
