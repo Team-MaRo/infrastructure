@@ -1,7 +1,7 @@
 ---
-# Zitadel for this cluster, from kubernetes/components/zitadel. Needs
-# secret/postgres-apps/zitadel in OpenBao. Its database objects go to the postgres namespace
-# (see database.yaml); everything else to zitadel.
+# Zitadel for this cluster: its Helm chart with values from kubernetes/components/zitadel, plus
+# that directory's own objects. Needs secret/zitadel and secret/postgres-apps/zitadel in OpenBao.
+# Its database objects go to the postgres namespace (database.yaml); everything else to zitadel.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -13,10 +13,19 @@ metadata:
     argocd.argoproj.io/compare-options: ServerSideDiff=true
 spec:
   project: default
-  source:
-    repoURL: https://github.com/Team-MaRo/infrastructure.git
-    targetRevision: master
-    path: kubernetes/components/zitadel
+  sources:
+    # Pinned: bumping the version is the upgrade. Its init and setup jobs run on every sync
+    # (idempotent), ordered by sync waves (values.yaml).
+    - repoURL: https://charts.zitadel.com
+      chart: zitadel
+      targetRevision: 10.1.0
+      helm:
+        valueFiles:
+          - $repo/kubernetes/components/zitadel/values.yaml
+    - repoURL: https://github.com/Team-MaRo/infrastructure.git
+      targetRevision: master
+      ref: repo
+      path: kubernetes/components/zitadel
   destination:
     server: https://kubernetes.default.svc
     namespace: zitadel

@@ -1,0 +1,156 @@
+# Helm values for Zitadel; the chart version is pinned in the cluster's Application. Only what
+# differs from the chart's defaults is set.
+
+zitadel:
+  # Both from this directory: our own masterkey (external-secrets.yaml) instead of one the chart
+  # generates in a Helm hook, and CloudNativePG's CA (postgres-ca.yaml).
+  masterkeySecretName: zitadel-masterkey
+  dbSslCaCrtSecret: postgres-ca
+  configmapConfig:
+    ExternalDomain: auth.d3strukt0r.dev
+    # Traefik terminates TLS on 443; without this, Zitadel and the login page build every URL
+    # with the container port, :8080.
+    ExternalPort: 443
+    Database:
+      Postgres:
+        Host: postgres-rw.postgres.svc
+        Database: zitadel
+        User:
+          Username: zitadel
+          SSL:
+            Mode: verify-full
+    # Created once, by the setup job at the first start: the organisation with a human admin
+    # (password from env, kept - it is the login stored in 1Password; an e-mail address as the
+    # name, since Zitadel appends a domain to one without @) and the chart's machine admin
+    # iam-admin, whose key the setup job stores as Secret iam-admin - for managing Zitadel as code
+    # later. Zitadel takes the e-mail address from the name and marks it verified by default.
+    FirstInstance:
+      Org:
+        Name: D3strukt0r
+        Human:
+          UserName: auth-admin@d3strukt0r.dev
+          FirstName: D3strukt0r
+          LastName: Admin
+          PasswordChangeRequired: false
+        Machine:
+          # Only the key: no personal access token as a second credential.
+          Pat: null
+
+# The chart runs its config, ServiceAccounts and jobs as Helm hooks, which Argo CD executes before
+# every other object - before this directory's Secrets and certificates exist, so the jobs would
+# wait for them forever. Instead, Argo CD's own order (sync waves, each waiting for the previous
+# one to be healthy): this directory's objects (wave -1, kustomization.yaml), the config,
+# ServiceAccounts and RBAC (0), the init job (1), the setup job (2), then Zitadel and the login page
+# (3). null removes the chart's hook annotations.
+configMap:
+  annotations: &noHelmHook
+    helm.sh/hook: null
+    helm.sh/hook-delete-policy: null
+    helm.sh/hook-weight: null
+serviceAccount:
+  annotations: *noHelmHook
+annotations:
+  argocd.argoproj.io/sync-wave: "3"
+# A post-delete hook deleting the chart's Secrets; it never runs without an Application finalizer,
+# and would delete the setup job's iam-admin key if it did.
+cleanupJob:
+  enabled: false
+
+# Given to Zitadel, its init job and its setup job alike.
+env:
+  - name: ZITADEL_DATABASE_POSTGRES_USER_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: zitadel-db
+        key: password
+  - name: ZITADEL_FIRSTINSTANCE_ORG_HUMAN_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: zitadel-admin
+        key: password
+
+# The role and database are provisioned by CloudNativePG (database.yaml), so the init job only
+# creates the schema and needs no database admin.
+initJob:
+  command: zitadel
+  annotations:
+    <<: *noHelmHook
+    argocd.argoproj.io/hook: Sync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+    argocd.argoproj.io/sync-wave: "1"
+
+# The restricted Pod Security Standard, for every container the chart renders: Zitadel, the login
+# page and its wait4x init container, the init, setup and cleanup jobs and the setup job's kubectl
+# sidecars. The chart's own defaults lack seccomp, no-escalation and dropped capabilities.
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 1000
+  seccompProfile:
+    type: RuntimeDefault
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  readOnlyRootFilesystem: true
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+
+resources:
+  requests:
+    memory: 256Mi
+  limits:
+    memory: 512Mi
+# Setting up the first instance and its projections takes more than the namespace's LimitRange
+# default.
+setupJob:
+  annotations:
+    <<: *noHelmHook
+    argocd.argoproj.io/hook: Sync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+    argocd.argoproj.io/sync-wave: "2"
+  resources:
+    requests:
+      memory: 128Mi
+    limits:
+      memory: 512Mi
+
+metrics:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+
+# The host comes from ExternalDomain; the certificate from certificates.yaml. No className:
+# Traefik is the cluster's default IngressClass.
+ingress:
+  enabled: true
+  tls:
+    - hosts:
+        - auth.d3strukt0r.dev
+      secretName: auth-tls
+
+login:
+  # Our own key pair (certificates.yaml): the chart's would be regenerated on every render.
+  loginServiceKeySecretName: zitadel-login-service-key
+  configMap:
+    annotations: *noHelmHook
+  serviceAccount:
+    annotations: *noHelmHook
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+  resources:
+    requests:
+      memory: 128Mi
+    limits:
+      memory: 256Mi
+  metrics:
+    enabled: true
+    serviceMonitor:
+      enabled: true
+  ingress:
+    enabled: true
+    tls:
+      - hosts:
+          - auth.d3strukt0r.dev
+        secretName: auth-tls
