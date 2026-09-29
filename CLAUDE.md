@@ -703,8 +703,17 @@ upstreams: chart pinned in the cluster's Application, values in `components/`.
 
 ### etcd snapshots go to Object Storage
 
-k3s takes its scheduled snapshots (00:00 and 12:00, 5 kept per node, so about 2.5 days
-across 3 x 5 files) onto each server's disk and uploads each to `d3strukt0r-prod-etcd`.
+k3s takes its scheduled snapshots (00:00 and 12:00 UTC) onto each server's disk and uploads
+each to `d3strukt0r-prod-etcd`.
+
+- **Retention is 5 (the default) - per node on disk, but in total in the bucket.** All three
+  servers prune the same `etcd-snapshot-*` names in the one bucket, so it holds the newest 5
+  of all of them: about a day, the last two rounds (seen 2026-09-29, the docs do not say so).
+  Every pruned snapshot stays readable for 7 more days as a noncurrent version (object lock
+  and the lifecycle rule below), so a week can be restored, the older part by version ID - see
+  "etcd snapshots" in the README. Raising it would be `etcd-snapshot-retention` in
+  `k3s_config`, which sets the S3 retention too: the Secret has no retention key, and the
+  `etcd-s3-retention` flag, like every `etcd-s3-*` flag, would make k3s ignore the Secret.
 
 - **All S3 settings come from Secret `kube-system/k3s-etcd-snapshot-s3-config`.**
   `k3s_config` sets only `etcd-s3: true` and `etcd-s3-config-secret`; per k3s's docs, **any
@@ -1067,7 +1076,11 @@ LimitRange there, so it sets its own.
 - **Own alerts** (`rules.yaml`): a node cordoned for over 2 hours (a failed upgrade Job or a
   drain that cannot finish), a server without a successful etcd snapshot upload for 13 hours
   or with a failed one, and a k3s certificate within 30 days of expiry (k3s renews at start
-  within 120 days, so this means renewal failed). Their descriptions say what to do.
+  within 120 days, so this means renewal failed). Their descriptions say what to do. The
+  missing-upload alert reads the age of each node's newest S3 snapshot from k3s's
+  `ETCDSnapshotFile` records, not from k3s's upload counter: after a k3s restart the counter
+  reappears only with the next upload, already at 1, and `increase()` reads that as none - it
+  fired falsely after the failover test.
 - **Volume alerts at three levels** (`rules.yaml`): 80 % warning, 90 % critical, 95 % critical
   again, each a separate alert so every level notifies once; inhibit rules in the
   Alertmanager config let a higher level silence the lower ones for the same PVC. They replace
@@ -1079,9 +1092,11 @@ LimitRange there, so it sets its own.
   the status conditions of `MariaDB` and `PhysicalBackup` become
   `kube_customresource_condition{customresource_kind, name, type, status, reason}`, valued with
   the condition's `lastTransitionTime`, for the MariaDB alerts. The mariadb-operator reports
-  archiving and backups nowhere else. Another kind is one more entry there plus its `list`,
-  `watch` in `rbac.extraRules`; the config can be tried locally by running the kube-state-metrics
-  image with `--custom-resource-state-only` against the admin kubeconfig.
+  archiving and backups nowhere else. k3s's `ETCDSnapshotFile` records become
+  `kube_customresource_etcd_snapshot_created{node, name, bucket}` (creation time; `bucket` only
+  on the S3 copies), for the snapshot alert. Another kind is one more entry there plus its
+  `list`, `watch` in `rbac.extraRules`; the config can be tried locally by running the
+  kube-state-metrics image with `--custom-resource-state-only` against the admin kubeconfig.
 
 **Logs: Loki and Alloy.** Alloy (`kubernetes/clusters/prod/alloy.yaml`, chart `grafana/alloy`
 pinned) runs on every node and sends that node's container logs (`/var/log/pods`) and whole
