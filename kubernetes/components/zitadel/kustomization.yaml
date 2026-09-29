@@ -1,0 +1,9 @@
+---
+# Zitadel, the identity provider: the single login (OIDC/SAML) for the cluster's UIs and apps.
+# The Helm chart is pinned in the cluster's Application; this directory holds what it needs
+# besides the chart, starting with its database in the shared PostgreSQL.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - database.yaml

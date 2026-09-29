@@ -1345,7 +1345,10 @@ replica).
   way, over the Cluster's inline `managed.roles`) and `Database` objects in `postgres`. The role's
   password comes from a `kubernetes.io/basic-auth` Secret there, built by an ExternalSecret from
   OpenBao `secret/postgres-apps/<app>`; the app's own namespace gets the same value by a second
-  ExternalSecret. No app reads CloudNativePG's generated Secrets. Steps in the README.
+  ExternalSecret. No app reads CloudNativePG's generated Secrets. These objects sit in the
+  app's own component (`components/<app>/database.yaml`, with `namespace: postgres`), not in
+  the postgres component: everything about an app stays in one folder (user decision,
+  2026-09-29). Steps in the README.
 - **Backups** (`backups.yaml`), to `d3strukt0r-prod-postgres-backups`:
   - `ObjectStore` `postgres-backups`: WAL and base backups gzipped, `retentionPolicy: 30d`. Its
     `instanceSidecarConfiguration` sets `AWS_REQUEST_CHECKSUM_CALCULATION` and

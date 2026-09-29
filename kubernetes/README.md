@@ -36,6 +36,7 @@ kubernetes/
 │       ├── mariadb.yaml           # the app database itself
 │       ├── cloudnative-pg.yaml    # the PostgreSQL operator and its backup plugin: charts pinned here
 │       ├── postgres.yaml          # the shared PostgreSQL itself
+│       ├── zitadel.yaml           # the identity provider (SSO)
 │       ├── etcd-snapshots.yaml    # syncs the subdirectory below
 │       └── etcd-snapshots/        # prod-only: the S3 settings k3s uploads snapshots with
 └── components/                # how each component is deployed, shared by clusters
@@ -101,6 +102,9 @@ kubernetes/
     │   ├── external-secrets.yaml  # the S3 key from OpenBao
     │   ├── pod-monitor.yaml       # the instances' metrics
     │   └── rules.yaml             # alerts: no ready primary, replication, archiving, backups
+    ├── zitadel/
+    │   ├── kustomization.yaml
+    │   └── database.yaml          # its role and database, in the postgres namespace
     ├── alloy/
     │   ├── values.yaml            # Helm values: the collection pipeline
     │   ├── kustomization.yaml
@@ -808,12 +812,18 @@ postgres`, which shows the primary, replication and the archiving state in one v
 
 1. A generated password in 1Password (`PostgreSQL | Prod | <app>`), then into OpenBao as
    `secret/postgres-apps/<app>` with a `password` field (JSON on stdin, as for MariaDB).
-2. In `components/postgres/`: an ExternalSecret building Secret `<app>-db` of type
-   `kubernetes.io/basic-auth` (`username: <app>` as a literal, `password` from OpenBao) **with
-   the label `cnpg.io/reload: "true"`** (through `target.template.metadata.labels`) - without it
-   the role may never be created, see CLAUDE.md. Then a `DatabaseRole` (`cluster: postgres`,
-   `name: <app>`, `login: true`, `passwordSecret: <app>-db`) and a `Database`
-   (`cluster: postgres`, `name: <app>`, `owner: <app>`). Check both with
+2. In the app's own component, `components/<app>/database.yaml` (`zitadel/` is the model),
+   every object with `namespace: postgres` - CloudNativePG wants a role, its password Secret
+   and a database in the Cluster's namespace:
+   - an ExternalSecret building Secret `<app>-db` of type `kubernetes.io/basic-auth`
+     (`username: <app>` as a literal, `password` from OpenBao) **with the label
+     `cnpg.io/reload: "true"`** (through `target.template.metadata.labels`) - without it the
+     role may never be created, see CLAUDE.md;
+   - a `DatabaseRole` (`cluster: postgres`, `name: <app>`, `login: true`,
+     `passwordSecret: <app>-db`) and a `Database` (`cluster: postgres`, `name: <app>`,
+     `owner: <app>`).
+
+   Check both with
    `kubectl -n postgres get databaseroles.postgresql.cnpg.io,databases.postgresql.cnpg.io`
    (`APPLIED` true; `status.message` says why not).
 3. In the app's own component: an ExternalSecret reading the same `secret/postgres-apps/<app>`,
