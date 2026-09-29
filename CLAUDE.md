@@ -1396,6 +1396,8 @@ one login (OIDC/SAML) for the cluster's UIs, later kubectl and the apps, at
 for its footprint (user decision, 2026-09-29): a Go server that stores everything in the shared
 PostgreSQL. It runs as one replica of Zitadel and one of its separate v4 login page (Next.js, path
 `/ui/v2/login`) until prod-03's resize; while it is down, the UIs stay reachable by port-forward.
+Measured idle after the first start (2026-09-30): Zitadel about 120-170Mi, the login page about
+120Mi.
 
 - **Its database** is `components/zitadel/database.yaml` (namespace `postgres`, see "PostgreSQL");
   the init job runs only `zitadel init zitadel` (`initJob.command`), the schema, so Zitadel never
@@ -1403,9 +1405,10 @@ PostgreSQL. It runs as one replica of Zitadel and one of its separate v4 login p
   which `postgres-ca.yaml` copies into `zitadel` through External Secrets' Kubernetes provider: a
   ServiceAccount whose Role in `postgres` may `get` only Secret `postgres-ca`, and an ExternalSecret
   taking only `ca.crt` - never the CA's key. The pattern for every Postgres app.
-- **The masterkey** (OpenBao `secret/zitadel`, 1Password `Zitadel | Prod`) encrypts secrets in the
-  database; losing it makes them unreadable and it cannot be changed after the first start - like
-  OpenBao's seal key. Ours, not the chart's, which would generate one in a Helm hook.
+- **The masterkey** (OpenBao `secret/zitadel`, 1Password `Zitadel | Prod | Masterkey`) encrypts
+  secrets in the database; losing it makes them unreadable and it cannot be changed after the
+  first start - like OpenBao's seal key. Ours, not the chart's, which would generate one in a Helm
+  hook.
 - **The chart's Helm hooks are replaced by sync waves.** Its ServiceAccounts, ConfigMaps, Role and
   the init and setup jobs are `pre-install`/`pre-upgrade` hooks, which Argo CD runs as PreSync -
   before this directory's Secrets and certificates exist, so the first sync hung on an init job
