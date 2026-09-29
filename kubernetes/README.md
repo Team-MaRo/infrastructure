@@ -286,14 +286,15 @@ spec:
   secretStoreRef:
     kind: ClusterSecretStore
     name: openbao
-  target:
-    name: example            # the Kubernetes Secret that gets created
   data:
     - secretKey: password    # key in the Kubernetes Secret
       remoteRef:
         key: example         # path under secret/, i.e. secret/example
         property: password   # field of that OpenBao secret
 ```
+
+The Kubernetes Secret it creates gets the ExternalSecret's name; `target.name` is set only
+where the two must differ.
 
 The store may read all of `secret/`, so every namespace that references it reaches every
 value - fine while one admin runs the cluster.
