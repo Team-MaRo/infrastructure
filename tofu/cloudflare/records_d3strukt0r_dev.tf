@@ -221,6 +221,21 @@ resource "cloudflare_dns_record" "d3strukt0r_dev_txt_atproto" {
   settings = {}
 }
 
+# Zitadel re-checks the organisation domain periodically, so this stays.
+resource "cloudflare_dns_record" "d3strukt0r_dev_txt_zitadel_challenge" {
+  provider = cloudflare.personal
+
+  comment  = "Zitadel Verify (organisation D3strukt0r)"
+  content  = "\"7VUEdq0n1PFU9toPwnmMKiYRIrwNu3g3\""
+  name     = "_zitadel-challenge.d3strukt0r.dev"
+  proxied  = false
+  tags     = []
+  ttl      = 1
+  type     = "TXT"
+  zone_id  = local.zone_ids["d3strukt0r.dev"]
+  settings = {}
+}
+
 resource "cloudflare_dns_record" "d3strukt0r_dev_txt_apex" {
   provider = cloudflare.personal
 
