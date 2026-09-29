@@ -662,6 +662,10 @@ kubectl --context d3strukt0r-prod-admin -n mariadb get mariadb mariadb -o jsonpa
 couple of minutes; the known case that does not is a primary whose node died hard
 (mariadb-operator#1628) - the operator waits for the old primary until its node returns.
 
+A primary that restarts once, about a minute, right after the **replica's** node came back from
+a hard failure is a known MariaDB bug (CLAUDE.md, "App database: MariaDB"); it heals itself,
+nothing to do.
+
 1. Look: `kubectl --context d3strukt0r-prod-admin -n mariadb get mariadb mariadb` (status
    column) and `get pods -o wide` - which pod was primary, on which node, is that node
    `NotReady`?
