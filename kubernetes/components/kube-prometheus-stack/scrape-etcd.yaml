@@ -3,6 +3,10 @@
 # (etcd-expose-metrics in ansible/roles/k3s). Scraped directly, since the chart's way needs
 # an Endpoints object Argo CD does not manage. The job name matches the chart's etcd rules
 # and dashboard. A new server node is one more target here.
+#
+# The node name goes into instance itself, not into a label of its own: the chart's etcd alerts
+# count members by grouping without (instance), so any other per-target label would make each
+# member its own group - one member down then reads as "no quorum".
 apiVersion: monitoring.coreos.com/v1alpha1
 kind: ScrapeConfig
 metadata:
@@ -15,13 +19,13 @@ spec:
   staticConfigs:
     - targets: ["10.0.0.101:2381"]
       labels:
-        node: prod-01
+        instance: prod-01
     - targets: ["10.0.0.102:2381"]
       labels:
-        node: prod-02
+        instance: prod-02
     - targets: ["10.0.0.103:2381"]
       labels:
-        node: prod-03
+        instance: prod-03
   # The port serves a few families of k3s's shared registry too; only etcd's own are kept.
   metricRelabelings:
     - action: keep

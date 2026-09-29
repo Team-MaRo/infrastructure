@@ -1,0 +1,102 @@
+---
+# Starts a physical backup after every switch of the primary - a failover, or the planned switch
+# of an update or a node drain. Point-in-time recovery follows the binary logs of the server the
+# last backup came from, and the old primary's last one never reaches the bucket, so until a
+# backup from the new primary exists nothing after the switch can be restored (seen in the
+# failover test, 2026-09-28). The operator has no hook for this; this checks every 15 minutes.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: mariadb-backup-after-switchover
+---
+# Reading the MariaDB's status and starting a backup through the schedule's onDemand field -
+# nothing else, and only these two objects.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: mariadb-backup-after-switchover
+rules:
+  - apiGroups: [k8s.mariadb.com]
+    resources: [mariadbs]
+    resourceNames: [mariadb]
+    verbs: [get]
+  - apiGroups: [k8s.mariadb.com]
+    resources: [physicalbackups]
+    resourceNames: [mariadb-daily]
+    verbs: [get, patch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: mariadb-backup-after-switchover
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: mariadb-backup-after-switchover
+subjects:
+  - kind: ServiceAccount
+    name: mariadb-backup-after-switchover
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: mariadb-backup-after-switchover
+spec:
+  schedule: "*/15 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      activeDeadlineSeconds: 120
+      template:
+        spec:
+          serviceAccountName: mariadb-backup-after-switchover
+          restartPolicy: Never
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65534
+            runAsGroup: 65534
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: backup
+              image: docker.io/alpine/kubectl:1.37.1
+              env:
+                # kubectl keeps its discovery cache under $HOME.
+                - name: HOME
+                  value: /tmp
+              # A backup is due when the switch finished after the last backup was started
+              # (lastScheduleTime includes a running one, so none starts twice). Timestamps are
+              # RFC 3339 UTC and compare as strings. The switch time doubles as the onDemand
+              # identifier. A failed backup is not retried here - MariaDBBackupFailed reports it.
+              command:
+                - sh
+                - -euc
+                - |
+                  get() { kubectl -n mariadb get "$1" -o jsonpath="$2"; }
+                  status=$(get mariadb/mariadb '{.status.conditions[?(@.type=="PrimarySwitched")].status}')
+                  switched=$(get mariadb/mariadb '{.status.conditions[?(@.type=="PrimarySwitched")].lastTransitionTime}')
+                  scheduled=$(get physicalbackup/mariadb-daily '{.status.lastScheduleTime}')
+                  if [ "$status" != True ]; then
+                    echo "No completed switch (PrimarySwitched=$status), nothing to do."
+                  elif expr "$switched" \> "$scheduled" >/dev/null; then
+                    echo "Primary switched at $switched, last backup started $scheduled: starting a backup."
+                    kubectl -n mariadb patch physicalbackup mariadb-daily --type=merge \
+                      -p "{\"spec\":{\"schedule\":{\"onDemand\":\"$switched\"}}}"
+                  else
+                    echo "Last backup ($scheduled) started after the last switch ($switched)."
+                  fi
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop:
+                    - ALL
+              volumeMounts:
+                - name: tmp
+                  mountPath: /tmp
+          volumes:
+            - name: tmp
+              emptyDir: {}

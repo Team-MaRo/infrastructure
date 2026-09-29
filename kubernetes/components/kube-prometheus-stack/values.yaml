@@ -195,3 +195,44 @@ prometheus-node-exporter:
       memory: 32Mi
     limits:
       memory: 128Mi
+
+kube-state-metrics:
+  # The mariadb-operator reports archiving and backups only in its objects' status conditions;
+  # this turns them into kube_customresource_condition{customresource_kind, name, type, status},
+  # valued with the condition's lastTransitionTime (alerts in kubernetes/components/mariadb).
+  customResourceState:
+    enabled: true
+    config:
+      kind: CustomResourceStateMetrics
+      spec:
+        resources:
+          - groupVersionKind:
+              group: k8s.mariadb.com
+              version: v1alpha1
+              kind: MariaDB
+            labelsFromPath: &objectLabels
+              namespace: [metadata, namespace]
+              name: [metadata, name]
+            metrics: &conditionMetrics
+              - name: condition
+                help: Time of the object's last transition into each status condition.
+                each:
+                  type: Gauge
+                  gauge:
+                    path: [status, conditions]
+                    labelsFromPath:
+                      type: [type]
+                      status: [status]
+                      reason: [reason]
+                    valueFrom: [lastTransitionTime]
+          - groupVersionKind:
+              group: k8s.mariadb.com
+              version: v1alpha1
+              kind: PhysicalBackup
+            labelsFromPath: *objectLabels
+            metrics: *conditionMetrics
+  rbac:
+    extraRules:
+      - apiGroups: [k8s.mariadb.com]
+        resources: [mariadbs, physicalbackups]
+        verbs: [list, watch]

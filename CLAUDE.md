@@ -1042,7 +1042,10 @@ LimitRange there, so it sets its own.
   The chart's own way renders an Endpoints object, which Argo CD does not manage. `kubeEtcd`
   stays enabled with its Service and ServiceMonitor off, because disabling it would drop the
   etcd alerts and dashboard too; the job name `kube-etcd` matches them. **A new server node is
-  one more target there.**
+  one more target there.** Each target's `instance` is set to the node name rather than adding a
+  `node` label: the chart's etcd alerts group `without (instance)`, and with a `node` label
+  every member was a group of its own, so one member down fired `etcdInsufficientMembers`
+  (failover test, 2026-09-28).
 - **node-exporter listens on 9101**, not its default 9100: Traefik's metrics entrypoint holds
   9100 on the same host network. Both are closed by the Hetzner firewall.
 - **The admission webhook's certificate comes from cert-manager**
@@ -1072,6 +1075,13 @@ LimitRange there, so it sets its own.
   a trend predicted it full within four days.
 - **Grafana's admin** comes from OpenBao `secret/grafana` through the ExternalSecret
   `grafana-admin`; the chart would otherwise generate a new random password on every render.
+- **kube-state-metrics also reads operator objects** (`customResourceState` in the values):
+  the status conditions of `MariaDB` and `PhysicalBackup` become
+  `kube_customresource_condition{customresource_kind, name, type, status, reason}`, valued with
+  the condition's `lastTransitionTime`, for the MariaDB alerts. The mariadb-operator reports
+  archiving and backups nowhere else. Another kind is one more entry there plus its `list`,
+  `watch` in `rbac.extraRules`; the config can be tried locally by running the kube-state-metrics
+  image with `--custom-resource-state-only` against the admin kubeconfig.
 
 **Logs: Loki and Alloy.** Alloy (`kubernetes/clusters/prod/alloy.yaml`, chart `grafana/alloy`
 pinned) runs on every node and sends that node's container logs (`/var/log/pods`) and whole
@@ -1188,6 +1198,17 @@ failover (`mariadb-secondary` reads from the replica).
     at such a file and every later one waits (runbook in the README).
   - `mariadb-replica-recovery`: a never-scheduled template the operator uses to rebuild a
     replica whose replication stays broken.
+  - The CronJob `mariadb-backup-after-switchover` starts `mariadb-daily` on demand after every
+    switch of the primary (see the next-but-one bullet). Every 15 minutes it compares the
+    `PrimarySwitched` condition's time with the backup's `lastScheduleTime`; its Role may only
+    read that MariaDB and patch that PhysicalBackup. Image `docker.io/alpine/kubectl`, pinned
+    like the others - kubectl alone has no shell for the comparison.
+  - Alerts: `MariaDBBinlogArchivingFailing` (`BinlogsArchived` not True for 30 minutes) and
+    `MariaDBBackupFailed` (`mariadb-daily`'s last run did not complete, or none has for 26
+    hours - also a failed after-switchover backup, which the CronJob does not retry), from
+    kube-state-metrics' custom resource metrics (see "Monitoring"). A failed Job's
+    `Complete=False` makes the `status="True"` series vanish, so an age check alone would miss
+    exactly a failure.
 - **A restore always goes into a new MariaDB** (`bootstrapFrom.pointInTimeRecoveryRef` with a
   `targetRecoveryTime`), never in place. Its success condition is `BinlogsReplayed=True`.
   `tls.caSecretKeyRef` must be set on every S3 reference - without it the restore panics in
@@ -1199,12 +1220,15 @@ failover (`mariadb-secondary` reads from the replica).
   "as late as possible" still works by giving `LAST RECOVERABLE TIME` exactly (the end of
   the newest file is accepted). Without strict mode a restore that falls short reports
   success anyway.
-- **An unplanned failover leaves a hole in the archive until the next physical backup.** The
-  old primary's last binary log (up to ten minutes) never reaches the bucket, the new primary
-  does not log the transactions it replicated, and the restore timeline follows the server
-  the backup came from - so `LAST RECOVERABLE TIME` stays at the old primary's last upload.
-  No data is lost, only restorability past that point; the runbook takes a backup right
-  after a failover. Seen in the failover test, 2026-09-28.
+- **Every switch of the primary leaves a hole in the archive until the next physical
+  backup**: a failover, but also the planned switch of an update or a node drain. The old
+  primary's last binary log (up to ten minutes) never reaches the bucket (only the primary
+  archives), the new primary does not log the transactions it replicated, and the restore timeline
+  follows the server the backup came from - so `LAST RECOVERABLE TIME` stays at the old
+  primary's last upload. No data is lost, only restorability past that point. Seen in the
+  failover test, 2026-09-28; closed within about 15 minutes by the after-switchover backup.
+  `LAST RECOVERABLE TIME` only moves once something writes after that backup, so its age
+  alone says nothing on a quiet database - which is why no alert watches it.
 - **PITR works only in this replication topology**, not with Galera or a standalone instance.
 - **The root password is kept twice**: in Secret `mariadb` (from OpenBao) and in the
   operator's own `internal-mariadb`, which it compares against to rotate a changed password.

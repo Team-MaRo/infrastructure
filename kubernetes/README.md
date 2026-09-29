@@ -657,10 +657,11 @@ couple of minutes; the known case that does not is a primary whose node died har
 5. Remove the taint once the node is back or replaced:
    `kubectl --context d3strukt0r-prod-admin taint nodes <node> node.kubernetes.io/out-of-service-`.
 
-**After every unplanned failover** - also one that finished on its own - take a physical
-backup at once. The old primary's last binary log never reached the bucket, so
-point-in-time recovery cannot go past its last upload until a backup from the new primary
-exists (`LAST RECOVERABLE TIME` in `kubectl get pitr` stays put):
+**After every switch of the primary** point-in-time recovery cannot go past the old primary's
+last upload until a backup from the new primary exists. The CronJob
+`mariadb-backup-after-switchover` starts one within 15 minutes; its log says what it decided
+(`kubectl --context d3strukt0r-prod-admin -n mariadb logs job/<latest job>`). To start one by
+hand - also when `MariaDBBackupFailed` fires:
 
 ```shell
 kubectl --context d3strukt0r-prod-admin -n mariadb patch physicalbackup mariadb-daily --type=merge -p "{\"spec\":{\"schedule\":{\"onDemand\":\"$(date +%s)\"}}}"
@@ -668,11 +669,11 @@ kubectl --context d3strukt0r-prod-admin -n mariadb patch physicalbackup mariadb-
 
 ### MariaDB: binary log archiving stuck
 
-The MariaDB reports Ready=False with `Error archiving binlogs: ... error getting binary log
-mariadb-bin.NNNNNN metadata`, and `kubectl get pitr` shows no or an old `LAST RECOVERABLE
-TIME`. The archiver uploads the files in order and stops at one it cannot read - after a hard
-crash of the primary, the file that was being written. Writes are not affected, only
-point-in-time recovery.
+`MariaDBBinlogArchivingFailing` fires, the MariaDB reports Ready=False with `Error archiving
+binlogs: ... error getting binary log mariadb-bin.NNNNNN metadata`, and `kubectl get pitr`
+shows no or an old `LAST RECOVERABLE TIME`. The archiver uploads the files in order and stops
+at one it cannot read - after a hard crash of the primary, the file that was being written.
+Writes are not affected, only point-in-time recovery.
 
 1. Confirm which file, and that later ones exist:
    ```shell
