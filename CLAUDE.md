@@ -222,12 +222,14 @@ Hetzner S3 keys are valid for every bucket in the project, with every permission
 way to scope one is a bucket policy, so `tofu/objectstorage` writes every policy as
 `Deny` + `NotPrincipal` naming the admin key, `arn:aws:iam:::user/p<project_id>:<access_key>`
 (`local.admin_principal`), plus at most the one cluster key that bucket is for
-(`local.etcd_principal`, `local.loki_principal`, `local.mariadb_backups_principal`). That covers keys that do not exist yet, so
+(`local.etcd_principal`, `local.loki_principal`, `local.mariadb_backups_principal`,
+`local.postgres_backups_principal`). That covers keys that do not exist yet, so
 **each key the cluster holds reaches only its own bucket**. The cluster keys' access key IDs
-(not their secrets) are `etcd_access_key_id`, `loki_access_key_id` and
-`mariadb_backups_access_key_id` in the module's tfvars; a mistyped one shuts only that key out of its bucket. A `NotPrincipal` naming two
-keys was proven on the Loki bucket first (2026-09-28): the admin key kept full access, and
-the etcd key got `AccessDenied` there.
+(not their secrets) are `etcd_access_key_id`, `loki_access_key_id`,
+`mariadb_backups_access_key_id` and `postgres_backups_access_key_id` in the module's tfvars; a
+mistyped one shuts only that key out of its bucket. A `NotPrincipal` naming two keys was proven
+on the Loki bucket first (2026-09-28): the admin key kept full access, and the etcd key got
+`AccessDenied` there.
 
 **Every bucket has a lifecycle rule** that aborts multipart uploads not completed within 7
 days: a broken large upload leaves its parts behind, invisible in a listing but stored and
@@ -273,6 +275,12 @@ although uploads answer with an `Expiration` header that suggests so (tested 202
   everything after 35 days - long enough that every kept backup still has its binary logs.
   Only the admin key and the backup key (console label `prod mariadb backups`, 1Password
   `Hetzner | S3 | prod mariadb backups`, OpenBao `secret/mariadb-backups-s3`) reach it.
+- **`d3strukt0r-prod-postgres-backups`: unversioned, lifecycle rule only for incomplete
+  uploads.** It holds CloudNativePG's base backups and archived WAL (Barman Cloud plugin), for
+  Zitadel's database. The plugin deletes base backups past their retention together with the WAL
+  they no longer need, so nothing else expires here. Only the admin key and the backup key (console
+  label `prod postgres backups`, 1Password `Hetzner | S3 | prod postgres backups`, OpenBao
+  `secret/postgres-backups-s3`) reach it.
 - **Provider `aminueza/minio`, `s3_compat_mode` off.** The `aws` provider cannot refresh a
   bucket here (it reads Accelerate, Website, Logging, Replication and Tagging, all
   unimplemented). Compat mode would swallow "not implemented" errors, object lock and
