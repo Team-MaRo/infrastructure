@@ -753,6 +753,32 @@ data there and skips the restore.
 A drill on 2026-09-28 restored the nightly backup plus ten minutes of binary logs in under
 two minutes, to the millisecond.
 
+### MariaDB: disaster - restore as production
+
+**Untested** (it would mean deleting the production database). Only when the running MariaDB is
+beyond repair - both volumes lost or corrupt; for anything less, restore next to it as above.
+Apps cannot write until it is done.
+
+The restored instance must be called `mariadb` again, so the apps' Service names and the
+Application still fit. Argo CD recreates whatever git describes the moment the MariaDB is
+deleted, so the restore goes through git:
+
+1. Pick the target time as above.
+2. In `components/mariadb/`, in one commit:
+   - `mariadb.yaml`: add `bootstrapFrom` (`pointInTimeRecoveryRef: pitr`, `targetRecoveryTime`)
+     and point `pointInTimeRecoveryRef` at a new `PointInTimeRecovery`;
+   - `backups.yaml`: that new object, a copy of `pitr` named e.g. `pitr-<date>` with prefix
+     `pitr-<date>`. The restored servers get the same server ids as the old ones, and their
+     binary logs must not mix with the old history in `pitr`, which stays readable (for older
+     restore points) until the bucket expires it after 35 days.
+
+   Push. Argo CD may fail to apply `bootstrapFrom` to the broken instance; that is expected.
+3. Delete the broken MariaDB and its PVCs (`storage-mariadb-0`/`-1`) plus their PVs and Hetzner
+   volumes. Argo CD recreates it from git, and it bootstraps from the backups.
+4. Check `BinlogsReplayed` as above, then take a physical backup at once (the command under
+   "failover hangs").
+5. `bootstrapFrom` is only read at creation; leave it or remove it in a later commit.
+
 ## PostgreSQL (CloudNativePG)
 
 The shared PostgreSQL for every app that only supports it: a primary and a replica, run by
@@ -778,13 +804,82 @@ postgres`, which shows the primary, replication and the archiving state in one v
 1. A generated password in 1Password (`PostgreSQL | Prod | <app>`), then into OpenBao as
    `secret/postgres-apps/<app>` with a `password` field (JSON on stdin, as for MariaDB).
 2. In `components/postgres/`: an ExternalSecret building Secret `<app>-db` of type
-   `kubernetes.io/basic-auth` (`username: <app>` as a literal, `password` from OpenBao), a
-   `DatabaseRole` (`cluster: postgres`, `name: <app>`, `login: true`, `passwordSecret: <app>-db`)
-   and a `Database` (`cluster: postgres`, `name: <app>`, `owner: <app>`).
+   `kubernetes.io/basic-auth` (`username: <app>` as a literal, `password` from OpenBao) **with
+   the label `cnpg.io/reload: "true"`** (through `target.template.metadata.labels`) - without it
+   the role may never be created, see CLAUDE.md. Then a `DatabaseRole` (`cluster: postgres`,
+   `name: <app>`, `login: true`, `passwordSecret: <app>-db`) and a `Database`
+   (`cluster: postgres`, `name: <app>`, `owner: <app>`). Check both with
+   `kubectl -n postgres get databaseroles.postgresql.cnpg.io,databases.postgresql.cnpg.io`
+   (`APPLIED` true; `status.message` says why not).
 3. In the app's own component: an ExternalSecret reading the same `secret/postgres-apps/<app>`,
    and host `postgres-rw.postgres.svc`. CloudNativePG serves TLS with its own CA (Secret
    `postgres-ca` in `postgres`); how an app gets it for verifying is settled with the first app,
    Zitadel.
+
+### PostgreSQL: failover hangs
+
+`PostgresNoReadyPrimary` means apps cannot write. A failover normally finishes on its own: 8-11
+seconds for a pod, about a minute and a half for a dead node (tested 2026-09-29).
+
+1. Look: `kubectl cnpg status postgres -n postgres` and the operator's log
+   (`kubectl -n cnpg-system logs deploy/cloudnative-pg`) - which instance was primary, on which
+   node, is that node `NotReady`?
+2. If the old primary's node stays gone, its pod stays `Terminating` and its volume attached, so
+   that instance cannot be recreated elsewhere. The failover itself does not need it; to get
+   the second instance back, declare the node gone
+   (`kubectl taint nodes <node> node.kubernetes.io/out-of-service=nodeshutdown:NoExecute`, as for
+   MariaDB) and remove the taint once the node is back or replaced.
+3. A primary can be chosen by hand: `kubectl cnpg promote postgres <instance> -n postgres`.
+
+### PostgreSQL: restore to a point in time
+
+A restore creates a **new** cluster from the backups; the running one is not touched.
+
+1. Apply a second `Cluster` in `postgres` with its own name, the same image and storage, one
+   instance, and no `plugins` (so it never archives into the production path):
+   ```yaml
+   bootstrap:
+     recovery:
+       source: origin
+       recoveryTarget:
+         targetTime: "2026-10-01 16:00:00+00"   # UTC; omitted = as late as the archive goes
+   externalClusters:
+     - name: origin
+       plugin:
+         name: barman-cloud.cloudnative-pg.io
+         parameters:
+           barmanObjectName: postgres-backups
+           serverName: postgres
+   ```
+2. Wait for `kubectl -n postgres get cluster <name>` to report "Cluster in healthy state", then
+   check the data (`kubectl -n postgres exec <name>-1 -c postgres -- psql -d <db> ...`).
+3. Copy what is needed back (`pg_dump` from the restored instance), or point the app at it.
+   Then delete the Cluster, its PVC, the PV and the Hetzner volume by hand (Retain).
+
+### PostgreSQL: disaster - restore as production
+
+**Untested** (it would mean deleting the production database). Only when the running cluster
+is beyond repair - both volumes lost or corrupt; for anything less, restore next to it as above.
+Apps cannot write until it is done.
+
+The restored cluster must be called `postgres` again, so `postgres-rw` and the Application
+still fit, and it must archive into a new path: a cluster that finds WAL of its own name in the
+archive refuses to archive ("Expected empty archive"), which is the check protecting the old
+history. Argo CD recreates whatever git describes the moment the Cluster is deleted, so the
+restore goes through git:
+
+1. In `components/postgres/cluster.yaml`, in one commit: `bootstrap.recovery` and
+   `externalClusters` as in the section above (`serverName: postgres` - the old path, read
+   only), and the archiving plugin's parameters get `serverName: postgres-<date>` - the new
+   path. Push. Argo CD may fail to apply the change to the broken cluster; that is expected.
+2. Delete the Cluster `postgres` and its PVCs (`postgres-1`, `postgres-2`) plus their PVs and
+   Hetzner volumes. Argo CD recreates it from git, and it recovers from the backups.
+3. Check the data, then take a base backup at once:
+   `kubectl cnpg backup postgres -n postgres --method plugin --plugin-name barman-cloud.cloudnative-pg.io`.
+4. The old path (`postgres/` in the bucket) is no longer pruned by anyone - it has no cluster
+   archiving to it. Keep it as long as its restore points may matter, then delete it by hand.
+   The `bootstrap` and `externalClusters` are only read at creation; leave them or remove them
+   in a later commit.
 
 ## How quickly a push arrives
 
