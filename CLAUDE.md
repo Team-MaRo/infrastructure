@@ -1173,9 +1173,19 @@ failover (`mariadb-secondary` reads from the replica).
 - **Backups** (`backups.yaml`), to `d3strukt0r-prod-mariadb-backups`:
   - `PhysicalBackup` `mariadb-daily` at 23:30 UTC from the replica, kept 30 days. Staged on
     the node's disk before the upload, so it sets an ephemeral-storage limit of its own.
-  - `PointInTimeRecovery` `pitr`: the agent next to the primary archives the binary logs every
-    ten minutes (hardcoded), so a restore loses at most about ten minutes. Nothing prunes
-    them; the bucket expires them after 35 days.
+  - `PointInTimeRecovery` `pitr`: the agent next to the primary archives **closed** binary logs
+    every ten minutes (hardcoded). The operator rotates only by size, so at low traffic the
+    active file would stay unarchived for weeks; the CronJob `mariadb-flush-binlogs` runs
+    `FLUSH BINARY LOGS` on the primary every ten minutes, so a restore loses at most about
+    twenty. The bucket expires archived logs after 35 days; the server itself deletes its local
+    copies after 7 (`binlog_expire_logs_seconds`, default 0 = never, which would fill the
+    volume).
+  - `syncBinlog: 1`: every commit's binary log event goes to disk before the commit returns.
+    With the server's default 0, the failover test's hard power-off (2026-09-28) lost the end of
+    the binary log, and crash recovery rolled back a commit the client had already been told
+    succeeded: the primary came back without that row while the replica kept it, so the two
+    silently differed. The same power-off left the file with a zeroed tail; the archiver stops
+    at such a file and every later one waits (runbook in the README).
   - `mariadb-replica-recovery`: a never-scheduled template the operator uses to rebuild a
     replica whose replication stays broken.
 - **A restore always goes into a new MariaDB** (`bootstrapFrom.pointInTimeRecoveryRef` with a
@@ -1183,6 +1193,18 @@ failover (`mariadb-secondary` reads from the replica).
   `tls.caSecretKeyRef` must be set on every S3 reference - without it the restore panics in
   the operator yet reports Ready with only the base backup (mariadb-operator#1915). `s3-ca`
   holds the ISRG roots Hetzner's certificate chains to; they are public and live in git.
+  Tested 2026-09-28: restored to the millisecond (runbook in the README).
+- **`strictMode: true` stays**, although an operator bug makes it refuse a target inside the
+  newest archived binary log: it fails loudly rather than restoring less than asked, and
+  "as late as possible" still works by giving `LAST RECOVERABLE TIME` exactly (the end of
+  the newest file is accepted). Without strict mode a restore that falls short reports
+  success anyway.
+- **An unplanned failover leaves a hole in the archive until the next physical backup.** The
+  old primary's last binary log (up to ten minutes) never reaches the bucket, the new primary
+  does not log the transactions it replicated, and the restore timeline follows the server
+  the backup came from - so `LAST RECOVERABLE TIME` stays at the old primary's last upload.
+  No data is lost, only restorability past that point; the runbook takes a backup right
+  after a failover. Seen in the failover test, 2026-09-28.
 - **PITR works only in this replication topology**, not with Galera or a standalone instance.
 - **The root password is kept twice**: in Secret `mariadb` (from OpenBao) and in the
   operator's own `internal-mariadb`, which it compares against to rotate a changed password.

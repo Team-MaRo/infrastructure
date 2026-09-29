@@ -9,4 +9,5 @@ resources:
   - s3-ca.yaml
   - mariadb.yaml
   - backups.yaml
+  - flush-binlogs.yaml
   - rules.yaml

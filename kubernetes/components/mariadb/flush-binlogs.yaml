@@ -1,0 +1,61 @@
+---
+# Closes the primary's active binary log every ten minutes, so the archiver uploads it in its
+# next cycle. The operator rotates only by size (max_binlog_size), so at low traffic the
+# active file - and with it the last recoverable time - could lag for weeks; with this, a
+# restore loses at most about twenty minutes. FLUSH BINARY LOGS is what the operator's own
+# docs name as compatible with the archival.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: mariadb-flush-binlogs
+spec:
+  schedule: "*/10 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      activeDeadlineSeconds: 120
+      template:
+        spec:
+          restartPolicy: Never
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 999
+            runAsGroup: 999
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: flush
+              image: docker.io/library/mariadb:12.3.3
+              # root, as the operator itself connects: a user of its own would need another
+              # password to keep, for a job whose only power is closing a file.
+              env:
+                - name: MYSQL_PWD
+                  valueFrom:
+                    secretKeyRef:
+                      name: mariadb
+                      key: root-password
+              command:
+                - mariadb
+                - --host=mariadb-primary.mariadb.svc
+                - --user=root
+                - --ssl-ca=/ca/ca.crt
+                - --connect-timeout=10
+                - --execute=FLUSH BINARY LOGS
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop:
+                    - ALL
+              volumeMounts:
+                - name: ca
+                  mountPath: /ca
+                  readOnly: true
+          volumes:
+            # The operator's CA, which signed mariadb-primary's certificate.
+            - name: ca
+              secret:
+                secretName: mariadb-ca-bundle
