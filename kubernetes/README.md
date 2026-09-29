@@ -34,6 +34,7 @@ kubernetes/
 │       ├── mariadb-operator-crds.yaml  # the operator's CRDs - never pruned
 │       ├── mariadb-operator.yaml  # the operator running the app database
 │       ├── mariadb.yaml           # the app database itself
+│       ├── cloudnative-pg.yaml    # the PostgreSQL operator and its backup plugin: charts pinned here
 │       ├── etcd-snapshots.yaml    # syncs the subdirectory below
 │       └── etcd-snapshots/        # prod-only: the S3 settings k3s uploads snapshots with
 └── components/                # how each component is deployed, shared by clusters
@@ -85,9 +86,13 @@ kubernetes/
     │   ├── mariadb.yaml           # primary + replica, the failover settings
     │   ├── backups.yaml           # daily physical backup, binary log archiving, replica rebuild
     │   ├── flush-binlogs.yaml     # closes the active binary log every 10 min, for archiving
+    │   ├── backup-after-switchover.yaml  # a backup after every switch of the primary
     │   ├── external-secrets.yaml  # root/replication passwords and the S3 key from OpenBao
     │   ├── s3-ca.yaml             # the roots Hetzner's S3 certificate chains to
     │   └── rules.yaml             # alerts: no ready primary, broken or lagging replication
+    ├── cloudnative-pg/
+    │   ├── values.yaml            # Helm values: two replicas, memory, monitoring
+    │   └── plugin-values.yaml     # the Barman Cloud plugin: quick move off a dead node
     ├── alloy/
     │   ├── values.yaml            # Helm values: the collection pipeline
     │   ├── kustomization.yaml
@@ -739,6 +744,19 @@ data there and skips the restore.
 
 A drill on 2026-09-28 restored the nightly backup plus ten minutes of binary logs in under
 two minutes, to the millisecond.
+
+## PostgreSQL (CloudNativePG)
+
+The operator for Zitadel's database runs in `cnpg-system`: two operator replicas, one active,
+and the Barman Cloud plugin, which ships backups and WAL to `d3strukt0r-prod-postgres-backups`.
+
+```shell
+kubectl --context d3strukt0r-prod-admin -n cnpg-system get pods,lease,certificate
+kubectl --context d3strukt0r-prod-admin get clusters.postgresql.cnpg.io -A
+```
+
+The `cnpg` kubectl plugin (`brew install kubectl-cnpg`) adds `kubectl cnpg status <cluster>`,
+which shows the primary, replication and the archiving state in one view.
 
 ## How quickly a push arrives
 
