@@ -1197,6 +1197,32 @@ failover (`mariadb-secondary` reads from the replica).
     the failover tests measure what it needs here.
   - `MariaDBNoReadyPrimary` (critical, 5 min) - no ready endpoint behind `mariadb-primary`,
     i.e. a failover that hangs; the runbook is in `kubernetes/README.md`.
+- **Known MariaDB bug, accepted: a replica returning under a new IP hangs the primary** (found
+  and reproduced 2026-09-29). When the replica's node dies hard, its connection on the primary
+  stays open - no FIN or RST ever arrives. When the replica comes back as a new pod (new IP), the
+  primary ends that old connection, and `Ack_receiver::remove_slave()` waits for the semi-sync
+  ack receiver thread to confirm - but that thread sits in `poll(..., -1)` on the replica
+  sockets, and unlike `add_slave()`, `remove_slave()` does not wake it with `signal_listener()`
+  (`sql/semisync_master_ack_receiver.cc`, unchanged on MariaDB's main branch). It wakes only when
+  the kernel gives the dead connection up - with `tcp_retries2` 15, up to ~15 minutes.
+  Meanwhile the new replica connection and every new login hang; the liveness probe restarts
+  the primary after 30 s, sometimes followed by a failover and a replica rebuild. It heals
+  itself within about a minute and loses nothing. A replica returning under its old IP does not
+  hit it (its kernel resets the old connection).
+  - Not fixed by `net_write_timeout` (tested at 15 s), and TCP keepalive does not apply (the
+    primary's heartbeats keep the connection in retransmission, not idle).
+  - `net.ipv4.tcp_retries2` would (a dead connection gone in ~12 s at 5), but it is not on
+    Kubernetes' safe sysctl list: it needs `--allowed-unsafe-sysctls` on every kubelet and the
+    `mariadb` namespace out of the restricted Pod Security Standard - too much for this.
+  - Turning semi-sync off would avoid it, but then a failover can lose the last transactions;
+    semi-sync stays (user decision: a replica must always hold every acknowledged commit).
+  - Reproduction, for re-testing a MariaDB upgrade: on the replica's node,
+    `iptables -t raw -I PREROUTING 1 -s <pod ip> -j DROP` and the same with `-d` (the `raw`
+    table, since k3s's kube-router accepts established traffic before the filter chains), write
+    once on the primary, wait a few minutes, force-delete the replica pod, and watch new logins
+    on the primary; remove both rules afterwards. Reported upstream as
+    [MDEV-41349](https://jira.mariadb.org/browse/MDEV-41349) (2026-09-29); once a fixed release
+    is out, the bump is the fix - re-test with the reproduction.
 - **Restricted Pod Security** needs securityContexts on the pod (999, the image's mysql user -
   setting `podSecurityContext` replaces the operator's default, so it is repeated), the
   container, the agent, the init container and the exporter (UID 65534, the image only names
