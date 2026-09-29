@@ -1,0 +1,30 @@
+---
+# The shared PostgreSQL for this cluster, from kubernetes/components/postgres, run by
+# CloudNativePG (cloudnative-pg.yaml). Needs secret/postgres-backups-s3 in OpenBao and the bucket
+# d3strukt0r-prod-postgres-backups (tofu/objectstorage).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: postgres
+  namespace: argocd
+  annotations:
+    # Compare on the server, as for the MariaDB: fields the API server and the operator's
+    # webhook default would otherwise look like drift.
+    argocd.argoproj.io/compare-options: ServerSideDiff=true
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Team-MaRo/infrastructure.git
+    targetRevision: master
+    path: kubernetes/components/postgres
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: postgres
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      # Not required here (no large CRDs); used for consistency.
+      - ServerSideApply=true

@@ -1,5 +1,5 @@
-# Backups of the prod cluster's PostgreSQL (CloudNativePG, for Zitadel): nightly base backups and
-# the WAL archived in between, which together allow a restore to any point in time. Not versioned:
+# Backups of the prod cluster's shared PostgreSQL (CloudNativePG): nightly base backups and the
+# WAL archived in between, which together allow a restore to any point in time. Not versioned:
 # the Barman Cloud plugin writes each file once.
 resource "minio_s3_bucket" "prod_postgres_backups" {
   bucket = "d3strukt0r-prod-postgres-backups"

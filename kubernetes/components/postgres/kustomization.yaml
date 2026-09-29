@@ -1,0 +1,12 @@
+---
+# The shared PostgreSQL, used by every app that only supports it: a primary and one replica run
+# by CloudNativePG, with nightly base backups and the WAL archived in Object Storage.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - external-secrets.yaml
+  - cluster.yaml
+  - backups.yaml
+  - pod-monitor.yaml
+  - rules.yaml

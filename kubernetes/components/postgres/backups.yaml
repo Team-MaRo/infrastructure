@@ -1,0 +1,56 @@
+---
+# Where the Barman Cloud plugin writes base backups and the WAL archive. Together they allow a
+# restore to any moment of the last 30 days; the plugin deletes older base backups and the WAL
+# they no longer need itself.
+apiVersion: barmancloud.cnpg.io/v1
+kind: ObjectStore
+metadata:
+  name: postgres-backups
+spec:
+  retentionPolicy: 30d
+  configuration:
+    destinationPath: s3://d3strukt0r-prod-postgres-backups/
+    endpointURL: https://nbg1.your-objectstorage.com
+    s3Credentials:
+      accessKeyId:
+        name: postgres-backups-s3
+        key: access-key-id
+      secretAccessKey:
+        name: postgres-backups-s3
+        key: secret-access-key
+    wal:
+      compression: gzip
+    data:
+      compression: gzip
+  # The sidecar in each PostgreSQL pod that does the archiving and uploads.
+  instanceSidecarConfiguration:
+    # boto3 sends checksum headers that S3-compatible stores reject; the plugin's documented
+    # workaround, the same class of problem as Loki's S3 client.
+    env:
+      - name: AWS_REQUEST_CHECKSUM_CALCULATION
+        value: when_required
+      - name: AWS_RESPONSE_CHECKSUM_VALIDATION
+        value: when_required
+    # Uploading a base backup takes more than the namespace's LimitRange default.
+    resources:
+      requests:
+        memory: 64Mi
+      limits:
+        memory: 256Mi
+---
+# A base backup every night at 23:00 UTC (01:00 Zurich time in summer): before MariaDB's at
+# 23:30 UTC and outside the nightly maintenance windows. From the replica when there is one (the
+# cluster's default target), and once right away when created.
+apiVersion: postgresql.cnpg.io/v1
+kind: ScheduledBackup
+metadata:
+  name: postgres-daily
+spec:
+  cluster:
+    name: postgres
+  # Six fields: seconds first.
+  schedule: "0 0 23 * * *"
+  immediate: true
+  method: plugin
+  pluginConfiguration:
+    name: barman-cloud.cloudnative-pg.io
