@@ -7,6 +7,9 @@ kind: Application
 metadata:
   name: oauth2-proxy
   namespace: argocd
+  # Removing this file removes everything it deployed, namespace included.
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
 spec:
   project: default
   sources:
@@ -29,5 +32,4 @@ spec:
       prune: true
       selfHeal: true
     syncOptions:
-      - CreateNamespace=true
       - ServerSideApply=true

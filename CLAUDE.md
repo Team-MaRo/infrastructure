@@ -614,17 +614,29 @@ self-heal.
 - **Pushing to `master` is deploying**, pruning included. Branch protection on the repo is
   a security control. The files must also be pushed *before* the first bootstrap, because
   `root` syncs from GitHub, not from the working copy.
-- **Pruning does not cascade from `root` into the components.** No Application carries the
-  `resources-finalizer.argocd.argoproj.io` finalizer, so deleting a file from
-  `clusters/<name>/` makes `root` delete only the Application object - what that
-  Application deployed keeps running, orphaned and no longer tracked. A mistakenly deleted
-  Application file therefore cannot take OpenBao and its volume with it. Within one
-  Application pruning works as usual: a manifest removed from a component is deleted.
-  Really removing a component means deleting its objects by hand, or adding the finalizer
-  first and then removing the Application. For the same reason Helm's
-  `helm.sh/resource-policy: keep` (which Argo CD honours as `Delete=false`) currently
-  changes nothing here - there are no Helm releases either, since Argo CD only renders charts
-  with `helm template`; `helm list -A` shows just k3s's own Traefik.
+- **Pruning cascades only where an Application carries the finalizer**
+  `resources-finalizer.argocd.argoproj.io`. With it, deleting a file from `clusters/<name>/`
+  makes Argo CD delete everything that Application deployed; without it, `root` deletes only
+  the Application object and what it deployed keeps running, orphaned and no longer tracked.
+  Within one Application pruning works as usual either way: a manifest removed from a
+  component is deleted.
+  - **The finalizer is on apps whose data lives elsewhere or does not matter**: `gatus`,
+    `zitadel`, `oauth2-proxy`, `uptime-kuma`, `kured`, `alloy`, `etcd-snapshots`,
+    `cluster-rbac`. A Postgres app's database and role stay when it goes - CloudNativePG's
+    `databaseReclaimPolicy` and `databaseRoleReclaimPolicy` default to `retain`.
+  - **Never on an app that brings CRDs** (deleting a CRD deletes every object of its kind -
+    `cloudnative-pg` would take the Postgres `Cluster` with it): cert-manager,
+    external-secrets, kyverno, cloudnative-pg, the mariadb-operator ones,
+    system-upgrade-controller, kube-prometheus-stack. **Never on an app with a volume**
+    (openbao, mariadb, postgres, loki, kube-prometheus-stack): a mistakenly deleted file must
+    not take its data along. **Never on the foundation**: root, argocd, hcloud-csi, traefik.
+  - **An app with the finalizer brings its own `namespace.yaml`** instead of `CreateNamespace`,
+    since Argo CD never deletes a namespace it created that way; so the namespace, and
+    anything a job left in it outside git, goes with the app. Apps in `kube-system` get no
+    `namespace.yaml`, or removing them would delete `kube-system`.
+  - Helm's `helm.sh/resource-policy: keep` is honoured as `Delete=false`, so such objects
+    survive even a cascading deletion. There are no Helm releases: Argo CD only renders charts
+    with `helm template`; `helm list -A` shows just k3s's own Traefik.
 - **`kubernetes/clusters/<name>/` decides what runs where; `kubernetes/components/<app>/`
   holds how**, shared by clusters. Each cluster directory is an app-of-apps: `root` syncs
   the directory it lives in, so it manages itself. One Argo CD per cluster, each syncing

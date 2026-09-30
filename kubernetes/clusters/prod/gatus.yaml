@@ -8,6 +8,10 @@ kind: Application
 metadata:
   name: gatus
   namespace: argocd
+  # Removing this file removes everything it deployed, namespace included; its database and role
+  # in the shared PostgreSQL stay (CloudNativePG retains them).
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
 spec:
   project: default
   source:
@@ -22,6 +26,5 @@ spec:
       prune: true
       selfHeal: true
     syncOptions:
-      - CreateNamespace=true
       # Not required here (no large CRDs); used for consistency.
       - ServerSideApply=true

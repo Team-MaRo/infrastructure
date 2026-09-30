@@ -9,6 +9,10 @@ kind: Application
 metadata:
   name: etcd-snapshots
   namespace: argocd
+  # Removing this file removes everything it deployed - and with the Secret, the snapshot
+  # uploads (kube-system itself stays).
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
 spec:
   project: default
   source:

@@ -6,10 +6,12 @@ What runs on the cluster, deployed by Argo CD from this directory on `master`.
 finds, pruning anything removed. There is no separate release step, which makes branch
 protection on the repository a security control rather than a formality.
 
-Pruning stops at the Application, though: deleting a file from `clusters/<name>/` removes
-only the Application, and what it deployed keeps running untracked (no Application has the
-`resources-finalizer.argocd.argoproj.io` finalizer). Removing a component for real means
-deleting its objects by hand as well.
+Deleting a file from `clusters/<name>/` removes what that Application deployed only if it
+carries the finalizer `resources-finalizer.argocd.argoproj.io` - apps whose data lives elsewhere
+(Gatus, Zitadel, oauth2-proxy, ...), with their own `namespace.yaml`. Apps with CRDs or volumes
+(the operators, OpenBao, the databases, Loki, Prometheus) deliberately have none: deleting their
+file removes only the Application, and what it deployed keeps running untracked. Which app has
+it, and why, is in `CLAUDE.md`.
 
 ## Layout
 

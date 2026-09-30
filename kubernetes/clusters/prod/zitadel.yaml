@@ -7,6 +7,10 @@ kind: Application
 metadata:
   name: zitadel
   namespace: argocd
+  # Removing this file removes everything it deployed, namespace included; the instance, its
+  # users and apps stay in the shared PostgreSQL (CloudNativePG retains the database).
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
   annotations:
     # Compare on the server: fields the operators' webhooks default would otherwise look like
     # drift (as for the MariaDB and PostgreSQL clusters).
@@ -34,5 +38,4 @@ spec:
       prune: true
       selfHeal: true
     syncOptions:
-      - CreateNamespace=true
       - ServerSideApply=true
