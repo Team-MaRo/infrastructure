@@ -1,0 +1,34 @@
+---
+# KubeElasti for this cluster: scales rarely used apps to zero and wakes them on the first
+# request, which it holds until the app is ready. Its Helm chart pinned here, values from
+# kubernetes/components/kubeelasti. What an app needs to use it is in CLAUDE.md.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kubeelasti
+  namespace: argocd
+  # No finalizer: the chart carries the ElastiService CRD, and deleting it would delete every
+  # ElastiService - leaving their apps at zero replicas with nothing to wake them.
+spec:
+  project: default
+  sources:
+    # Pinned: bumping the version is the upgrade.
+    - repoURL: https://kubeelasti.dev/
+      chart: elasti
+      targetRevision: 0.1.30
+      helm:
+        valueFiles:
+          - $repo/kubernetes/components/kubeelasti/values.yaml
+    - repoURL: https://github.com/Team-MaRo/infrastructure.git
+      targetRevision: master
+      ref: repo
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kubeelasti
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

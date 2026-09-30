@@ -1,0 +1,9 @@
+---
+# A throwaway app proving KubeElasti here: whoami, asleep after 5 idle minutes, woken by the
+# first request. Removed again once the test is done.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - namespace.yaml
+  - whoami.yaml

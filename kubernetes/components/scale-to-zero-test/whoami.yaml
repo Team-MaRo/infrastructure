@@ -1,0 +1,121 @@
+---
+# No replicas: KubeElasti scales it between 0 and 1, and a replicas field in git would make
+# Argo CD's self-heal fight that.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: whoami
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: whoami
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: whoami
+    spec:
+      securityContext:
+        runAsUser: 65532
+        runAsGroup: 65532
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: whoami
+          image: docker.io/traefik/whoami:v1.12.0
+          args: ["--port", "8080"]
+          ports:
+            - name: http
+              containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: whoami
+  annotations:
+    # Traefik sends to the Service's ClusterIP instead of to the pods' addresses. While the app
+    # sleeps, KubeElasti points the Service at its resolver with an EndpointSlice Traefik would
+    # skip (KubeElasti#285); kube-proxy accepts it.
+    traefik.ingress.kubernetes.io/service.nativelb: "true"
+spec:
+  selector:
+    app.kubernetes.io/name: whoami
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+# The resolver finds the app to wake from this header; from the public Host it would guess wrong.
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: kubeelasti-target
+spec:
+  headers:
+    customRequestHeaders:
+      X-Envoy-Decorator-Operation: whoami.scale-to-zero-test.svc.cluster.local
+---
+# Plain HTTP on purpose, tested with curl --resolve against a node - no DNS record or
+# certificate for a throwaway app.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: whoami
+  annotations:
+    traefik.ingress.kubernetes.io/router.middlewares: scale-to-zero-test-kubeelasti-target@kubernetescrd
+spec:
+  rules:
+    - host: whoami-test.d3strukt0r.dev
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: whoami
+                port:
+                  name: http
+---
+# Asleep after 5 minutes without a request through Traefik. A check sending X-Health-Probe to
+# /health is answered by the resolver while it sleeps, without waking it.
+apiVersion: elasti.truefoundry.com/v1alpha1
+kind: ElastiService
+metadata:
+  name: whoami
+  annotations:
+    # The CRD comes with the kubeelasti Application.
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  service: whoami
+  minTargetReplicas: 1
+  cooldownPeriod: 300
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: whoami
+  triggers:
+    - type: prometheus
+      metadata:
+        query: sum(rate(traefik_service_requests_total{service="scale-to-zero-test-whoami-http@kubernetes"}[2m])) or vector(0)
+        threshold: "0.01"
+  probeResponse:
+    - method: GET
+      path:
+        type: Exact
+        value: /health
+      headers:
+        - name: X-Health-Probe
+          value: gatus
+      response:
+        status: 200
+        body: '{"status":"asleep"}'

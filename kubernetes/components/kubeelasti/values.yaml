@@ -1,0 +1,30 @@
+# Helm values for the elasti chart (KubeElasti), shared by every cluster. The chart and its
+# version are pinned in the cluster's Application (kubernetes/clusters/<name>/kubeelasti.yaml);
+# only values that differ from the chart's defaults are set here.
+
+global:
+  # ServiceMonitors for the operator and the resolver.
+  enableMonitoring: true
+
+elastiController:
+  manager:
+    env:
+      # Where each ElastiService's scale-down query runs, so the ElastiServices need not say it.
+      prometheusTriggerServerAddress: http://kube-prometheus-stack-prometheus.monitoring.svc:9090
+    # No CPU limit, as everywhere in this cluster: it throttles even an idle node.
+    resources:
+      limits:
+        cpu: null
+
+elastiResolver:
+  proxy:
+    env:
+      # Requests held while an app wakes up: 50000 by default, far more than these apps see,
+      # and all of it in the resolver's 80Mi.
+      queueSize: "1000"
+      # How long a held request waits for the app (default 600 s) before it gets a 408. Longer
+      # than any of these apps should take to start, shorter than a client gives up.
+      reqTimeout: "120"
+    resources:
+      limits:
+        cpu: null
