@@ -6,3 +6,4 @@ resources:
   - helmchartconfig.yaml
   - certificate.yaml
   - middleware-oauth2-proxy.yaml
+  - pod-monitor.yaml

@@ -1,0 +1,35 @@
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: argocd
+  annotations:
+    # The CRD comes with kube-prometheus-stack, another Application.
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  groups:
+    - name: argocd
+      rules:
+        # A sync that keeps failing (a bad manifest, a missing CRD) or drift self-heal cannot fix.
+        - alert: ArgoCDApplicationOutOfSync
+          expr: max by (name) (argocd_app_info{sync_status!="Synced"}) == 1
+          for: 30m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Argo CD Application {{ $labels.name }} has been {{ $labels.sync_status }} for 30 minutes."
+            description: >-
+              Open it at https://argocd.d3strukt0r.dev/applications/argocd/{{ $labels.name }}; the
+              sync status and the last operation show the reason.
+
+        # Degraded, Missing or stuck Progressing - something it deployed does not come up.
+        - alert: ArgoCDApplicationUnhealthy
+          expr: max by (name, health_status) (argocd_app_info{health_status!~"Healthy|Suspended"}) == 1
+          for: 30m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Argo CD Application {{ $labels.name }} has been {{ $labels.health_status }} for 30 minutes."
+            description: >-
+              Open it at https://argocd.d3strukt0r.dev/applications/argocd/{{ $labels.name }} and
+              look for the resource that is not healthy.

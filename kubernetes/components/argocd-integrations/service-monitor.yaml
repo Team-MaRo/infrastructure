@@ -1,0 +1,17 @@
+---
+# Every Argo CD metrics Service - application controller (argocd-metrics), server, repo server,
+# ApplicationSet and notifications controllers - carries this label and a port named metrics,
+# so one ServiceMonitor covers them all. The job label is each Service's name.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: argocd
+  annotations:
+    # The CRD comes with kube-prometheus-stack, another Application.
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/part-of: argocd
+  endpoints:
+    - port: metrics

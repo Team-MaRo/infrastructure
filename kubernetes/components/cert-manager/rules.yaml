@@ -1,0 +1,37 @@
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: cert-manager
+  annotations:
+    # The CRD comes with kube-prometheus-stack, another Application.
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  groups:
+    - name: cert-manager
+      rules:
+        # Issuing takes a minute or two (DNS-01 through Cloudflare); an hour means it is stuck.
+        - alert: CertificateNotReady
+          expr: max by (namespace, name) (certmanager_certificate_ready_status{condition="False"}) == 1
+          for: 1h
+          labels:
+            severity: warning
+          annotations:
+            summary: "Certificate {{ $labels.namespace }}/{{ $labels.name }} has not been Ready for an hour."
+            description: >-
+              kubectl -n {{ $labels.namespace }} describe certificate {{ $labels.name }}, then the
+              CertificateRequest, Order and Challenge it names - usually the Cloudflare token or a
+              DNS record.
+
+        # cert-manager renews 30 days before expiry, so 14 days left means renewal has been failing
+        # for over two weeks.
+        - alert: CertificateExpiringSoon
+          expr: max by (namespace, name) (certmanager_certificate_expiration_timestamp_seconds) - time() < 14 * 86400
+          for: 1h
+          labels:
+            severity: critical
+          annotations:
+            summary: "Certificate {{ $labels.namespace }}/{{ $labels.name }} expires in {{ $value | humanizeDuration }}."
+            description: >-
+              Renewal has been failing for two weeks. kubectl -n {{ $labels.namespace }} describe
+              certificate {{ $labels.name }}; kubectl -n cert-manager logs deploy/cert-manager.

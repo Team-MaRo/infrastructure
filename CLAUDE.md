@@ -767,7 +767,8 @@ upstreams: chart pinned in the cluster's Application, values in `components/`.
   - The token of the run that took a snapshot comes back with a restore and cannot be revoked
     (openbao#522), so the role's tokens live 10 minutes.
   - `OpenBaoSnapshotMissing` (`components/openbao/rules.yaml`) fires after 13 hours without a
-    scheduled success; a failed Job alerts earlier through the chart's `KubeJobFailed`.
+    successful run - a Job started by hand from the CronJob counts too, since the CronJob owns
+    it; a failed Job alerts earlier through the chart's `KubeJobFailed`.
 - **Static seal** (`seal "static"`, OpenBao 2.4+): a 32-byte key, hex, in Secret
   `openbao/openbao-seal`, written by `ansible/secrets.yml` from 1Password item
   `OpenBao | Prod | Seal key`. OpenBao unseals itself on every start, and the cluster never
@@ -1223,6 +1224,19 @@ LimitRange there, so it sets its own.
   `ETCDSnapshotFile` records, not from k3s's upload counter: after a k3s restart the counter
   reappears only with the next upload, already at 1, and `increase()` reads that as none - it
   fired falsely after the failover test.
+- **The components' own metrics** are scraped too (2026-09-30): Traefik through a PodMonitor
+  (`components/traefik/pod-monitor.yaml`, port `metrics` 9100 on the host network),
+  cert-manager's controller through a ServiceMonitor (`http-metrics` 9402), Argo CD through one
+  ServiceMonitor in `components/argocd-integrations/` (every Argo CD metrics Service has the
+  `part-of: argocd` label and a `metrics` port), Kyverno through its chart's
+  `serviceMonitor.enabled` per controller. Prometheus takes monitors from every namespace
+  without a release label (`*SelectorNilUsesHelmValues: false`). Each monitor or rule outside
+  kube-prometheus-stack carries `SkipDryRunOnMissingResource=true`, since the CRD belongs to
+  another Application. Alerts: `CertificateNotReady` (1 h), `CertificateExpiringSoon` (under 14
+  days - renewal starts at 30, critical), `ArgoCDApplicationOutOfSync` and
+  `ArgoCDApplicationUnhealthy` (30 min). Their dashboards come from grafana.com by revision
+  (`grafana.dashboards` in the values, folder "Components"), downloaded at every Grafana start
+  with `defaultCurlOptions: -sLf` - the chart's default `-k` skips the TLS check.
 - **Volume alerts at three levels** (`rules.yaml`): 80 % warning, 90 % critical, 95 % critical
   again, each a separate alert so every level notifies once; inhibit rules in the
   Alertmanager config let a higher level silence the lower ones for the same PVC. They replace
