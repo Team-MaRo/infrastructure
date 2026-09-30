@@ -1,0 +1,53 @@
+# What Gatus checks and whom it tells. Changing this file is how Gatus is administered: Argo CD
+# updates the ConfigMap and Gatus reloads it by itself within about a minute. An invalid file
+# makes Gatus exit - the pod then crash-loops, which Argo CD and Alertmanager both report.
+#
+# ${...} is filled in from the pod's environment (Secret gatus, external-secrets.yaml). Gatus
+# expands every $ in the file, so a literal one has to be written $$.
+
+ui:
+  title: Status | D3strukt0r
+  header: D3strukt0r
+
+storage:
+  type: postgres
+  path: postgres://gatus:${POSTGRES_PASSWORD}@postgres-rw.postgres.svc:5432/gatus?sslmode=verify-full&sslrootcert=/etc/postgres-ca/ca.crt
+
+# Phone notifications to the same ntfy.sh topic as Alertmanager's. Every alert below that sets
+# only `type: ntfy` takes these defaults: after 3 failed checks in a row, and again once 2
+# succeed.
+alerting:
+  ntfy:
+    topic: ${NTFY_TOPIC}
+    token: ${NTFY_TOKEN}
+    priority: 4
+    default-alert:
+      send-on-resolved: true
+
+# One entry per checked service; they appear on the page in their group.
+endpoints:
+  - name: Zitadel
+    group: Cluster
+    url: https://auth.d3strukt0r.dev/debug/healthz
+    interval: 1m
+    conditions:
+      - "[STATUS] == 200"
+    alerts:
+      - type: ntfy
+
+# The alerting pipeline itself: Alertmanager's always-firing Watchdog alert arrives here every
+# minute (kube-prometheus-stack values, receiver watchdog), at
+# /api/v1/endpoints/alerting_watchdog/external?success=true with the token as a Bearer header.
+# When none has come for 5 minutes - Prometheus, its rules or Alertmanager are down - Gatus
+# alerts through ntfy itself.
+external-endpoints:
+  - name: Watchdog
+    group: Alerting
+    token: ${WATCHDOG_TOKEN}
+    heartbeat:
+      interval: 5m
+    alerts:
+      - type: ntfy
+        failure-threshold: 1
+        success-threshold: 1
+        description: Alertmanager's Watchdog stopped arriving

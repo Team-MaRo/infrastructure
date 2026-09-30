@@ -1,0 +1,13 @@
+---
+# Reached by the Ingress (the status page) and by Alertmanager (the Watchdog heartbeat).
+apiVersion: v1
+kind: Service
+metadata:
+  name: gatus
+spec:
+  selector:
+    app.kubernetes.io/name: gatus
+  ports:
+    - name: http
+      port: 80
+      targetPort: http

@@ -1,0 +1,24 @@
+---
+# Gatus, shared by every cluster: the public status page at status.d3strukt0r.dev and the
+# heartbeat that notices a broken alerting pipeline. It has no admin UI and no login - what it
+# checks and whom it alerts is config.yaml, so it is administered through git.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - database.yaml
+  - postgres-ca.yaml
+  - external-secrets.yaml
+  - deployment.yaml
+  - service.yaml
+  - certificate.yaml
+  - ingress.yaml
+
+# A plain name, not a hashed one: Gatus reloads the file in place, so a change needs no new
+# ConfigMap and no pod restart.
+configMapGenerator:
+  - name: gatus
+    files:
+      - config.yaml
+    options:
+      disableNameSuffixHash: true

@@ -1,0 +1,27 @@
+---
+# Gatus for this cluster, from kubernetes/components/gatus: the public status page at
+# status.d3strukt0r.dev and the Watchdog heartbeat. Inside the cluster for now: a complete
+# cluster outage takes it down too, so that case goes unnoticed until it moves to a machine
+# outside.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: gatus
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Team-MaRo/infrastructure.git
+    targetRevision: master
+    path: kubernetes/components/gatus
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: gatus
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      # Not required here (no large CRDs); used for consistency.
+      - ServerSideApply=true

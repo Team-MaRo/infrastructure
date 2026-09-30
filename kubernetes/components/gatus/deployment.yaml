@@ -1,0 +1,68 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gatus
+spec:
+  # One instance: a second would run every check and send every alert again.
+  replicas: 1
+  # Stop the old pod before starting the new one, for the same reason.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: gatus
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: gatus
+    spec:
+      securityContext:
+        # The image is built FROM scratch and names no user, so it would run as root.
+        runAsUser: 65534
+        runAsGroup: 65534
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: gatus
+          # Pinned; bumping the tag is the upgrade.
+          image: ghcr.io/twin/gatus:v5.37.0
+          envFrom:
+            - secretRef:
+                name: gatus
+          ports:
+            - name: http
+              containerPort: 8080
+          securityContext:
+            allowPrivilegeEscalation: false
+            # With PostgreSQL as storage, Gatus writes nothing to disk.
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 30
+          volumeMounts:
+            # Replaces the image's example /config/config.yaml, Gatus' default path. Mounted as
+            # a directory, not with subPath, so a changed ConfigMap reaches the running pod.
+            - name: config
+              mountPath: /config
+              readOnly: true
+            - name: postgres-ca
+              mountPath: /etc/postgres-ca
+              readOnly: true
+      volumes:
+        - name: config
+          configMap:
+            name: gatus
+        - name: postgres-ca
+          secret:
+            secretName: postgres-ca
