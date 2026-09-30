@@ -1,0 +1,29 @@
+---
+# What Argo CD needs from other components (its certificate, the webhook secret, its metrics
+# monitors), from kubernetes/components/argocd-integrations - apart from the argocd Application
+# so that component stays bootstrappable on a fresh cluster.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: argocd-integrations
+  namespace: argocd
+  # Removing this file removes what it deployed; the argocd namespace belongs to the argocd
+  # Application and stays.
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Team-MaRo/infrastructure.git
+    targetRevision: master
+    path: kubernetes/components/argocd-integrations
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      # Not required here (no large CRDs); used for consistency.
+      - ServerSideApply=true

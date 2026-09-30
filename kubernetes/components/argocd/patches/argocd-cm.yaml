@@ -1,13 +1,7 @@
 ---
-# Check git every minute instead of every 120 s plus up to 60 s of jitter. The jitter only
-# spreads the load of many Applications polling at once, which a cluster this size does not
-# have. Git fetches over HTTPS are not subject to GitHub's API rate limits.
-#
-# Both values reach argocd-application-controller and argocd-repo-server as environment
-# variables, read at start - after a change, restart both (see kubernetes/README.md).
-#
-# A GitHub webhook would make syncs immediate instead, now that argocd-server is reachable
-# from the internet.
+# Git is polled at Argo CD's default interval (120 s plus up to 60 s of jitter); a push to this
+# repository arrives at once through GitHub's webhook (patches/argocd-secret.yaml), so polling is
+# only the fallback when a webhook delivery is lost.
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -30,8 +24,6 @@ data:
     # drops Argo CD's own session and the next login passes Zitadel without a password. Argo CD
     # fills in the ID token and its own address (no trailing slash - as registered in Zitadel).
     logoutURL: https://auth.d3strukt0r.dev/oidc/v1/end_session?id_token_hint={{token}}&post_logout_redirect_uri={{logoutRedirectURL}}
-  timeout.reconciliation: 60s
-  timeout.reconciliation.jitter: 0s
   # An aggregated ClusterRole (Kyverno's controllers use them) has its rules filled in by
   # Kubernetes from other roles, so they never match git. Without this every such role
   # shows as permanent drift. Read live, no restart needed.

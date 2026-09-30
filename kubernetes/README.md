@@ -21,6 +21,7 @@ kubernetes/
 │   └── prod/
 │       ├── root.yaml          # syncs this directory - itself and every sibling
 │       ├── argocd.yaml        # Argo CD managing its own installation
+│       ├── argocd-integrations.yaml  # its certificate, webhook secret and metrics monitors
 │       ├── hcloud-csi.yaml    # persistent volumes
 │       ├── openbao.yaml       # the secret store: Helm chart pinned here, values in components/
 │       ├── external-secrets.yaml  # delivers OpenBao values as Kubernetes Secrets
@@ -47,9 +48,12 @@ kubernetes/
     ├── argocd/                # pinned upstream install.yaml plus patches
     │   ├── kustomization.yaml
     │   ├── namespace.yaml
-    │   ├── certificate.yaml   # argocd.d3strukt0r.dev
     │   ├── ingress.yaml       # UI and API behind Traefik
-    │   └── patches/           # argocd-cm (Zitadel login), RBAC, plain HTTP, Dex removed, memory
+    │   └── patches/           # argocd-cm (Zitadel login), RBAC, plain HTTP, Dex removed, memory, webhook secret
+    ├── argocd-integrations/   # what Argo CD needs from other components' CRDs
+    │   ├── kustomization.yaml
+    │   ├── certificate.yaml   # argocd.d3strukt0r.dev
+    │   └── external-secrets.yaml  # the GitHub webhook secret
     ├── hcloud-csi/            # Hetzner's CSI driver, pinned
     │   ├── kustomization.yaml
     │   └── patches/           # reclaimPolicy Retain, memory per container
@@ -1145,17 +1149,28 @@ A new client ID (a recreated app) goes into `components/oauth2-proxy/external-se
 
 ## How quickly a push arrives
 
-Argo CD checks git every 60 seconds (`patches/argocd-cm.yaml`; upstream is 120 s plus up to
-60 s of jitter). The application controller and the repo server read that interval at start,
-so after changing it, restart both once the change has synced:
+At once: GitHub sends every push to `https://argocd.d3strukt0r.dev/api/webhook`, signed with
+the secret in 1Password `GitHub | infrastructure | Argo CD webhook` (OpenBao
+`secret/argocd-webhook`), and Argo CD refreshes every Application using this repository.
+Polling at Argo CD's default (120 s plus up to 60 s of jitter) remains the fallback for a lost
+delivery. The application controller and the repo server read the polling interval at start,
+so after changing it in `patches/argocd-cm.yaml`, restart both once the change has synced:
 
 ```shell
 kubectl --context d3strukt0r-prod-admin -n argocd rollout restart statefulset argocd-application-controller
 kubectl --context d3strukt0r-prod-admin -n argocd rollout restart deployment argocd-repo-server
 ```
 
-A GitHub webhook would make syncs immediate, once `argocd-server` is reachable from the
-internet.
+The webhook itself lives in GitHub (repository settings → Webhooks, or `gh api
+repos/Team-MaRo/infrastructure/hooks`); its recent deliveries and their answers show there too.
+Creating it again:
+
+```shell
+gh api repos/Team-MaRo/infrastructure/hooks --method POST -f name=web -F active=true -f 'events[]=push' \
+  -f 'config[url]=https://argocd.d3strukt0r.dev/api/webhook' -f 'config[content_type]=json' -f 'config[insecure_ssl]=0' \
+  -f "config[secret]=$(op item get 'GitHub | infrastructure | Argo CD webhook' --account my.1password.com --vault Private --fields password --reveal)" \
+  --jq '.id'
+```
 
 ## When Argo CD breaks itself
 
