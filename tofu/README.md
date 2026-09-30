@@ -192,22 +192,37 @@ OpenBao's own configuration - what the Helm values in `kubernetes/components/ope
 not cover: the KV v2 secrets engine at `secret/`, Kubernetes auth, and the policy and role
 External Secrets logs in with. Uses HashiCorp's `vault` provider; OpenBao keeps Vault's API.
 
-OpenBao is only reachable inside the cluster, so open a port-forward first and keep it
-running while you plan or apply:
+**Day to day**, log in through Zitadel first; the provider takes that token from
+`~/.vault-token` and reaches OpenBao at its public address:
 
 ```sh
-kubectl --context d3strukt0r-prod-admin -n openbao port-forward svc/openbao 8200:8200
-```
-
-```sh
+bao login -method=oidc -no-print     # with BAO_ADDR=https://openbao.d3strukt0r.dev set
 cd openbao
 tofu init
 tofu plan
 ```
 
-`openbao/terraform.tfvars` holds `openbao_token`: the initial root token from 1Password item
-`OpenBao | Prod | Recovery keys & root token`. Admins log in through Zitadel now (`oidc.tf`);
-revoking the root token is planned, and this module then needs a credential of its own.
+**On a cluster rebuilt from scratch** no OIDC login exists yet, so the root token from 1Password
+item `OpenBao | Prod | Recovery keys & root token` goes into `openbao/terraform.tfvars` as
+`openbao_token` (see `terraform.tfvars.example`), and - while `openbao.d3strukt0r.dev` does not
+answer yet - `openbao_address = "http://127.0.0.1:8200"` with a port-forward:
+
+```sh
+kubectl --context d3strukt0r-prod-admin -n openbao port-forward svc/openbao 8200:8200
+```
+
+The order there: the OIDC login reads its client secret from `secret/`, the mount this module
+creates, so the mount comes first on its own; then the secret values go in (below, `openbao-oidc`
+with a freshly regenerated Zitadel secret among them); then the full apply. Remove
+`openbao_token` from the tfvars once the Zitadel login works.
+
+```sh
+tofu apply -target=vault_mount.secret
+tofu apply
+```
+
+The root token stays valid in 1Password as the break-glass login. Were it ever lost, the recovery
+keys in the same item (reusable, 3 of 5) create a new one: `bao operator generate-root`.
 
 **Secret values never go through this module.** Anything OpenTofu writes lands in its state,
 so values are put in by hand:
@@ -220,6 +235,8 @@ BAO_TOKEN="$(op item get 'OpenBao | Prod | Recovery keys & root token' --account
 
 The token is fetched per command, so it never sits in the shell's environment or history.
 `op item get` rather than `op read`: `op://` references reject the `|` in the item title.
+Logged in through Zitadel (`bao login -method=oidc -no-print`), the same commands work without
+`BAO_TOKEN` and against `BAO_ADDR=https://openbao.d3strukt0r.dev` instead of the port-forward.
 
 Two traps with `key="$(op item get ...)"`, both met while setting up MariaDB:
 
