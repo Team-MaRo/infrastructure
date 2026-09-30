@@ -613,9 +613,16 @@ self-heal.
   controller is a StatefulSet, which Kubernetes will not replace on an unreachable node:
   syncing stays stopped until the node returns or is tainted
   `node.kubernetes.io/out-of-service`.
-- **The UI is not exposed** - port-forward from the admin context. TLS would be available
-  (cert-manager and Traefik run), but the UIs open only once Zitadel provides SSO. The local
-  `admin` account is used until then, and stays as the break-glass login afterwards.
+- **The UI is at `https://argocd.d3strukt0r.dev`, logging in through Zitadel** (`oidc.config`
+  in `argocd-cm`, no Dex): two public clients from `tofu/zitadel/apps_argocd.tf`, the UI's and
+  the CLI's (`cliClientID`, redirect to `localhost:8085`), both PKCE without a client secret -
+  there is no secret to keep. Rights come from the `groups` claim: `infra-admin` is
+  `role:admin` (`argocd-rbac-cm`), everyone else gets nothing, and Zitadel's role check keeps
+  users without a role out anyway. TLS ends at Traefik; `server.insecure` makes argocd-server
+  speak plain HTTP behind it (read at start - a change needs a restart of argocd-server). The
+  CLI logs in with `argocd login argocd.d3strukt0r.dev --sso --grpc-web`: gRPC-web passes as
+  plain HTTPS, so no h2c route for native gRPC is configured. The local `admin` account and the
+  port-forward stay as the break-glass way in.
 
 ### Bootstrap secrets come from 1Password, once
 

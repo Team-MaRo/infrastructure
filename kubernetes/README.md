@@ -156,15 +156,22 @@ of itself is a no-op.
 
 ## Accessing the UI
 
-Not exposed yet: the UIs open once Zitadel provides SSO (TLS via cert-manager and Traefik is
-already in place). Until then:
+**Argo CD** is at `https://argocd.d3strukt0r.dev` - "Log in via Zitadel" with the personal user
+(it needs the role `infra-admin`). The CLI, once; `--grpc-web` is remembered:
 
 ```shell
-kubectl --context d3strukt0r-prod-admin -n argocd port-forward svc/argocd-server 8080:443
+argocd login argocd.d3strukt0r.dev --sso --grpc-web
 ```
 
-then `https://localhost:8080`; expect a self-signed certificate warning. Uptime Kuma the same
-way:
+Break-glass, with Zitadel down: the port-forward and the local `admin` (its password is in
+1Password), on plain HTTP since TLS ends at Traefik:
+
+```shell
+kubectl --context d3strukt0r-prod-admin -n argocd port-forward svc/argocd-server 8080:80
+```
+
+then `http://localhost:8080`. The other UIs are not exposed yet; they follow with the same
+Zitadel login. Uptime Kuma by port-forward:
 
 ```shell
 kubectl --context d3strukt0r-prod-admin -n uptime-kuma port-forward svc/uptime-kuma 3001:3001
@@ -196,7 +203,7 @@ throw away the only copy before you have logged in:
    ```
 
 2. Port-forward as above, log in as `admin`, and go to **User Info → Update Password**. (With
-   the `argocd` CLI instead: `argocd login localhost:8080 --insecure`, then
+   the `argocd` CLI instead: `argocd login localhost:8080 --plaintext`, then
    `argocd account update-password`.)
 3. Store the new password in 1Password.
 4. Only now delete the secret that held the first one:

@@ -16,8 +16,12 @@ resources:
   # A single-file URL rather than the github.com/...//manifests/cluster-install form, which
   # makes Kustomize shell out to git - not installed on the nodes.
   - https://raw.githubusercontent.com/argoproj/argo-cd/v3.5.3/manifests/install.yaml
+  - certificate.yaml
+  - ingress.yaml
 
 patches:
   - path: patches/dex.yaml
   - path: patches/argocd-cm.yaml
+  - path: patches/argocd-cmd-params-cm.yaml
+  - path: patches/argocd-rbac-cm.yaml
   - path: patches/resources.yaml
