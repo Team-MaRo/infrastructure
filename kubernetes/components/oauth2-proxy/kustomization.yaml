@@ -1,0 +1,11 @@
+---
+# oauth2-proxy, the login gate for UIs without a Zitadel login of their own. The Helm chart is
+# pinned in the cluster's Application with values.yaml from here; these are the objects it
+# needs besides the chart. The Traefik middleware that sends requests through it lives next to
+# each guarded UI, in that UI's namespace.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - external-secrets.yaml
+  - certificates.yaml
