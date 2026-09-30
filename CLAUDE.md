@@ -1447,6 +1447,23 @@ Measured idle after the first start (2026-09-30): Zitadel about 120-170Mi, the l
   2029-01-01). Human users stay in the console - their passwords and second factors are theirs.
   Kubernetes runs one `components/zitadel` however many organisations or instances exist; they
   are data in Zitadel, so per-tenant files belong in `tofu/zitadel`.
+- **The `groups` claim comes from a webhook** (`components/zitadel/groups-webhook.yaml`, targets
+  and executions in `tofu/zitadel/groups_claim.tf`). Zitadel sends roles only as a nested map,
+  `urn:zitadel:iam:org:project:roles`, which Argo CD, OpenBao and oauth2-proxy cannot read; an
+  Actions v2 target (`REST_CALL`) on the functions `preuserinfo` and `preaccesstoken` calls a
+  short Python script (stock `python` image, the script in a ConfigMap - the repo builds no
+  images) that answers the role keys as a list. Actions v1, a script inside Zitadel, would need
+  no service, but is deprecated and goes with Zitadel v5 (user decision). Roles only arrive for
+  projects with role assertion on. `interrupt_on_error = false`: with the webhook down, tokens
+  lack `groups`, Zitadel logins still work and the UIs refuse (fail closed). The request
+  signature is not checked - the answer only matters to Zitadel, and a NetworkPolicy admits
+  only Zitadel's pods.
+- **Zitadel refuses to call private addresses** (`HTTPClient.DenyList`, for actions, identity
+  providers and SMTP alike), which includes every Service. `ZITADEL_HTTPCLIENT_DENYLIST` in the
+  values replaces that list with the default entries and `10.0.0.0/8` split into 24 ranges that
+  leave out exactly `10.43.255.250`, the webhook Service's fixed `clusterIP` - the Kubernetes
+  API and every other Service stay unreachable from Zitadel. The target is checked against the
+  list when it is created, so the webhook is deployed before `tofu/zitadel` creates the target.
 - **The provider speaks native gRPC**, which Cloudflare's proxy refuses with `403` unless the
   zone's gRPC switch (dashboard → Network → gRPC) is on - turned on for `d3strukt0r.dev` on
   2026-09-30. No provider manages that switch, so it is set by hand; the symptom of it being
