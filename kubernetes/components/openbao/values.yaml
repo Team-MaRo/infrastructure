@@ -30,7 +30,9 @@ server:
     # network's WireGuard tunnels encrypt the traffic.
     #
     # The static seal unseals OpenBao on every start with a 32-byte key from Secret
-    # openbao-seal, which is not in git - ansible/secrets.yml writes it from 1Password.
+    # openbao-seal, which is not in git - ansible/secrets.yml writes it from 1Password:
+    # 1Password "OpenBao | Prod | Seal key"
+    #   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=n3blscroul4eancakippscoyhq&h=my.1password.com
     # Changing the key means rotating it through previous_key/previous_key_id, never simply
     # replacing it: data encrypted with the old key would become unreadable.
     config: |

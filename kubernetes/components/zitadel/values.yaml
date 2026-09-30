@@ -24,6 +24,8 @@ zitadel:
     # name, since Zitadel appends a domain to one without @) and the chart's machine admin
     # iam-admin, whose key the setup job stores as Secret iam-admin - for managing Zitadel as code
     # later. Zitadel takes the e-mail address from the name and marks it verified by default.
+    # 1Password "Zitadel | Prod | Admin"
+    #   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=hwednr7k3ycfvmdgtbcylq5nwi&h=my.1password.com
     FirstInstance:
       Org:
         Name: D3strukt0r

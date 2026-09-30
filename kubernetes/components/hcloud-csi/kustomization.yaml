@@ -1,7 +1,9 @@
 ---
 # Hetzner's CSI driver, shared by every cluster: turns PersistentVolumeClaims into Hetzner
 # Cloud Volumes. It reads its API token from Secret kube-system/hcloud (key token), which is
-# not in git - ansible/secrets.yml writes it from 1Password.
+# not in git - ansible/secrets.yml writes it from 1Password:
+# 1Password "Hetzner | Prod CSI"
+#   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=un5urgife7qtuyxfmqcsmf2otm&h=my.1password.com
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 

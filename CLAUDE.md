@@ -270,25 +270,25 @@ although uploads answer with an `Expiration` header that suggests so (tested 202
   two entirely. Object lock was only possible at creation and made versioning permanent.
 - **`d3strukt0r-prod-loki`: unversioned, no lock**, lifecycle rule only for incomplete
   uploads; Loki's compactor deletes old logs. Only the admin key and Loki's key (console label
-  `prod loki`, 1Password `Hetzner | S3 | prod loki`, OpenBao `secret/loki-s3`) reach it.
+  `prod loki`, 1Password [`Hetzner | S3 | prod loki`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=obsu3brgoh5l3yxawnbbvq4wi4&h=my.1password.com), OpenBao `secret/loki-s3`) reach it.
 - **`d3strukt0r-prod-mariadb-backups`: unversioned, objects expire after 35 days.** It holds the
   MariaDB operator's physical backups and archived binary logs. The operator deletes backups
   past their 30-day retention itself but never the binary logs, so the lifecycle rule expires
   everything after 35 days - long enough that every kept backup still has its binary logs.
   Only the admin key and the backup key (console label `prod mariadb backups`, 1Password
-  `Hetzner | S3 | prod mariadb backups`, OpenBao `secret/mariadb-backups-s3`) reach it.
+  [`Hetzner | S3 | prod mariadb backups`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=qttplkz3cky6llsjgw7zhww5bu&h=my.1password.com), OpenBao `secret/mariadb-backups-s3`) reach it.
 - **`d3strukt0r-prod-postgres-backups`: unversioned, lifecycle rule only for incomplete
   uploads.** It holds CloudNativePG's base backups and archived WAL (Barman Cloud plugin) of
   the shared PostgreSQL. The plugin deletes base backups past their retention together with the
   WAL they no longer need, so nothing else expires here. Only the admin key and the backup key
-  (console label `prod postgres backups`, 1Password `Hetzner | S3 | prod postgres backups`,
+  (console label `prod postgres backups`, 1Password [`Hetzner | S3 | prod postgres backups`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=xwoxypf5ibmqtcfl7gwjuxx4re&h=my.1password.com),
   OpenBao `secret/postgres-backups-s3`) reach it.
 - **`d3strukt0r-prod-openbao-snapshots`: object lock, GOVERNANCE, 7 days, like the etcd
   bucket** (same lifecycle rule and two-statement policy, `prevent_destroy`). OpenBao's
   snapshot agent deletes snapshots past 30 days itself - only delete markers here, the versions
   stay locked and are removed 7 days later - so a stolen snapshot key cannot destroy a backup.
   Only the admin key and the snapshot key (console label `prod openbao snapshots`, 1Password
-  `Hetzner | S3 | prod openbao snapshots`, OpenBao `secret/openbao-snapshot-s3`) reach it.
+  [`Hetzner | S3 | prod openbao snapshots`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=7wzbdy35bhtgqn6ahbqyoaiuum&h=my.1password.com), OpenBao `secret/openbao-snapshot-s3`) reach it.
 - **Provider `aminueza/minio`, `s3_compat_mode` off.** The `aws` provider cannot refresh a
   bucket here (it reads Accelerate, Website, Logging, Replication and Tagging, all
   unimplemented). Compat mode would swallow "not implemented" errors, object lock and
@@ -659,7 +659,7 @@ self-heal.
   `components/argocd-integrations/`, an Application of their own (with the finalizer). The
   certificate sat in `components/argocd/` until 2026-09-30, which would have broken a rebuild.
 - **A push arrives at once, through a GitHub webhook** to `/api/webhook`, signed with a secret
-  (1Password `GitHub | infrastructure | Argo CD webhook`, OpenBao `secret/argocd-webhook`):
+  (1Password [`GitHub | infrastructure | Argo CD webhook`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=gknq7z4job2lgkcpzszvucaxay&h=my.1password.com), OpenBao `secret/argocd-webhook`):
   `argocd-secret` carries only the reference `$argocd-webhook:github-secret`, and the Secret it
   names needs the label `app.kubernetes.io/part-of: argocd`. Polling stays at Argo CD's default
   (120 s plus up to 60 s of jitter) as the fallback for a lost delivery. The hook itself is
@@ -695,6 +695,16 @@ OpenBao itself needs for its volumes, and `openbao/openbao-seal`, OpenBao's own 
 `onepassword_account` (`my.1password.com`, pinned because a second, work account is signed
 in too) and `onepassword_vault` (`Private`).
 
+- **Every reference to a 1Password item carries its title and its link** (user rule,
+  2026-09-30), so either finds it: in Markdown `` [`Title`](link) ``, in code comments the title
+  and the link on the line below; values the code uses (`item:` in group_vars, titles in `op`
+  commands) stay titles, since `op` finds items by title. That covers the docs, the
+  `terraform.tfvars.example` files (and the local tfvars), `variables.tf`, group_vars and every
+  ExternalSecret whose OpenBao value comes from 1Password. The link is the app's "copy link",
+  built from IDs only:
+  `op item get '<title>' --account my.1password.com --format json | jq -r --arg a "$(op account list --format json | jq -r '.[] | select(.url=="my.1password.com") | .account_uuid')" '"https://start.1password.com/open/i?a=\($a)&v=\(.vault.id)&i=\(.id)&h=my.1password.com"'`.
+  It opens only for someone signed in with access to the vault; it exposes account, vault and
+  item IDs (accepted) and **goes stale when an item is recreated** - regenerate its links then.
 - **1Password is the bootstrap root of trust only.** The `op` CLI reads the values on the
   admin's machine (Touch ID prompt); nothing in the cluster talks to 1Password. There is no
   Ansible Vault - it would only be a second place for the same secrets.
@@ -771,12 +781,12 @@ upstreams: chart pinned in the cluster's Application, values in `components/`.
     it; a failed Job alerts earlier through the chart's `KubeJobFailed`.
 - **Static seal** (`seal "static"`, OpenBao 2.4+): a 32-byte key, hex, in Secret
   `openbao/openbao-seal`, written by `ansible/secrets.yml` from 1Password item
-  `OpenBao | Prod | Seal key`. OpenBao unseals itself on every start, and the cluster never
+  [`OpenBao | Prod | Seal key`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=n3blscroul4eancakippscoyhq&h=my.1password.com). OpenBao unseals itself on every start, and the cluster never
   talks to 1Password. **Losing that key makes the data and all snapshots unreadable.**
   Rotation adds the new key and moves the old one to `previous_key`, never a replacement.
 - **Initialised once, by hand** (`bao operator init` via `kubectl exec`), done 2026-09-24. The
   five recovery keys and the initial root token are in their own 1Password item,
-  `OpenBao | Prod | Recovery keys & root token`, apart from the seal key - which is written
+  [`OpenBao | Prod | Recovery keys & root token`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=6ftev2p3fo3dc457whshzgn6jy&h=my.1password.com), apart from the seal key - which is written
   once and never edited, while the root token will be revoked and regenerated. There is no
   automation for this on purpose: it happens once per storage lifetime and its output must go
   straight into 1Password.
@@ -810,7 +820,7 @@ upstreams: chart pinned in the cluster's Application, values in `components/`.
   http localhost address.
 - **OpenBao refuses OIDC without a client secret** (`both 'oidc_client_id' and
   'oidc_client_secret' must be set`), although it uses PKCE too. The secret lives in 1Password
-  `Zitadel | Prod | OpenBao` and OpenBao `secret/openbao-oidc`; `tofu/openbao` reads it with an
+  [`Zitadel | Prod | OpenBao`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=66smfmdqmznzjmlv4pv4znccjq&h=my.1password.com) and OpenBao `secret/openbao-oidc`; `tofu/openbao` reads it with an
   **ephemeral** `vault_kv_secret_v2` and hands it over as the write-only
   `oidc_client_secret_wo`, so it is in no state and no tfvars. Write-only values are only sent
   when `oidc_client_secret_wo_version` changes - bump it after a rotation.
@@ -848,7 +858,7 @@ each to `d3strukt0r-prod-etcd`.
   `etcd-snapshots`, in the cluster directory rather than `components/` because the bucket
   is prod's): endpoint, region `nbg1` and bucket in git, the cluster's own S3 key from
   OpenBao `secret/etcd-snapshot-s3` (`access-key`, `secret-key`). That key is kept in
-  1Password (`Hetzner | S3 | prod etcd snapshots`) and copied into OpenBao with `bao kv put`
+  1Password ([`Hetzner | S3 | prod etcd snapshots`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=w2po7jqmxren7y7eruj73p5w4a&h=my.1password.com)) and copied into OpenBao with `bao kv put`
   (command in `kubernetes/README.md`); a restore uses the admin key instead. Console label
   `prod etcd snapshots`.
 - **k3s's pruning only adds delete markers** on this versioned bucket; each version stays
@@ -859,7 +869,7 @@ each to `d3strukt0r-prod-etcd`.
   settings as CLI flags (`--etcd-s3-endpoint`, `--etcd-s3-region`, `--etcd-s3-bucket`,
   keys from the `d3strukt0r-hetzner` profile) **and the original server token**, which
   decrypts the bootstrap data inside the snapshot. The token is in 1Password,
-  `k3s | Prod | Server token`, copied from `/var/lib/rancher/k3s/server/token`.
+  [`k3s | Prod | Server token`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=2eic3puykugnvm6tsdh2jf4nvy&h=my.1password.com), copied from `/var/lib/rancher/k3s/server/token`.
 
 ### k3s upgrades itself
 
@@ -1114,8 +1124,8 @@ traffic.
   (an expiring token would silently stop renewals) and **no client IP filter** - nodes may be
   added or replaced, and a filter on today's node IPs would break cert-manager on any new
   one. They are protected by where they live instead, in
-  1Password as `Cloudflare | cert-manager DNS (prod cluster)` and
-  `Cloudflare | Arepazo | cert-manager DNS (prod cluster)`, copied into OpenBao `secret/cloudflare-dns` (fields `personal`,
+  1Password as [`Cloudflare | cert-manager DNS (prod cluster)`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=gb6fdq5kggtselhlpywmmlvake&h=my.1password.com) and
+  [`Cloudflare | Arepazo | cert-manager DNS (prod cluster)`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=vnc4tluvl3iy35fxkkavvszkwy&h=my.1password.com), copied into OpenBao `secret/cloudflare-dns` (fields `personal`,
   `arepazo`) with `bao kv put`, and delivered as Secret `cert-manager/cloudflare-api-tokens`
   by an ExternalSecret. ClusterIssuers read their Secrets from cert-manager's own namespace.
 - **No email on the ACME accounts**: optional, this repo is public, and Let's Encrypt no
@@ -1558,7 +1568,7 @@ Measured idle after the first start (2026-09-30): Zitadel about 120-170Mi, the l
   which `postgres-ca.yaml` copies into `zitadel` through External Secrets' Kubernetes provider: a
   ServiceAccount whose Role in `postgres` may `get` only Secret `postgres-ca`, and an ExternalSecret
   taking only `ca.crt` - never the CA's key. The pattern for every Postgres app.
-- **The masterkey** (OpenBao `secret/zitadel`, 1Password `Zitadel | Prod | Masterkey`) encrypts
+- **The masterkey** (OpenBao `secret/zitadel`, 1Password [`Zitadel | Prod | Masterkey`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=cpgucnzccroyrl5zwzdrmcbfau&h=my.1password.com)) encrypts
   secrets in the database; losing it makes them unreadable and it cannot be changed after the
   first start - like OpenBao's seal key. Ours, not the chart's, which would generate one in a Helm
   hook.
@@ -1650,7 +1660,7 @@ about every request (a `forwardAuth` Middleware); it never proxies a request its
 - **The one client with a secret** (`tofu/zitadel/apps_oauth2_proxy.tf`, auth method BASIC):
   oauth2-proxy refuses to run without one. The secret Zitadel returned at creation is in the
   tofu state, so it was regenerated in the console at once; the live one and the cookie secret
-  are in 1Password `Zitadel | Prod | oauth2-proxy` and OpenBao `secret/oauth2-proxy`, delivered
+  are in 1Password [`Zitadel | Prod | oauth2-proxy`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=7ckbf72eceri3t2s3cy7c5du2y&h=my.1password.com) and OpenBao `secret/oauth2-proxy`, delivered
   by the ExternalSecret `oauth2-proxy` (the client ID, not secret, is written into its
   template).
 - **The Middleware exists once per guarded namespace** (today only `kube-system`) - Traefik

@@ -6,4 +6,6 @@
 #
 # Only needed when nameserver delegation has actually drifted - the checks themselves
 # read public DNS and need no credential at all.
+# 1Password "Infomaniak | OpenTofu Nameservers"
+#   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=yhx2xelsq6wfgztjnpeq2ndntq&h=my.1password.com
 infomaniak_token = ""

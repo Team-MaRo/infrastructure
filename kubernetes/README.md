@@ -221,7 +221,7 @@ kubectl --context d3strukt0r-prod-admin -n argocd port-forward svc/argocd-server
 then `http://localhost:8080`.
 
 **Grafana** is at `https://grafana.d3strukt0r.dev` - "Sign in with Zitadel", the same way; its
-local `admin` (password in 1Password `Grafana | Prod | Admin`) and the port-forward below stay
+local `admin` (password in 1Password [`Grafana | Prod | Admin`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=25tqaghtajnc3efoop2ve6jfze&h=my.1password.com)) and the port-forward below stay
 as break-glass.
 
 The **Traefik dashboard** is at `https://traefik.d3strukt0r.dev`, behind the Zitadel gate
@@ -235,7 +235,7 @@ kubectl --context d3strukt0r-prod-admin -n monitoring port-forward svc/kube-prom
 kubectl --context d3strukt0r-prod-admin -n monitoring port-forward svc/kube-prometheus-stack-alertmanager 9093:9093
 ```
 
-then `http://localhost:3000` (break-glass: user `admin`, password in 1Password `Grafana | Prod | Admin`),
+then `http://localhost:3000` (break-glass: user `admin`, password in 1Password [`Grafana | Prod | Admin`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=25tqaghtajnc3efoop2ve6jfze&h=my.1password.com)),
 `http://localhost:9090` (Status → Targets shows every scrape) and `http://localhost:9093`
 (firing alerts, silences).
 
@@ -247,7 +247,7 @@ valid admin token, to the terminal:
 BAO_ADDR=https://openbao.d3strukt0r.dev bao login -method=oidc -no-print
 ```
 
-Break-glass: the root token (1Password `OpenBao | Prod | Recovery keys & root token`), in the
+Break-glass: the root token (1Password [`OpenBao | Prod | Recovery keys & root token`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=6ftev2p3fo3dc457whshzgn6jy&h=my.1password.com)), in the
 UI's Token method or through the port-forward in "OpenBao".
 
 ### After every fresh install: replace the admin password
@@ -378,7 +378,7 @@ kubectl --context d3strukt0r-prod-admin -n openbao delete job openbao-snapshot-m
 
 ### Restoring
 
-A restore needs the static seal key and its ID `1` (1Password `OpenBao | Prod | Seal key`), a
+A restore needs the static seal key and its ID `1` (1Password [`OpenBao | Prod | Seal key`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=n3blscroul4eancakippscoyhq&h=my.1password.com)), a
 snapshot, and an initialised, unsealed OpenBao to restore into - on a lost volume, a fresh one:
 push, `ansible-playbook secrets.yml`, `bao operator init` as in "First install" (keep its output
 only until the restore is done). Then, with the new root token:
@@ -444,7 +444,7 @@ that Secret.
 Setting it up, or replacing the key:
 
 1. Create an S3 key in the Hetzner console, labelled `prod etcd snapshots`, and store it in
-   1Password as `Hetzner | S3 | prod etcd snapshots` (access key as username, secret key as
+   1Password as [`Hetzner | S3 | prod etcd snapshots`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=w2po7jqmxren7y7eruj73p5w4a&h=my.1password.com) (access key as username, secret key as
    credential).
 2. With the port-forward to OpenBao open and `BAO_TOKEN` set (see `tofu/README.md`), copy it
    over - the values never appear in shell history:
@@ -476,7 +476,7 @@ aws --profile d3strukt0r-hetzner s3api get-object --bucket d3strukt0r-prod-etcd 
 ```
 
 **A restore cannot read the Secret**, since the apiserver is down. It needs the S3 settings
-as flags and the server token from 1Password (`k3s | Prod | Server token`); see the
+as flags and the server token from 1Password ([`k3s | Prod | Server token`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=2eic3puykugnvm6tsdh2jf4nvy&h=my.1password.com)); see the
 [k3s docs](https://docs.k3s.io/cli/etcd-snapshot) for the full procedure:
 
 ```shell
@@ -620,8 +620,8 @@ The issuers use one Cloudflare token per account. Creating or replacing them:
 1. Cloudflare dashboard → My Profile → API Tokens → Create Token, permissions
    `Zone → DNS → Edit` and `Zone → Zone → Read`, zone resources "All zones from an
    account". Once in the personal login, once in the arepazo login.
-2. Store them in 1Password as `Cloudflare | cert-manager DNS (prod cluster)` and
-   `Cloudflare | Arepazo | cert-manager DNS (prod cluster)` (field `credential`).
+2. Store them in 1Password as [`Cloudflare | cert-manager DNS (prod cluster)`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=gb6fdq5kggtselhlpywmmlvake&h=my.1password.com) and
+   [`Cloudflare | Arepazo | cert-manager DNS (prod cluster)`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=vnc4tluvl3iy35fxkkavvszkwy&h=my.1password.com) (field `credential`).
 3. With the port-forward to OpenBao open and `BAO_TOKEN` set:
 
    ```shell
@@ -669,7 +669,7 @@ reserved, so anyone who knows the name could read it.
      what it is, the 128 random bits make it unguessable.
    - Create an access token at ntfy.sh → Account → Access tokens, named `prod cluster alerts`,
      **never expiring** (an expiring token would silently stop the alerts).
-   - Store both in 1Password as `ntfy | prod alerts` (topic as `username`, token as
+   - Store both in 1Password as [`ntfy | prod alerts`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=htj7nc5vbwet6osr3mfdm3b5yy&h=my.1password.com) (topic as `username`, token as
      `credential`), and subscribe to the topic in the ntfy Android app.
    - Copy them into OpenBao (port-forward to OpenBao open):
 
@@ -710,7 +710,7 @@ Alertmanager sends alerts to the phone through the ntfy topic from "Status page"
 `critical` at priority 5, `warning` at 3, `info` only in Grafana. It needs, before its first
 sync, `secret/ntfy` and `secret/gatus` (see "Status page") and Grafana's admin password:
 
-1. Create a password item `Grafana | Prod | Admin` in 1Password (username `admin`).
+1. Create a password item [`Grafana | Prod | Admin`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=25tqaghtajnc3efoop2ve6jfze&h=my.1password.com) in 1Password (username `admin`).
 2. With the port-forward to OpenBao open:
 
    ```shell
@@ -781,7 +781,7 @@ its binary logs archived every ten minutes, so it can be restored to any moment 
 **Before the first sync**, its passwords and S3 key go into OpenBao (port-forward and
 `BAO_TOKEN` as in "OpenBao"):
 
-1. A 1Password item `MariaDB | Prod | Root & replication` with two generated password
+1. A 1Password item [`MariaDB | Prod | Root & replication`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=uxnuz66uu5e2jojwk5xqq3tpgi&h=my.1password.com) with two generated password
    fields, `root-password` and `repl-password`.
 2. As JSON on stdin (generated passwords may start with `@`; an empty lookup must not be
    stored - see "OpenBao" in `tofu/README.md`):
@@ -1053,8 +1053,8 @@ cluster's UIs and apps. Its data is in the shared PostgreSQL (database `zitadel`
 **Before the first sync**, its secrets go into OpenBao (port-forward and `BAO_TOKEN` as in
 "OpenBao"); the database password is set up as in "PostgreSQL: adding an app":
 
-1. Two 1Password items: the first admin's login `Zitadel | Prod | Admin` (generated password),
-   and `Zitadel | Prod | Masterkey`, **exactly 32 characters** (letters and digits), written
+1. Two 1Password items: the first admin's login [`Zitadel | Prod | Admin`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=hwednr7k3ycfvmdgtbcylq5nwi&h=my.1password.com) (generated password),
+   and [`Zitadel | Prod | Masterkey`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=cpgucnzccroyrl5zwzdrmcbfau&h=my.1password.com), **exactly 32 characters** (letters and digits), written
    once and never edited:
 
    ```shell
@@ -1077,10 +1077,10 @@ cluster's UIs and apps. Its data is in the shared PostgreSQL (database `zitadel`
 **The masterkey must never be lost or changed**: it encrypts the secrets in Zitadel's database.
 
 The first start creates the organisation `D3strukt0r` with the admin `auth-admin@d3strukt0r.dev`
-(the password from `Zitadel | Prod | Admin`, kept as the login) at
+(the password from [`Zitadel | Prod | Admin`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=hwednr7k3ycfvmdgtbcylq5nwi&h=my.1password.com), kept as the login) at
 `https://auth.d3strukt0r.dev/ui/console`, and the machine user `iam-admin`, whose key the setup
 job stores as Secret `iam-admin` in `zitadel` - copy it into 1Password too, as the document
-`Zitadel | Prod | iam-admin key`, without printing it:
+[`Zitadel | Prod | iam-admin key`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=jitp4bfd4oirrwza3vpl3fr6oi&h=my.1password.com), without printing it:
 
 ```shell
 kubectl --context d3strukt0r-prod-admin -n zitadel get secret iam-admin -o jsonpath='{.data.iam-admin\.json}' | base64 -d > /tmp/iam-admin.json \
@@ -1100,7 +1100,7 @@ domain gets a new code for the record's content.
 Still by hand:
 
 1. `auth-admin`: Password and Security → Multifactor Authentication → Authenticator App, the QR
-   code scanned into `Zitadel | Prod | Admin`, tested by logging out and in. On a fresh
+   code scanned into [`Zitadel | Prod | Admin`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=hwednr7k3ycfvmdgtbcylq5nwi&h=my.1password.com), tested by logging out and in. On a fresh
    instance this comes **before** the first `tofu apply` of `tofu/zitadel`, which requires MFA.
 2. Cloudflare dashboard → `d3strukt0r.dev` → Network → **gRPC on**: `tofu/zitadel`'s provider
    speaks gRPC, which Cloudflare refuses otherwise.
@@ -1233,7 +1233,7 @@ that.
 ## How quickly a push arrives
 
 At once: GitHub sends every push to `https://argocd.d3strukt0r.dev/api/webhook`, signed with
-the secret in 1Password `GitHub | infrastructure | Argo CD webhook` (OpenBao
+the secret in 1Password [`GitHub | infrastructure | Argo CD webhook`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=gknq7z4job2lgkcpzszvucaxay&h=my.1password.com) (OpenBao
 `secret/argocd-webhook`), and Argo CD refreshes every Application using this repository.
 Polling at Argo CD's default (120 s plus up to 60 s of jitter) remains the fallback for a lost
 delivery. The application controller and the repo server read the polling interval at start,

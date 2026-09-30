@@ -6,6 +6,7 @@
 # OpenBao refuses an OIDC login without a client secret. It is kept in OpenBao itself
 # (secret/openbao-oidc, put in by hand from 1Password "Zitadel | Prod | OpenBao"), read here
 # ephemerally and written write-only: it never enters this state.
+#   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=66smfmdqmznzjmlv4pv4znccjq&h=my.1password.com
 ephemeral "vault_kv_secret_v2" "oidc" {
   mount = vault_mount.secret.path
   name  = "openbao-oidc"

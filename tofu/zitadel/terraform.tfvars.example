@@ -3,6 +3,7 @@
 
 # The iam-admin machine key, the whole JSON from 1Password document
 # "Zitadel | Prod | iam-admin key", pasted between the markers:
+#   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=jitp4bfd4oirrwza3vpl3fr6oi&h=my.1password.com
 #   op document get 'Zitadel | Prod | iam-admin key' --account my.1password.com --vault Private | jq .
 zitadel_jwt_profile = <<-EOT
 EOT

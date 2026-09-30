@@ -3,6 +3,8 @@
 # clients it needs a client secret. The one Zitadel returns at creation lands in this state, so
 # it is regenerated once in the console right after; the live secret is kept in 1Password and
 # OpenBao secret/oauth2-proxy only.
+# 1Password "Zitadel | Prod | oauth2-proxy"
+#   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=7ckbf72eceri3t2s3cy7c5du2y&h=my.1password.com
 resource "zitadel_application_oidc" "oauth2_proxy" {
   org_id     = local.org_id
   project_id = zitadel_project.infrastructure.id
