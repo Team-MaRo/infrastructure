@@ -178,7 +178,15 @@ as break-glass.
 
 **Uptime Kuma** is at `https://uptime-kuma.d3strukt0r.dev` and the **Traefik dashboard** at
 `https://traefik.d3strukt0r.dev` - both behind the Zitadel gate (oauth2-proxy, see "The login
-gate"); Uptime Kuma then asks for its own admin as well. Break-glass for Uptime Kuma, the
+gate"); Uptime Kuma then asks for its own admin as well. **OpenBao** is at `https://openbao.d3strukt0r.dev` - method OIDC, role empty (the default),
+"Sign in with OIDC Provider". The CLI:
+
+```shell
+BAO_ADDR=https://openbao.d3strukt0r.dev bao login -method=oidc
+```
+
+Break-glass: the root token (1Password `OpenBao | Prod | Recovery keys & root token`), in the
+UI's Token method or through the port-forward in "OpenBao". Break-glass for Uptime Kuma, the
 port-forward:
 
 ```shell

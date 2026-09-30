@@ -1,0 +1,8 @@
+---
+# OpenBao, shared by every cluster. The Helm chart is pinned in the cluster's Application with
+# values.yaml from here; these are the objects it needs besides the chart.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - certificates.yaml
