@@ -178,15 +178,7 @@ as break-glass.
 
 **Uptime Kuma** is at `https://uptime-kuma.d3strukt0r.dev` and the **Traefik dashboard** at
 `https://traefik.d3strukt0r.dev` - both behind the Zitadel gate (oauth2-proxy, see "The login
-gate"); Uptime Kuma then asks for its own admin as well. **OpenBao** is at `https://openbao.d3strukt0r.dev` - method OIDC, role empty (the default),
-"Sign in with OIDC Provider". The CLI:
-
-```shell
-BAO_ADDR=https://openbao.d3strukt0r.dev bao login -method=oidc
-```
-
-Break-glass: the root token (1Password `OpenBao | Prod | Recovery keys & root token`), in the
-UI's Token method or through the port-forward in "OpenBao". Break-glass for Uptime Kuma, the
+gate"); Uptime Kuma then asks for its own admin as well. Break-glass for Uptime Kuma, the
 port-forward:
 
 ```shell
@@ -204,6 +196,17 @@ kubectl --context d3strukt0r-prod-admin -n monitoring port-forward svc/kube-prom
 then `http://localhost:3000` (break-glass: user `admin`, password in 1Password `Grafana | Prod | Admin`),
 `http://localhost:9090` (Status → Targets shows every scrape) and `http://localhost:9093`
 (firing alerts, silences).
+
+**OpenBao** is at `https://openbao.d3strukt0r.dev` - method OIDC, role empty (the default),
+"Sign in with OIDC Provider". The CLI - `-no-print`, or `bao login` prints the new token, a
+valid admin token, to the terminal:
+
+```shell
+BAO_ADDR=https://openbao.d3strukt0r.dev bao login -method=oidc -no-print
+```
+
+Break-glass: the root token (1Password `OpenBao | Prod | Recovery keys & root token`), in the
+UI's Token method or through the port-forward in "OpenBao".
 
 ### After every fresh install: replace the admin password
 
