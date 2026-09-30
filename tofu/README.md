@@ -243,6 +243,22 @@ jq -n --arg a "$(op item get '<item>' --account my.1password.com --vault Private
 API tokens and access keys have a fixed format without `@`, so the plain `key=value` form
 stays fine for them.
 
+**The OIDC login** (`oidc.tf`) needs `secret/openbao-oidc` before its first apply: the client
+secret of the Zitadel app `OpenBao` (`tofu/zitadel/apps_openbao.tf`), regenerated in the console
+right after that app was created, since the first one is in `tofu/zitadel`'s state.
+
+```sh
+op item create --account my.1password.com --vault Private --category password \
+  --title 'Zitadel | Prod | OpenBao' "password=$(pbpaste)" >/dev/null
+jq -n --arg c "$(op item get 'Zitadel | Prod | OpenBao' --account my.1password.com --vault Private --fields password --reveal)" \
+  'if ($c|length)==0 then error("empty value - 1Password lookup failed") else {"client-secret":$c} end' \
+| BAO_ADDR=http://127.0.0.1:8200 BAO_TOKEN="$(op item get 'OpenBao | Prod | Recovery keys & root token' --account my.1password.com --vault Private --fields credential --reveal)" \
+  bao kv put secret/openbao-oidc -
+```
+
+The module reads it ephemerally and writes it write-only - it never enters the state. After a
+rotation, raise `oidc_client_secret_wo_version`, or the new value is never sent.
+
 ## zitadel
 
 What is inside Zitadel - everything the Helm values in `kubernetes/components/zitadel/` do not
