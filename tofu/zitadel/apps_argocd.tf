@@ -23,7 +23,8 @@ resource "zitadel_application_oidc" "argocd" {
 }
 
 # `argocd login --sso` opens the browser and receives the code on a local port. Native apps may
-# redirect to http://localhost.
+# redirect to http://localhost. The CLI asks for offline_access; with refresh tokens its session
+# outlives the ID token instead of ending with it.
 resource "zitadel_application_oidc" "argocd_cli" {
   org_id     = local.org_id
   project_id = zitadel_project.infrastructure.id
@@ -31,7 +32,7 @@ resource "zitadel_application_oidc" "argocd_cli" {
 
   app_type         = "OIDC_APP_TYPE_NATIVE"
   auth_method_type = "OIDC_AUTH_METHOD_TYPE_NONE"
-  grant_types      = ["OIDC_GRANT_TYPE_AUTHORIZATION_CODE"]
+  grant_types      = ["OIDC_GRANT_TYPE_AUTHORIZATION_CODE", "OIDC_GRANT_TYPE_REFRESH_TOKEN"]
   response_types   = ["OIDC_RESPONSE_TYPE_CODE"]
 
   redirect_uris = ["http://localhost:8085/auth/callback"]
