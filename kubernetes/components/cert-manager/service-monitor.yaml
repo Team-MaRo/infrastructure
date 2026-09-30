@@ -1,0 +1,17 @@
+---
+# The controller's metrics - every Certificate's readiness and expiry among them, which
+# rules.yaml alerts on. The cainjector and webhook have metrics too, but nothing worth watching.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: cert-manager
+  annotations:
+    # The CRD comes with kube-prometheus-stack, another Application.
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: cert-manager
+      app.kubernetes.io/component: controller
+  endpoints:
+    - port: http-metrics

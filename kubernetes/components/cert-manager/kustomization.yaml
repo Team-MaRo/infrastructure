@@ -10,3 +10,5 @@ resources:
   - https://github.com/cert-manager/cert-manager/releases/download/v1.21.2/cert-manager.yaml
   - external-secret.yaml
   - cluster-issuers.yaml
+  - service-monitor.yaml
+  - rules.yaml

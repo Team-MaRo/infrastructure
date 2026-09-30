@@ -12,14 +12,26 @@ global:
 # The chart's 128Mi limits were too tight when measured (2026-09-28): the background controller
 # already used 104 MiB. The reports controller grows with the number of policy reports.
 backgroundController:
+  serviceMonitor:
+    enabled: true
   resources:
     requests:
       memory: 128Mi
     limits:
       memory: 256Mi
 reportsController:
+  serviceMonitor:
+    enabled: true
   resources:
     requests:
       memory: 128Mi
     limits:
       memory: 256Mi
+# Metrics for Prometheus: admission requests and policy results per controller. The monitors'
+# CRD comes with kube-prometheus-stack.
+admissionController:
+  serviceMonitor:
+    enabled: true
+cleanupController:
+  serviceMonitor:
+    enabled: true

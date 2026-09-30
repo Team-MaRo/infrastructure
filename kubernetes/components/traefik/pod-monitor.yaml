@@ -1,0 +1,17 @@
+---
+# Traefik's metrics: requests, latencies and TLS certificates per router and service, on the
+# entrypoint "metrics" (9100) that k3s's chart enables. Traefik runs on the host network, so the
+# pods' addresses are the nodes' private IPs; the Hetzner firewall keeps 9100 closed outside.
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: traefik
+  annotations:
+    # The CRD comes with kube-prometheus-stack, another Application.
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: traefik
+  podMetricsEndpoints:
+    - port: metrics

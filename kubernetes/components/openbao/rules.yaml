@@ -11,9 +11,9 @@ spec:
     - name: openbao
       rules:
         # The snapshot CronJob runs every 6 hours; this fires after two missed or failed runs, or
-        # when it has never succeeded (the metric only appears with the first scheduled success -
-        # a Job started by hand does not count). A failed Job alerts earlier through the chart's
-        # KubeJobFailed.
+        # when it has never succeeded. A Job started by hand with `kubectl create job
+        # --from=cronjob/openbao-snapshot` belongs to the CronJob and counts as a success too. A
+        # failed Job alerts earlier through the chart's KubeJobFailed.
         - alert: OpenBaoSnapshotMissing
           expr: >-
             time() - kube_cronjob_status_last_successful_time{namespace="openbao", cronjob="openbao-snapshot"} > 13 * 3600

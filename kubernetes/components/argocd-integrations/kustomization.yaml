@@ -10,3 +10,5 @@ namespace: argocd
 resources:
   - certificate.yaml
   - external-secrets.yaml
+  - service-monitor.yaml
+  - rules.yaml
