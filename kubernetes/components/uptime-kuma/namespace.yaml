@@ -1,6 +1,0 @@
----
-# Part of the app, so removing the app removes the namespace and anything left in it.
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: uptime-kuma

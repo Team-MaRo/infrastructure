@@ -29,7 +29,7 @@ kubernetes/
 │       ├── kyverno.yaml           # policies: chart pinned here, values and policies in components/
 │       ├── cert-manager.yaml      # certificates from Let's Encrypt
 │       ├── traefik.yaml           # k3s's Traefik: DaemonSet on the ingress nodes' host network
-│       ├── uptime-kuma.yaml       # website checks and the alerting heartbeat
+│       ├── gatus.yaml             # the public status page and the alerting heartbeat
 │       ├── kube-prometheus-stack.yaml  # metrics and alerts: chart pinned here, values in components/
 │       ├── loki.yaml              # log storage: chart pinned here, values in components/
 │       ├── alloy.yaml             # log collection on every node: chart pinned here
@@ -133,14 +133,17 @@ kubernetes/
     │   ├── values.yaml            # Helm values: the collection pipeline
     │   ├── kustomization.yaml
     │   └── clusterrole.yaml       # only what the pipeline reads
-    └── uptime-kuma/
-        ├── kustomization.yaml
-        ├── deployment.yaml        # one replica, pinned rootless image, SQLite
-        ├── pvc.yaml               # its 10 GB volume
+    └── gatus/
+        ├── kustomization.yaml     # config.yaml becomes the ConfigMap gatus
+        ├── config.yaml            # what is checked, the Watchdog heartbeat, ntfy
+        ├── namespace.yaml
+        ├── deployment.yaml        # one replica, pinned image, read-only
+        ├── database.yaml          # its role and database, in the postgres namespace
+        ├── postgres-ca.yaml       # copies CloudNativePG's CA certificate for verify-full
+        ├── external-secrets.yaml  # ntfy, the heartbeat token, the database password
         ├── service.yaml
-        ├── certificate.yaml       # uptime-kuma.d3strukt0r.dev
-        ├── ingress.yaml           # behind the Zitadel gate
-        └── middleware-oauth2-proxy.yaml  # the gate
+        ├── certificate.yaml       # status.d3strukt0r.dev
+        └── ingress.yaml           # public, no login
 ```
 
 Components are Kustomize over a pinned upstream manifest where upstream publishes one.
@@ -214,16 +217,10 @@ then `http://localhost:8080`.
 local `admin` (password in 1Password `Grafana | Prod | Admin`) and the port-forward below stay
 as break-glass.
 
-**Uptime Kuma** is at `https://uptime-kuma.d3strukt0r.dev` and the **Traefik dashboard** at
-`https://traefik.d3strukt0r.dev` - both behind the Zitadel gate (oauth2-proxy, see "The login
-gate"); Uptime Kuma then asks for its own admin as well. Break-glass for Uptime Kuma, the
+The **Traefik dashboard** is at `https://traefik.d3strukt0r.dev`, behind the Zitadel gate
+(oauth2-proxy, see "The login gate"). The **status page** is public at
+`https://status.d3strukt0r.dev` (see "Status page"). Grafana, Prometheus and Alertmanager by
 port-forward:
-
-```shell
-kubectl --context d3strukt0r-prod-admin -n uptime-kuma port-forward svc/uptime-kuma 3001:3001
-```
-
-then `http://localhost:3001`. Grafana, Prometheus and Alertmanager:
 
 ```shell
 kubectl --context d3strukt0r-prod-admin -n monitoring port-forward svc/kube-prometheus-stack-grafana 3000:80
@@ -567,25 +564,48 @@ The issuers use one Cloudflare token per account. Creating or replacing them:
      arepazo="$(op item get 'Cloudflare | Arepazo | cert-manager DNS (prod cluster)' --account my.1password.com --vault Private --fields credential --reveal)"
    ```
 
-## Uptime Kuma
+## Status page
 
-Checks the websites and watches the alerting pipeline itself: Alertmanager sends its
-always-firing `Watchdog` alert to an Uptime Kuma push monitor every minute, and when that
-stops, Uptime Kuma alerts through ntfy. Its configuration lives in its database, not in git,
-so it is set up by hand once - and again only if its volume is lost. The list below is what to
-recreate.
+Gatus, public at `https://status.d3strukt0r.dev`: it checks the services in
+`components/gatus/config.yaml` and watches the alerting pipeline itself - Alertmanager sends its
+always-firing `Watchdog` alert to Gatus every two minutes, and when none has come for 5 minutes,
+Gatus alerts through ntfy. There is no admin UI and no login: **adding or changing a check is
+editing `config.yaml` and pushing**; Gatus reloads it within about a minute, without a restart.
+A check is one entry:
+
+```yaml
+endpoints:
+  - name: Zitadel
+    group: Cluster
+    url: https://auth.d3strukt0r.dev/debug/healthz
+    interval: 1m
+    conditions:
+      - "[STATUS] == 200"
+    alerts:
+      - type: ntfy
+```
+
+An invalid file makes Gatus exit and the pod crash-loop; its last log shows why. A literal `$`
+in the file is written `$$`. Check what it sees:
+
+```shell
+kubectl --context d3strukt0r-prod-admin -n gatus logs deploy/gatus --previous   # after a crash
+curl -s https://status.d3strukt0r.dev/api/v1/endpoints/statuses | jq -c '.[] | {key, last: [.results[-3:][] | .success]}'
+```
+
+**Before the first sync**, ntfy and two secrets of its own must be in OpenBao.
 
 Alerts go to one ntfy.sh topic, whose name is the secret: on the free plan a topic cannot be
 reserved, so anyone who knows the name could read it.
 
-1. **ntfy**, once for all monitoring:
+1. **ntfy**, once for all monitoring (Gatus and Alertmanager share it):
    - Create the topic name with `echo "prod-alerts-$(openssl rand -hex 16)"` - the prefix says
      what it is, the 128 random bits make it unguessable.
    - Create an access token at ntfy.sh → Account → Access tokens, named `prod cluster alerts`,
      **never expiring** (an expiring token would silently stop the alerts).
    - Store both in 1Password as `ntfy | prod alerts` (topic as `username`, token as
      `credential`), and subscribe to the topic in the ntfy Android app.
-   - Copy them into OpenBao for Alertmanager (port-forward to OpenBao open):
+   - Copy them into OpenBao (port-forward to OpenBao open):
 
      ```shell
      BAO_ADDR=http://127.0.0.1:8200 BAO_TOKEN="$(op item get 'OpenBao | Prod | Recovery keys & root token' --account my.1password.com --vault Private --fields credential --reveal)" \
@@ -594,43 +614,35 @@ reserved, so anyone who knows the name could read it.
          token="$(op item get 'ntfy | prod alerts' --account my.1password.com --vault Private --fields credential --reveal)"
      ```
 
-2. Port-forward (see "Accessing the UI"), open `http://localhost:3001`, create the admin
-   account and store it in 1Password as `Uptime Kuma | Prod | Admin`. Enable 2FA under
-   Settings → Security → Two Factor Authentication, scanning the QR code into the same
-   1Password item as a one-time password.
-3. Settings → Notifications → Setup Notification: type **ntfy**, display name
-   `ntfy prod alerts`, server `https://ntfy.sh`, the topic, authentication **Access token**
-   with the token, priority 4 and DOWN priority 5, **Default enabled**. **Test** must reach the
-   phone before saving.
-4. Add New Monitor → **Push**, name `Alertmanager Watchdog`, heartbeat interval 300 s,
-   retries 1. **Pause it** until Alertmanager is deployed (see "Metrics and alerts"), or it
-   goes DOWN after five minutes.
-   Its push URL, as shown, is `http://localhost:3001/api/push/<token>?status=up&msg=OK&ping=`;
-   put it into OpenBao with the cluster-internal host instead and without `&ping=`:
+2. **The heartbeat token and the database password**, letters and digits only: Gatus expands
+   every `$` in its config, and the password sits inside a `postgres://` URL.
 
    ```shell
-   BAO_ADDR=http://127.0.0.1:8200 BAO_TOKEN="$(op item get 'OpenBao | Prod | Recovery keys & root token' --account my.1password.com --vault Private --fields credential --reveal)" \
-     bao kv put secret/uptime-kuma \
-       watchdog-push-url='http://uptime-kuma.uptime-kuma.svc:3001/api/push/<token>?status=up&msg=OK'
+   op item create --account my.1password.com --vault Private --category password --title 'Gatus | Prod | Watchdog token' \
+     --generate-password='letters,digits,32' >/dev/null
+   op item create --account my.1password.com --vault Private --category password --title 'PostgreSQL | Prod | gatus' \
+     --generate-password='letters,digits,20' >/dev/null
+   jq -n --arg t "$(op item get 'Gatus | Prod | Watchdog token' --account my.1password.com --vault Private --fields password --reveal)" \
+     'if ($t|length)!=32 then error("watchdog token must be 32 characters - 1Password lookup failed?") else {"watchdog-token":$t} end' \
+   | bao kv put secret/gatus -
+   jq -n --arg p "$(op item get 'PostgreSQL | Prod | gatus' --account my.1password.com --vault Private --fields password --reveal)" \
+     'if ($p|length)!=20 then error("password must be 20 characters - 1Password lookup failed?") else {"password":$p} end' \
+   | bao kv put secret/postgres-apps/gatus -
    ```
 
-5. One **HTTP(s)** monitor per entry in the list below, interval 60 s, retries 2.
+   (logged in with `bao login -method=oidc -no-print`; on a fresh OpenBao, with the root token
+   and port-forward as above).
 
-| Monitor | Type | Target |
-|---|---|---|
-| Alertmanager Watchdog | Push | Alertmanager, every minute |
-| Zitadel | HTTP(s) | `https://auth.d3strukt0r.dev/debug/healthz` |
-
-**Losing the volume** loses this configuration and the check history, nothing else: repeat
-the steps, and replace the push URL in OpenBao, since a new monitor gets a new token.
+On the first start the pod may restart a few times until CloudNativePG has created its
+database. Until Alertmanager sends its first heartbeat, Gatus reports the Watchdog as down after
+5 minutes - a free test of the alert path.
 
 ## Metrics and alerts
 
 kube-prometheus-stack: Prometheus collects metrics for 30 days, Grafana shows them, and
-Alertmanager sends alerts to the phone through the ntfy topic from "Uptime Kuma" -
+Alertmanager sends alerts to the phone through the ntfy topic from "Status page" -
 `critical` at priority 5, `warning` at 3, `info` only in Grafana. It needs, before its first
-sync, `secret/ntfy` and `secret/uptime-kuma` (see "Uptime Kuma") and Grafana's admin
-password:
+sync, `secret/ntfy` and `secret/gatus` (see "Status page") and Grafana's admin password:
 
 1. Create a password item `Grafana | Prod | Admin` in 1Password (username `admin`).
 2. With the port-forward to OpenBao open:
@@ -645,10 +657,10 @@ password:
    JSON on stdin rather than `key=value`: a generated password may start with `@`, and a
    failed lookup would otherwise store an empty value (see "OpenBao" in `tofu/README.md`).
 
-As soon as the first sync is done, resume the `Alertmanager Watchdog` monitor in Uptime Kuma;
-it should turn green within a minute. While it is paused, Uptime Kuma answers every heartbeat
-with 404, and after a few minutes Alertmanager reports that as `AlertmanagerFailedToSendAlerts`.
-That alert resolves by itself about 15 minutes after the monitor is resumed.
+After the first sync, the Watchdog on the status page turns green within two minutes, and
+Gatus sends a "resolved" message if it had reported it down. While Gatus is unreachable,
+Alertmanager reports the failed heartbeats as `AlertmanagerFailedToSendAlerts` after a few
+minutes.
 
 **When an alert arrives**, its message says what fired and where. The cluster's own alerts
 (`components/kube-prometheus-stack/rules.yaml`) carry what to do in their description; the
@@ -675,7 +687,7 @@ Every container's log, every node's journal and the cluster's events end up in L
 days, searchable in Grafana → Explore → datasource **Loki**. A few queries to start from:
 
 ```
-{namespace="uptime-kuma"}                                  # one namespace's containers
+{namespace="gatus"}                                        # one namespace's containers
 {namespace="monitoring", container="prometheus"} |= "error"  # lines containing "error"
 {job="node-journal", unit="k3s.service", node="prod-01"}   # k3s's own log on one node
 {job="node-journal", unit="ssh.service"}                   # SSH logins
@@ -1010,8 +1022,6 @@ kubectl --context d3strukt0r-prod-admin -n zitadel get secret iam-admin -o jsonp
   && rm /tmp/iam-admin.json
 ```
 
-Then add its Uptime Kuma monitor (see "Uptime Kuma").
-
 The instance's login and domain policies and the organisation's domains are in `tofu/zitadel`
 (see `tofu/README.md`): MFA required for Zitadel passwords (authenticator app or security
 key/passkey, no e-mail or SMS codes), organisation domains only after DNS verification, no login
@@ -1046,8 +1056,8 @@ kubectl --context d3strukt0r-prod-admin -n zitadel get pods,jobs,certificates,ex
 
 ## The login gate
 
-oauth2-proxy guards the UIs without a Zitadel login of their own (the Traefik dashboard, Uptime
-Kuma). Its Zitadel app comes from `tofu/zitadel` (`apps_oauth2_proxy.tf`); **before the first
+oauth2-proxy guards the UIs without a Zitadel login of their own (today the Traefik
+dashboard). Its Zitadel app comes from `tofu/zitadel` (`apps_oauth2_proxy.tf`); **before the first
 sync**, its secrets go into OpenBao:
 
 1. Right after `tofu apply` created the app, regenerate its secret - the one from creation is in

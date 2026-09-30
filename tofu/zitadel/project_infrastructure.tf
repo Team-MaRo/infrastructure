@@ -1,5 +1,5 @@
-# The cluster's admin UIs - Argo CD, Grafana, OpenBao, the Traefik dashboard and Uptime Kuma -
-# are applications of this one project, and its role is what they grant admin rights for.
+# The cluster's admin UIs - Argo CD, Grafana, OpenBao, the Traefik dashboard - and kubectl are
+# applications of this one project, and its role is what they grant admin rights for.
 resource "zitadel_project" "infrastructure" {
   org_id = local.org_id
   name   = "Infrastructure"

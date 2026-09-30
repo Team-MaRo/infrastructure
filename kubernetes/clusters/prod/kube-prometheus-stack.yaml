@@ -1,7 +1,7 @@
 ---
 # Metrics and alerts for this cluster: the kube-prometheus-stack Helm chart with values from
 # kubernetes/components/kube-prometheus-stack/values.yaml, plus that directory's manifests.
-# Needs secret/ntfy, secret/uptime-kuma and secret/grafana in OpenBao.
+# Needs secret/ntfy, secret/gatus and secret/grafana in OpenBao.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:

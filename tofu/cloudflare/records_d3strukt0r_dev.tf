@@ -178,22 +178,6 @@ resource "cloudflare_dns_record" "d3strukt0r_dev_cname_traefik" {
   }
 }
 
-# Uptime Kuma, behind oauth2-proxy and its own login.
-resource "cloudflare_dns_record" "d3strukt0r_dev_cname_uptime_kuma" {
-  provider = cloudflare.personal
-
-  content = "prod.d3strukt0r.dev"
-  name    = "uptime-kuma.d3strukt0r.dev"
-  proxied = true
-  tags    = []
-  ttl     = 1
-  type    = "CNAME"
-  zone_id = local.zone_ids["d3strukt0r.dev"]
-  settings = {
-    flatten_cname = false
-  }
-}
-
 # The public status page (Gatus), on the cluster.
 resource "cloudflare_dns_record" "d3strukt0r_dev_cname_status" {
   provider = cloudflare.personal
