@@ -1,0 +1,10 @@
+---
+# Cluster-wide rights for people who log in to kubectl through Zitadel. The API server prefixes
+# every username and group from a Zitadel token with `zitadel:` (the AuthenticationConfiguration
+# written by ansible/roles/k3s), so these bindings can never match a built-in `system:` name.
+# RBAC that belongs to one app stays in that app's component.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - infra-admin.yaml
