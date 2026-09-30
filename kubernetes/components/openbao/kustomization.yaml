@@ -6,3 +6,5 @@ kind: Kustomization
 
 resources:
   - certificates.yaml
+  - external-secrets.yaml
+  - rules.yaml

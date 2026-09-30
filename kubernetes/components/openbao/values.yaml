@@ -68,3 +68,31 @@ server:
     - name: seal
       mountPath: /openbao/seal
       readOnly: true
+
+# Backups: every 6 hours (UTC) a CronJob logs in with its service account (Kubernetes auth, role
+# snapshot in tofu/openbao/snapshot.tf), saves a Raft snapshot and uploads it with s3cmd to
+# d3strukt0r-prod-openbao-snapshots, the bucket only its key and the admin's reach. It deletes
+# snapshots older than 30 days itself; the bucket keeps each deleted one 7 more days, locked.
+# The snapshots are encrypted with OpenBao's barrier: a restore needs the static seal key and
+# its key ID "1" (restore runbook in kubernetes/README.md).
+snapshotAgent:
+  enabled: true
+  schedule: "0 */6 * * *"
+  # Keys AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY, from external-secrets.yaml.
+  s3CredentialsSecret: openbao-snapshot-s3
+  config:
+    s3Host: nbg1.your-objectstorage.com
+    s3Bucket: d3strukt0r-prod-openbao-snapshots
+    # The bucket root with a trailing slash and nothing else in it: the agent's pruning fails
+    # on sub-prefixes.
+    s3Uri: s3://d3strukt0r-prod-openbao-snapshots/
+    s3ExpireDays: "30"
+  # Setting the container's context replaces the chart's, so its defaults are repeated; the
+  # snapshot goes to an emptyDir, so the root filesystem can be read-only.
+  securityContext:
+    container:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+          - ALL

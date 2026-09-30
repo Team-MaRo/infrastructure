@@ -134,15 +134,17 @@ covers keys that do not exist yet.
 | `d3strukt0r-prod-loki` | bucket, lifecycle, policy | only Loki's key and the admin key |
 | `d3strukt0r-prod-mariadb-backups` | bucket, lifecycle (expires after 35 days), policy | only the MariaDB backup key and the admin key |
 | `d3strukt0r-prod-postgres-backups` | bucket, lifecycle, policy | only the PostgreSQL backup key and the admin key |
+| `d3strukt0r-prod-openbao-snapshots` | bucket, object lock, lifecycle, policy | only OpenBao's snapshot key and the admin key; like the etcd bucket, the key cannot bypass the lock or change the bucket's rules |
 
-The etcd bucket locks every version for 7 days in GOVERNANCE mode, and a lifecycle rule
-removes versions 7 days after they are replaced or deleted. GOVERNANCE, not COMPLIANCE, so
+The etcd and OpenBao snapshot buckets lock every version for 7 days in GOVERNANCE mode, and a
+lifecycle rule removes versions 7 days after they are replaced or deleted. GOVERNANCE, not COMPLIANCE, so
 the admin key can still delete early - but a Hetzner key holds every permission, the
 governance bypass included, so the policy denies that bypass to every other key. A leaked
 cluster key can therefore add delete markers but cannot destroy a locked snapshot.
 
 Needs `project_id`, `etcd_access_key_id`, `loki_access_key_id`,
-`mariadb_backups_access_key_id` and `postgres_backups_access_key_id` in
+`mariadb_backups_access_key_id`, `postgres_backups_access_key_id` and
+`openbao_snapshots_access_key_id` in
 `objectstorage/terraform.tfvars` - the key IDs are the username fields of the keys'
 1Password items, never the secrets. The provider cannot read
 AWS profiles, so `locals.tf` parses the `[d3strukt0r-hetzner]` section of
