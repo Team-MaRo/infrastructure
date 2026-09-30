@@ -114,6 +114,22 @@ resource "cloudflare_dns_record" "d3strukt0r_dev_cname_auth" {
   }
 }
 
+# Argo CD's UI and API, on the cluster behind Zitadel's login.
+resource "cloudflare_dns_record" "d3strukt0r_dev_cname_argocd" {
+  provider = cloudflare.personal
+
+  content = "prod.d3strukt0r.dev"
+  name    = "argocd.d3strukt0r.dev"
+  proxied = true
+  tags    = []
+  ttl     = 1
+  type    = "CNAME"
+  zone_id = local.zone_ids["d3strukt0r.dev"]
+  settings = {
+    flatten_cname = false
+  }
+}
+
 resource "cloudflare_dns_record" "d3strukt0r_dev_cname_dk1_domainkey" {
   provider = cloudflare.personal
 
