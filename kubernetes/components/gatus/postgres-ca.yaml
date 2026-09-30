@@ -1,0 +1,65 @@
+---
+# CloudNativePG's CA certificate, copied from the postgres namespace so Gatus can verify the
+# database's certificate (sslmode verify-full). External Secrets reads it through its Kubernetes
+# provider with this ServiceAccount, which may read exactly that one Secret and nothing else. The
+# certificate is public; the CA's private key in the same Secret is never copied.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: postgres-ca-reader
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: gatus-postgres-ca-reader
+  namespace: postgres
+rules:
+  - apiGroups: [""]
+    resources: [secrets]
+    resourceNames: [postgres-ca]
+    verbs: [get]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: gatus-postgres-ca-reader
+  namespace: postgres
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: gatus-postgres-ca-reader
+subjects:
+  - kind: ServiceAccount
+    name: postgres-ca-reader
+    namespace: gatus
+---
+apiVersion: external-secrets.io/v1
+kind: SecretStore
+metadata:
+  name: postgres
+spec:
+  provider:
+    kubernetes:
+      remoteNamespace: postgres
+      server:
+        caProvider:
+          type: ConfigMap
+          name: kube-root-ca.crt
+          key: ca.crt
+      auth:
+        serviceAccount:
+          name: postgres-ca-reader
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: postgres-ca
+spec:
+  secretStoreRef:
+    kind: SecretStore
+    name: postgres
+  data:
+    - secretKey: ca.crt
+      remoteRef:
+        key: postgres-ca
+        property: ca.crt

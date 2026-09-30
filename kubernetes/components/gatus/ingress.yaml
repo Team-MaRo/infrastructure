@@ -1,0 +1,24 @@
+---
+# The status page at status.d3strukt0r.dev (its own record in tofu/cloudflare), public on
+# purpose: Gatus has no admin UI - what it checks is config.yaml in git - so there is nothing
+# to log in to. No className: Traefik is the cluster's default IngressClass.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: gatus
+spec:
+  tls:
+    - hosts:
+        - status.d3strukt0r.dev
+      secretName: gatus-tls
+  rules:
+    - host: status.d3strukt0r.dev
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: gatus
+                port:
+                  name: http
