@@ -12,13 +12,14 @@ declarative infrastructure.
 - `tofu/hcloud/` - the Hetzner Cloud layer
 - `tofu/objectstorage/` - the Object Storage buckets (etcd snapshots, tfstate) and their policies
 - `tofu/openbao/` - OpenBao's own configuration: secrets engine, Kubernetes auth, policies
+- `tofu/zitadel/` - what is inside Zitadel: instance policies, organisation domains, later projects and apps
 - `tofu/infomaniak/` - registrar-side delegation and DNSSEC checks
 - `tofu/cloudflare/` - both Cloudflare accounts, zones, records and TLS settings
 - `cloud-init/node.yaml` - node bootstrap, consumed over HTTPS (see below)
 - `ansible/` - configures the running nodes, installs k3s, bootstraps Argo CD
 - `kubernetes/` - what runs on the cluster, deployed by Argo CD from `master`
 
-Each of the five tofu directories is a **separate root module with its own state key**
+Each of the six tofu directories is a **separate root module with its own state key**
 in the same bucket. They are deliberately independent: none can break another's plan,
 and each needs only its own credentials.
 
@@ -32,13 +33,14 @@ index.
 No credential is ever exported by hand, and no value belongs in a `.tf` file. Each
 module reads its own token from a gitignored `terraform.tfvars` next to its `.tf` files:
 `hcloud_token` for hcloud, `infomaniak_token` for infomaniak, the two
-`cloudflare_token_*` for cloudflare, `openbao_token` for openbao, and only `project_id` for
+`cloudflare_token_*` for cloudflare, `openbao_token` for openbao, `zitadel_jwt_profile` for
+zitadel, and only `project_id` for
 objectstorage, which reads its key from the backend profile (see "Object Storage" below).
 The hcloud file also carries `admin_ips`, which is not a secret but is a home address, and
 this repo is public. Every module ships a `terraform.tfvars.example`.
 
 The **backend** is the exception. Backend blocks cannot interpolate, so no variable can
-supply the Object Storage keys. All five therefore carry
+supply the Object Storage keys. All six therefore carry
 `profile = "d3strukt0r-hetzner"` and read them from `~/.aws/credentials`. The profile
 name is account-scoped on purpose - profiles are global to `~/.aws`, so a bare
 `hetzner` would collide with any second Hetzner account. If a plan cannot reach the
@@ -50,7 +52,7 @@ rather than relying on the provider's own `HCLOUD_TOKEN` lookup, so all modules
 get their credentials the same way.
 
 ```sh
-cd tofu/hcloud         # or tofu/objectstorage, tofu/openbao, tofu/infomaniak, tofu/cloudflare
+cd tofu/hcloud         # or tofu/objectstorage, tofu/openbao, tofu/zitadel, tofu/infomaniak, tofu/cloudflare
 tofu fmt            # must produce no output
 tofu validate
 tofu init
@@ -1437,6 +1439,19 @@ Measured idle after the first start (2026-09-30): Zitadel about 120-170Mi, the l
   every container takes - Zitadel, the login page and its `wait4x` init container, the jobs and the
   setup job's `alpine/k8s` sidecars; the chart's defaults lack seccomp, no-escalation and dropped
   capabilities.
+- **What is inside Zitadel is `tofu/zitadel`** (provider `zitadel/zitadel`, at least 3.8.7 - the
+  first release that imports the default login policy): the instance's login and domain
+  policies and the organisation's domains, adopted with import blocks after they had been set
+  in the console; projects and apps follow. It logs in as the machine user `iam-admin` with the
+  key its setup job wrote (`zitadel_jwt_profile` in the gitignored tfvars; the key expires
+  2029-01-01). Human users stay in the console - their passwords and second factors are theirs.
+  Kubernetes runs one `components/zitadel` however many organisations or instances exist; they
+  are data in Zitadel, so per-tenant files belong in `tofu/zitadel`.
+- **The provider speaks native gRPC**, which Cloudflare's proxy refuses with `403` unless the
+  zone's gRPC switch (dashboard → Network → gRPC) is on - turned on for `d3strukt0r.dev` on
+  2026-09-30. No provider manages that switch, so it is set by hand; the symptom of it being
+  off is `server closed the stream without sending trailers`. It opens nothing new: the same
+  API is public over REST and gRPC-web.
 - The license is AGPL-3.0; running it unmodified puts no obligation on the apps that log in
   through it.
 

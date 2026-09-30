@@ -1,0 +1,8 @@
+# Copy to terraform.tfvars and fill in. terraform.tfvars is gitignored; this example is
+# not, because it holds no values.
+
+# The iam-admin machine key, the whole JSON from 1Password document
+# "Zitadel | Prod | iam-admin key", pasted between the markers:
+#   op document get 'Zitadel | Prod | iam-admin key' --account my.1password.com --vault Private | jq .
+zitadel_jwt_profile = <<-EOT
+EOT

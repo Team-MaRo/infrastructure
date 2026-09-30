@@ -1,6 +1,6 @@
 # tofu
 
-Five independent root modules, each with its own state key in the Hetzner Object
+Six independent root modules, each with its own state key in the Hetzner Object
 Storage bucket `d3strukt0r-tfstate` (nbg1), via the S3 backend with native locking:
 
 | Module | State key | What it manages |
@@ -8,6 +8,7 @@ Storage bucket `d3strukt0r-tfstate` (nbg1), via the S3 backend with native locki
 | `hcloud` | `hcloud/terraform.tfstate` | the Hetzner Cloud project: the `prod` cluster's servers, network, firewall |
 | `objectstorage` | `objectstorage/terraform.tfstate` | the Object Storage buckets - etcd snapshots and this state bucket - and their policies |
 | `openbao` | `openbao/terraform.tfstate` | OpenBao's configuration: the `secret/` engine, Kubernetes auth, policies and roles |
+| `zitadel` | `zitadel/terraform.tfstate` | what is inside Zitadel: instance policies, organisation domains, projects and apps |
 | `infomaniak` | `infomaniak/terraform.tfstate` | registrar delegation and DNSSEC checks |
 | `cloudflare` | `cloudflare/terraform.tfstate` | both Cloudflare accounts |
 
@@ -241,6 +242,35 @@ jq -n --arg a "$(op item get '<item>' --account my.1password.com --vault Private
 
 API tokens and access keys have a fixed format without `@`, so the plain `key=value` form
 stays fine for them.
+
+## zitadel
+
+What is inside Zitadel - everything the Helm values in `kubernetes/components/zitadel/` do not
+cover: the instance's default login and domain policies and the organisation `D3strukt0r`'s
+domains, adopted in `imports.tf` after they had been set in the console. It reaches Zitadel at
+`https://auth.d3strukt0r.dev` directly, no port-forward.
+
+`zitadel/terraform.tfvars` holds `zitadel_jwt_profile`: the whole JSON of the machine user
+`iam-admin`'s key, pasted between the heredoc markers from
+
+```sh
+op document get 'Zitadel | Prod | iam-admin key' --account my.1password.com --vault Private | jq .
+```
+
+```sh
+cd zitadel
+tofu init
+tofu plan
+```
+
+The provider uses native gRPC, which Cloudflare only passes with the zone's gRPC switch on
+(dashboard → Network → gRPC); with it off, every call fails with `server closed the stream
+without sending trailers`.
+
+Adopting something set by hand: an `import` block, then `tofu plan -generate-config-out=generated.tf`
+writes its live values; move them into
+the module, delete `generated.tf`, and plan again until only the import remains. Human users are
+not managed here.
 
 ## infomaniak
 
