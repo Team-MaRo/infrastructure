@@ -41,6 +41,7 @@ kubernetes/
 │       ├── postgres.yaml          # the shared PostgreSQL itself
 │       ├── zitadel.yaml           # the identity provider (SSO)
 │       ├── oauth2-proxy.yaml      # the Zitadel login gate for UIs without a login of their own
+│       ├── kubeelasti.yaml        # scale to zero: chart pinned here, values in components/
 │       ├── cluster-rbac.yaml      # cluster-wide rights for kubectl logins through Zitadel
 │       ├── etcd-snapshots.yaml    # syncs the subdirectory below
 │       └── etcd-snapshots/        # prod-only: the S3 settings k3s uploads snapshots with
@@ -130,6 +131,8 @@ kubernetes/
     │   ├── kustomization.yaml
     │   ├── external-secrets.yaml  # client and cookie secret from OpenBao
     │   └── certificates.yaml      # oauth2-proxy.d3strukt0r.dev
+    ├── kubeelasti/
+    │   └── values.yaml            # Helm values: Prometheus address, queue, timeout
     ├── cluster-rbac/
     │   ├── kustomization.yaml
     │   └── infra-admin.yaml       # Zitadel's infra-admin group is cluster-admin
@@ -1146,6 +1149,86 @@ sync**, its secrets go into OpenBao:
    ```
 
 A new client ID (a recreated app) goes into `components/oauth2-proxy/external-secrets.yaml`.
+
+## Scale to zero
+
+An app that is rarely used can sleep at zero replicas and wake on its first request, which
+KubeElasti holds until the app is ready (a few seconds - 3 s for a small test app). What an app
+needs, all in its own component:
+
+1. **No `replicas` in its Deployment** - KubeElasti scales it, and one replica when awake.
+2. **Its Service** carries `traefik.ingress.kubernetes.io/service.nativelb: "true"`.
+3. **A Middleware** telling KubeElasti which app a request is for, referenced from its Ingress
+   (`traefik.ingress.kubernetes.io/router.middlewares: <ns>-kubeelasti-target@kubernetescrd`):
+
+   ```yaml
+   apiVersion: traefik.io/v1alpha1
+   kind: Middleware
+   metadata:
+     name: kubeelasti-target
+   spec:
+     headers:
+       customRequestHeaders:
+         X-Envoy-Decorator-Operation: <svc>.<ns>.svc.cluster.local
+   ```
+
+4. **An ElastiService** (`argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true`, the
+   CRD is the kubeelasti Application's):
+
+   ```yaml
+   apiVersion: elasti.truefoundry.com/v1alpha1
+   kind: ElastiService
+   metadata:
+     name: <app>
+   spec:
+     service: <svc>
+     minTargetReplicas: 1
+     cooldownPeriod: 900          # seconds without requests before it sleeps
+     scaleTargetRef:
+       apiVersion: apps/v1
+       kind: Deployment
+       name: <deployment>
+     triggers:
+       - type: prometheus
+         metadata:
+           query: sum(rate(traefik_service_requests_total{service="<ns>-<svc>-<port name>@kubernetes"}[2m])) or vector(0)
+           threshold: "0.01"
+     probeResponse:
+       - method: GET
+         path:
+           type: Exact
+           value: /health
+         headers:
+           - name: X-Health-Probe
+             value: gatus
+         response:
+           status: 200
+           body: '{"status":"asleep"}'
+   ```
+
+5. **Its Gatus check** goes to the Service inside the cluster, with the probe header - through
+   the public address it would wake the app every minute and keep it awake:
+
+   ```yaml
+   - name: <App>
+     group: Apps
+     url: http://<svc>.<ns>.svc/health
+     headers:
+       X-Health-Probe: gatus
+     conditions:
+       - "[STATUS] == 200"
+   ```
+
+Whether it sleeps:
+
+```shell
+kubectl --context d3strukt0r-prod-admin -n <ns> get elastiservice <app> -o jsonpath='{.status.mode}{"\n"}'   # proxy = asleep, serve = awake
+kubectl --context d3strukt0r-prod-admin -n <ns> get deployment <deployment>
+```
+
+**Removing it again**: wake the app first (one request) before deleting only the ElastiService -
+KubeElasti 0.1.30 leaves a sleeping app at zero otherwise. Removing the whole app does not need
+that.
 
 ## How quickly a push arrives
 
