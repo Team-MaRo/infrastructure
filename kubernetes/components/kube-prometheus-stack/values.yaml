@@ -104,7 +104,8 @@ alertmanager:
         memory: 128Mi
   # Phone notifications through ntfy.sh, one receiver per priority, since Alertmanager's
   # webhook cannot set ntfy's priority header - it goes into the topic URL instead. The
-  # always-firing Watchdog goes to Uptime Kuma every minute as a heartbeat.
+  # always-firing Watchdog goes to Gatus every minute as a heartbeat (its external endpoint
+  # alerting_watchdog, kubernetes/components/gatus/config.yaml).
   config:
     route:
       receiver: ntfy-warning
@@ -143,8 +144,11 @@ alertmanager:
       - name: "null"
       - name: watchdog
         webhook_configs:
-          - url_file: /etc/alertmanager/secrets/alertmanager-ntfy/watchdog-url
+          - url: http://gatus.gatus.svc/api/v1/endpoints/alerting_watchdog/external?success=true
             send_resolved: false
+            http_config:
+              authorization:
+                credentials_file: /etc/alertmanager/secrets/alertmanager-ntfy/watchdog-token
       - name: ntfy-critical
         webhook_configs:
           - url_file: /etc/alertmanager/secrets/alertmanager-ntfy/url-critical
