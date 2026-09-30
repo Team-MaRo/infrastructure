@@ -555,6 +555,7 @@ reserved, so anyone who knows the name could read it.
 | Monitor | Type | Target |
 |---|---|---|
 | Alertmanager Watchdog | Push | Alertmanager, every minute |
+| Zitadel | HTTP(s) | `https://auth.d3strukt0r.dev/debug/healthz` |
 
 **Losing the volume** loses this configuration and the check history, nothing else: repeat
 the steps, and replace the push URL in OpenBao, since a new monitor gets a new token.
@@ -910,19 +911,22 @@ cluster's UIs and apps. Its data is in the shared PostgreSQL (database `zitadel`
 **Before the first sync**, its secrets go into OpenBao (port-forward and `BAO_TOKEN` as in
 "OpenBao"); the database password is set up as in "PostgreSQL: adding an app":
 
-1. A 1Password item `Zitadel | Prod`: its password field is the first admin's password
-   (generated), and a field `masterkey` holds **exactly 32 characters** (letters and digits):
+1. Two 1Password items: the first admin's login `Zitadel | Prod | Admin` (generated password),
+   and `Zitadel | Prod | Masterkey`, **exactly 32 characters** (letters and digits), written
+   once and never edited:
 
    ```shell
-   op item create --account my.1password.com --vault Private --category password --title 'Zitadel | Prod' \
-     --generate-password='letters,digits,symbols,20' \
-     "masterkey[password]=$(LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c 32)" >/dev/null
+   op item create --account my.1password.com --vault Private --category login --title 'Zitadel | Prod | Admin' \
+     --url https://auth.d3strukt0r.dev/ui/console --generate-password='letters,digits,symbols,20' \
+     username=auth-admin@d3strukt0r.dev >/dev/null
+   op item create --account my.1password.com --vault Private --category password --title 'Zitadel | Prod | Masterkey' \
+     "password=$(LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c 32)" >/dev/null
    ```
 2. As JSON on stdin, with the empty check:
 
    ```shell
-   jq -n --arg m "$(op item get 'Zitadel | Prod' --account my.1password.com --vault Private --fields masterkey --reveal)" \
-         --arg a "$(op item get 'Zitadel | Prod' --account my.1password.com --vault Private --fields password --reveal)" \
+   jq -n --arg m "$(op item get 'Zitadel | Prod | Masterkey' --account my.1password.com --vault Private --fields password --reveal)" \
+         --arg a "$(op item get 'Zitadel | Prod | Admin' --account my.1password.com --vault Private --fields password --reveal)" \
      'if ($m|length)!=32 or ($a|length)==0 then error("masterkey must be 32 characters, admin password non-empty") else {"masterkey":$m,"admin-password":$a} end' \
    | BAO_ADDR=http://127.0.0.1:8200 BAO_TOKEN="$(op item get 'OpenBao | Prod | Recovery keys & root token' --account my.1password.com --vault Private --fields credential --reveal)" \
      bao kv put secret/zitadel -
@@ -931,13 +935,18 @@ cluster's UIs and apps. Its data is in the shared PostgreSQL (database `zitadel`
 **The masterkey must never be lost or changed**: it encrypts the secrets in Zitadel's database.
 
 The first start creates the organisation `D3strukt0r` with the admin `auth-admin@d3strukt0r.dev`
-(the password from the item's password field, kept as the login) at
+(the password from `Zitadel | Prod | Admin`, kept as the login) at
 `https://auth.d3strukt0r.dev/ui/console`, and the machine user `iam-admin`, whose key the setup
-job stores as Secret `iam-admin` in `zitadel` - copy it into 1Password too:
+job stores as Secret `iam-admin` in `zitadel` - copy it into 1Password too, as the document
+`Zitadel | Prod | iam-admin key`, without printing it:
 
 ```shell
-kubectl --context d3strukt0r-prod-admin -n zitadel get secret iam-admin -o jsonpath='{.data.iam-admin\.json}' | base64 -d
+kubectl --context d3strukt0r-prod-admin -n zitadel get secret iam-admin -o jsonpath='{.data.iam-admin\.json}' | base64 -d > /tmp/iam-admin.json \
+  && op document create /tmp/iam-admin.json --title 'Zitadel | Prod | iam-admin key' --account my.1password.com --vault Private \
+  && rm /tmp/iam-admin.json
 ```
+
+Then add its Uptime Kuma monitor (see "Uptime Kuma").
 
 ```shell
 kubectl --context d3strukt0r-prod-admin -n zitadel get pods,jobs,certificates,externalsecrets
