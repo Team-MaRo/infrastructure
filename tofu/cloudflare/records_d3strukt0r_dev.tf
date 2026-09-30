@@ -146,6 +146,54 @@ resource "cloudflare_dns_record" "d3strukt0r_dev_cname_grafana" {
   }
 }
 
+# oauth2-proxy's own address, where Zitadel returns after a login for the UIs it guards.
+resource "cloudflare_dns_record" "d3strukt0r_dev_cname_oauth2_proxy" {
+  provider = cloudflare.personal
+
+  content = "prod.d3strukt0r.dev"
+  name    = "oauth2-proxy.d3strukt0r.dev"
+  proxied = true
+  tags    = []
+  ttl     = 1
+  type    = "CNAME"
+  zone_id = local.zone_ids["d3strukt0r.dev"]
+  settings = {
+    flatten_cname = false
+  }
+}
+
+# The Traefik dashboard, behind oauth2-proxy.
+resource "cloudflare_dns_record" "d3strukt0r_dev_cname_traefik" {
+  provider = cloudflare.personal
+
+  content = "prod.d3strukt0r.dev"
+  name    = "traefik.d3strukt0r.dev"
+  proxied = true
+  tags    = []
+  ttl     = 1
+  type    = "CNAME"
+  zone_id = local.zone_ids["d3strukt0r.dev"]
+  settings = {
+    flatten_cname = false
+  }
+}
+
+# Uptime Kuma, behind oauth2-proxy and its own login.
+resource "cloudflare_dns_record" "d3strukt0r_dev_cname_uptime_kuma" {
+  provider = cloudflare.personal
+
+  content = "prod.d3strukt0r.dev"
+  name    = "uptime-kuma.d3strukt0r.dev"
+  proxied = true
+  tags    = []
+  ttl     = 1
+  type    = "CNAME"
+  zone_id = local.zone_ids["d3strukt0r.dev"]
+  settings = {
+    flatten_cname = false
+  }
+}
+
 resource "cloudflare_dns_record" "d3strukt0r_dev_cname_dk1_domainkey" {
   provider = cloudflare.personal
 
