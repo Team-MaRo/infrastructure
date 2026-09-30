@@ -40,6 +40,15 @@ spec:
     service:
       spec:
         type: ClusterIP
+    # An Ingress's status names its address, and Argo CD counts an Ingress healthy only once
+    # that is set. k3s copies it from Traefik's Service, which as ClusterIP has none, so name the
+    # cluster's DNS entry point instead.
+    providers:
+      kubernetesIngress:
+        publishedService:
+          enabled: false
+        ingressEndpoint:
+          hostname: prod.d3strukt0r.dev
     # About 30 MiB when set (2026-09-28); the limit leaves room for traffic peaks. The chart
     # sets none, and kube-system has no LimitRange.
     resources:

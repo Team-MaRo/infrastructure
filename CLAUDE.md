@@ -960,6 +960,10 @@ listens on the node's ports 80 and 443 itself, IPv4 and IPv6.
   `net.ipv4.ip_unprivileged_port_start = 80` on the nodes (`k3s_sysctls`) lets it bind 80 and
   443. Its other entrypoints, metrics `:9100` and `:8080`, also open on the host but are closed by
   the Hetzner firewall.
+- **Ingresses report `prod.d3strukt0r.dev` as their address** (`ingressEndpoint.hostname`).
+  k3s's values copy the address from Traefik's Service (`publishedService`), which as
+  `ClusterIP` has none, and Argo CD counts an Ingress without an address as Progressing - the
+  first Ingresses (Zitadel's) blocked their sync that way.
 - **Updates replace one node at a time** (`maxUnavailable: 1`, `maxSurge: 0`): two Traefiks
   cannot hold the same host port. That node's share of requests fails for the seconds in
   between, as during a kured reboot - DNS keeps pointing at it.
