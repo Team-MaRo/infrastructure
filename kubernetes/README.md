@@ -948,6 +948,33 @@ kubectl --context d3strukt0r-prod-admin -n zitadel get secret iam-admin -o jsonp
 
 Then add its Uptime Kuma monitor (see "Uptime Kuma").
 
+Set by hand in the console, since they live in Zitadel's database, not in git:
+
+1. `auth-admin`: Password and Security → Multifactor Authentication → Authenticator App, the QR
+   code scanned into `Zitadel | Prod | Admin`. Log out and in once to test it.
+2. Only then: Default settings → Login Behavior and Security → **Force MFA for local
+   authenticated users only**. Allowed second factors stay TOTP and Passkey - no e-mail or SMS
+   codes, there is no provider for either.
+3. Default settings → Domain settings → **Organization Domain verification required**, so no
+   organisation can claim a domain it does not control. The login name suffix stays off, so a
+   username is the login name and must be unique across all organisations: an e-mail address,
+   or a handle nobody else will take (`D3strukt0r`, the personal user).
+4. Settings (the organisation's) → Organization Domains: add `d3strukt0r.dev` and `d3st.dev`,
+   verify each by DNS, then make `d3strukt0r.dev` primary. The challenge records
+   (`_zitadel-challenge.<domain>`) are in `tofu/cloudflare` and stay there - Zitadel re-checks
+   them periodically. A re-added domain gets a new code, which replaces the record's content.
+
+A new user gets a generated first password and the e-mail marked verified (there is no mail
+server yet), and sets up the authenticator app at the first login. **If that first login loops**
+with `mfa required (AUTHZ-Kl3p0)` instead of offering the second factor, start a new login
+attempt: the first one for `D3strukt0r` (2026-09-30) let the user in without the setup and the
+console refused the session over and over, while the next attempt showed the setup - in a
+private window and in the normal one alike. The cause is unknown; the login page has several
+such loops open upstream.
+
+Losing the admin's second factor is recovered with the `iam-admin` key, which holds the same
+instance rights and can remove the factor through the API.
+
 ```shell
 kubectl --context d3strukt0r-prod-admin -n zitadel get pods,jobs,certificates,externalsecrets
 ```

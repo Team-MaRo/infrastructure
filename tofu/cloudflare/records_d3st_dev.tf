@@ -161,3 +161,18 @@ resource "cloudflare_dns_record" "d3st_dev_txt_dmarc" {
   zone_id  = local.zone_ids["d3st.dev"]
   settings = {}
 }
+
+# Zitadel re-checks the organisation domain periodically, so this stays.
+resource "cloudflare_dns_record" "d3st_dev_txt_zitadel_challenge" {
+  provider = cloudflare.personal
+
+  comment  = "Zitadel Verify (organisation D3strukt0r)"
+  content  = "\"oJxpssHnYGh0ryQlYxMYnnvb0cxYWNOA\""
+  name     = "_zitadel-challenge.d3st.dev"
+  proxied  = false
+  tags     = []
+  ttl      = 1
+  type     = "TXT"
+  zone_id  = local.zone_ids["d3st.dev"]
+  settings = {}
+}
