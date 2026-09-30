@@ -280,8 +280,9 @@ rotation, raise `oidc_client_secret_wo_version`, or the new value is never sent.
 ## zitadel
 
 What is inside Zitadel - everything the Helm values in `kubernetes/components/zitadel/` do not
-cover: the instance's default login and domain policies and the organisation `D3strukt0r`'s
-domains, adopted in `imports.tf` after they had been set in the console. It reaches Zitadel at
+cover: the instance's default login and domain policies, token lifetimes and the organisation
+`D3strukt0r`'s domains, adopted in `imports.tf`; the groups webhook's action; and the project
+`Infrastructure` with its role and the apps of every admin UI and of kubectl. It reaches Zitadel at
 `https://auth.d3strukt0r.dev` directly, no port-forward.
 
 `zitadel/terraform.tfvars` holds `zitadel_jwt_profile`: the whole JSON of the machine user
