@@ -7,6 +7,9 @@ kind: Application
 metadata:
   name: uptime-kuma
   namespace: argocd
+  # Removing this file removes everything it deployed, namespace included.
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
 spec:
   project: default
   source:
@@ -21,6 +24,5 @@ spec:
       prune: true
       selfHeal: true
     syncOptions:
-      - CreateNamespace=true
       # Not required here (no large CRDs); used for consistency.
       - ServerSideApply=true
