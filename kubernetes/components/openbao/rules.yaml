@@ -1,0 +1,30 @@
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: openbao
+  annotations:
+    # The CRD comes with kube-prometheus-stack, another Application.
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  groups:
+    - name: openbao
+      rules:
+        # The snapshot CronJob runs every 6 hours; this fires after two missed or failed runs, or
+        # when it has never succeeded (the metric only appears with the first scheduled success -
+        # a Job started by hand does not count). A failed Job alerts earlier through the chart's
+        # KubeJobFailed.
+        - alert: OpenBaoSnapshotMissing
+          expr: >-
+            time() - kube_cronjob_status_last_successful_time{namespace="openbao", cronjob="openbao-snapshot"} > 13 * 3600
+            or
+            absent(kube_cronjob_status_last_successful_time{namespace="openbao", cronjob="openbao-snapshot"})
+          for: 7h
+          labels:
+            severity: warning
+            namespace: openbao
+          annotations:
+            summary: "OpenBao has had no successful snapshot for over 13 hours."
+            description: >-
+              Check the latest Job's log (kubectl -n openbao get jobs, then kubectl -n openbao logs
+              job/<name>). A lost OpenBao volume can only be restored from these snapshots.

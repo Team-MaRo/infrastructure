@@ -54,3 +54,13 @@ variable "postgres_backups_access_key_id" {
     error_message = "postgres_backups_access_key_id must be a 20-character Hetzner access key ID."
   }
 }
+
+variable "openbao_snapshots_access_key_id" {
+  description = "Access key ID of the S3 key OpenBao's snapshot agent uploads with (1Password: Hetzner | S3 | prod openbao snapshots, username). Set in terraform.tfvars."
+  type        = string
+
+  validation {
+    condition     = can(regex("^[A-Z0-9]{20}$", var.openbao_snapshots_access_key_id))
+    error_message = "openbao_snapshots_access_key_id must be a 20-character Hetzner access key ID."
+  }
+}

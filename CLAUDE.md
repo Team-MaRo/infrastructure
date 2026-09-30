@@ -283,6 +283,12 @@ although uploads answer with an `Expiration` header that suggests so (tested 202
   WAL they no longer need, so nothing else expires here. Only the admin key and the backup key
   (console label `prod postgres backups`, 1Password `Hetzner | S3 | prod postgres backups`,
   OpenBao `secret/postgres-backups-s3`) reach it.
+- **`d3strukt0r-prod-openbao-snapshots`: object lock, GOVERNANCE, 7 days, like the etcd
+  bucket** (same lifecycle rule and two-statement policy, `prevent_destroy`). OpenBao's
+  snapshot agent deletes snapshots past 30 days itself - only delete markers here, the versions
+  stay locked and are removed 7 days later - so a stolen snapshot key cannot destroy a backup.
+  Only the admin key and the snapshot key (console label `prod openbao snapshots`, 1Password
+  `Hetzner | S3 | prod openbao snapshots`, OpenBao `secret/openbao-snapshot-s3`) reach it.
 - **Provider `aminueza/minio`, `s3_compat_mode` off.** The `aws` provider cannot refresh a
   bucket here (it reads Accelerate, Website, Logging, Replication and Tagging, all
   unimplemented). Compat mode would swallow "not implemented" errors, object lock and
@@ -728,7 +734,29 @@ upstreams: chart pinned in the cluster's Application, values in `components/`.
   Argo CD's non-HA. External Secrets copies values into Kubernetes Secrets, so OpenBao being
   down while its pod moves delays changes but breaks no running workload.
 - **Raft storage**, not the chart's default `file`, even with one node: Raft snapshots are
-  the backup format (and the chart's `snapshotAgent` can ship them to S3).
+  the backup format.
+- **Backed up every 6 hours** (00, 06, 12, 18 UTC) by the chart's `snapshotAgent`: a CronJob
+  (`ghcr.io/openbao/openbao-snapshot-agent`, bao CLI + s3cmd) that logs in through Kubernetes
+  auth (role and policy `snapshot` in `tofu/openbao/snapshot.tf`, `read` on
+  `sys/storage/raft/snapshot` only), saves a snapshot and uploads it to
+  `d3strukt0r-prod-openbao-snapshots` with its own key (ExternalSecret `openbao-snapshot-s3`),
+  then deletes snapshots older than 30 days. OpenBao itself has no scheduled snapshots
+  (openbao#795). `s3Uri` must stay the bucket root with a trailing slash: the agent's pruning
+  fails on sub-prefixes. s3cmd uses path-style requests (the chart's `--host-bucket` is the
+  bucket name); virtual-host style answers `NoSuchBucket` at Hetzner. A fresh S3 key answered
+  `404 NoSuchBucket` for its first minutes, not `403` - the propagation delay again.
+  - **A snapshot is barrier-encrypted**: restoring needs the static seal key **and its key
+    ID** (`1`); after a key rotation, older snapshots need the old key as `previous_key`. The
+    recovery keys and root token are not needed to restore - the restore replaces the whole
+    storage, and afterwards the original root token and recovery keys apply again.
+  - **Restore drill passed 2026-09-30**, offline in Docker (runbook in `kubernetes/README.md`):
+    a fresh OpenBao 2.6.3 with the same static key, initialised, restored the first snapshot
+    (60 KB) and then showed every auth method, all 14 secret paths and all policies to the
+    original root token.
+  - The token of the run that took a snapshot comes back with a restore and cannot be revoked
+    (openbao#522), so the role's tokens live 10 minutes.
+  - `OpenBaoSnapshotMissing` (`components/openbao/rules.yaml`) fires after 13 hours without a
+    scheduled success; a failed Job alerts earlier through the chart's `KubeJobFailed`.
 - **Static seal** (`seal "static"`, OpenBao 2.4+): a 32-byte key, hex, in Secret
   `openbao/openbao-seal`, written by `ansible/secrets.yml` from 1Password item
   `OpenBao | Prod | Seal key`. OpenBao unseals itself on every start, and the cluster never

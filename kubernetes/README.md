@@ -335,6 +335,65 @@ bao status
 
 The UI is then at `http://127.0.0.1:8200/ui`.
 
+### Backups
+
+Every 6 hours the CronJob `openbao-snapshot` saves a Raft snapshot to
+`d3strukt0r-prod-openbao-snapshots` and deletes those older than 30 days (the bucket keeps a
+deleted one 7 more days). Its S3 key, before the first run:
+
+1. Hetzner console → Object Storage → S3 credentials, label `prod openbao snapshots`. Copy the
+   secret key and store both in 1Password (the access key is not secret):
+
+   ```shell
+   op item create --account my.1password.com --vault Private --category 'API Credential' \
+     --title 'Hetzner | S3 | prod openbao snapshots' \
+     "username=<access key>" "credential=$(pbpaste)" >/dev/null
+   ```
+
+2. Into OpenBao, and the access key ID into `tofu/objectstorage/terraform.tfvars`
+   (`openbao_snapshots_access_key_id`):
+
+   ```shell
+   jq -n --arg a "$(op item get 'Hetzner | S3 | prod openbao snapshots' --account my.1password.com --vault Private --fields username)" \
+         --arg s "$(op item get 'Hetzner | S3 | prod openbao snapshots' --account my.1password.com --vault Private --fields credential --reveal)" \
+     'if ($a|length)!=20 or ($s|length)==0 then error("access key must be 20 characters, secret non-empty - 1Password lookup failed?") else {"access-key":$a,"secret-key":$s} end' \
+   | bao kv put secret/openbao-snapshot-s3 -
+   ```
+
+A snapshot by hand, and what is there:
+
+```shell
+kubectl --context d3strukt0r-prod-admin -n openbao create job --from=cronjob/openbao-snapshot openbao-snapshot-manual
+kubectl --context d3strukt0r-prod-admin -n openbao logs job/openbao-snapshot-manual
+aws --profile d3strukt0r-hetzner s3 ls s3://d3strukt0r-prod-openbao-snapshots/
+kubectl --context d3strukt0r-prod-admin -n openbao delete job openbao-snapshot-manual
+```
+
+### Restoring
+
+A restore needs the static seal key and its ID `1` (1Password `OpenBao | Prod | Seal key`), a
+snapshot, and an initialised, unsealed OpenBao to restore into - on a lost volume, a fresh one:
+push, `ansible-playbook secrets.yml`, `bao operator init` as in "First install" (keep its output
+only until the restore is done). Then, with the new root token:
+
+```shell
+aws --profile d3strukt0r-hetzner s3 cp s3://d3strukt0r-prod-openbao-snapshots/<newest>.snapshot /tmp/
+kubectl --context d3strukt0r-prod-admin -n openbao cp /tmp/<newest>.snapshot openbao-0:/tmp/restore.snapshot
+kubectl --context d3strukt0r-prod-admin -n openbao exec openbao-0 -- \
+  env BAO_TOKEN=<new root token> bao operator raft snapshot restore /tmp/restore.snapshot
+```
+
+The restore replaces everything, the new root token and recovery keys included: from then on
+the original root token and recovery keys in 1Password apply again. Check with
+`bao kv list secret/` and `bao auth list`, logged in with the original root token.
+
+**The drill** (done 2026-09-30) runs the same restore in Docker on this machine, without
+touching the cluster: download a snapshot, write the seal key to a file with `printf '%s'`,
+start `quay.io/openbao/openbao:2.6.3` with a config of `storage "raft"` and the same
+`seal "static"` block (`current_key_id = "1"`), `bao operator init`, restore with the new root
+token, then list secrets with the original one. Delete the container and the key file
+afterwards.
+
 ## External Secrets
 
 Workloads never talk to OpenBao. External Secrets reads values from it and writes ordinary
