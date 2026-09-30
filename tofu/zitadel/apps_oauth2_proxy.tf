@@ -1,5 +1,5 @@
-# oauth2-proxy guards the UIs without a login of their own - the Traefik dashboard and Uptime
-# Kuma - as Traefik's forwardAuth (kubernetes/components/oauth2-proxy/). Unlike the other
+# oauth2-proxy guards the UIs without a login of their own - today the Traefik dashboard - as
+# Traefik's forwardAuth (kubernetes/components/oauth2-proxy/). Unlike the other
 # clients it needs a client secret. The one Zitadel returns at creation lands in this state, so
 # it is regenerated once in the console right after; the live secret is kept in 1Password and
 # OpenBao secret/oauth2-proxy only.

@@ -621,7 +621,7 @@ self-heal.
   Within one Application pruning works as usual either way: a manifest removed from a
   component is deleted.
   - **The finalizer is on apps whose data lives elsewhere or does not matter**: `gatus`,
-    `zitadel`, `oauth2-proxy`, `uptime-kuma`, `kured`, `alloy`, `etcd-snapshots`,
+    `zitadel`, `oauth2-proxy`, `kured`, `alloy`, `etcd-snapshots`,
     `cluster-rbac`. A Postgres app's database and role stay when it goes - CloudNativePG's
     `databaseReclaimPolicy` and `databaseRoleReclaimPolicy` default to `retain`.
   - **Never on an app that brings CRDs** (deleting a CRD deletes every object of its kind -
@@ -1090,35 +1090,40 @@ Standard; components that need the host (node-exporter, the log collector) go to
 `kube-system` instead. Their UIs are at their own addresses behind the Zitadel login (below);
 port-forwards stay the break-glass way in.
 
-**Uptime Kuma** (`kubernetes/components/uptime-kuma/`, plain manifests, image pinned,
-namespace `uptime-kuma`) has two
-jobs: checking the websites, and receiving Alertmanager's always-firing `Watchdog` alert as a
-heartbeat - a push monitor that alerts through ntfy when the heartbeat stops, so a broken
-alerting pipeline is noticed too. Its monitors and notifications live in its SQLite database,
-configured in the UI (runbook and monitor list in `kubernetes/README.md`), not in git.
+**Gatus** (`kubernetes/components/gatus/`, plain manifests, image pinned, namespace `gatus`) is
+the public status page at `https://status.d3strukt0r.dev` and watches the alerting pipeline
+itself: Alertmanager's always-firing `Watchdog` alert arrives there as a heartbeat, and when it
+stops, Gatus alerts through ntfy. It replaced Uptime Kuma (2026-09-30), which has no OIDC and
+whose maintainers declined adding it.
 
-- **One replica, `strategy: Recreate`**: the SQLite file sits on a ReadWriteOnce volume, which
-  only one node can attach; a rolling update would wait forever for the old pod's volume.
-- **The rootless image runs as UID 1000**, set numerically in the pod because the image only
-  names its user (`node`) and `runAsNonRoot` cannot check a name. `fsGroup` hands the fresh
-  volume, owned by root, to that group. The root filesystem is read-only and `/tmp` an
-  `emptyDir`; both were tested locally before the first deploy.
-- **`UPTIME_KUMA_DB_TYPE=sqlite`** skips the first-start database wizard.
-- **`enableServiceLinks: false`**: Kubernetes would inject `UPTIME_KUMA_PORT=tcp://...` for the
-  Service of the same name, and Uptime Kuma reads that variable as its listen port.
-- **It runs like an app, not like infrastructure**: its namespace is not PSA-exempt. It sets
-  only its memory, which the defaults would undersize; the generated LimitRange fills in the
-  CPU request and ephemeral storage. Its image comes from Docker Hub. Its own
-  namespace also means that moving it out of the cluster is deleting one namespace.
-- **It cannot report a dead cluster** while it runs inside it: a complete outage takes it down
-  too. It moves to a machine outside (the home server) later; then it checks the cluster from
-  there, and Alertmanager's heartbeat goes to that address.
-- Since 2.0, the push endpoint accepts POST, so Alertmanager's webhook can call it directly - no
-  translating proxy.
-- **Its UI is at `https://uptime-kuma.d3strukt0r.dev` behind two locks**: the Zitadel gate
-  (oauth2-proxy, see "The login gate") and then its own single admin with 2FA (user decision).
-  Turning its own auth off would leave anything that reaches the pod inside the cluster - and
-  its `/metrics` - unauthenticated. Alertmanager keeps using the Service.
+- **No admin UI, no login.** Everything Gatus checks and whom it alerts is `config.yaml` in git
+  (a ConfigMap without a name hash); Argo CD updates it and Gatus reloads the file by itself
+  within about a minute (it polls every 30 s). So administering it is a git push, and the page
+  can be public without any gate. Gatus' own OIDC option would only put a login in front of
+  viewing the whole page.
+- **An invalid `config.yaml` makes Gatus exit**, and the pod crash-loops - loud rather than
+  silently running an old config. Secrets reach the file through `${VAR}` from Secret `gatus`
+  (ntfy topic and token from `secret/ntfy`, the heartbeat token from `secret/gatus`, the
+  database password); Gatus expands every `$` in the file, so a literal one is written `$$`,
+  and the generated values contain no `$`.
+- **History is in the shared PostgreSQL** (database `gatus`, `sslmode=verify-full` against
+  CloudNativePG's CA - the Zitadel pattern), so a restart keeps uptime and response times and
+  the nightly Postgres backup covers them. Postgres unreachable at start: Gatus exits and
+  retries with the pod (seen once on the first deploy, before the database existed); gone
+  while running: checks and ntfy alerts go on (alerting runs before the result is saved),
+  only the results of that time are missing.
+- **One replica, `strategy: Recreate`**: a second instance would run every check and send every
+  alert twice.
+- **The image is `FROM scratch` and names no user**, so the pod sets UID 65534; with Postgres as
+  storage it writes nothing, so the root filesystem is read-only. About 17 MiB, within the
+  namespace's LimitRange defaults, so no `resources` are set.
+- **The Watchdog** is the external endpoint `alerting_watchdog`: Alertmanager POSTs to
+  `/api/v1/endpoints/alerting_watchdog/external?success=true` with the 32-character token as a
+  Bearer header (anything else is `401`); without one for 5 minutes, Gatus alerts. Alertmanager
+  sends every 2 minutes, not every minute: it checks each `group_interval` (1m) but repeats only
+  after a full `repeat_interval` (1m), which the check misses by a hair every other time.
+- **It cannot report a dead cluster** while it runs inside it: a complete outage takes the page
+  down too. It moves to a machine outside (the home server) later - one binary and this config.
 
 **kube-prometheus-stack** (`kubernetes/clusters/prod/kube-prometheus-stack.yaml`, chart
 pinned, values and extra manifests in `kubernetes/components/kube-prometheus-stack/`) runs
@@ -1167,10 +1172,10 @@ LimitRange there, so it sets its own.
   are assembled by the ExternalSecret `alertmanager-ntfy` from OpenBao `secret/ntfy` and read
   through `url_file`/`credentials_file`, so the topic - the secret on the free plan - never
   enters git or the Alertmanager config.
-- **The Watchdog heartbeat**: the chart's always-firing `Watchdog` alert is routed to Uptime
-  Kuma's push URL (OpenBao `secret/uptime-kuma`) every minute. Uptime Kuma alerts when it has
-  not heard from it for about ten minutes - Alertmanager down, Prometheus down, or its rules
-  not evaluating.
+- **The Watchdog heartbeat**: the chart's always-firing `Watchdog` alert is routed to Gatus
+  (receiver `watchdog`, the token from OpenBao `secret/gatus` through the ExternalSecret
+  `alertmanager-ntfy`). Gatus alerts when it has not heard from it for 5 minutes - Alertmanager
+  down, Prometheus down, or its rules not evaluating.
 - **Own alerts** (`rules.yaml`): a node cordoned for over 2 hours (a failed upgrade Job or a
   drain that cannot finish), a server without a successful etcd snapshot upload for 13 hours
   or with a failed one, and a k3s certificate within 30 days of expiry (k3s renews at start
@@ -1573,7 +1578,7 @@ Measured idle after the first start (2026-09-30): Zitadel about 120-170Mi, the l
 
 ### The login gate: oauth2-proxy
 
-UIs without a Zitadel login of their own - the Traefik dashboard and Uptime Kuma - sit behind
+UIs without a Zitadel login of their own - today the Traefik dashboard - sit behind
 oauth2-proxy (`kubernetes/clusters/prod/oauth2-proxy.yaml`, chart pinned, values and extra
 objects in `kubernetes/components/oauth2-proxy/`, namespace `oauth2-proxy`). Traefik asks it
 about every request (a `forwardAuth` Middleware); it never proxies a request itself
@@ -1595,7 +1600,7 @@ about every request (a `forwardAuth` Middleware); it never proxies a request its
   are in 1Password `Zitadel | Prod | oauth2-proxy` and OpenBao `secret/oauth2-proxy`, delivered
   by the ExternalSecret `oauth2-proxy` (the client ID, not secret, is written into its
   template).
-- **The Middleware exists once per guarded namespace** (`kube-system`, `uptime-kuma`) - Traefik
+- **The Middleware exists once per guarded namespace** (today only `kube-system`) - Traefik
   only takes middleware from the router's own namespace (`allowCrossNamespace` stays off);
   each points at `http://oauth2-proxy.oauth2-proxy.svc`. A new guarded UI gets a copy in its
   namespace, the annotation `traefik.ingress.kubernetes.io/router.middlewares:

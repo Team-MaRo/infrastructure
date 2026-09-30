@@ -1,6 +1,6 @@
 ---
-# The login gate for the UIs without a Zitadel login of their own (the Traefik dashboard,
-# Uptime Kuma): the oauth2-proxy Helm chart with values from kubernetes/components/oauth2-proxy,
+# The login gate for the UIs without a Zitadel login of their own (today the Traefik
+# dashboard): the oauth2-proxy Helm chart with values from kubernetes/components/oauth2-proxy,
 # plus that directory's manifests. Needs secret/oauth2-proxy in OpenBao.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
