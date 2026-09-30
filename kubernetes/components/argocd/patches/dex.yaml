@@ -1,7 +1,7 @@
 ---
-# Removes the bundled Dex. Zitadel will be the OIDC provider and Argo CD will talk to it
-# directly, so Dex would only ever sit idle. argocd-server contacts Dex only when dex.config
-# is set in argocd-cm, so nothing else depends on these.
+# Removes the bundled Dex. Zitadel is the OIDC provider and Argo CD talks to it directly
+# (oidc.config in argocd-cm), so Dex would only ever sit idle. argocd-server contacts Dex only
+# when dex.config is set in argocd-cm, so nothing else depends on these.
 $patch: delete
 apiVersion: apps/v1
 kind: Deployment

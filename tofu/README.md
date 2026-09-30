@@ -206,7 +206,8 @@ tofu plan
 ```
 
 `openbao/terraform.tfvars` holds `openbao_token`: the initial root token from 1Password item
-`OpenBao | Prod | Recovery keys & root token`, until OpenBao has an admin login of its own.
+`OpenBao | Prod | Recovery keys & root token`. Admins log in through Zitadel now (`oidc.tf`);
+revoking the root token is planned, and this module then needs a credential of its own.
 
 **Secret values never go through this module.** Anything OpenTofu writes lands in its state,
 so values are put in by hand:

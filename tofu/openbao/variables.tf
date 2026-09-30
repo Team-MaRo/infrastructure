@@ -6,7 +6,8 @@ variable "openbao_address" {
   default     = "http://127.0.0.1:8200"
 }
 
-# The initial root token for now, until OpenBao has a login method of its own for admins.
+# The initial root token for now. Admins log in through Zitadel (oidc.tf); once the root token
+# is revoked, this module needs a credential of its own.
 variable "openbao_token" {
   description = "OpenBao token with rights to manage mounts, auth methods and policies. Set in terraform.tfvars."
   type        = string
