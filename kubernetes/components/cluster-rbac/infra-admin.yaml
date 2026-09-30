@@ -1,0 +1,16 @@
+---
+# Zitadel's role infra-admin (project Infrastructure) makes a person cluster admin. Unlike the
+# break-glass kubeconfig (system:masters), this is revocable: remove the role in Zitadel and it
+# ends within an hour, when the ID token expires; delete this binding and it ends at once.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: zitadel-infra-admin
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+  - apiGroup: rbac.authorization.k8s.io
+    kind: Group
+    name: zitadel:infra-admin
