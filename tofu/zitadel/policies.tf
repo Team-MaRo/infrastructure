@@ -38,3 +38,14 @@ resource "zitadel_default_domain_policy" "this" {
   user_login_must_be_domain                   = false
   smtp_sender_address_matches_instance_domain = false
 }
+
+# Token lifetimes for every app. Kubernetes never asks Zitadel whether a token is still good,
+# so the ID token's lifetime is how long a removed role or a deactivated user keeps working in
+# kubectl: 1 hour instead of Zitadel's 12. Clients renew silently with their refresh token,
+# which lapses after 30 days unused (the default) and after 90 days in any case (the default).
+resource "zitadel_default_oidc_settings" "this" {
+  access_token_lifetime         = "1h0m0s"
+  id_token_lifetime             = "1h0m0s"
+  refresh_token_idle_expiration = "720h0m0s"
+  refresh_token_expiration      = "2160h0m0s"
+}

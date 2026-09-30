@@ -18,3 +18,8 @@ import {
   to = zitadel_organization_domain.d3strukt0r[each.key]
   id = "${local.org_id}:${each.key}"
 }
+
+import {
+  to = zitadel_default_oidc_settings.this
+  id = "default"
+}
