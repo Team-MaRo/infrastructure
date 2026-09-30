@@ -11,8 +11,11 @@ resource "zitadel_default_login_policy" "this" {
   multi_factors        = ["MULTI_FACTOR_TYPE_U2F_WITH_VERIFICATION"]
   passwordless_type    = "PASSWORDLESS_TYPE_ALLOWED"
 
+  # Nobody signs up on their own: accounts are created by an admin. Zitadel ships with it on,
+  # which let anyone on the internet create an (unverified) account.
+  allow_register = false
+
   user_login                    = true
-  allow_register                = true
   allow_external_idp            = true
   allow_domain_discovery        = true
   disable_login_with_email      = false
