@@ -24,6 +24,7 @@ spec:
     - repoURL: https://github.com/Team-MaRo/infrastructure.git
       targetRevision: master
       ref: repo
+      path: kubernetes/components/openbao
   destination:
     server: https://kubernetes.default.svc
     namespace: openbao

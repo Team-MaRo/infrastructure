@@ -701,13 +701,33 @@ upstreams: chart pinned in the cluster's Application, values in `components/`.
   verify they talk to the real OpenBao.
 - The injector is off; secrets reach workloads through External Secrets.
 - **Its configuration is `tofu/openbao`**: the KV v2 engine `secret/`, Kubernetes auth, and
-  the `external-secrets` policy and role. OpenBao is cluster-internal, so that module reaches
-  it through `kubectl port-forward svc/openbao 8200:8200` and authenticates with the root
-  token from its gitignored tfvars until an admin login exists. Secret **values** never go
+  the `external-secrets` policy and role, and the OIDC login (below). The module reaches
+  OpenBao through `kubectl port-forward svc/openbao 8200:8200` and authenticates with the root
+  token from its gitignored tfvars. Secret **values** never go
   through OpenTofu - they would land in state - but in with `bao kv put`. The ESO policy reads
   all of `secret/`, so every namespace referencing the ClusterSecretStore reaches every value:
   fine for a single-admin cluster, to be narrowed per namespace once others deploy. Audit
   devices, if wanted, belong in the server config, not the API.
+- **The UI and API are public at `https://openbao.d3strukt0r.dev`** (user decision; the chart's
+  Ingress, certificate from `components/openbao/certificates.yaml`, TLS ending at Traefik).
+  Every call still needs a token, but the login endpoints face the internet - the accepted
+  trade-off for convenience.
+- **Admins log in through Zitadel** (`tofu/openbao/oidc.tf`, app in
+  `tofu/zitadel/apps_openbao.tf`): auth method `oidc` at `auth/oidc`, role `default` (the
+  default, so the UI's role field stays empty), `groups_claim = "groups"`. The claim value
+  `infra-admin` matches the alias of the external identity group `infra-admin`, which carries
+  the policy `admin` (everything, `sudo` included) - rights come only from Zitadel's role. One
+  app serves the UI's callback and the CLI's (`bao login -method=oidc`, `localhost:8250`),
+  which is why that app runs in Zitadel's development mode: only it lets a web app register an
+  http localhost address.
+- **OpenBao refuses OIDC without a client secret** (`both 'oidc_client_id' and
+  'oidc_client_secret' must be set`), although it uses PKCE too. The secret lives in 1Password
+  `Zitadel | Prod | OpenBao` and OpenBao `secret/openbao-oidc`; `tofu/openbao` reads it with an
+  **ephemeral** `vault_kv_secret_v2` and hands it over as the write-only
+  `oidc_client_secret_wo`, so it is in no state and no tfvars. Write-only values are only sent
+  when `oidc_client_secret_wo_version` changes - bump it after a rotation.
+- **The root token stays the break-glass login** for now; revoking it is the next step once
+  the OIDC login has proven itself (it can be regenerated with the recovery keys).
 - **External Secrets delivers the values** (`kubernetes/clusters/prod/external-secrets.yaml`:
   chart `external-secrets` 2.11.0 pinned, plus `kubernetes/components/external-secrets/`
   with the `ClusterSecretStore` `openbao`). `ServerSideApply=true` is required there - the
