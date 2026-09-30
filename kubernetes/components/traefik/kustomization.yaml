@@ -4,3 +4,5 @@ kind: Kustomization
 
 resources:
   - helmchartconfig.yaml
+  - certificate.yaml
+  - middleware-oauth2-proxy.yaml

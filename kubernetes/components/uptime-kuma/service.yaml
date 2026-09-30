@@ -1,5 +1,5 @@
 ---
-# Reached by Alertmanager (the Watchdog heartbeat) and by a port-forward for the UI.
+# Reached by Alertmanager (the Watchdog heartbeat) and, for the UI, by the Ingress (ingress.yaml).
 apiVersion: v1
 kind: Service
 metadata:
