@@ -1,0 +1,33 @@
+---
+# The login gate for the UIs without a Zitadel login of their own (the Traefik dashboard,
+# Uptime Kuma): the oauth2-proxy Helm chart with values from kubernetes/components/oauth2-proxy,
+# plus that directory's manifests. Needs secret/oauth2-proxy in OpenBao.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: oauth2-proxy
+  namespace: argocd
+spec:
+  project: default
+  sources:
+    # Pinned: bumping the version is the upgrade. 10.7.0 deploys oauth2-proxy 7.15.3.
+    - repoURL: https://oauth2-proxy.github.io/manifests
+      chart: oauth2-proxy
+      targetRevision: 10.7.0
+      helm:
+        valueFiles:
+          - $repo/kubernetes/components/oauth2-proxy/values.yaml
+    - repoURL: https://github.com/Team-MaRo/infrastructure.git
+      targetRevision: master
+      ref: repo
+      path: kubernetes/components/oauth2-proxy
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: oauth2-proxy
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

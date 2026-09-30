@@ -1,0 +1,38 @@
+# Helm values for oauth2-proxy; the chart version is pinned in the cluster's Application. Only
+# what differs from the chart's and oauth2-proxy's defaults is set.
+
+config:
+  # Client ID, client secret and cookie secret (external-secrets.yaml).
+  existingSecret: oauth2-proxy
+  # It is only asked whether a request may pass (Traefik's forwardAuth), never proxies one:
+  # a logged-in request gets 202 and Traefik sends it on to the UI itself.
+  upstreams:
+    - static://202
+
+extraArgs:
+  provider: oidc
+  oidc-issuer-url: https://auth.d3strukt0r.dev
+  redirect-url: https://oauth2-proxy.d3strukt0r.dev/oauth2/callback
+  code-challenge-method: S256
+  # Only the role infra-admin passes, read from the `groups` claim that the groups webhook adds
+  # to Zitadel's tokens (the claim name is oauth2-proxy's default).
+  allowed-group: infra-admin
+  # One login for every guarded UI: the cookie is for the whole domain, and after the login
+  # oauth2-proxy may send the browser back to any address under it.
+  cookie-domain: .d3strukt0r.dev
+  whitelist-domain: .d3strukt0r.dev
+  # Reads the original host and path from Traefik's X-Forwarded-* headers, to return there.
+  reverse-proxy: true
+  # Straight to Zitadel instead of oauth2-proxy's own "Sign in with OpenID Connect" page.
+  skip-provider-button: true
+
+# At oauth2-proxy.d3strukt0r.dev (its own record in tofu/cloudflare), certificate from
+# certificates.yaml. No className: Traefik is the cluster's default IngressClass.
+ingress:
+  enabled: true
+  hosts:
+    - oauth2-proxy.d3strukt0r.dev
+  tls:
+    - hosts:
+        - oauth2-proxy.d3strukt0r.dev
+      secretName: oauth2-proxy-tls
