@@ -540,29 +540,62 @@ play-level settings a role cannot change.
   produces, so it is skipped under `--check`. What a dry run does verify is connectivity,
   private-interface detection and flag assembly on all three nodes.
 
-### The admin kubeconfig is break-glass, and is fetched separately
+### Two kubeconfigs: Zitadel every day, the admin certificate as break-glass
 
 `ansible/kubeconfig.yml` is its own playbook and is **not** imported by `site.yml`. Writing
 into `~/.kube` through `delegate_to: localhost` provisions a credential onto a workstation;
 it is not configuring a server, and it does not belong inside a role named after what it
-installs on the nodes.
+installs on the nodes. It writes two files beside `~/.kube/config` (rather than into it,
+because it writes each file whole):
 
-What it fetches is not an everyday credential. `/etc/rancher/k3s/k3s.yaml` embeds a client
-certificate whose subject is `CN=system:admin, O=system:masters`, and per the Kubernetes
-RBAC guidance any member of that group **"bypasses all RBAC rights checks and will always
-have unrestricted superuser access, which cannot be revoked by removing RoleBindings or
-ClusterRoleBindings"**. No RBAC can limit that file. Scoping everyday access therefore
-means issuing a *second* identity, not writing policy against this one - a Zitadel login for
-kubectl, on the roadmap. Until then every `kubectl` command runs as an unrestricted superuser.
+| Context | File | Logs in as |
+|---|---|---|
+| `d3strukt0r-prod` | `~/.kube/d3strukt0r-prod.yaml` | `zitadel:<username>`, through the browser - every day |
+| `d3strukt0r-prod-admin` | `~/.kube/d3strukt0r-prod-admin.yaml` | `system:admin`, a client certificate - break-glass |
 
-It lands as `~/.kube/d3strukt0r-prod-admin.yaml`, context `d3strukt0r-prod-admin`, leaving
-the plain name free. It is written beside `~/.kube/config` rather than into it, because the
-playbook writes the file whole. The name rewrites are anchored to their keys
-(`name: default`, not `default`) because base64 contains no colon or space, so an anchored
-pattern cannot collide with the certificate blobs.
+**The admin kubeconfig is not an everyday credential.** `/etc/rancher/k3s/k3s.yaml` embeds a
+client certificate whose subject is `CN=system:admin, O=system:masters`, and per the
+Kubernetes RBAC guidance any member of that group **"bypasses all RBAC rights checks and will
+always have unrestricted superuser access, which cannot be revoked by removing RoleBindings or
+ClusterRoleBindings"**. No RBAC can limit that file, which is why everyday access is a second
+identity rather than policy against this one. It keeps working when Zitadel is down. The name
+rewrites are anchored to their keys (`name: default`, not `default`) because base64 contains
+no colon or space, so an anchored pattern cannot collide with the certificate blobs. It also
+expires: k3s issues 365-day certificates and renews them on startup within 120 days of
+expiry, on the node. This copy does not follow, so `kubeconfig.yml` has to be re-run.
 
-It also expires: k3s issues 365-day certificates and renews them on startup within 120 days
-of expiry, on the node. This copy does not follow, so `kubeconfig.yml` has to be re-run.
+**The Zitadel kubeconfig holds no credential.** Its user runs kubelogin
+(`brew install kubelogin`, called as `kubectl oidc-login get-token`), which opens the browser,
+logs in with PKCE against the public app `Kubernetes` (`tofu/zitadel/apps_kubernetes.tf`,
+redirects `http://localhost:8000` and `:18000` - a native app, so no development mode) and
+keeps the tokens in the macOS keychain. It asks for `profile` (the username claim) and
+`offline_access` (a refresh token, so the hourly ID token renews without the browser). Server
+and CA are the admin file's.
+
+- **The API server checks the token itself**: `ansible/roles/k3s` writes
+  `/etc/rancher/k3s/authn.yaml`, an `AuthenticationConfiguration` (structured authentication,
+  GA since Kubernetes 1.34), and passes it with `kube-apiserver-arg: authentication-config`.
+  Issuer and audience are `k3s_oidc_issuer` and `k3s_oidc_client_id` in
+  `inventories/group_vars/prod.yml`, which `kubeconfig.yml` reads too. Username is
+  `preferred_username`, groups the webhook's `groups` claim, both prefixed `zitadel:` - so no
+  token can name a built-in `system:` user or group. Zitadel's ID token audience is the client
+  ID plus the project ID; one matching entry is enough.
+- **k3s drops its `--anonymous-auth=false` once that file exists** (it warns "Not setting
+  kube-apiserver 'anonymous-auth' flag"), which reopened `/version` and `/readyz` to anonymous
+  requests. The file therefore says `anonymous: enabled: false` itself; anonymous requests get
+  `401` again (checked 2026-09-30). A change to the file restarts k3s like `psa.yaml`: the API
+  server reloads the `jwt` part on its own, but not every part.
+- **Zitadel inside the cluster is no problem at start**: the API server starts without the
+  issuer and retries every 10 seconds; certificates and ServiceAccount tokens work meanwhile.
+  A typo in the issuer is therefore not caught at start - only a login shows it.
+- **Rights come from `kubernetes/components/cluster-rbac/`**: the ClusterRoleBinding
+  `zitadel-infra-admin` binds group `zitadel:infra-admin` to `cluster-admin`. RBAC that belongs
+  to one app stays in that app's component.
+- **Revoking**: Kubernetes never asks Zitadel whether a token is still good. A removed role or
+  a deactivated user keeps working until the ID token expires - at most 1 hour, the instance's
+  token lifetime (`zitadel_default_oidc_settings` in `tofu/zitadel/policies.tf`); then the
+  refresh fails. Deleting the binding ends it at once. The refresh token lapses after 30 days
+  unused and 90 days after the browser login in any case.
 
 ### Argo CD: bootstrapped once, then managing itself
 
@@ -1441,7 +1474,7 @@ replica).
 
 Zitadel is the identity provider (`kubernetes/clusters/prod/zitadel.yaml`, chart `zitadel`
 pinned, values and extra objects in `kubernetes/components/zitadel/`, namespace `zitadel`): the
-one login (OIDC/SAML) for the cluster's UIs, later kubectl and the apps, at
+one login (OIDC/SAML) for the cluster's UIs, kubectl and later the apps, at
 `https://auth.d3strukt0r.dev` (its own Cloudflare record, a CNAME to `prod`). Chosen over Keycloak
 for its footprint (user decision, 2026-09-29): a Go server that stores everything in the shared
 PostgreSQL. It runs as one replica of Zitadel and one of its separate v4 login page (Next.js, path
@@ -1490,7 +1523,9 @@ Measured idle after the first start (2026-09-30): Zitadel about 120-170Mi, the l
 - **What is inside Zitadel is `tofu/zitadel`** (provider `zitadel/zitadel`, at least 3.8.7 - the
   first release that imports the default login policy): the instance's login and domain
   policies and the organisation's domains, adopted with import blocks after they had been set
-  in the console. The project `Infrastructure` holds the admin UIs' applications and the role
+  in the console, and the instance's token lifetimes (ID and access tokens 1 hour instead of
+  12, since Kubernetes cannot revoke a token before it expires; refresh tokens at Zitadel's
+  defaults). The project `Infrastructure` holds the admin UIs' and kubectl's applications and the role
   `infra-admin` (role keys carry their project's prefix, since the `groups` claim mixes all
   projects' roles); role assertion puts roles into tokens and role check makes Zitadel itself
   refuse users without a role. Role assignments are here too - the personal user is looked up

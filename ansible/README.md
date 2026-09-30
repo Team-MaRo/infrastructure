@@ -11,7 +11,7 @@ ansible/
 ├── requirements.yml          # collection floors; install once (hetzner.hcloud 7 over the bundle)
 ├── site.yml                  # the whole estate: imports the playbooks below
 ├── prod.yml                  # hosts: prod  ->  roles
-├── kubeconfig.yml            # fetches the admin credential; not part of site.yml
+├── kubeconfig.yml            # writes the Zitadel and the admin kubeconfig; not part of site.yml
 ├── argocd.yml                # bootstraps Argo CD from this machine; not part of site.yml
 ├── secrets.yml               # writes bootstrap Secrets from 1Password; not part of site.yml
 ├── inventories/
@@ -188,7 +188,7 @@ so etcd never loses its quorum. Today it holds `disable: [local-storage]` (k3s's
 provisioner kept volumes on the node's own 40 GB disk, where they would die with the node),
 the etcd snapshot upload to S3, the WireGuard backend for the pod network
 (`flannel-backend: wireguard-native`, which encrypts pod traffic between nodes), and the
-path to the Pod Security configuration.
+paths to the Pod Security and the authentication configuration.
 
 The role also sets kernel parameters (`k3s_sysctls`, today only
 `net.ipv4.ip_unprivileged_port_start = 80`, so Traefik can listen on 80/443 on the host
@@ -199,6 +199,11 @@ node is an ingress node). Labels go through `k3s kubectl label` on each node, si
 That configuration, `/etc/rancher/k3s/psa.yaml`, is written by the same role and restarts
 k3s the same way when it changes. It enforces the restricted Pod Security Standard
 everywhere except `k3s_psa_exempt_namespaces` - see "Pod Security" in `CLAUDE.md`.
+
+So is `/etc/rancher/k3s/authn.yaml`, which lets the API server accept Zitadel's ID tokens for
+kubectl (issuer and client ID from `k3s_oidc_issuer` and `k3s_oidc_client_id` in
+`group_vars/prod.yml`), and turns anonymous requests off - k3s stops doing that itself once
+the file exists. See "Two kubeconfigs" in `CLAUDE.md`.
 
 A dry run cannot cover everything: the join needs a token only a real first play produces,
 so it is skipped under `--check`. What it does verify is connectivity, private-interface
@@ -254,37 +259,46 @@ changing it in 1Password and re-running this.
 ## `kubeconfig.yml`
 
 Separate from `prod.yml` and **not** imported by `site.yml`, because it does not configure a
-server - it provisions a credential onto a workstation. Run it when you need the
-credential:
+server - it provisions credentials onto a workstation. It writes two kubeconfigs:
 
 ```shell
+brew install kubelogin              # once; the everyday kubeconfig runs it
 ansible-playbook kubeconfig.yml
 ```
 
-What it fetches is the **break-glass** credential, not an everyday one. The kubeconfig k3s
-generates embeds a client certificate whose subject is `CN=system:admin, O=system:masters`,
-and that group bypasses RBAC entirely - its access cannot be revoked by removing bindings.
-So it lands as `~/.kube/d3strukt0r-prod-admin.yaml` with context `d3strukt0r-prod-admin`,
-leaving the plain name free for a scoped identity later.
-
-It goes beside `~/.kube/config` rather than into it, because the playbook writes the file
-whole and would otherwise clobber an existing one. Chain them so kubectl sees both; writes
-go to the first:
+- **`~/.kube/d3strukt0r-prod.yaml`, context `d3strukt0r-prod`** - the everyday one. It holds
+  no credential: kubectl runs kubelogin, which logs in through Zitadel in the browser (the
+  role `infra-admin` makes you cluster admin) and keeps the tokens in the macOS keychain. The
+  ID token lasts an hour and renews silently; a browser login comes back after 30 days unused,
+  and after 90 days in any case.
+- **`~/.kube/d3strukt0r-prod-admin.yaml`, context `d3strukt0r-prod-admin`** - break-glass,
+  fetched from the node. The kubeconfig k3s generates embeds a client certificate whose subject
+  is `CN=system:admin, O=system:masters`, and that group bypasses RBAC entirely - its access
+  cannot be revoked by removing bindings. It keeps working when Zitadel is down.
 
 ```shell
-export KUBECONFIG="$HOME/.kube/config:$HOME/.kube/d3strukt0r-prod-admin.yaml"
+kubectl --context d3strukt0r-prod auth whoami   # zitadel:<username>, group zitadel:infra-admin
 ```
 
-Two things are rewritten on the way out of the node. The server address, from the node's
-`127.0.0.1` to `prod-01`'s public address - all three nodes are in the certificate's SANs,
-so if `prod-01` is down, editing the `server:` line to another node is enough. And the
-cluster, user and context names, which k3s all calls `default`. Each replacement is
-anchored to its key (`name: default`, not `default`) because base64 contains no colon or
-space, so an anchored pattern cannot match inside the certificate blobs.
+Both go beside `~/.kube/config` rather than into it, because the playbook writes each file
+whole and would otherwise clobber an existing one. Chain them so kubectl sees all three;
+writes go to the first:
 
-**Re-run it periodically.** k3s issues 365-day certificates and renews them on startup
-within 120 days of expiry, on the node. This copy does not follow, so it eventually stops
-working until refreshed.
+```shell
+export KUBECONFIG="$HOME/.kube/config:$HOME/.kube/d3strukt0r-prod.yaml:$HOME/.kube/d3strukt0r-prod-admin.yaml"
+```
+
+In the admin kubeconfig, two things are rewritten on the way out of the node. The server
+address, from the node's `127.0.0.1` to `prod-01`'s public address - all three nodes are in
+the certificate's SANs, so if `prod-01` is down, editing the `server:` line to another node
+(in both files) is enough. And the cluster, user and context names, which k3s all calls
+`default`. Each replacement is anchored to its key (`name: default`, not `default`) because
+base64 contains no colon or space, so an anchored pattern cannot match inside the
+certificate blobs.
+
+**Re-run it periodically** for the admin kubeconfig. k3s issues 365-day certificates and
+renews them on startup within 120 days of expiry, on the node. This copy does not follow, so
+it eventually stops working until refreshed.
 
 ## The `swap` role
 

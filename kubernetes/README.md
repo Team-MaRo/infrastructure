@@ -38,6 +38,7 @@ kubernetes/
 │       ├── postgres.yaml          # the shared PostgreSQL itself
 │       ├── zitadel.yaml           # the identity provider (SSO)
 │       ├── oauth2-proxy.yaml      # the Zitadel login gate for UIs without a login of their own
+│       ├── cluster-rbac.yaml      # cluster-wide rights for kubectl logins through Zitadel
 │       ├── etcd-snapshots.yaml    # syncs the subdirectory below
 │       └── etcd-snapshots/        # prod-only: the S3 settings k3s uploads snapshots with
 └── components/                # how each component is deployed, shared by clusters
@@ -123,6 +124,9 @@ kubernetes/
     │   ├── kustomization.yaml
     │   ├── external-secrets.yaml  # client and cookie secret from OpenBao
     │   └── certificates.yaml      # oauth2-proxy.d3strukt0r.dev
+    ├── cluster-rbac/
+    │   ├── kustomization.yaml
+    │   └── infra-admin.yaml       # Zitadel's infra-admin group is cluster-admin
     ├── alloy/
     │   ├── values.yaml            # Helm values: the collection pipeline
     │   ├── kustomization.yaml
@@ -170,6 +174,21 @@ GitHub, not from your working copy.
 
 The bootstrap applies exactly what the `argocd` Application syncs, so Argo CD's first sync
 of itself is a no-op.
+
+## kubectl
+
+Every day through Zitadel, context `d3strukt0r-prod` (written by `ansible/kubeconfig.yml`, with
+kubelogin installed): the first command opens the browser, then the ID token lasts an hour and
+renews itself without the browser - for 90 days after the login, or until 30 days unused.
+
+```shell
+kubectl --context d3strukt0r-prod auth whoami   # zitadel:<username>, group zitadel:infra-admin
+```
+
+The role `infra-admin` in Zitadel's project `Infrastructure` makes that user cluster admin
+(`components/cluster-rbac/`). Break-glass, with Zitadel down, is context
+`d3strukt0r-prod-admin`, the k3s admin certificate. The commands in this README use it; the
+Zitadel context works for all of them as well, except where Zitadel itself is broken.
 
 ## Accessing the UI
 
