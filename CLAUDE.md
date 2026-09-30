@@ -701,9 +701,12 @@ upstreams: chart pinned in the cluster's Application, values in `components/`.
   verify they talk to the real OpenBao.
 - The injector is off; secrets reach workloads through External Secrets.
 - **Its configuration is `tofu/openbao`**: the KV v2 engine `secret/`, Kubernetes auth, and
-  the `external-secrets` policy and role, and the OIDC login (below). The module reaches
-  OpenBao through `kubectl port-forward svc/openbao 8200:8200` and authenticates with the root
-  token from its gitignored tfvars. Secret **values** never go
+  the `external-secrets` policy and role, and the OIDC login (below). It reaches OpenBao at its
+  public address and authenticates with either of two tokens: day to day an admin's own, from
+  `bao login -method=oidc` (`~/.vault-token`, read by the provider when `openbao_token` is
+  unset); on a cluster rebuilt from scratch, where no OIDC login exists yet, the root token in
+  the gitignored tfvars - with `-target=vault_mount.secret` first, since the OIDC login reads its
+  client secret from the mount the module creates. Secret **values** never go
   through OpenTofu - they would land in state - but in with `bao kv put`. The ESO policy reads
   all of `secret/`, so every namespace referencing the ClusterSecretStore reaches every value:
   fine for a single-admin cluster, to be narrowed per namespace once others deploy. Audit
@@ -726,8 +729,9 @@ upstreams: chart pinned in the cluster's Application, values in `components/`.
   **ephemeral** `vault_kv_secret_v2` and hands it over as the write-only
   `oidc_client_secret_wo`, so it is in no state and no tfvars. Write-only values are only sent
   when `oidc_client_secret_wo_version` changes - bump it after a rotation.
-- **The root token stays the break-glass login** for now; revoking it is the next step once
-  the OIDC login has proven itself (it can be regenerated with the recovery keys).
+- **The root token stays the break-glass login** (user decision), kept only in 1Password - not
+  in any tfvars day to day. The recovery keys (reusable Shamir shares, 3 of 5) can generate a new
+  one (`bao operator generate-root`); with the static seal they unseal nothing.
 - **External Secrets delivers the values** (`kubernetes/clusters/prod/external-secrets.yaml`:
   chart `external-secrets` 2.11.0 pinned, plus `kubernetes/components/external-secrets/`
   with the `ClusterSecretStore` `openbao`). `ServerSideApply=true` is required there - the

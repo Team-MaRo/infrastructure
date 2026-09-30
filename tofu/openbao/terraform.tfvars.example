@@ -1,5 +1,11 @@
-# Copy to terraform.tfvars and fill in. terraform.tfvars is gitignored; this example is
-# not, because it holds no values.
+# Copy to terraform.tfvars and fill in only what is needed. terraform.tfvars is gitignored;
+# this example is not, because it holds no values.
 
-# The initial root token, from 1Password item "OpenBao | Prod | Recovery keys & root token".
-openbao_token = ""
+# Day to day nothing is needed: log in with `bao login -method=oidc -no-print` first.
+#
+# Only on a cluster rebuilt from scratch, while no OIDC login exists yet - the root token from
+# 1Password item "OpenBao | Prod | Recovery keys & root token" (remove it again afterwards):
+# openbao_token = ""
+#
+# Only while the public address is not reachable yet, through a port-forward (variables.tf):
+# openbao_address = "http://127.0.0.1:8200"
