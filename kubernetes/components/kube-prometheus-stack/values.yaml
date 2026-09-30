@@ -164,6 +164,42 @@ alertmanager:
 grafana:
   admin:
     existingSecret: grafana-admin
+  # At grafana.d3strukt0r.dev (its own record in tofu/cloudflare), certificate from
+  # certificates.yaml. No className: Traefik is the cluster's default IngressClass.
+  ingress:
+    enabled: true
+    hosts:
+      - grafana.d3strukt0r.dev
+    tls:
+      - hosts:
+          - grafana.d3strukt0r.dev
+        secretName: grafana-tls
+  grafana.ini:
+    server:
+      root_url: https://grafana.d3strukt0r.dev
+    # Login through Zitadel, a public client (PKCE, no secret) from
+    # tofu/zitadel/apps_grafana.tf. Only what differs from Grafana's defaults. The local admin
+    # login stays as the break-glass way in.
+    auth.generic_oauth:
+      enabled: true
+      name: Zitadel
+      client_id: "393061051085685089"
+      use_pkce: true
+      # A public client sends its ID in the request body and no secret; the automatic mode
+      # would try a Basic header first.
+      auth_style: InParams
+      scopes: openid profile email
+      auth_url: https://auth.d3strukt0r.dev/oauth/v2/authorize
+      token_url: https://auth.d3strukt0r.dev/oauth/v2/token
+      api_url: https://auth.d3strukt0r.dev/oidc/v1/userinfo
+      # The `groups` claim from the groups webhook: infra-admin is Grafana's server admin
+      # (which includes Admin of its organisation); everyone else is refused.
+      role_attribute_path: contains(groups[*], 'infra-admin') && 'GrafanaAdmin'
+      role_attribute_strict: true
+      allow_assign_grafana_admin: true
+    auth:
+      # Ends the Zitadel session too, then back to Grafana's login page.
+      signout_redirect_url: https://auth.d3strukt0r.dev/oidc/v1/end_session?client_id=393061051085685089&post_logout_redirect_uri=https://grafana.d3strukt0r.dev/login
   # A test pod Helm would run on install; Argo CD would only ever show it as extra.
   testFramework:
     enabled: false

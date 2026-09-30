@@ -170,8 +170,11 @@ Break-glass, with Zitadel down: the port-forward and the local `admin` (its pass
 kubectl --context d3strukt0r-prod-admin -n argocd port-forward svc/argocd-server 8080:80
 ```
 
-then `http://localhost:8080`. The other UIs are not exposed yet; they follow with the same
-Zitadel login. Uptime Kuma by port-forward:
+then `http://localhost:8080`.
+
+**Grafana** is at `https://grafana.d3strukt0r.dev` - "Sign in with Zitadel", the same way; its
+local `admin` (password in 1Password `Grafana | Prod | Admin`) and the port-forward below stay
+as break-glass. The other UIs are not exposed yet. Uptime Kuma by port-forward:
 
 ```shell
 kubectl --context d3strukt0r-prod-admin -n uptime-kuma port-forward svc/uptime-kuma 3001:3001
@@ -185,7 +188,7 @@ kubectl --context d3strukt0r-prod-admin -n monitoring port-forward svc/kube-prom
 kubectl --context d3strukt0r-prod-admin -n monitoring port-forward svc/kube-prometheus-stack-alertmanager 9093:9093
 ```
 
-then `http://localhost:3000` (user `admin`, password in 1Password `Grafana | Prod | Admin`),
+then `http://localhost:3000` (break-glass: user `admin`, password in 1Password `Grafana | Prod | Admin`),
 `http://localhost:9090` (Status → Targets shows every scrape) and `http://localhost:9093`
 (firing alerts, silences).
 

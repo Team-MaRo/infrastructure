@@ -1,0 +1,14 @@
+---
+# Grafana's certificate for Traefik, issued separately rather than through Ingress annotations
+# (as for Zitadel and Argo CD).
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: grafana-tls
+spec:
+  secretName: grafana-tls
+  dnsNames:
+    - grafana.d3strukt0r.dev
+  issuerRef:
+    kind: ClusterIssuer
+    name: letsencrypt
