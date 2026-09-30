@@ -969,6 +969,9 @@ listens on the node's ports 80 and 443 itself, IPv4 and IPv6.
   `net.ipv4.ip_unprivileged_port_start = 80` on the nodes (`k3s_sysctls`) lets it bind 80 and
   443. Its other entrypoints, metrics `:9100` and `:8080`, also open on the host but are closed by
   the Hetzner firewall.
+- **The dashboard is at `https://traefik.d3strukt0r.dev`** (read-only), switched on through the
+  chart's `ingressRoute.dashboard` in the HelmChartConfig - an IngressRoute on `websecure` with
+  certificate `traefik-tls` and the Zitadel gate (see "The login gate").
 - **Ingresses report `prod.d3strukt0r.dev` as their address** (`ingressEndpoint.hostname`).
   k3s's values copy the address from Traefik's Service (`publishedService`), which as
   `ClusterIP` has none, and Argo CD counts an Ingress without an address as Progressing - the
@@ -1042,6 +1045,10 @@ configured in the UI (runbook and monitor list in `kubernetes/README.md`), not i
   there, and Alertmanager's heartbeat goes to that address.
 - Since 2.0, the push endpoint accepts POST, so Alertmanager's webhook can call it directly - no
   translating proxy.
+- **Its UI is at `https://uptime-kuma.d3strukt0r.dev` behind two locks**: the Zitadel gate
+  (oauth2-proxy, see "The login gate") and then its own single admin with 2FA (user decision).
+  Turning its own auth off would leave anything that reaches the pod inside the cluster - and
+  its `/metrics` - unauthenticated. Alertmanager keeps using the Service.
 
 **kube-prometheus-stack** (`kubernetes/clusters/prod/kube-prometheus-stack.yaml`, chart
 pinned, values and extra manifests in `kubernetes/components/kube-prometheus-stack/`) runs
@@ -1491,6 +1498,39 @@ Measured idle after the first start (2026-09-30): Zitadel about 120-170Mi, the l
   API is public over REST and gRPC-web.
 - The license is AGPL-3.0; running it unmodified puts no obligation on the apps that log in
   through it.
+
+### The login gate: oauth2-proxy
+
+UIs without a Zitadel login of their own - the Traefik dashboard and Uptime Kuma - sit behind
+oauth2-proxy (`kubernetes/clusters/prod/oauth2-proxy.yaml`, chart pinned, values and extra
+objects in `kubernetes/components/oauth2-proxy/`, namespace `oauth2-proxy`). Traefik asks it
+about every request (a `forwardAuth` Middleware); it never proxies a request itself
+(`upstreams: static://202`).
+
+- **Not logged in**: it answers with the redirect to Zitadel, Traefik hands that to the
+  browser, and after the login Zitadel returns to `https://oauth2-proxy.d3strukt0r.dev/oauth2/callback`,
+  which sets the cookie and sends the browser back (`reverse-proxy` reads the original address
+  from Traefik's headers; `whitelist-domain` allows returning anywhere under the domain).
+  **Logged in with `infra-admin`** (the `groups` claim, `allowed-group`): 202, and Traefik
+  passes the request on. Logged in without it: refused.
+- **One login for all guarded UIs**: the cookie is for `.d3strukt0r.dev`. The trade-off,
+  accepted: browsers also send it to names the old server still answers through the wildcard;
+  it is encrypted with the cookie secret, but a compromised old server could replay it. It goes
+  away with the old server.
+- **The one client with a secret** (`tofu/zitadel/apps_oauth2_proxy.tf`, auth method BASIC):
+  oauth2-proxy refuses to run without one. The secret Zitadel returned at creation is in the
+  tofu state, so it was regenerated in the console at once; the live one and the cookie secret
+  are in 1Password `Zitadel | Prod | oauth2-proxy` and OpenBao `secret/oauth2-proxy`, delivered
+  by the ExternalSecret `oauth2-proxy` (the client ID, not secret, is written into its
+  template).
+- **The Middleware exists once per guarded namespace** (`kube-system`, `uptime-kuma`) - Traefik
+  only takes middleware from the router's own namespace (`allowCrossNamespace` stays off);
+  each points at `http://oauth2-proxy.oauth2-proxy.svc`. A new guarded UI gets a copy in its
+  namespace, the annotation `traefik.ingress.kubernetes.io/router.middlewares:
+  <namespace>-oauth2-proxy@kubernetescrd` on its Ingress, and its hostname under the domain.
+- The chart meets the restricted Pod Security Standard as it is; the image is on `quay.io`;
+  one replica - with it down, the guarded UIs are unreachable (fail closed) but everything
+  else keeps running.
 
 ### What a second cluster would need
 

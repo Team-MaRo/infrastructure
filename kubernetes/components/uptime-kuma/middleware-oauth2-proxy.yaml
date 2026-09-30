@@ -1,0 +1,13 @@
+---
+# The Zitadel login gate: Traefik asks oauth2-proxy about every request before passing it on.
+# Not logged in: oauth2-proxy answers with the redirect to Zitadel, which Traefik hands to the
+# browser. Logged in with the role infra-admin: 202, and the request goes through. Traefik only
+# accepts middleware from the router's own namespace, so each guarded UI has its own copy.
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: oauth2-proxy
+  namespace: uptime-kuma
+spec:
+  forwardAuth:
+    address: http://oauth2-proxy.oauth2-proxy.svc

@@ -1,0 +1,28 @@
+---
+# Uptime Kuma at uptime-kuma.d3strukt0r.dev (its own record in tofu/cloudflare), behind the
+# Zitadel login gate (middleware-oauth2-proxy.yaml) and then its own login - two locks, so
+# nothing that reaches the pod directly gets in unauthenticated either. Alertmanager's
+# heartbeat keeps using the cluster-internal Service. No className: Traefik is the cluster's
+# default IngressClass.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: uptime-kuma
+  annotations:
+    traefik.ingress.kubernetes.io/router.middlewares: uptime-kuma-oauth2-proxy@kubernetescrd
+spec:
+  tls:
+    - hosts:
+        - uptime-kuma.d3strukt0r.dev
+      secretName: uptime-kuma-tls
+  rules:
+    - host: uptime-kuma.d3strukt0r.dev
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: uptime-kuma
+                port:
+                  name: http

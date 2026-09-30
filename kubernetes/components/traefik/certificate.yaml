@@ -1,0 +1,14 @@
+---
+# The Traefik dashboard's certificate (helmchartconfig.yaml), in Traefik's namespace.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: traefik-tls
+  namespace: kube-system
+spec:
+  secretName: traefik-tls
+  dnsNames:
+    - traefik.d3strukt0r.dev
+  issuerRef:
+    kind: ClusterIssuer
+    name: letsencrypt

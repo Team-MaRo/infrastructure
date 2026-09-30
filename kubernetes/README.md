@@ -174,7 +174,12 @@ then `http://localhost:8080`.
 
 **Grafana** is at `https://grafana.d3strukt0r.dev` - "Sign in with Zitadel", the same way; its
 local `admin` (password in 1Password `Grafana | Prod | Admin`) and the port-forward below stay
-as break-glass. The other UIs are not exposed yet. Uptime Kuma by port-forward:
+as break-glass.
+
+**Uptime Kuma** is at `https://uptime-kuma.d3strukt0r.dev` and the **Traefik dashboard** at
+`https://traefik.d3strukt0r.dev` - both behind the Zitadel gate (oauth2-proxy, see "The login
+gate"); Uptime Kuma then asks for its own admin as well. Break-glass for Uptime Kuma, the
+port-forward:
 
 ```shell
 kubectl --context d3strukt0r-prod-admin -n uptime-kuma port-forward svc/uptime-kuma 3001:3001
@@ -989,6 +994,36 @@ instance rights and can remove the factor through the API.
 ```shell
 kubectl --context d3strukt0r-prod-admin -n zitadel get pods,jobs,certificates,externalsecrets
 ```
+
+## The login gate
+
+oauth2-proxy guards the UIs without a Zitadel login of their own (the Traefik dashboard, Uptime
+Kuma). Its Zitadel app comes from `tofu/zitadel` (`apps_oauth2_proxy.tf`); **before the first
+sync**, its secrets go into OpenBao:
+
+1. Right after `tofu apply` created the app, regenerate its secret - the one from creation is in
+   the tofu state: Zitadel console → Projects → Infrastructure → oauth2-proxy → Regenerate
+   Secret. It is shown once.
+2. A 1Password item with that secret and a cookie secret (exactly 32 random bytes - oauth2-proxy
+   accepts only 16, 24 or 32):
+
+   ```shell
+   op item create --account my.1password.com --vault Private --category password \
+     --title 'Zitadel | Prod | oauth2-proxy' \
+     "password=<the regenerated client secret>" \
+     "cookie-secret[password]=$(openssl rand -base64 32 | tr -- '+/' '-_')" >/dev/null
+   ```
+3. As JSON on stdin, with the empty check (port-forward and token as in "OpenBao"):
+
+   ```shell
+   jq -n --arg c "$(op item get 'Zitadel | Prod | oauth2-proxy' --account my.1password.com --vault Private --fields password --reveal)" \
+         --arg k "$(op item get 'Zitadel | Prod | oauth2-proxy' --account my.1password.com --vault Private --fields cookie-secret --reveal)" \
+     'if ($c|length)==0 or ($k|length)==0 then error("empty value - 1Password lookup failed") else {"client-secret":$c,"cookie-secret":$k} end' \
+   | BAO_ADDR=http://127.0.0.1:8200 BAO_TOKEN="$(op item get 'OpenBao | Prod | Recovery keys & root token' --account my.1password.com --vault Private --fields credential --reveal)" \
+     bao kv put secret/oauth2-proxy -
+   ```
+
+A new client ID (a recreated app) goes into `components/oauth2-proxy/external-secrets.yaml`.
 
 ## How quickly a push arrives
 
