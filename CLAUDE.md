@@ -1109,6 +1109,15 @@ LimitRange there, so it sets its own.
   a trend predicted it full within four days.
 - **Grafana's admin** comes from OpenBao `secret/grafana` through the ExternalSecret
   `grafana-admin`; the chart would otherwise generate a new random password on every render.
+  It is the break-glass login since Grafana moved to `https://grafana.d3strukt0r.dev`.
+- **Grafana logs in through Zitadel** (`auth.generic_oauth` in the values, the app in
+  `tofu/zitadel/apps_grafana.tf`): a public client, PKCE without a secret, with
+  `auth_style: InParams` so the client ID goes into the request body and no Basic header is
+  sent. `role_attribute_path` makes `infra-admin` from the `groups` claim `GrafanaAdmin`
+  (server admin, which includes Admin of its organisation; `allow_assign_grafana_admin`), and
+  `role_attribute_strict` refuses everyone else. Sign-out ends the Zitadel session too
+  (`signout_redirect_url`). Only settings that differ from Grafana's defaults are written;
+  new users are created at their first login (`allow_sign_up`, a default).
 - **kube-state-metrics also reads operator objects** (`customResourceState` in the values):
   the status conditions of `MariaDB` and `PhysicalBackup` become
   `kube_customresource_condition{customresource_kind, name, type, status, reason}`, valued with

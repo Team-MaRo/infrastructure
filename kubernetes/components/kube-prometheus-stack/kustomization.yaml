@@ -9,3 +9,4 @@ resources:
   - external-secrets.yaml
   - scrape-etcd.yaml
   - rules.yaml
+  - certificates.yaml
