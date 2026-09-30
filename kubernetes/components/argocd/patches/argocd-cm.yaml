@@ -6,13 +6,30 @@
 # Both values reach argocd-application-controller and argocd-repo-server as environment
 # variables, read at start - after a change, restart both (see kubernetes/README.md).
 #
-# A GitHub webhook would make syncs immediate instead, once argocd-server is reachable from
-# the internet.
+# A GitHub webhook would make syncs immediate instead, now that argocd-server is reachable
+# from the internet.
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: argocd-cm
 data:
+  url: https://argocd.d3strukt0r.dev
+  # Login through Zitadel directly, without Dex. Both clients are public (PKCE, no secret) and
+  # defined in tofu/zitadel/apps_argocd.tf, which also prints these client IDs.
+  oidc.config: |
+    name: Zitadel
+    issuer: https://auth.d3strukt0r.dev
+    clientID: "393057825934279009"
+    cliClientID: "393057825934344545"
+    enablePKCEAuthentication: true
+    requestedScopes:
+      - openid
+      - profile
+      - email
+    # Argo CD does not take this from the discovery document; without it, logging out only
+    # drops Argo CD's own session and the next login passes Zitadel without a password. Argo CD
+    # fills in the ID token and its own address (no trailing slash - as registered in Zitadel).
+    logoutURL: https://auth.d3strukt0r.dev/oidc/v1/end_session?id_token_hint={{token}}&post_logout_redirect_uri={{logoutRedirectURL}}
   timeout.reconciliation: 60s
   timeout.reconciliation.jitter: 0s
   # An aggregated ClusterRole (Kyverno's controllers use them) has its rules filled in by

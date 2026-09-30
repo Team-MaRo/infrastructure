@@ -1,0 +1,14 @@
+---
+# Rights for Zitadel users come from the `groups` claim - the claim Argo CD reads groups from
+# by default - which the groups webhook adds to Zitadel's tokens
+# (kubernetes/components/zitadel/groups-webhook.yaml): the role infra-admin of the
+# Infrastructure project is Argo CD's admin. Nobody else gets anything - and Zitadel does
+# not let users without a role in that project log in to begin with. The local admin account
+# is not affected by this and stays as the break-glass login.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-rbac-cm
+data:
+  policy.csv: |
+    g, infra-admin, role:admin

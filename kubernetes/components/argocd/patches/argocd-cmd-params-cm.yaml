@@ -1,0 +1,9 @@
+---
+# TLS ends at Traefik (ingress.yaml), so argocd-server serves plain HTTP instead of its own
+# self-signed certificate. Read at start: argocd-server needs a restart after a change.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-cmd-params-cm
+data:
+  server.insecure: "true"
