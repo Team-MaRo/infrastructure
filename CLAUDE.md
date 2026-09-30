@@ -12,7 +12,7 @@ declarative infrastructure.
 - `tofu/hcloud/` - the Hetzner Cloud layer
 - `tofu/objectstorage/` - the Object Storage buckets (etcd snapshots, tfstate) and their policies
 - `tofu/openbao/` - OpenBao's own configuration: secrets engine, Kubernetes auth, policies
-- `tofu/zitadel/` - what is inside Zitadel: instance policies, organisation domains, later projects and apps
+- `tofu/zitadel/` - what is inside Zitadel: instance policies, organisation domains, the groups action, projects, roles and apps
 - `tofu/infomaniak/` - registrar-side delegation and DNSSEC checks
 - `tofu/cloudflare/` - both Cloudflare accounts, zones, records and TLS settings
 - `cloud-init/node.yaml` - node bootstrap, consumed over HTTPS (see below)
@@ -552,8 +552,8 @@ certificate whose subject is `CN=system:admin, O=system:masters`, and per the Ku
 RBAC guidance any member of that group **"bypasses all RBAC rights checks and will always
 have unrestricted superuser access, which cannot be revoked by removing RoleBindings or
 ClusterRoleBindings"**. No RBAC can limit that file. Scoping everyday access therefore
-means issuing a *second* identity, not writing policy against this one - which is what the
-next stage does. Until then every `kubectl` command runs as an unrestricted superuser.
+means issuing a *second* identity, not writing policy against this one - a Zitadel login for
+kubectl, on the roadmap. Until then every `kubectl` command runs as an unrestricted superuser.
 
 It lands as `~/.kube/d3strukt0r-prod-admin.yaml`, context `d3strukt0r-prod-admin`, leaving
 the plain name free. It is written beside `~/.kube/config` rather than into it, because the
@@ -605,8 +605,8 @@ self-heal.
 - **Bootstrap and self-management use the same directory**, so the first self-sync is a
   no-op. Both apply server-side; `ServerSideApply=true` is required for a self-managed
   Argo CD because its CRDs are too large for client-side apply's annotation.
-- **Dex is removed** by `patches/dex.yaml`; Zitadel will be the OIDC provider and Argo CD
-  will talk to it directly. `argocd-server` still mounts an optional `argocd-dex-server-tls`
+- **Dex is removed** by `patches/dex.yaml`; Zitadel is the OIDC provider and Argo CD talks
+  to it directly (below). `argocd-server` still mounts an optional `argocd-dex-server-tls`
   secret volume from upstream - harmless, left alone rather than diverging from upstream.
 - **Non-HA on purpose.** Even the HA manifest keeps the application controller - the part
   that syncs - at one replica, so HA mostly buys a UI that survives a node failure. That
@@ -1038,7 +1038,8 @@ traffic.
 
 Each monitoring component gets its own namespace, under the restricted Pod Security
 Standard; components that need the host (node-exporter, the log collector) go to
-`kube-system` instead. The UIs are reached by port-forward only until Zitadel provides SSO.
+`kube-system` instead. Their UIs are at their own addresses behind the Zitadel login (below);
+port-forwards stay the break-glass way in.
 
 **Uptime Kuma** (`kubernetes/components/uptime-kuma/`, plain manifests, image pinned,
 namespace `uptime-kuma`) has two

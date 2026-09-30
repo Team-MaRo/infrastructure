@@ -37,25 +37,32 @@ kubernetes/
 │       ├── cloudnative-pg.yaml    # the PostgreSQL operator and its backup plugin: charts pinned here
 │       ├── postgres.yaml          # the shared PostgreSQL itself
 │       ├── zitadel.yaml           # the identity provider (SSO)
+│       ├── oauth2-proxy.yaml      # the Zitadel login gate for UIs without a login of their own
 │       ├── etcd-snapshots.yaml    # syncs the subdirectory below
 │       └── etcd-snapshots/        # prod-only: the S3 settings k3s uploads snapshots with
 └── components/                # how each component is deployed, shared by clusters
     ├── argocd/                # pinned upstream install.yaml plus patches
     │   ├── kustomization.yaml
     │   ├── namespace.yaml
-    │   └── patches/           # argocd-cm, Dex removed, memory per container
+    │   ├── certificate.yaml   # argocd.d3strukt0r.dev
+    │   ├── ingress.yaml       # UI and API behind Traefik
+    │   └── patches/           # argocd-cm (Zitadel login), RBAC, plain HTTP, Dex removed, memory
     ├── hcloud-csi/            # Hetzner's CSI driver, pinned
     │   ├── kustomization.yaml
     │   └── patches/           # reclaimPolicy Retain, memory per container
     ├── openbao/
-    │   └── values.yaml        # Helm values: one replica, Raft storage, static seal
+    │   ├── values.yaml        # Helm values: one replica, Raft storage, static seal, Ingress
+    │   ├── kustomization.yaml
+    │   └── certificates.yaml  # openbao.d3strukt0r.dev
     ├── external-secrets/
     │   ├── values.yaml            # Helm values: memory
     │   ├── kustomization.yaml
     │   └── cluster-secret-store.yaml  # the store named openbao
     ├── traefik/
     │   ├── kustomization.yaml
-    │   └── helmchartconfig.yaml   # values merged into k3s's bundled Traefik
+    │   ├── helmchartconfig.yaml   # values merged into k3s's bundled Traefik, the dashboard
+    │   ├── certificate.yaml       # traefik.d3strukt0r.dev
+    │   └── middleware-oauth2-proxy.yaml  # the Zitadel gate for the dashboard
     ├── cert-manager/
     │   ├── kustomization.yaml     # pinned release manifest
     │   ├── external-secret.yaml   # the two Cloudflare tokens from OpenBao
@@ -76,7 +83,8 @@ kubernetes/
     │   ├── kustomization.yaml
     │   ├── external-secrets.yaml  # ntfy URLs and token, Grafana's admin, from OpenBao
     │   ├── scrape-etcd.yaml       # etcd's metrics on the servers' private IPs
-    │   └── rules.yaml             # this cluster's own alerts
+    │   ├── rules.yaml             # this cluster's own alerts
+    │   └── certificates.yaml      # grafana.d3strukt0r.dev
     ├── loki/
     │   ├── values.yaml            # Helm values: one instance, S3, 30 days
     │   ├── kustomization.yaml
@@ -108,7 +116,13 @@ kubernetes/
     │   ├── database.yaml          # its role and database, in the postgres namespace
     │   ├── external-secrets.yaml  # masterkey, first admin password, database password
     │   ├── postgres-ca.yaml       # copies CloudNativePG's CA certificate for verify-full
-    │   └── certificates.yaml      # auth.d3strukt0r.dev, and the login page's key pair
+    │   ├── certificates.yaml      # auth.d3strukt0r.dev, and the login page's key pair
+    │   └── groups-webhook.yaml    # adds the flat `groups` claim to Zitadel's tokens
+    ├── oauth2-proxy/
+    │   ├── values.yaml            # Helm values: Zitadel, allowed group, cookie domain
+    │   ├── kustomization.yaml
+    │   ├── external-secrets.yaml  # client and cookie secret from OpenBao
+    │   └── certificates.yaml      # oauth2-proxy.d3strukt0r.dev
     ├── alloy/
     │   ├── values.yaml            # Helm values: the collection pipeline
     │   ├── kustomization.yaml
@@ -117,7 +131,10 @@ kubernetes/
         ├── kustomization.yaml
         ├── deployment.yaml        # one replica, pinned rootless image, SQLite
         ├── pvc.yaml               # its 10 GB volume
-        └── service.yaml
+        ├── service.yaml
+        ├── certificate.yaml       # uptime-kuma.d3strukt0r.dev
+        ├── ingress.yaml           # behind the Zitadel gate
+        └── middleware-oauth2-proxy.yaml  # the gate
 ```
 
 Components are Kustomize over a pinned upstream manifest where upstream publishes one.
