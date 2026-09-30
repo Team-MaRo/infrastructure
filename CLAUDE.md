@@ -1442,7 +1442,11 @@ Measured idle after the first start (2026-09-30): Zitadel about 120-170Mi, the l
 - **What is inside Zitadel is `tofu/zitadel`** (provider `zitadel/zitadel`, at least 3.8.7 - the
   first release that imports the default login policy): the instance's login and domain
   policies and the organisation's domains, adopted with import blocks after they had been set
-  in the console; projects and apps follow. It logs in as the machine user `iam-admin` with the
+  in the console. The project `Infrastructure` holds the admin UIs' applications and the role
+  `infra-admin` (role keys carry their project's prefix, since the `groups` claim mixes all
+  projects' roles); role assertion puts roles into tokens and role check makes Zitadel itself
+  refuse users without a role. Role assignments are here too - the personal user is looked up
+  by username. It logs in as the machine user `iam-admin` with the
   key its setup job wrote (`zitadel_jwt_profile` in the gitignored tfvars; the key expires
   2029-01-01). Human users stay in the console - their passwords and second factors are theirs.
   Kubernetes runs one `components/zitadel` however many organisations or instances exist; they
