@@ -51,6 +51,9 @@ k3s_server_args:
 # admission-control-config-file points the API server at the Pod Security configuration the
 # role writes next to this drop-in (see k3s_psa_exempt_namespaces).
 #
+# authentication-config makes the API server accept Zitadel's ID tokens (kubectl through
+# kubelogin), next to its client certificates and ServiceAccount tokens - see k3s_oidc_issuer.
+#
 # flannel-backend wireguard-native encrypts pod traffic between nodes: Flannel builds a
 # WireGuard tunnel between every pair of nodes (UDP 51820, over the private interface)
 # instead of the unencrypted VXLAN default. Flannel options must be identical on all
@@ -65,6 +68,7 @@ k3s_config:
   flannel-backend: wireguard-native
   kube-apiserver-arg:
     - admission-control-config-file=/etc/rancher/k3s/psa.yaml
+    - authentication-config=/etc/rancher/k3s/authn.yaml
 
 # Kernel settings on the node itself. ip_unprivileged_port_start lets non-root processes bind
 # ports from 80 up in the host's network namespace (it covers IPv6 too, despite the name):

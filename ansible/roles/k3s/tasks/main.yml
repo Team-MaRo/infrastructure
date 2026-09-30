@@ -88,11 +88,41 @@
     mode: "0600"
   register: k3s_psa
 
-- name: Restart k3s to apply the drop-in and the Pod Security configuration
+- name: Write the authentication configuration
+  # Read by the API server through authentication-config in k3s_config. The API server
+  # reloads the jwt part by itself, but not every part, so a change restarts k3s like the
+  # files above. Every username and group from a Zitadel token gets the prefix zitadel:, so
+  # none can pose as a built-in system: identity. k3s normally disables anonymous requests
+  # with --anonymous-auth=false, but leaves that flag out once this file exists, so the file
+  # has to say it itself.
+  ansible.builtin.copy:
+    content: |
+      # Managed by Ansible (roles/k3s).
+      apiVersion: apiserver.config.k8s.io/v1
+      kind: AuthenticationConfiguration
+      anonymous:
+        enabled: false
+      jwt:
+        - issuer:
+            url: {{ k3s_oidc_issuer }}
+            audiences:
+              - "{{ k3s_oidc_client_id }}"
+          claimMappings:
+            username:
+              claim: preferred_username
+              prefix: "zitadel:"
+            groups:
+              claim: groups
+              prefix: "zitadel:"
+    dest: /etc/rancher/k3s/authn.yaml
+    mode: "0600"
+  register: k3s_authn
+
+- name: Restart k3s to apply the drop-in and the API server's configuration files
   # Only on a node that already runs k3s; a fresh install reads the files when it first
   # starts. Inline rather than a handler, so the node is back and ready before the play
   # moves on - with serial: 1, one server restarts at a time and etcd keeps its quorum.
-  when: (k3s_config_dropin.changed or k3s_psa.changed) and k3s_binary.stat.exists
+  when: (k3s_config_dropin.changed or k3s_psa.changed or k3s_authn.changed) and k3s_binary.stat.exists
   block:
     - name: Restart k3s
       ansible.builtin.systemd_service:

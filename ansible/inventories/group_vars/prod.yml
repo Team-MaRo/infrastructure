@@ -22,6 +22,13 @@ admin_kubeconfig: ~/.kube/d3strukt0r-prod-admin.yaml
 # host is selected.
 k3s_init_node: prod-01
 
+# The API server accepts ID tokens from this Zitadel for this app (tofu/zitadel/apps_kubernetes.tf,
+# `tofu output -raw kubernetes_client_id`); kubeconfig.yml writes the same two values into the
+# everyday kubeconfig. Neither is secret. Inventory data because they name this cluster's app;
+# the role has no defaults for them.
+k3s_oidc_issuer: https://auth.d3strukt0r.dev
+k3s_oidc_client_id: "393078135827988833"
+
 # Every prod node is an ingress node: Traefik runs on nodes with this label only, as a
 # DaemonSet on the host network (kubernetes/components/traefik/). The label, the DNS map in
 # tofu/cloudflare (local.prod_nodes) and later a load balancer's targets must list the same
