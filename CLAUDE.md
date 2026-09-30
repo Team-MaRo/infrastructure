@@ -653,6 +653,17 @@ self-heal.
   the `github.com/...//manifests` form makes Kustomize shell out to `git`, which the nodes
   do not have. Upgrading is bumping that URL, **one minor at a time** - Argo CD does not
   support skipping minors.
+- **Nothing in `components/argocd/` may need another component's CRDs**: the bootstrap applies
+  it to a fresh cluster before cert-manager, External Secrets or the Prometheus operator exist.
+  Argo CD's certificate, its webhook secret and its ServiceMonitors are therefore
+  `components/argocd-integrations/`, an Application of their own (with the finalizer). The
+  certificate sat in `components/argocd/` until 2026-09-30, which would have broken a rebuild.
+- **A push arrives at once, through a GitHub webhook** to `/api/webhook`, signed with a secret
+  (1Password `GitHub | infrastructure | Argo CD webhook`, OpenBao `secret/argocd-webhook`):
+  `argocd-secret` carries only the reference `$argocd-webhook:github-secret`, and the Secret it
+  names needs the label `app.kubernetes.io/part-of: argocd`. Polling stays at Argo CD's default
+  (120 s plus up to 60 s of jitter) as the fallback for a lost delivery. The hook itself is
+  configured in GitHub, not in this repo (command in `kubernetes/README.md`).
 - **Bootstrap and self-management use the same directory**, so the first self-sync is a
   no-op. Both apply server-side; `ServerSideApply=true` is required for a self-managed
   Argo CD because its CRDs are too large for client-side apply's annotation.

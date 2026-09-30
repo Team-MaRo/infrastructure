@@ -1,0 +1,12 @@
+---
+# What Argo CD needs from other components - cert-manager, External Secrets, the Prometheus
+# operator - kept out of kubernetes/components/argocd, which ansible/roles/argocd bootstraps on
+# a fresh cluster before those components (and their CRDs) exist.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: argocd
+
+resources:
+  - certificate.yaml
+  - external-secrets.yaml
