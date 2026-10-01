@@ -148,7 +148,7 @@ time, already sees it. Tagged `hostname`, so it can run on its own:
 The Hetzner Debian image already installs security and stable updates every day through
 `unattended-upgrades`. This role only moves *when*: a drop-in for `apt-daily-upgrade.timer`
 sets it to 03:30 Zurich time (plus up to 15 minutes), after the k3s upgrade window and
-before kured's reboot window - see "The night's maintenance order" in `CLAUDE.md`. Tagged
+before kured's reboot window - see "The night's maintenance order" in `AGENTS.md`. Tagged
 `os_updates`:
 
 ```shell
@@ -198,12 +198,12 @@ node is an ingress node). Labels go through `k3s kubectl label` on each node, si
 
 That configuration, `/etc/rancher/k3s/psa.yaml`, is written by the same role and restarts
 k3s the same way when it changes. It enforces the restricted Pod Security Standard
-everywhere except `k3s_psa_exempt_namespaces` - see "Pod Security" in `CLAUDE.md`.
+everywhere except `k3s_psa_exempt_namespaces` - see "Pod Security" in `AGENTS.md`.
 
 So is `/etc/rancher/k3s/authn.yaml`, which lets the API server accept Zitadel's ID tokens for
 kubectl (issuer and client ID from `k3s_oidc_issuer` and `k3s_oidc_client_id` in
 `group_vars/prod.yml`), and turns anonymous requests off - k3s stops doing that itself once
-the file exists. See "Two kubeconfigs" in `CLAUDE.md`.
+the file exists. See "Two kubeconfigs" in `AGENTS.md`.
 
 A dry run cannot cover everything: the join needs a token only a real first play produces,
 so it is skipped under `--check`. What it does verify is connectivity, private-interface

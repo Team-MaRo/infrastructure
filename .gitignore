@@ -1,1 +1,4 @@
 .idea/
+
+# Local Claude Code entry point - a one-line import of AGENTS.md (see AGENTS.md).
+CLAUDE.md

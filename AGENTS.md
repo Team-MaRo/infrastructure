@@ -1,6 +1,12 @@
-# CLAUDE.md
+# AGENTS.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Guidance for AI coding agents (Claude Code, Codex, OpenCode, Cursor, …) working in this
+repository. Claude Code reads `CLAUDE.md` instead, which is not in git: create it once per
+checkout as a one-line import of this file:
+
+```sh
+printf '@AGENTS.md\n' > CLAUDE.md
+```
 
 ## What this is
 

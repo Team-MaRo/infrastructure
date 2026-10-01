@@ -11,7 +11,7 @@ carries the finalizer `resources-finalizer.argocd.argoproj.io` - apps whose data
 (Gatus, Zitadel, oauth2-proxy, ...), with their own `namespace.yaml`. Apps with CRDs or volumes
 (the operators, OpenBao, the databases, Loki, Prometheus) deliberately have none: deleting their
 file removes only the Application, and what it deployed keeps running untracked. Which app has
-it, and why, is in `CLAUDE.md`.
+it, and why, is in `AGENTS.md`.
 
 ## Layout
 
@@ -170,7 +170,7 @@ manages itself as well as its siblings.
 - **When one cluster needs something different**, give it a small Kustomize overlay under
   its own directory that references the component, rather than copying the component.
 - **Adding a cluster** means a new `clusters/<name>/` with its own `root.yaml` and
-  `argocd.yaml`, and `cluster_name` set for its inventory group. See `CLAUDE.md` for what
+  `argocd.yaml`, and `cluster_name` set for its inventory group. See `AGENTS.md` for what
   else in Ansible and OpenTofu still assumes a single cluster.
 
 ## Bootstrap
@@ -551,7 +551,7 @@ Ansible if it needs more than the restricted standard below allows.
 ## What an app pod must look like
 
 Every app namespace enforces the **restricted** Pod Security Standard (configured in k3s,
-see `CLAUDE.md`). A pod that breaks it is rejected when it is created, and the error lists
+see `AGENTS.md`). A pod that breaks it is rejected when it is created, and the error lists
 what is missing. Each container needs at least:
 
 ```yaml
@@ -814,7 +814,7 @@ couple of minutes; the known case that does not is a primary whose node died har
 (mariadb-operator#1628) - the operator waits for the old primary until its node returns.
 
 A primary that restarts once, about a minute, right after the **replica's** node came back from
-a hard failure is a known MariaDB bug (CLAUDE.md, "App database: MariaDB"); it heals itself,
+a hard failure is a known MariaDB bug (AGENTS.md, "App database: MariaDB"); it heals itself,
 nothing to do.
 
 1. Look: `kubectl --context d3strukt0r-prod-admin -n mariadb get mariadb mariadb` (status
@@ -965,7 +965,7 @@ postgres`, which shows the primary, replication and the archiving state in one v
    - an ExternalSecret building Secret `<app>-db` of type `kubernetes.io/basic-auth`
      (`username: <app>` as a literal, `password` from OpenBao) **with the label
      `cnpg.io/reload: "true"`** (through `target.template.metadata.labels`) - without it the
-     role may never be created, see CLAUDE.md;
+     role may never be created, see AGENTS.md;
    - a `DatabaseRole` (`cluster: postgres`, `name: <app>`, `login: true`,
      `passwordSecret: <app>-db`) and a `Database` (`cluster: postgres`, `name: <app>`,
      `owner: <app>`).
