@@ -15,6 +15,8 @@ variable "project_id" {
 # Access key IDs of the keys the cluster uses, so each bucket's policy can admit exactly its
 # own. Only the ID - the secret half stays in 1Password and OpenBao. Kept in tfvars rather
 # than git for the same reason as project_id.
+# 1Password "Hetzner | S3 | prod etcd snapshots"
+#   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=w2po7jqmxren7y7eruj73p5w4a&h=my.1password.com
 variable "etcd_access_key_id" {
   description = "Access key ID of the S3 key k3s uploads etcd snapshots with (1Password: Hetzner | S3 | prod etcd snapshots, username). Set in terraform.tfvars."
   type        = string
@@ -25,6 +27,8 @@ variable "etcd_access_key_id" {
   }
 }
 
+# 1Password "Hetzner | S3 | prod loki"
+#   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=obsu3brgoh5l3yxawnbbvq4wi4&h=my.1password.com
 variable "loki_access_key_id" {
   description = "Access key ID of the S3 key Loki writes logs with (1Password: Hetzner | S3 | prod loki, username). Set in terraform.tfvars."
   type        = string
@@ -35,6 +39,8 @@ variable "loki_access_key_id" {
   }
 }
 
+# 1Password "Hetzner | S3 | prod mariadb backups"
+#   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=qttplkz3cky6llsjgw7zhww5bu&h=my.1password.com
 variable "mariadb_backups_access_key_id" {
   description = "Access key ID of the S3 key the MariaDB operator writes backups with (1Password: Hetzner | S3 | prod mariadb backups, username). Set in terraform.tfvars."
   type        = string
@@ -45,6 +51,8 @@ variable "mariadb_backups_access_key_id" {
   }
 }
 
+# 1Password "Hetzner | S3 | prod postgres backups"
+#   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=xwoxypf5ibmqtcfl7gwjuxx4re&h=my.1password.com
 variable "postgres_backups_access_key_id" {
   description = "Access key ID of the S3 key CloudNativePG writes backups with (1Password: Hetzner | S3 | prod postgres backups, username). Set in terraform.tfvars."
   type        = string
@@ -55,6 +63,8 @@ variable "postgres_backups_access_key_id" {
   }
 }
 
+# 1Password "Hetzner | S3 | prod openbao snapshots"
+#   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=7wzbdy35bhtgqn6ahbqyoaiuum&h=my.1password.com
 variable "openbao_snapshots_access_key_id" {
   description = "Access key ID of the S3 key OpenBao's snapshot agent uploads with (1Password: Hetzner | S3 | prod openbao snapshots, username). Set in terraform.tfvars."
   type        = string

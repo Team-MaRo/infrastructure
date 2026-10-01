@@ -5,6 +5,7 @@
 #
 # Only on a cluster rebuilt from scratch, while no OIDC login exists yet - the root token from
 # 1Password item "OpenBao | Prod | Recovery keys & root token" (remove it again afterwards):
+#   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=6ftev2p3fo3dc457whshzgn6jy&h=my.1password.com
 # openbao_token = ""
 #
 # Only while the public address is not reachable yet, through a port-forward (variables.tf):

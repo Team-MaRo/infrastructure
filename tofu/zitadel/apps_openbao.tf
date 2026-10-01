@@ -3,6 +3,8 @@
 # lands in this state, so it is regenerated once in the console right after; the live secret is
 # kept in 1Password and OpenBao secret/openbao-oidc, from where tofu/openbao reads it
 # ephemerally - it never enters a state.
+# 1Password "Zitadel | Prod | OpenBao"
+#   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=66smfmdqmznzjmlv4pv4znccjq&h=my.1password.com
 resource "zitadel_application_oidc" "openbao" {
   org_id     = local.org_id
   project_id = zitadel_project.infrastructure.id

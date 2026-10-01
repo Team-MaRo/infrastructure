@@ -3,6 +3,8 @@
 # its password Secret and a Database to be in the Cluster's namespace, so these objects live in
 # postgres although this component deploys them. The password comes from OpenBao
 # secret/postgres-apps/zitadel; Zitadel reads the same value in its own namespace.
+# 1Password "PostgreSQL | Prod | zitadel"
+#   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=bwydlf63bo6bvbhvae44kolrba&h=my.1password.com
 apiVersion: external-secrets.io/v1
 kind: ExternalSecret
 metadata:

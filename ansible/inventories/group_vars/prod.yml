@@ -47,6 +47,8 @@ cluster_secrets:
   # Hetzner Cloud API token (read+write) for the CSI driver; the name and key are what
   # hetznercloud/csi-driver's manifest expects. A dedicated token, so it can be revoked
   # without touching the one OpenTofu uses.
+  # 1Password "Hetzner | Prod CSI"
+  #   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=un5urgife7qtuyxfmqcsmf2otm&h=my.1password.com
   - namespace: kube-system
     name: hcloud
     key: token
@@ -59,6 +61,8 @@ cluster_secrets:
   # on every start; losing it makes all of OpenBao's data unreadable. The namespace comes
   # from the openbao Application, so this runs after that has synced. Written once and never
   # edited; the recovery keys and root token from `bao operator init` are a separate item.
+  # 1Password "OpenBao | Prod | Seal key"
+  #   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=n3blscroul4eancakippscoyhq&h=my.1password.com
   - namespace: openbao
     name: openbao-seal
     key: key

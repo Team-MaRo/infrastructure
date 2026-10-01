@@ -205,7 +205,7 @@ tofu plan
 ```
 
 **On a cluster rebuilt from scratch** no OIDC login exists yet, so the root token from 1Password
-item `OpenBao | Prod | Recovery keys & root token` goes into `openbao/terraform.tfvars` as
+item [`OpenBao | Prod | Recovery keys & root token`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=6ftev2p3fo3dc457whshzgn6jy&h=my.1password.com) goes into `openbao/terraform.tfvars` as
 `openbao_token` (see `terraform.tfvars.example`), and - while `openbao.d3strukt0r.dev` does not
 answer yet - `openbao_address = "http://127.0.0.1:8200"` with a port-forward:
 

@@ -2,6 +2,8 @@
 # not, because it holds no values.
 
 # Hetzner Cloud console -> Security -> API tokens, with Read & Write.
+# 1Password "Hetzner | HCloud CLI"
+#   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=k7qbksghvawcg2rh62d4sbamhm&h=my.1password.com
 hcloud_token = ""
 
 # Who may reach the Kubernetes API on 6443. Full CIDRs, so /32 for a single IPv4 and

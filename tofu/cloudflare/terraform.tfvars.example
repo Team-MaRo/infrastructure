@@ -4,5 +4,9 @@
 # https://dash.cloudflare.com/profile/api-tokens - one token per account, each with
 # Zone/Zone Read, Zone/DNS Edit, Zone/Zone Settings Edit, and zone resources scoped to
 # "All zones from an account" rather than "All zones".
+# 1Password "Cloudflare | OpenTofu CLI"
+#   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=2zwgbopbtbaicatrbfwfqekm7e&h=my.1password.com
 cloudflare_token_personal = ""
-cloudflare_token_arepazo  = ""
+# 1Password "Cloudflare | Arepazo | OpenTofu CLI"
+#   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=lrz2vcwlv2enpkra2n457nptfi&h=my.1password.com
+cloudflare_token_arepazo = ""

@@ -3,14 +3,26 @@
 #
 # The key itself is read from the [d3strukt0r-hetzner] profile in ~/.aws/credentials,
 # the one the backends use - see locals.tf.
+# 1Password "Hetzner | S3 | admin (d3strukt0r-hetzner profile)"
+#   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=vnd7ap6x6swzf6rnjel5etliu4&h=my.1password.com
 
 # The number in the Hetzner Cloud console URL: console.hetzner.com/projects/<id>/...
 project_id = ""
 
 # The access key IDs (not the secrets) of the cluster's keys - the "username" field of their
 # 1Password items. A mistyped one only shuts that key out of its own bucket.
-etcd_access_key_id              = ""
-loki_access_key_id              = ""
-mariadb_backups_access_key_id   = ""
-postgres_backups_access_key_id  = ""
+# 1Password "Hetzner | S3 | prod etcd snapshots"
+#   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=w2po7jqmxren7y7eruj73p5w4a&h=my.1password.com
+etcd_access_key_id = ""
+# 1Password "Hetzner | S3 | prod loki"
+#   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=obsu3brgoh5l3yxawnbbvq4wi4&h=my.1password.com
+loki_access_key_id = ""
+# 1Password "Hetzner | S3 | prod mariadb backups"
+#   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=qttplkz3cky6llsjgw7zhww5bu&h=my.1password.com
+mariadb_backups_access_key_id = ""
+# 1Password "Hetzner | S3 | prod postgres backups"
+#   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=xwoxypf5ibmqtcfl7gwjuxx4re&h=my.1password.com
+postgres_backups_access_key_id = ""
+# 1Password "Hetzner | S3 | prod openbao snapshots"
+#   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=7wzbdy35bhtgqn6ahbqyoaiuum&h=my.1password.com
 openbao_snapshots_access_key_id = ""
