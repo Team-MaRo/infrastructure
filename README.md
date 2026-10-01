@@ -16,3 +16,7 @@ it once as it comes up, Ansible configures it from then on, and Argo CD deploys 
 cluster. Editing cloud-init changes only nodes created or rebuilt afterwards; editing
 Ansible changes nodes on the next run; pushing to `kubernetes/` changes the cluster within
 minutes.
+
+**For AI coding agents**, the instructions are in [`AGENTS.md`](AGENTS.md). Claude Code reads
+`CLAUDE.md`, which is gitignored; create it once per checkout with
+`printf '@AGENTS.md\n' > CLAUDE.md`.
