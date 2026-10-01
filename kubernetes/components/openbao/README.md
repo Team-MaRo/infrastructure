@@ -28,6 +28,10 @@ Secrets policy and role and the Zitadel login for admins; see
   encrypted" in [`ansible/roles/k3s/README.md`](../../../ansible/roles/k3s/README.md)); TLS on
   the listener would only add server authentication - clients could verify they talk to the
   real OpenBao.
+- **The StatefulSet updates `OnDelete`** (the chart's default): a change to the pod template
+  syncs, but the running pod keeps the old one until it is deleted -
+  `kubectl --context d3strukt0r-prod-admin -n openbao delete pod openbao-0` - and it unseals
+  itself again on start.
 - The injector is off; secrets reach workloads through External Secrets.
 - **The UI and API are public at `https://openbao.d3strukt0r.dev`** (user decision; the chart's
   Ingress, certificate from `components/openbao/certificates.yaml`, TLS ending at Traefik).

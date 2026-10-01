@@ -65,8 +65,8 @@ to any moment in the last 30 days. How the cluster's manifests fit together is i
   - `PhysicalBackup` `mariadb-daily` at 23:30 UTC from the replica, kept 30 days. Staged on
     the node's disk before the upload, so it sets an ephemeral-storage limit of its own.
   - `PointInTimeRecovery` `pitr`: the agent next to the primary archives **closed** binary logs
-    every ten minutes (hardcoded). The operator rotates only by size, so at low traffic the
-    active file would stay unarchived for weeks; the CronJob `mariadb-flush-binlogs` runs
+    every ten minutes (hardcoded, counted from the agent's start, not the clock). The operator
+    rotates only by size, so at low traffic the active file would stay unarchived for weeks; the CronJob `mariadb-flush-binlogs` runs
     `FLUSH BINARY LOGS` on the primary every ten minutes, so a restore loses at most about
     twenty. The bucket expires archived logs after 35 days; the server itself deletes its local
     copies after 7 (`binlog_expire_logs_seconds`, default 0 = never, which would fill the
@@ -93,6 +93,8 @@ to any moment in the last 30 days. How the cluster's manifests fit together is i
     exactly a failure.
 - **A restore always goes into a new MariaDB** (`bootstrapFrom.pointInTimeRecoveryRef` with a
   `targetRecoveryTime`), never in place. Its success condition is `BinlogsReplayed=True`.
+  `targetRecoveryTime` cannot be changed afterwards: retrying with another time means deleting
+  the restore MariaDB, its PVCs and PVs, and the Hetzner volumes they leave behind (`Retain`).
   `tls.caSecretKeyRef` must be set on every S3 reference - without it the restore panics in
   the operator yet reports Ready with only the base backup (mariadb-operator#1915). `s3-ca`
   holds the ISRG roots Hetzner's certificate chains to; they are public and live in git.

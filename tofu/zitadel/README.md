@@ -16,8 +16,9 @@ Shared rules, credentials and the state backend are in [`../README.md`](../READM
   policies and the organisation's domains, adopted with import blocks after they had been set
   in the console, and the instance's token lifetimes (ID and access tokens 1 hour instead of
   12, since Kubernetes cannot revoke a token before it expires; refresh tokens at Zitadel's
-  defaults). The project `Infrastructure` holds the admin UIs' and kubectl's applications and the role
-  `infra-admin` (role keys carry their project's prefix, since the `groups` claim mixes all
+  defaults). The lifetimes are instance-wide, so the admin UIs' sessions also renew hourly,
+  usually unnoticed through a silent re-login. The project `Infrastructure` holds the admin
+  UIs' and kubectl's applications and the role `infra-admin` (role keys carry their project's prefix, since the `groups` claim mixes all
   projects' roles); role assertion puts roles into tokens and role check makes Zitadel itself
   refuse users without a role. Role assignments are here too - the personal user is looked up
   by username. It logs in as the machine user `iam-admin` with the

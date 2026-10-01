@@ -136,5 +136,8 @@ section - see Credentials above. Without it, add
 Freshly generated Hetzner S3 credentials propagate across their gateways over several
 minutes. During that window `tofu init` fails with
 `operation error S3: HeadObject ... StatusCode: 403` while the key already works for
-listing buckets. That is not a permissions problem - wait and retry before touching
-ACLs, bucket policies or `use_path_style`.
+listing buckets, and other clients may answer `404 NoSuchBucket` instead. That is not a
+permissions problem - wait and retry before touching ACLs, bucket policies or
+`use_path_style`. When a 403 makes the aws CLI crash rather than report it, `--debug` shows
+the actual answer. s3cmd needs path-style addressing; with virtual-host style Hetzner answers
+`NoSuchBucket`.
