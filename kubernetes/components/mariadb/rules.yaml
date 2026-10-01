@@ -22,7 +22,7 @@ spec:
             description: >-
               A failover may be hanging. Check kubectl -n mariadb get mariadb mariadb and its
               status.replication; if the primary's node is dead, follow the runbook in
-              kubernetes/README.md ("MariaDB: failover hangs").
+              kubernetes/components/mariadb/README.md ("Failover hangs").
         - alert: MariaDBReplicationBroken
           expr: mysql_slave_status_slave_io_running{namespace="mariadb"} == 0 or mysql_slave_status_slave_sql_running{namespace="mariadb"} == 0
           for: 10m
@@ -56,8 +56,8 @@ spec:
             summary: "MariaDB {{ $labels.name }} has not archived its binary logs for 30 minutes ({{ $labels.reason }})."
             description: >-
               Point-in-time recovery cannot go past the last archived file. The MariaDB's
-              status message names the file; follow the runbook in kubernetes/README.md
-              ("MariaDB: binary log archiving stuck").
+              status message names the file; follow the runbook in
+              kubernetes/components/mariadb/README.md ("Binary log archiving stuck").
         # Either the last backup did not complete (a failed Job leaves Complete=False, and the
         # True series then disappears), or none has completed for 26 hours - the nightly one
         # plus slack. Also catches a failed backup of the after-switchover CronJob, which does
@@ -77,4 +77,4 @@ spec:
               Without a fresh backup, a restore starts from an older one and replays more binary
               logs - and those expire after 35 days. Check kubectl -n mariadb get physicalbackup
               and the log of the latest mariadb-daily Job, then start one by hand with the
-              command in kubernetes/README.md ("MariaDB: failover hangs").
+              command in kubernetes/components/mariadb/README.md ("Failover hangs").

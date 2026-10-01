@@ -76,7 +76,7 @@ server:
 # d3strukt0r-prod-openbao-snapshots, the bucket only its key and the admin's reach. It deletes
 # snapshots older than 30 days itself; the bucket keeps each deleted one 7 more days, locked.
 # The snapshots are encrypted with OpenBao's barrier: a restore needs the static seal key and
-# its key ID "1" (restore runbook in kubernetes/README.md).
+# its key ID "1" (restore runbook in this directory's README.md).
 snapshotAgent:
   enabled: true
   schedule: "0 */6 * * *"

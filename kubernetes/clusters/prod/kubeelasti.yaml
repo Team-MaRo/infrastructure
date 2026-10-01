@@ -1,7 +1,8 @@
 ---
 # KubeElasti for this cluster: scales rarely used apps to zero and wakes them on the first
 # request, which it holds until the app is ready. Its Helm chart pinned here, values from
-# kubernetes/components/kubeelasti. What an app needs to use it is in AGENTS.md.
+# kubernetes/components/kubeelasti. What an app needs to use it is in
+# kubernetes/components/kubeelasti/README.md.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
