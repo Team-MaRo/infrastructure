@@ -48,6 +48,9 @@ rebuild) the complete one.
 - **Updates replace one node at a time** (`maxUnavailable: 1`, `maxSurge: 0`): two Traefiks
   cannot hold the same host port. That node's share of requests fails for the seconds in
   between, as during a kured reboot - DNS keeps pointing at it.
+- **No Traefik plugins today.** If one is added, load it in local plugin mode (the plugin's
+  source in the image or a volume) rather than downloaded at start: a failed download breaks
+  every route that uses its middleware.
 - **A Hetzner Load Balancer fits on top without changing Traefik**: targets by label over the
   private network, TCP 80 and 443 passed through (TLS stays at Traefik), health checks, PROXY
   protocol for client IPs, and one address (IPv4 and IPv6) in DNS instead of one per node. The

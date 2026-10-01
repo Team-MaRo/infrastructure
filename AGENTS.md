@@ -104,6 +104,22 @@ changes only nodes created or rebuilt afterwards, never running ones. **`cloud-i
 must stay** until `prod-01..03` are gone, and it must hold no comments - every line of an
 `#include` file is read as a URL. Details in [`cloud-init/README.md`](cloud-init/README.md).
 
+## Design principles
+
+- **As little manual intervention as possible.** The cluster is run by one admin with limited
+  operations experience: prefer a self-healing design, even at the cost of an extra component,
+  as long as that component needs no care itself. Before recommending a tool, look for open
+  bugs in the failure paths it would be trusted with. Every manual step that remains gets a
+  written runbook in the README of its directory, and anything that can fail silently gets an
+  alert.
+- **Only open-source, self-hostable services.** A hosted instance of a self-hostable tool is
+  fine as a start (ntfy.sh for alerts today); SaaS-only services are not (notifications go to
+  ntfy, email or Matrix - not Telegram, Discord or Slack). No deeper coupling to Cloudflare
+  than DNS, since DNS may move in-house one day.
+- **Use the tool's own mechanism** before adding another program: a module's
+  `terraform.tfvars`, the backend's AWS profile, a chart value. No sourced env files or extra
+  tools just to hold credentials.
+
 ## Conventions
 
 **Every reference to a 1Password item carries its title and its link** (user rule,
@@ -158,6 +174,9 @@ its paths and flags).
     `namespace.yaml`, or removing them would delete `kube-system`.
   - Details: "Pruning and the finalizer" in
     [`kubernetes/components/argocd/README.md`](kubernetes/components/argocd/README.md).
+- **Render a chart with our values before trusting a key** (`helm template` with the pinned
+  version and `components/<app>/values.yaml`): chart docs and READMEs drift from what the
+  templates actually read.
 - **Large CRDs need `ServerSideApply=true`** on the Application; operators that default fields
   in their objects need `ServerSideDiff=true`, or the app stays OutOfSync. A ServiceMonitor,
   PodMonitor or PrometheusRule outside kube-prometheus-stack carries

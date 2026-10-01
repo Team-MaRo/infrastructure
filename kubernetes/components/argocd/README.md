@@ -219,6 +219,18 @@ context:
 kubectl --context d3strukt0r-prod-admin apply --server-side -k kubernetes/components/argocd
 ```
 
+## When a sync is stuck
+
+- **Automated sync retries a failed sync five times on the same commit**, so a fix pushed in
+  between is not picked up until those retries are over. Terminate the running operation in
+  the UI (or `argocd app terminate-op <app>`) and sync again.
+- **Terminating an operation can leave hook Jobs behind** that still carry the finalizer
+  `argocd.argoproj.io/hook-finalizer` and never go away. Remove it by hand:
+
+```shell
+kubectl --context d3strukt0r-prod-admin -n <namespace> patch job <job> --type=json -p '[{"op":"remove","path":"/metadata/finalizers"}]'
+```
+
 ## When a node dies
 
 The install is not HA. If a node disappears, Argo CD's Deployments move after about five
