@@ -11,7 +11,7 @@ locals {
 
   # How Hetzner names a key in a bucket policy. Every key reaches every bucket in the
   # project, so the policies are written as "deny everyone but this key". If this string
-  # is wrong, the admin key is "everyone" too - see the staged apply in tofu/README.md.
+  # is wrong, the admin key is "everyone" too - see the staged apply in README.md.
   admin_principal = "arn:aws:iam:::user/p${var.project_id}:${local.aws_profile.access_key}"
 
   # The keys handed to the cluster, one per bucket they may reach.

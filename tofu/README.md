@@ -5,27 +5,52 @@ Storage bucket `d3strukt0r-tfstate` (nbg1), via the S3 backend with native locki
 
 | Module | State key | What it manages |
 |---|---|---|
-| `hcloud` | `hcloud/terraform.tfstate` | the Hetzner Cloud project: the `prod` cluster's servers, network, firewall |
-| `objectstorage` | `objectstorage/terraform.tfstate` | the Object Storage buckets - etcd snapshots and this state bucket - and their policies |
-| `openbao` | `openbao/terraform.tfstate` | OpenBao's configuration: the `secret/` engine, Kubernetes auth, policies and roles |
-| `zitadel` | `zitadel/terraform.tfstate` | what is inside Zitadel: instance policies, organisation domains, projects and apps |
-| `infomaniak` | `infomaniak/terraform.tfstate` | registrar delegation and DNSSEC checks |
-| `cloudflare` | `cloudflare/terraform.tfstate` | both Cloudflare accounts |
+| [`hcloud`](hcloud/README.md) | `hcloud/terraform.tfstate` | the Hetzner Cloud project: the `prod` cluster's servers, network, firewall |
+| [`objectstorage`](objectstorage/README.md) | `objectstorage/terraform.tfstate` | the Object Storage buckets - etcd snapshots and this state bucket - and their policies |
+| [`openbao`](openbao/README.md) | `openbao/terraform.tfstate` | OpenBao's configuration: the `secret/` engine, Kubernetes auth, policies and roles |
+| [`zitadel`](zitadel/README.md) | `zitadel/terraform.tfstate` | what is inside Zitadel: instance policies, organisation domains, projects and apps |
+| [`infomaniak`](infomaniak/README.md) | `infomaniak/terraform.tfstate` | registrar delegation and DNSSEC checks |
+| [`cloudflare`](cloudflare/README.md) | `cloudflare/terraform.tfstate` | both Cloudflare accounts |
 
 Keeping them separate means none can break another's plan, and each needs only its own
-credentials.
+credentials. What each module manages, why it is built the way it is and how to run it is in
+its own README; this one covers only what they share.
+
+## Rules
+
+- **Never run `tofu destroy`.**
+- **Never `tofu apply` a plan that is not clean.** A clean plan is
+  `0 to add, 0 to change, 0 to destroy`. If a plan shows `forces replacement`,
+  `must be replaced` or `will be destroyed`, that is a bug in the config - fix the
+  config and re-plan.
+- Adoption of existing resources goes through `import` blocks in the module's `imports.tf`,
+  not `tofu import` CLI calls, so it stays reviewable in git.
+
+## Running a module
+
+```sh
+cd hcloud         # or objectstorage, openbao, zitadel, infomaniak, cloudflare
+tofu fmt            # must produce no output
+tofu validate
+tofu init
+tofu plan
+```
+
+`tofu init -backend=false` initialises providers only and needs no credentials -
+useful for `fmt`/`validate` when the S3 keys are not to hand.
 
 ## Credentials
 
-Nothing needs exporting. Every module reads its own token from a gitignored
-`terraform.tfvars` beside its `.tf` files, and the state backend reads the Object
-Storage keys from an AWS profile.
+Nothing needs exporting, and no value belongs in a `.tf` file. Every module reads its own
+token from a gitignored `terraform.tfvars` beside its `.tf` files, and the state backend reads
+the Object Storage keys from an AWS profile.
 
 | Where | Holds |
 |---|---|
-| `hcloud/terraform.tfvars` | `hcloud_token` |
+| `hcloud/terraform.tfvars` | `hcloud_token`, and `admin_ips` - not a secret, but a home address, and this repo is public |
 | `objectstorage/terraform.tfvars` | `project_id` - the key itself is read from the profile below |
-| `openbao/terraform.tfvars` | `openbao_token` - OpenBao's root token, for now |
+| `openbao/terraform.tfvars` | `openbao_token` - OpenBao's root token, only on a cluster rebuilt from scratch; day to day the provider reads `~/.vault-token` (see [`openbao`](openbao/README.md)) |
+| `zitadel/terraform.tfvars` | `zitadel_jwt_profile` |
 | `infomaniak/terraform.tfvars` | `infomaniak_token` |
 | `cloudflare/terraform.tfvars` | `cloudflare_token_personal`, `cloudflare_token_arepazo` |
 | `~/.aws/credentials`, profile `[d3strukt0r-hetzner]` | the Object Storage access key and secret |
@@ -39,6 +64,10 @@ cd hcloud && cp terraform.tfvars.example terraform.tfvars && $EDITOR terraform.t
 
 `*.tfvars` is gitignored; the `.example` files are not, because they hold no values.
 
+`tofu/hcloud` declares `variable "hcloud_token"` and passes it to the provider explicitly
+rather than relying on the provider's own `HCLOUD_TOKEN` lookup, so all modules
+get their credentials the same way.
+
 The backend is the one thing tfvars cannot cover - backend blocks do not interpolate, so
 no variable can reach them. Hence the profile:
 
@@ -48,6 +77,13 @@ no variable can reach them. Hence the profile:
 aws_access_key_id     = ...
 aws_secret_access_key = ...
 ```
+
+and `profile = "d3strukt0r-hetzner"` in each module's `backend "s3"` block. That is a
+name, not a secret, so it is committed - which also means `tofu init` works without
+anyone needing to know which environment variables to set. It is account-scoped because
+profiles are global to `~/.aws`, so a bare `hetzner` would collide with any second Hetzner
+account. If a plan cannot reach the state bucket, check that file first: there is no
+environment variable to fall back on by design.
 
 For the aws CLI, which is how buckets are inspected outside OpenTofu, the same profile in
 `~/.aws/config` carries the endpoint and turns off the pager, so no command needs
@@ -62,350 +98,43 @@ cli_pager =
 
 The backends set their endpoint explicitly, so this does not affect OpenTofu.
 
-and `profile = "d3strukt0r-hetzner"` in each module's `backend "s3"` block. That is a
-name, not a secret, so it is committed - which also means `tofu init` works without
-anyone needing to know which environment variables to set. It is account-scoped because
-profiles are global to `~/.aws`.
-
 In the Hetzner console this key is labelled `admin (d3strukt0r-hetzner profile)`. It is
-the only key the bucket policies let into tfstate - see objectstorage below - so it is
-never handed to anything else. The label is not managed here; no provider has a resource
-for Object Storage keys.
+the only key the bucket policies let into tfstate - see [`objectstorage`](objectstorage/README.md)
+- so it is never handed to anything else. The label is not managed here; no provider has a
+resource for Object Storage keys.
 
 The `hcloud` CLI is unaffected; it keeps its own token in `~/.config/hcloud/cli.toml`.
 
-## hcloud
+## State backend
 
-OpenTofu config for the Hetzner Cloud project, named after the provider like the other two
-modules. Today that is the `prod` cluster: three servers, their network, placement group
-and firewall. Resources are named after the cluster, not after the Kubernetes distribution
-running on it.
+Hetzner Object Storage bucket `d3strukt0r-tfstate` in **nbg1** (not fsn1), via the S3
+backend with `use_lockfile = true` and `profile = "d3strukt0r-hetzner"`. Each module's key is
+`<module>/terraform.tfstate`. Changing anything in a backend block means
+`tofu init -reconfigure` on the next run.
 
-The infrastructure was created by hand first and adopted afterwards, so
-`hcloud/imports.tf` holds the `import` blocks for every resource.
+Hetzner is S3-compatible but not AWS, so all the `skip_*` flags in each module's
+`versions.tf` are required; `skip_s3_checksum = true` specifically is what makes lock-object
+writes succeed.
 
-Needs `hcloud_token` in `hcloud/terraform.tfvars` - see Credentials above.
-
-```sh
-cd hcloud
-tofu init
-tofu plan
-```
-
-Two things the servers depend on that OpenTofu cannot see:
-
-- `user_data` and `ssh_keys` are not returned by the Hetzner API, so both are
-  under `ignore_changes` on `hcloud_server`. Changing either in the config has
-  no effect on existing nodes - it only applies to newly created ones.
-- The firewall is attached purely through the `cluster=prod` label selector. Adding
-  a `hcloud_firewall_attachment` resource would conflict with it. Changing that label
-  takes two applies - add the new label and a second `apply_to` first, remove the old ones
-  after - or the servers can end up briefly unfirewalled.
-- **The server name becomes the host's name**, and so the Kubernetes node name - but a
-  rename here does not reach the host by itself: Hetzner's metadata, which cloud-init reads,
-  keeps the name the server was created with. Ansible's `hostname` role applies it. Never
-  rename a server while k3s runs on it.
-
-The module used to be called `k3s`, with state key `k3s/terraform.tfstate`. `moved.tf`
-maps the old resource addresses to the new ones; the state was copied to the new key with
-`tofu init -migrate-state`.
-
-The servers, the network and its subnet carry `prevent_destroy = true`. The
-server types are cost-optimized and may not be available again once released,
-so any plan that would destroy or replace one fails instead. Retiring a node
-means removing that line first, deliberately.
-
-## objectstorage
-
-Buckets and bucket policies, through the `aminueza/minio` provider - the one Hetzner's
-own docs use. The `aws` provider cannot even refresh a bucket here, because it reads
-Accelerate, Website, Logging, Replication and Tagging settings that Hetzner does not
-implement.
-
-**Every Hetzner S3 key reaches every bucket in the project.** There are no per-bucket
-keys. The only scoping is a bucket policy, so every policy here says "deny, unless it is
-the admin key or this bucket's own cluster key" (`Deny` with `NotPrincipal`), which also
-covers keys that do not exist yet.
-
-| Bucket | Managed here | Policy |
-|---|---|---|
-| `d3strukt0r-tfstate` | bucket (created by hand, adopted through `imports.tf`) and policy | every action denied to every other key |
-| `d3strukt0r-prod-etcd` | bucket, object lock, lifecycle, policy | only the snapshot key and the admin key; the snapshot key may upload, read and delete, but not bypass the lock or change the bucket's rules |
-| `d3strukt0r-prod-loki` | bucket, lifecycle, policy | only Loki's key and the admin key |
-| `d3strukt0r-prod-mariadb-backups` | bucket, lifecycle (expires after 35 days), policy | only the MariaDB backup key and the admin key |
-| `d3strukt0r-prod-postgres-backups` | bucket, lifecycle, policy | only the PostgreSQL backup key and the admin key |
-| `d3strukt0r-prod-openbao-snapshots` | bucket, object lock, lifecycle, policy | only OpenBao's snapshot key and the admin key; like the etcd bucket, the key cannot bypass the lock or change the bucket's rules |
-
-The etcd and OpenBao snapshot buckets lock every version for 7 days in GOVERNANCE mode, and a
-lifecycle rule removes versions 7 days after they are replaced or deleted. GOVERNANCE, not COMPLIANCE, so
-the admin key can still delete early - but a Hetzner key holds every permission, the
-governance bypass included, so the policy denies that bypass to every other key. A leaked
-cluster key can therefore add delete markers but cannot destroy a locked snapshot.
-
-Needs `project_id`, `etcd_access_key_id`, `loki_access_key_id`,
-`mariadb_backups_access_key_id`, `postgres_backups_access_key_id` and
-`openbao_snapshots_access_key_id` in
-`objectstorage/terraform.tfvars` - the key IDs are the username fields of the keys'
-1Password items, never the secrets. The provider cannot read
-AWS profiles, so `locals.tf` parses the `[d3strukt0r-hetzner]` section of
-`~/.aws/credentials` itself (access key line first, then the secret). That is deliberate
-beyond convenience: the tfstate policy allows exactly one key, and taking it from the file
-the backends use means the policy cannot name a different one.
+Versioning and Object Lock are both enabled on the bucket, but
+`get-object-lock-configuration` returns no `Rule`, so there is **no default retention**
+- and the S3 backend never sends per-object retention headers. Every apply adds a version
+and every plan leaves its lock file behind as a version plus a delete marker; a lifecycle
+rule (`objectstorage/tfstate.tf`) removes versions 90 days after they are replaced,
+then the orphaned markers. So an old state can be restored for 90 days, not longer. Old
+versions can also be pruned early with `aws s3api delete-object --version-id`; nothing is
+locked.
 
 ```sh
-cd objectstorage
-tofu init
-tofu plan
+aws --profile d3strukt0r-hetzner s3api list-object-versions --bucket d3strukt0r-tfstate --prefix hcloud/
 ```
 
-### A wrong principal is a lockout
+That relies on `endpoint_url` (and `cli_pager =`) in the profile's `~/.aws/config`
+section - see Credentials above. Without it, add
+`--endpoint-url https://nbg1.your-objectstorage.com`.
 
-A policy that denies `s3:*` to everyone but `arn:aws:iam:::user/p<project_id>:<access_key>`
-also denies it to the admin key if that string is off by one character - including
-`PutBucketPolicy`, so OpenTofu cannot take the policy back. On `d3strukt0r-tfstate` that
-stops every module's backend, and only Hetzner support can remove the policy. So any
-change to how the principal is built is proven on a bucket that does not matter first:
-
-1. **Stage A** - the etcd bucket with a policy denying `s3:*` to all but the admin key:
-   the same statement as the tfstate policy, on an empty bucket.
-2. **Prove it** with the admin key: an upload, a download, and a permanent delete of a
-   locked version (see below). If any of them is denied, stop - the principal is wrong.
-3. **Stage B** - narrow the etcd policy to what only the admin key may do, and add the
-   tfstate policy.
-4. `tofu plan` in every module, which proves the backends still reach their state.
-
-The proof, with the aws CLI (independent of the provider):
-
-```sh
-echo test > /tmp/probe && aws --profile d3strukt0r-hetzner s3api put-object --bucket d3strukt0r-prod-etcd --key probe --body /tmp/probe
-aws --profile d3strukt0r-hetzner s3api get-object --bucket d3strukt0r-prod-etcd --key probe /dev/stdout
-aws --profile d3strukt0r-hetzner s3api list-object-versions --bucket d3strukt0r-prod-etcd --prefix probe
-# refused - the version is locked:
-aws --profile d3strukt0r-hetzner s3api delete-object --bucket d3strukt0r-prod-etcd --key probe --version-id=<id>
-# succeeds - the admin key may bypass:
-aws --profile d3strukt0r-hetzner s3api delete-object --bucket d3strukt0r-prod-etcd --key probe --version-id=<id> --bypass-governance-retention
-```
-
-`--version-id=<id>` with the `=`, because version IDs can start with `-`.
-
-## openbao
-
-OpenBao's own configuration - what the Helm values in `kubernetes/components/openbao/` do
-not cover: the KV v2 secrets engine at `secret/`, Kubernetes auth, and the policy and role
-External Secrets logs in with. Uses HashiCorp's `vault` provider; OpenBao keeps Vault's API.
-
-**Day to day**, log in through Zitadel first; the provider takes that token from
-`~/.vault-token` and reaches OpenBao at its public address:
-
-```sh
-bao login -method=oidc -no-print     # with BAO_ADDR=https://openbao.d3strukt0r.dev set
-cd openbao
-tofu init
-tofu plan
-```
-
-**On a cluster rebuilt from scratch** no OIDC login exists yet, so the root token from 1Password
-item [`OpenBao | Prod | Recovery keys & root token`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=6ftev2p3fo3dc457whshzgn6jy&h=my.1password.com) goes into `openbao/terraform.tfvars` as
-`openbao_token` (see `terraform.tfvars.example`), and - while `openbao.d3strukt0r.dev` does not
-answer yet - `openbao_address = "http://127.0.0.1:8200"` with a port-forward:
-
-```sh
-kubectl --context d3strukt0r-prod-admin -n openbao port-forward svc/openbao 8200:8200
-```
-
-The order there: the OIDC login reads its client secret from `secret/`, the mount this module
-creates, so the mount comes first on its own; then the secret values go in (below, `openbao-oidc`
-with a freshly regenerated Zitadel secret among them); then the full apply. Remove
-`openbao_token` from the tfvars once the Zitadel login works.
-
-```sh
-tofu apply -target=vault_mount.secret
-tofu apply
-```
-
-The root token stays valid in 1Password as the break-glass login. Were it ever lost, the recovery
-keys in the same item (reusable, 3 of 5) create a new one: `bao operator generate-root`.
-
-**Secret values never go through this module.** Anything OpenTofu writes lands in its state,
-so values are put in by hand:
-
-```sh
-BAO_ADDR=http://127.0.0.1:8200 \
-BAO_TOKEN="$(op item get 'OpenBao | Prod | Recovery keys & root token' --account my.1password.com --vault Private --fields credential --reveal)" \
-  bao kv put secret/<path> key=value
-```
-
-The token is fetched per command, so it never sits in the shell's environment or history.
-`op item get` rather than `op read`: `op://` references reject the `|` in the item title.
-Logged in through Zitadel (`bao login -method=oidc -no-print`), the same commands work without
-`BAO_TOKEN` and against `BAO_ADDR=https://openbao.d3strukt0r.dev` instead of the port-forward.
-
-Two traps with `key="$(op item get ...)"`, both met while setting up MariaDB:
-
-- **A failed lookup still writes.** If the 1Password item or field is not found, `op` prints
-  an error and the substitution is empty - and `bao` stores an empty value without
-  complaint.
-- **A value starting with `@` is read as a file name** (`key=@file`), so a generated password
-  that starts with `@` fails - and the error message prints it.
-
-For generated passwords, hand the values over as JSON on stdin instead, with a check that
-none is empty:
-
-```sh
-jq -n --arg a "$(op item get '<item>' --account my.1password.com --vault Private --fields <field-a> --reveal)" \
-      --arg b "$(op item get '<item>' --account my.1password.com --vault Private --fields <field-b> --reveal)" \
-  'if ($a|length)==0 or ($b|length)==0 then error("empty value - 1Password lookup failed") else {"key-a":$a,"key-b":$b} end' \
-| BAO_ADDR=http://127.0.0.1:8200 \
-  BAO_TOKEN="$(op item get 'OpenBao | Prod | Recovery keys & root token' --account my.1password.com --vault Private --fields credential --reveal)" \
-  bao kv put secret/<path> -
-```
-
-API tokens and access keys have a fixed format without `@`, so the plain `key=value` form
-stays fine for them.
-
-**The OIDC login** (`oidc.tf`) needs `secret/openbao-oidc` before its first apply: the client
-secret of the Zitadel app `OpenBao` (`tofu/zitadel/apps_openbao.tf`), regenerated in the console
-right after that app was created, since the first one is in `tofu/zitadel`'s state.
-
-```sh
-op item create --account my.1password.com --vault Private --category password \
-  --title 'Zitadel | Prod | OpenBao' "password=$(pbpaste)" >/dev/null
-jq -n --arg c "$(op item get 'Zitadel | Prod | OpenBao' --account my.1password.com --vault Private --fields password --reveal)" \
-  'if ($c|length)==0 then error("empty value - 1Password lookup failed") else {"client-secret":$c} end' \
-| BAO_ADDR=http://127.0.0.1:8200 BAO_TOKEN="$(op item get 'OpenBao | Prod | Recovery keys & root token' --account my.1password.com --vault Private --fields credential --reveal)" \
-  bao kv put secret/openbao-oidc -
-```
-
-The module reads it ephemerally and writes it write-only - it never enters the state. After a
-rotation, raise `oidc_client_secret_wo_version`, or the new value is never sent.
-
-## zitadel
-
-What is inside Zitadel - everything the Helm values in `kubernetes/components/zitadel/` do not
-cover: the instance's default login and domain policies, token lifetimes and the organisation
-`D3strukt0r`'s domains, adopted in `imports.tf`; the groups webhook's action; and the project
-`Infrastructure` with its role and the apps of every admin UI and of kubectl. It reaches Zitadel at
-`https://auth.d3strukt0r.dev` directly, no port-forward.
-
-`zitadel/terraform.tfvars` holds `zitadel_jwt_profile`: the whole JSON of the machine user
-`iam-admin`'s key, pasted between the heredoc markers from
-
-```sh
-op document get 'Zitadel | Prod | iam-admin key' --account my.1password.com --vault Private | jq .
-```
-
-```sh
-cd zitadel
-tofu init
-tofu plan
-```
-
-The provider uses native gRPC, which Cloudflare only passes with the zone's gRPC switch on
-(dashboard → Network → gRPC); with it off, every call fails with `server closed the stream
-without sending trailers`.
-
-Adopting something set by hand: an `import` block, then `tofu plan -generate-config-out=generated.tf`
-writes its live values; move them into
-the module, delete `generated.tf`, and plan again until only the import remains. Human users are
-not managed here.
-
-## infomaniak
-
-Nine domains registered at Infomaniak, all delegated to Cloudflare. Infomaniak is
-registrar only, so nothing about them is *managed* from here - `infomaniak/domains.tf`
-declares the expected nameservers and DNSSEC state, and every `tofu plan` checks them
-against the TLD registry and warns on drift.
-
-Infomaniak's API can write nameservers but not read them, so detection and correction
-are split: the check reads the registry over DNS, and a `terracurl_request` in
-`infomaniak/domains_nameservers.tf` issues the `PUT` to fix it. That resource
-only exists for domains that have drifted, so in a steady state it plans nothing.
-
-Correcting drift needs an Infomaniak API token, created at
-<https://manager.infomaniak.com/v3/ng/profile/user/token/list> with scopes
-`domain:write` and `domain:read`. The write scope is what the `PUT` needs; the read
-scope is there only so the token can be verified with a harmless `GET`.
-
-The token is displayed once, and is deactivated after a year of inactivity - which
-this one will reach, because it is used only when delegation drifts. A 401 later means
-recreate it, not that something is broken.
-
-It goes in `infomaniak/terraform.tfvars` as `infomaniak_token`. A plan needs it
-only when delegation has actually drifted; the checks themselves read public DNS and
-need no credential.
-
-Check it before relying on it - 200 means token and scope are good, 401 a bad token,
-403 a missing scope (set `INFOMANIAK_TOKEN` in your shell just for this check):
-
-```sh
-curl -sS -o /dev/null -w '%{http_code}\n' \
-  -H "Authorization: Bearer $INFOMANIAK_TOKEN" \
-  https://api.infomaniak.com/2/domains/domains
-```
-
-The token is sent through write-only attributes, so it never reaches the state file.
-It is only needed when a correction is actually pending; ordinary plans do not use it.
-
-The DNSSEC probe shells out to `dig`, so it has to be on PATH.
-
-## cloudflare
-
-DNS for every zone lives in Cloudflare, across **two separate accounts** under two
-separate logins.
-
-| Account | Nameservers | Zones |
-|---|---|---|
-| personal | `brenda` / `wesley`.ns.cloudflare.com | the nine Infomaniak domains, plus `wundexpertinplus.com` (registered at GoDaddy and managed by its owner) |
-| arepazo | `abdullah` / `fish`.ns.cloudflare.com | `arepazo.ch` (registered and managed by its owner) |
-
-Both providers are aliased and there is deliberately **no default provider**, so every
-resource has to name its account. Getting it wrong is a configuration error rather than
-a silent write to the wrong zone.
-
-It manages the zones, every DNS record, and six security and TLS zone settings
-(`ssl_automatic_mode`, `always_use_https`, `min_tls_version`, `automatic_https_rewrites`,
-`tls_1_3`, `security_level`). Page rules, WAF, Workers and the remaining ~54 zone settings
-stay in the dashboard.
-
-The SSL mode itself (`ssl`: flexible, full, strict) is **not** managed. Every zone uses
-Automatic SSL/TLS: Cloudflare scans the origin and picks the strictest mode that works, so
-`ssl` is only the latest scan's result. Writing it would switch the zone to manual mode;
-managing `ssl_automatic_mode = "auto"` instead makes such a switch visible as drift. Every
-zone requires TLS 1.2 from visitors.
-
-What the scanner has chosen is still visible, read-only, through the `ssl_modes` output:
-
-```sh
-tofu output ssl_modes
-```
-
-### Running it
-
-Two API tokens, one per account, from <https://dash.cloudflare.com/profile/api-tokens>.
-Each needs Zone/Zone **Read**, Zone/DNS **Edit**, Zone/Zone Settings **Edit**, and its
-zone resources scoped to `All zones from an account` - not `All zones`, which would
-reach both accounts and make the split meaningless.
-
-Both go in `cloudflare/terraform.tfvars`.
-
-```sh
-cd cloudflare
-tofu init
-tofu plan
-```
-
-The provider's own `CLOUDFLARE_API_TOKEN` variable is intentionally unused - with two
-accounts, one implicit token would authenticate against whichever it happens to belong
-to.
-
-### Regenerating from Cloudflare
-
-`scripts/generate.sh` dumps HCL and import blocks for every zone in both accounts into
-`generated/`, using [cf-terraforming](https://github.com/cloudflare/cf-terraforming)
-(`brew install cf-terraforming`). Useful when adopting a new zone.
-
-That output is raw material, not something to use directly: it names every resource
-`terraform_managed_resource_<id>`, omits the `provider` attribute this module requires,
-and Cloudflare themselves note that generated resources do not always pass
-`terraform validate`. `generated/` is gitignored and is a subdirectory, so OpenTofu
-never parses it.
+Freshly generated Hetzner S3 credentials propagate across their gateways over several
+minutes. During that window `tofu init` fails with
+`operation error S3: HeadObject ... StatusCode: 403` while the key already works for
+listing buckets. That is not a permissions problem - wait and retry before touching
+ACLs, bucket policies or `use_path_style`.

@@ -46,7 +46,7 @@ resource "minio_s3_bucket_lifecycle" "tfstate" {
 
 # This denies the admin key nothing only as long as admin_principal is right. It was proven
 # on the etcd bucket with this same statement before being applied here; see the staged
-# apply in tofu/README.md before changing how the principal is built.
+# apply in README.md before changing how the principal is built.
 resource "minio_s3_bucket_policy" "tfstate" {
   bucket = minio_s3_bucket.tfstate.bucket
   policy = jsonencode({

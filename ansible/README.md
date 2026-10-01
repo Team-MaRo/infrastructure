@@ -1,7 +1,18 @@
 # ansible
 
 Configures the running nodes. Where [`../cloud-init/`](../cloud-init/README.md) prepares a
-node once at first boot, this keeps it configured from then on.
+node once at first boot, this keeps it configured from then on. This file covers what spans
+the playbooks - layout, inventories, how to run them, and `kubeconfig.yml`, which has no role
+of its own; each role's design and runbooks are in its own README:
+
+| Role | Run by | README |
+|---|---|---|
+| `hostname` | `prod.yml` | [`roles/hostname/README.md`](roles/hostname/README.md) |
+| `os_updates` | `prod.yml` | [`roles/os_updates/README.md`](roles/os_updates/README.md) |
+| `k3s` | `prod.yml` | [`roles/k3s/README.md`](roles/k3s/README.md) |
+| `swap` | nothing yet | [`roles/swap/README.md`](roles/swap/README.md) |
+| `argocd` | `argocd.yml` | [`roles/argocd/README.md`](roles/argocd/README.md) |
+| `cluster_secrets` | `secrets.yml` | [`roles/cluster_secrets/README.md`](roles/cluster_secrets/README.md) |
 
 ## Layout
 
@@ -42,15 +53,26 @@ ansible/
         └── tasks/main.yml    # the six tasks
 ```
 
-**Inventory decides membership, the playbook's `hosts:` decides what that means.** There
-are no feature flags. A role either appears in a playbook's `roles:` list or it does not.
+Every role directory also holds its `README.md`.
 
-Both inventory sources live in one directory and load together, so `prod` and `home` are
-groups in a single inventory rather than separate inventories. That is what makes a
-default inventory safe: `prod.yml` says `hosts: prod`, so it cannot touch a home server no
-matter what is passed. The protection is structural rather than a habit of typing `-i`.
+## The selection model
 
-The corollary: **do not write a playbook with `hosts: all`**, or that guarantee is gone.
+The selection model is the thing to understand: **inventory decides membership, the
+playbook's `hosts:` decides what that means, and there are no feature flags.** A role
+either appears in a playbook's `roles:` list or it does not. This follows the layout in
+Ansible's own sample setup and in the Red Hat CoP good practices, both of which map a
+group to roles in one playbook per type; neither uses conditional `*_enabled` gating.
+
+- **One inventory directory, two sources.** `inventories/hcloud.yml` is dynamic (Hetzner
+  API, `label_selector: cluster=prod`, `group: prod`) and `inventories/home.yml` is static.
+  They load together, so `prod` and `home` are groups in a single inventory rather than
+  separate inventories.
+- **A default inventory is set**, which is safe only because `hosts:` constrains each
+  playbook - `prod.yml` says `hosts: prod`, so it cannot touch a home server no matter what
+  is passed. The protection is structural rather than a habit of typing `-i`.
+- The corollary: **do not write a playbook with `hosts: all`**, or that guarantee is gone.
+- **`site.yml` imports the per-type playbooks.** Run it for everything, or one playbook
+  for one type. `kubeconfig.yml` is deliberately not among them.
 
 ### If you are used to one playbook.yml plus tasks/
 
@@ -69,6 +91,22 @@ The variables moved for one reason: precedence. Ansible ranks a playbook's `vars
 Role defaults are the weakest thing in Ansible (rank 2), so `group_vars/prod.yml` can set
 `swap_size: 8G` for one fleet and the same role serves both.
 
+## The prod inventory
+
+Dynamic, so the three addresses are not copied out of `../tofu/hcloud/locals.tf` a third
+time and adding a node needs no edit here. It selects by the same `cluster=prod` label the
+firewall attaches by, and puts the results in the **`prod` group** rather than the plugin's default
+`hcloud` - the group name should say what the hosts are, not where they are hosted.
+
+**The prod inventory connects over public IPs.** `network: prod` filters to nodes on the
+private network and exposes each node's `hcloud_private_ipv4` as a hostvar. That is a value
+the cluster is configured with, **not** how Ansible connects - `ansible_host` stays the
+public address, since the private network is internal to Hetzner and a laptop cannot route
+to `10.0.0.0/24`. Connections go over the public address on port 22.
+
+**Its token comes from `tofu/hcloud/terraform.tfvars`** via a `lookup`, rather than a
+second copy or an environment variable. `HCLOUD_TOKEN` overrides it if that breaks.
+
 ## Prerequisites
 
 ```shell
@@ -84,9 +122,9 @@ ansible-galaxy collection install -r requirements.yml
 ```
 
 The bundled hetzner.hcloud is 6.12, which prints a `hcloud_datacenter` deprecation warning
-for every server on every run, although nothing here uses that variable. 7.0 removed it, so
-`requirements.yml` requires `>=7.0.0`. The install goes to `.collections/`, which takes
-precedence over the bundle.
+for every server on every run - unconditionally, although nothing here uses that variable.
+7.0 removed it, so `requirements.yml` requires `>=7.0.0`. The install goes to
+`.collections/`, which takes precedence over the bundle.
 
 Host key checking is **on** - these nodes are on the public internet. Seed
 `known_hosts` once:
@@ -100,7 +138,7 @@ it from there rather than keeping a second copy.
 
 ## Usage
 
-Run from this directory - `ansible.cfg` is only read from the current directory, and the
+Run **from this directory** - `ansible.cfg` is only read from the current directory, and the
 inventory's token lookup uses a path relative to it.
 
 ```shell
@@ -120,260 +158,82 @@ all three depend on this machine, not only on the nodes.
 
 Re-running is safe: every install task is guarded, so a second run reports `changed=0`.
 
-## The prod inventory
+## The playbooks
 
-Dynamic, so the three addresses are not copied out of `../tofu/hcloud/locals.tf` a third
-time and adding a node needs no edit here. It selects by the same `cluster=prod` label the
-firewall attaches by, and puts the results in the **`prod` group** rather than the plugin's default
-`hcloud` - the group name should say what the hosts are, not where they are hosted.
-
-`network: prod` filters to nodes on the private network and exposes each node's
-`hcloud_private_ipv4`. That is a value the cluster is configured with, **not** how Ansible
-connects - the private network is internal to Hetzner, so a laptop cannot route to
-`10.0.0.0/24`. Connections go over the public address on port 22.
-
-## The `hostname` role
-
-Runs before `k3s` in both plays of `prod.yml`. cloud-init sets each node's hostname and
-`/etc/hosts` on every boot from Hetzner's metadata - but the metadata keeps the name a
-server was *created* with, so renaming a server in tofu never reaches the host by itself.
-This role writes `/etc/cloud/cloud.cfg.d/90-hostname.cfg` with `hostname:` set to the
-inventory name (the current Hetzner name), which cloud-init then uses instead, and applies
-it immediately so the k3s role, which takes the node name from the hostname at install
-time, already sees it. Tagged `hostname`, so it can run on its own:
-`ansible-playbook prod.yml --tags hostname`.
-
-## The `os_updates` role
-
-The Hetzner Debian image already installs security and stable updates every day through
-`unattended-upgrades`. This role only moves *when*: a drop-in for `apt-daily-upgrade.timer`
-sets it to 03:30 Zurich time (plus up to 15 minutes), after the k3s upgrade window and
-before kured's reboot window - see "The night's maintenance order" in `AGENTS.md`. Tagged
-`os_updates`:
-
-```shell
-ansible-playbook prod.yml --tags os_updates
-ssh prod-01 systemctl list-timers apt-daily-upgrade.timer   # next run, in UTC
-```
-
-## The `k3s` role
-
-Brings up a three-server cluster with embedded etcd. Every node runs the control plane and
-schedules workloads, so losing one is survivable.
-
-`prod.yml` is two plays, which is forced rather than stylistic: `--cluster-init` has to
-finish on one node before the others can join, joining uses `serial: 1` so etcd keeps a
-quorum while members are added, and `hosts:` and `serial:` are play-level settings a role
-cannot change.
-
-`prod-01` appears literally in the host patterns. A play's pattern is resolved before any
-host is selected, so inventory variables are not available there - templating `hosts:`
-from `group_vars` fails outright. `k3s_init_node` in `group_vars/prod.yml` names the same
-node and has to be kept in step with it. The role has no default for it on purpose: it
-names a host, which is inventory data.
-
-The playbook touches nothing but the nodes. Getting a kubeconfig onto your machine is
-`kubeconfig.yml`, below.
-
-Install tasks are guarded by `creates: /usr/local/bin/k3s`. The trade is that editing
-`defaults/main.yml` afterwards changes nothing on a running node - which is why
-`--secrets-encryption` has to be set at install time, since it cannot be enabled later
-without restarting every server.
-
-Settings that may change on a running cluster live in `k3s_config` instead. The role writes
-them to `/etc/rancher/k3s/config.yaml.d/50-ansible.yaml` before installing, so a new node
-starts with them, and when the file changes on a node that already runs k3s it restarts k3s
-there and waits until the API answers again. With `serial: 1` that is one server at a time,
-so etcd never loses its quorum. Today it holds `disable: [local-storage]` (k3s's local-path
-provisioner kept volumes on the node's own 40 GB disk, where they would die with the node),
-the etcd snapshot upload to S3, the WireGuard backend for the pod network
-(`flannel-backend: wireguard-native`, which encrypts pod traffic between nodes), and the
-paths to the Pod Security and the authentication configuration.
-
-The role also sets kernel parameters (`k3s_sysctls`, today only
-`net.ipv4.ip_unprivileged_port_start = 80`, so Traefik can listen on 80/443 on the host
-network without root) and node labels (`k3s_node_labels`, from `group_vars/prod.yml`: every
-node is an ingress node). Labels go through `k3s kubectl label` on each node, since k3s's
-`node-label` only applies when a node first registers.
-
-That configuration, `/etc/rancher/k3s/psa.yaml`, is written by the same role and restarts
-k3s the same way when it changes. It enforces the restricted Pod Security Standard
-everywhere except `k3s_psa_exempt_namespaces` - see "Pod Security" in `AGENTS.md`.
-
-So is `/etc/rancher/k3s/authn.yaml`, which lets the API server accept Zitadel's ID tokens for
-kubectl (issuer and client ID from `k3s_oidc_issuer` and `k3s_oidc_client_id` in
-`group_vars/prod.yml`), and turns anonymous requests off - k3s stops doing that itself once
-the file exists. See "Two kubeconfigs" in `AGENTS.md`.
-
-A dry run cannot cover everything: the join needs a token only a real first play produces,
-so it is skipped under `--check`. What it does verify is connectivity, private-interface
-detection and flag assembly on all three nodes.
-
-## `argocd.yml` and the `argocd` role
-
-Argo CD cannot deploy itself the first time, so this installs it once from
-`../kubernetes/components/argocd/` and applies
-`../kubernetes/clusters/<cluster_name>/root.yaml`, where `cluster_name` comes from
-`inventories/group_vars/prod.yml`. From then on Argo CD manages itself and everything else
-from git, and this finds it installed and does nothing - the same bootstrap-once trade the
-k3s role makes with `creates:`.
-
-It runs **from your machine**, not on the nodes: `kubectl` with the admin kubeconfig from
-`kubeconfig.yml` (path in `admin_kubeconfig`), applying straight from the working copy.
-So it runs after `kubeconfig.yml`, and only from an address in `admin_ips` - port 6443 is
-closed to everything else. If the API is unreachable, the first task fails with
-`kubectl`'s own error rather than mistaking it for "not installed". The play targets
-`prod-01` only to pick up the group's variables; it makes no SSH connection.
-
-That guard is deliberate in both directions. Ansible must never re-apply those manifests
-once Argo CD owns them: a working copy that differs from `master` would be fighting Argo
-CD's self-heal. And on a rebuilt cluster the guard is absent, so it bootstraps again.
-
-**Push before running it.** The root Application syncs from GitHub, not from your working
-copy. See [`../kubernetes/README.md`](../kubernetes/README.md) for what happens after the
-bootstrap.
-
-## `secrets.yml` and the `cluster_secrets` role
-
-Writes the Secrets the cluster needs before OpenBao can hand out any: the Hetzner API token
-for the CSI driver (`kube-system/hcloud`), which OpenBao itself depends on for its volumes,
-and OpenBao's own seal key (`openbao/openbao-seal`). The seal key's namespace is created by
-the openbao Application, so after a fresh install run this once that has synced. Each entry in `cluster_secrets` (`inventories/group_vars/prod.yml`) names a
-Secret, a key, and the 1Password item and field its value comes from, in the account and
-vault given by `onepassword_account` and `onepassword_vault`.
-
-1Password is the root of trust for this bootstrap only: the values are read on your machine,
-through the `op` CLI (expect a Touch ID prompt), and the cluster never talks to 1Password.
-Like `argocd.yml` it runs from your machine with the admin kubeconfig, from an address in
-`admin_ips`, and makes no SSH connection.
-
-For each Secret it first runs `kubectl diff --server-side`, which only reads - so
-`--check` shows the real answer - and applies only what differs, so a second run reports
-`changed=0`. Values reach `kubectl` on stdin, never as arguments visible in the process
-list, and every task is `no_log`. The apply is server-side because client-side apply would
-store a second copy of the value in the `last-applied-configuration` annotation.
-
-The Secrets are not in git, so Argo CD neither prunes nor overwrites them. Rotating one is
-changing it in 1Password and re-running this.
+- **`prod.yml`** - the `prod` cluster, in two plays: `hosts: prod-01` initialises the first
+  server, `hosts: prod:!prod-01` joins the others with `serial: 1`. Each play runs
+  [`hostname`](roles/hostname/README.md), [`os_updates`](roles/os_updates/README.md) and
+  [`k3s`](roles/k3s/README.md); why it has to be two plays, and why `prod-01` is written out
+  literally, is in the k3s role's README.
+- **`site.yml`** - imports the per-type playbooks; today only `prod.yml`.
+- **`kubeconfig.yml`** - writes the two kubeconfigs onto this machine; below, since it has no
+  role.
+- **`argocd.yml`** - bootstraps Argo CD once, from this machine; the
+  [`argocd` role](roles/argocd/README.md).
+- **`secrets.yml`** - writes the bootstrap Secrets from 1Password, from this machine; the
+  [`cluster_secrets` role](roles/cluster_secrets/README.md).
 
 ## `kubeconfig.yml`
 
-Separate from `prod.yml` and **not** imported by `site.yml`, because it does not configure a
-server - it provisions credentials onto a workstation. It writes two kubeconfigs:
+Two kubeconfigs: Zitadel every day, the admin certificate as break-glass.
+
+`ansible/kubeconfig.yml` is its own playbook and is **not** imported by `site.yml`. Writing
+into `~/.kube` through `delegate_to: localhost` provisions a credential onto a workstation;
+it is not configuring a server, and it does not belong inside a role named after what it
+installs on the nodes. It writes two files beside `~/.kube/config` (rather than into it,
+because it writes each file whole and would otherwise clobber an existing one):
+
+| Context | File | Logs in as |
+|---|---|---|
+| `d3strukt0r-prod` | `~/.kube/d3strukt0r-prod.yaml` | `zitadel:<username>`, through the browser - every day |
+| `d3strukt0r-prod-admin` | `~/.kube/d3strukt0r-prod-admin.yaml` | `system:admin`, a client certificate - break-glass |
 
 ```shell
 brew install kubelogin              # once; the everyday kubeconfig runs it
 ansible-playbook kubeconfig.yml
-```
-
-- **`~/.kube/d3strukt0r-prod.yaml`, context `d3strukt0r-prod`** - the everyday one. It holds
-  no credential: kubectl runs kubelogin, which logs in through Zitadel in the browser (the
-  role `infra-admin` makes you cluster admin) and keeps the tokens in the macOS keychain. The
-  ID token lasts an hour and renews silently; a browser login comes back after 30 days unused,
-  and after 90 days in any case.
-- **`~/.kube/d3strukt0r-prod-admin.yaml`, context `d3strukt0r-prod-admin`** - break-glass,
-  fetched from the node. The kubeconfig k3s generates embeds a client certificate whose subject
-  is `CN=system:admin, O=system:masters`, and that group bypasses RBAC entirely - its access
-  cannot be revoked by removing bindings. It keeps working when Zitadel is down.
-
-```shell
 kubectl --context d3strukt0r-prod auth whoami   # zitadel:<username>, group zitadel:infra-admin
 ```
 
-Both go beside `~/.kube/config` rather than into it, because the playbook writes each file
-whole and would otherwise clobber an existing one. Chain them so kubectl sees all three;
-writes go to the first:
+Chain them so kubectl sees all three; writes go to the first:
 
 ```shell
 export KUBECONFIG="$HOME/.kube/config:$HOME/.kube/d3strukt0r-prod.yaml:$HOME/.kube/d3strukt0r-prod-admin.yaml"
 ```
 
-In the admin kubeconfig, two things are rewritten on the way out of the node. The server
-address, from the node's `127.0.0.1` to `prod-01`'s public address - all three nodes are in
-the certificate's SANs, so if `prod-01` is down, editing the `server:` line to another node
-(in both files) is enough. And the cluster, user and context names, which k3s all calls
-`default`. Each replacement is anchored to its key (`name: default`, not `default`) because
-base64 contains no colon or space, so an anchored pattern cannot match inside the
-certificate blobs.
+### The Zitadel kubeconfig
 
-**Re-run it periodically** for the admin kubeconfig. k3s issues 365-day certificates and
-renews them on startup within 120 days of expiry, on the node. This copy does not follow, so
-it eventually stops working until refreshed.
+**The Zitadel kubeconfig holds no credential.** Its user runs kubelogin
+(`brew install kubelogin`, called as `kubectl oidc-login get-token`), which opens the browser,
+logs in with PKCE against the public app `Kubernetes` (`tofu/zitadel/apps_kubernetes.tf`,
+redirects `http://localhost:8000` and `:18000` - a native app, so no development mode) and
+keeps the tokens in the macOS keychain. It asks for `profile` (the username claim) and
+`offline_access` (a refresh token, so the hourly ID token renews without the browser). Server
+and CA are the admin file's. How the API server accepts those tokens (`authn.yaml`) is
+"Authentication: Zitadel's ID tokens" in the [k3s role's README](roles/k3s/README.md).
 
-## The `swap` role
+What that login may do, and how revoking it works, is in
+[`kubernetes/components/cluster-rbac/README.md`](../kubernetes/components/cluster-rbac/README.md).
 
-**Written and verified, but not applied.** No playbook references it. Nothing runs on
-these nodes yet, so there is no memory pressure to measure and any tuning value would be
-guesswork.
+### The admin kubeconfig
 
-To enable it, add it to the `roles:` list of the first two plays in `prod.yml`:
+**The admin kubeconfig is not an everyday credential.** It is fetched from the node:
+`/etc/rancher/k3s/k3s.yaml` embeds a client certificate whose subject is
+`CN=system:admin, O=system:masters`, and per the Kubernetes RBAC guidance any member of that
+group **"bypasses all RBAC rights checks and will always have unrestricted superuser access,
+which cannot be revoked by removing RoleBindings or ClusterRoleBindings"**. No RBAC can limit
+that file, which is why everyday access is a second identity rather than policy against this
+one. It keeps working when Zitadel is down.
 
-```yaml
-  roles:
-    - swap
-    - role: k3s
-```
+Two things are rewritten on the way out of the node. The server address, from the node's
+`127.0.0.1` to `prod-01`'s public address - all three nodes are in the certificate's SANs, so
+if `prod-01` is down, editing the `server:` line to another node (in both files) is enough.
+And the cluster, user and context names, which k3s all calls `default`. The name rewrites are
+anchored to their keys (`name: default`, not `default`) because base64 contains no colon or
+space, so an anchored pattern cannot collide with the certificate blobs.
 
-That is the whole decision, which is why there is no `swap_enabled` flag to set to false
-and then wonder about later. k3s was installed with
-`--kubelet-arg=fail-swap-on=false`, so kubelet will not object.
-
-Provisions a 2 GB swap file and the kernel tuning that makes swap safe on a Kubernetes
-node. Values follow the *Recommended starting point* in the Kubernetes
-[swap deep-dive](https://kubernetes.io/blog/2025/08/19/tuning-linux-swap-for-kubernetes-a-deep-dive/),
-not the values it used while experimenting:
-
-| Setting | Value | Why |
-|---|---|---|
-| `vm.swappiness` | 60 | The kernel default. Set explicitly to record intent - this is not a change |
-| `vm.min_free_kbytes` | 3% of RAM | Upper end of the blog's "2-3% of total node memory", scaled rather than hardcoded so one role serves a 4 GB cx23, an 8 GB cx33 and the home servers |
-| `vm.watermark_scale_factor` | 2000 | The value that actually changes behaviour - widens the reclaim window so kswapd can page out before the node hits a critical state |
-
-`min_free_kbytes` is derived from what the kernel reports, which is well under the
-nominal size, so it is not a round number:
-
-| Node | Reported RAM | `min_free_kbytes` |
-|---|---|---|
-| `prod-03` (cx23) | 3826 MB | 117534 (~115 MiB) |
-| `prod-01`, `prod-02` (cx33) | 7757 MB | 238295 (~233 MiB) |
-
-Check it against the node rather than a fixed figure:
-
-```shell
-echo "want $(awk '/MemTotal/{printf "%d", $2*0.03}' /proc/meminfo), got $(sysctl -n vm.min_free_kbytes)"
-```
-
-If OOM kills still happen under real load, `min_free_kbytes` is the number to raise. The
-blog's own test used far more than its recommendation, and its recommendation contradicts
-its own test node size - so benchmark rather than trusting either.
-
-### On swappiness
-
-Worth knowing before changing `swap_swappiness` from the default 60, because it is one of
-the most mythologised knobs in Linux.
-
-It is **not** an eagerness dial. The kernel defines it as the relative IO cost of swapping
-versus filesystem paging, on a 0-200 scale where 100 means the two are equally expensive
-(`anon_prio = swappiness`, `file_prio = 200 - swappiness`). A low value asserts that swap
-IO is far costlier than file IO - true of spinning disks, false here, where swap and the
-filesystem share the same local NVMe.
-
-Low values also do not avoid disk IO. They shift the thrashing from anonymous pages to the
-page cache: instead of writing out cold anonymous memory once, the kernel repeatedly
-evicts and re-reads binaries, libraries and cached data. That can be slower, and can help
-cause the contention it was meant to avoid.
-
-If a low value is ever wanted, **1 is the floor, not 0**: since a 2012 vmscan change, 0
-refuses to scan anonymous pages at all until severe contention.
-
-The hardware here would justify something nearer 100. It stays at 60 because an unmeasured
-100 is no better founded than an unmeasured 1 - measure first.
-
-**Swap is not encrypted.** It would only protect paged-out memory against someone reading
-the disk offline, and on the same unencrypted root filesystem sit the etcd datastore with
-every Kubernetes Secret, the cluster CA private keys, the join token and a cluster-admin
-kubeconfig. Encrypting swap alone shutters a window beside an open door; the answer to
-that threat is full-disk encryption, which on Hetzner costs unattended reboots.
+**Re-run it periodically** for the admin kubeconfig. It expires: k3s issues 365-day
+certificates and renews them on startup within 120 days of expiry, on the node. This copy
+does not follow, so `kubeconfig.yml` has to be re-run before it stops working.
 
 ## Not here yet
 
