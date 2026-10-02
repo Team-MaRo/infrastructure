@@ -25,6 +25,8 @@ spec:
         key: mariadb-apps/phpmyadmin
         property: password
 ---
+# The server's own default character set and collation; the operator's default would be the
+# old three-byte utf8 (utf8mb3), which cannot store every character.
 apiVersion: k8s.mariadb.com/v1alpha1
 kind: Database
 metadata:
@@ -34,6 +36,8 @@ spec:
   mariaDbRef:
     name: mariadb
   name: phpmyadmin
+  characterSet: utf8mb4
+  collate: utf8mb4_uca1400_ai_ci
   cleanupPolicy: Skip
 ---
 apiVersion: k8s.mariadb.com/v1alpha1
