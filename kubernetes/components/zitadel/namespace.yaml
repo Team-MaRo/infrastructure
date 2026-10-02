@@ -4,3 +4,7 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: zitadel
+  labels:
+    # trust-manager puts the shared PostgreSQL's CA here as ConfigMap postgres-ca
+    # (components/trust-manager).
+    trust.d3strukt0r.dev/postgres-ca: "true"

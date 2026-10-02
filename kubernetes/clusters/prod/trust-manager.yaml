@@ -1,0 +1,34 @@
+---
+# trust-manager for this cluster: the cert-manager project's trust-manager Helm chart with values
+# from kubernetes/components/trust-manager, plus that directory's manifests (the CA copies and the
+# Bundles). Puts the databases' CA certificates into every namespace that asks for them.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: trust-manager
+  namespace: argocd
+  # No finalizer: it brings the Bundle CRD, and deleting the Bundles would delete every app's CA
+  # ConfigMap with them.
+spec:
+  project: default
+  sources:
+    # Pinned: bumping the version is the upgrade.
+    - repoURL: https://charts.jetstack.io
+      chart: trust-manager
+      targetRevision: v0.25.0
+      helm:
+        valueFiles:
+          - $repo/kubernetes/components/trust-manager/values.yaml
+    - repoURL: https://github.com/Team-MaRo/infrastructure.git
+      targetRevision: master
+      ref: repo
+      path: kubernetes/components/trust-manager
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: trust-manager
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - ServerSideApply=true

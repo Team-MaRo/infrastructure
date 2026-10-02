@@ -1,0 +1,6 @@
+---
+# trust-manager's own namespace and its trust namespace: the only place it reads sources from.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: trust-manager
