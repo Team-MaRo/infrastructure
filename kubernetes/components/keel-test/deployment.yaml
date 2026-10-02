@@ -1,0 +1,40 @@
+---
+# A throwaway app proving Keel (components/keel): a push to d3strukt0r/keel-test:latest must roll
+# it out once, with Argo CD staying in sync. Removed again after the test.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: keel-test
+  annotations:
+    keel.sh/policy: force
+    keel.sh/matchTag: "true"
+    keel.sh/trigger: poll
+    # Faster than the default 5 minutes, for the test only.
+    keel.sh/pollSchedule: "@every 1m"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: keel-test
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: keel-test
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: keel-test
+          # Without docker.io/: Keel writes the short form back (README of components/keel).
+          image: d3strukt0r/keel-test:latest
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8080
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL

@@ -1,0 +1,25 @@
+---
+# The Keel proof, from kubernetes/components/keel-test. Removed after the test; the finalizer takes
+# the namespace with it.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: keel-test
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Team-MaRo/infrastructure.git
+    targetRevision: master
+    path: kubernetes/components/keel-test
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: keel-test
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - ServerSideApply=true
