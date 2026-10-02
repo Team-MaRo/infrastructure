@@ -21,6 +21,7 @@ reloader:
     - oauth2-proxy
     - pgadmin
     - phpmyadmin
+    - wedding-manuele-robine
     - zitadel
   # A changed Secret would otherwise start a CronJob's Job at once and recreate Jobs.
   ignoreJobs: true

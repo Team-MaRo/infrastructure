@@ -1,0 +1,13 @@
+---
+# wedding-manuele-robine, the wedding website at manuele-robine.wedding: the PWA, its Symfony API,
+# its database in the shared MariaDB and its media in Hetzner Object Storage.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - namespace.yaml
+  - database.yaml
+  - external-secrets.yaml
+  - api.yaml
+  - pwa.yaml
+  - ingresses.yaml

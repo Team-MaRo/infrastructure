@@ -145,7 +145,9 @@ its paths and flags).
 **An app keeps its full name everywhere** - namespace, bucket, database, OpenBao paths,
 1Password titles, Terraform names: `wedding-manuele-robine`, never a shortened `wedding` (user
 rule, 2026-10-02). Where a name cannot hold a hyphen, the hyphens become underscores
-(`wedding_manuele_robine`).
+(`wedding_manuele_robine`). The app's own 1Password items carry its display name
+(`Wedding Manuele Robine | Prod | App`); items of a cluster service keep the technical name
+(`MariaDB | Prod | wedding-manuele-robine`).
 
 **Every `kubectl` command names its context** (`--context d3strukt0r-prod-admin`, or
 `d3strukt0r-prod` through Zitadel) - the admin's current context may be another cluster.
@@ -166,8 +168,8 @@ rule, 2026-10-02). Where a name cannot hold a hyphen, the hyphens become undersc
   deleting a file from `clusters/<name>/` deletes what the Application deployed; without it
   only the Application goes and its resources keep running, untracked.
   - It is on apps whose data lives elsewhere or does not matter: `gatus`, `zitadel`,
-    `oauth2-proxy`, `phpmyadmin`, `pgadmin`, `reloader`, `keel`, `kured`, `alloy`,
-    `etcd-snapshots`, `cluster-rbac`, `argocd-integrations`. A Postgres app's database and role stay when it goes
+    `oauth2-proxy`, `phpmyadmin`, `pgadmin`, `reloader`, `keel`, `wedding-manuele-robine`,
+    `kured`, `alloy`, `etcd-snapshots`, `cluster-rbac`, `argocd-integrations`. A Postgres app's database and role stay when it goes
     (CloudNativePG's reclaim policies default to `retain`); a MariaDB app's objects set
     `cleanupPolicy: Skip`, since mariadb-operator's default is `Delete`.
   - **Never on an app that brings CRDs** (deleting a CRD deletes every object of its kind):
@@ -336,5 +338,6 @@ component); update it in the same change.
 | [`kubernetes/components/reloader/README.md`](kubernetes/components/reloader/README.md) | Restarting apps when a Secret or ConfigMap they read at start changes |
 | [`kubernetes/components/trust-manager/README.md`](kubernetes/components/trust-manager/README.md) | The databases' CA certificates in the apps' namespaces |
 | [`kubernetes/components/keel/README.md`](kubernetes/components/keel/README.md) | Rolling out new images under floating tags, opting an app in |
+| [`kubernetes/components/wedding-manuele-robine/README.md`](kubernetes/components/wedding-manuele-robine/README.md) | The wedding website; its two TODOs; moving it from prod-old |
 | [`kubernetes/components/kubeelasti/README.md`](kubernetes/components/kubeelasti/README.md) | Scale to zero, letting an app sleep |
 | [`kubernetes/clusters/prod/etcd-snapshots/README.md`](kubernetes/clusters/prod/etcd-snapshots/README.md) | etcd snapshots to Object Storage, restoring one |

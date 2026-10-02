@@ -1,0 +1,74 @@
+---
+# The app's database in the shared MariaDB ("Adding an app" in kubernetes/components/mariadb).
+# mariadb-operator requires a User, its password Secret, a Grant and a Database to be in the
+# MariaDB's namespace, so these objects live in mariadb although this component deploys them. The
+# password comes from OpenBao secret/mariadb-apps/wedding-manuele-robine; the API reads the same
+# value in its own namespace. Database and user names take underscores, MariaDB's own spelling.
+# 1Password "MariaDB | Prod | wedding-manuele-robine"
+#   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=w7e6ngluqweynmirg2om57ukom&h=my.1password.com
+#
+# cleanupPolicy Skip on all three: the operator's default (Delete) would drop the database and
+# the user when this component is removed.
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: wedding-manuele-robine-db
+  namespace: mariadb
+spec:
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: openbao
+  data:
+    - secretKey: password
+      remoteRef:
+        key: mariadb-apps/wedding-manuele-robine
+        property: password
+---
+# utf8mb4_unicode_ci, not the cluster's usual utf8mb4_uca1400_ai_ci: the collation the database
+# had on prod-old, so its dump imports unchanged.
+apiVersion: k8s.mariadb.com/v1alpha1
+kind: Database
+metadata:
+  name: wedding-manuele-robine
+  namespace: mariadb
+spec:
+  mariaDbRef:
+    name: mariadb
+  name: wedding_manuele_robine
+  characterSet: utf8mb4
+  collate: utf8mb4_unicode_ci
+  cleanupPolicy: Skip
+---
+# TODO: require TLS (`require: {ssl: true}`) once the app connects with it - Doctrine's PDO only
+# does with TLS options in the app's doctrine.yaml. Until then the connection is plain inside the
+# cluster; between nodes WireGuard still encrypts it.
+apiVersion: k8s.mariadb.com/v1alpha1
+kind: User
+metadata:
+  name: wedding-manuele-robine
+  namespace: mariadb
+spec:
+  mariaDbRef:
+    name: mariadb
+  name: wedding_manuele_robine
+  host: "%"
+  passwordSecretKeyRef:
+    name: wedding-manuele-robine-db
+    key: password
+  cleanupPolicy: Skip
+---
+apiVersion: k8s.mariadb.com/v1alpha1
+kind: Grant
+metadata:
+  name: wedding-manuele-robine
+  namespace: mariadb
+spec:
+  mariaDbRef:
+    name: mariadb
+  username: wedding_manuele_robine
+  host: "%"
+  database: wedding_manuele_robine
+  table: "*"
+  privileges:
+    - ALL PRIVILEGES
+  cleanupPolicy: Skip
