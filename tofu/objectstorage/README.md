@@ -11,6 +11,7 @@ own docs use.
 | `d3strukt0r-prod-mariadb-backups` | bucket, lifecycle (expires after 35 days), policy | only the MariaDB backup key and the admin key |
 | `d3strukt0r-prod-postgres-backups` | bucket, lifecycle, policy | only the PostgreSQL backup key and the admin key |
 | `d3strukt0r-prod-openbao-snapshots` | bucket, object lock, lifecycle, policy | only OpenBao's snapshot key and the admin key; like the etcd bucket, the key cannot bypass the lock or change the bucket's rules |
+| `d3strukt0r-prod-wedding-manuele-robine` | bucket, versioning, lifecycle, policy | only the app's key and the admin key |
 
 Shared rules, credentials and the state backend are in [`../README.md`](../README.md).
 
@@ -21,7 +22,8 @@ way to scope one is a bucket policy, so `tofu/objectstorage` writes every policy
 `Deny` + `NotPrincipal` naming the admin key, `arn:aws:iam:::user/p<project_id>:<access_key>`
 (`local.admin_principal`), plus at most the one cluster key that bucket is for
 (`local.etcd_principal`, `local.loki_principal`, `local.mariadb_backups_principal`,
-`local.postgres_backups_principal`). That covers keys that do not exist yet, so
+`local.postgres_backups_principal`, `local.openbao_snapshots_principal`,
+`local.wedding_manuele_robine_principal`). That covers keys that do not exist yet, so
 **each key the cluster holds reaches only its own bucket**. The cluster keys' access key IDs
 (not their secrets) are `etcd_access_key_id`, `loki_access_key_id`,
 `mariadb_backups_access_key_id` and `postgres_backups_access_key_id` in the module's tfvars; a
@@ -84,6 +86,15 @@ although uploads answer with an `Expiration` header that suggests so (tested 202
   stay locked and are removed 7 days later - so a stolen snapshot key cannot destroy a backup.
   Only the admin key and the snapshot key (console label `prod openbao snapshots`, 1Password
   [`Hetzner | S3 | prod openbao snapshots`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=7wzbdy35bhtgqn6ahbqyoaiuum&h=my.1password.com), OpenBao `secret/openbao-snapshot-s3`) reach it.
+- **`d3strukt0r-prod-wedding-manuele-robine`: versioned, no lock.** The media of
+  wedding-manuele-robine (uploads through the API's flysystem, private - the API serves them).
+  The only copy of the guests' uploads, so a deleted or overwritten file stays recoverable for 30
+  days (`noncurrent_version_expiration`), then the orphaned delete markers go;
+  `prevent_destroy`. Only the admin key and the app's key (console label
+  `prod wedding-manuele-robine`, 1Password
+  [`Hetzner | S3 | prod wedding-manuele-robine`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=ytvt5yczmlghqtf7ki6orppn6e&h=my.1password.com), OpenBao
+  `secret/wedding-manuele-robine-s3`) reach it. The app signs with region `eu-west-1`
+  (hard-coded in its code), which Hetzner accepts.
 - **Provider `aminueza/minio`, `s3_compat_mode` off.** The `aws` provider cannot refresh a
   bucket here (it reads Accelerate, Website, Logging, Replication and Tagging, all
   unimplemented). Compat mode would swallow "not implemented" errors, object lock and
@@ -108,8 +119,8 @@ labels live only in the Hetzner console.
 ## Running it
 
 Needs `project_id`, `etcd_access_key_id`, `loki_access_key_id`,
-`mariadb_backups_access_key_id`, `postgres_backups_access_key_id` and
-`openbao_snapshots_access_key_id` in
+`mariadb_backups_access_key_id`, `postgres_backups_access_key_id`,
+`openbao_snapshots_access_key_id` and `wedding_manuele_robine_access_key_id` in
 `objectstorage/terraform.tfvars` - the key IDs are the username fields of the keys'
 1Password items, never the secrets. The provider cannot read
 AWS profiles, so `locals.tf` parses the `[d3strukt0r-hetzner]` section of

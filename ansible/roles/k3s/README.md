@@ -106,6 +106,9 @@ like a drop-in change.
   upgrade Jobs in `system-upgrade`. A new infrastructure component that needs more than the
   restricted standard goes onto that list in the commit that deploys it; components that run
   restricted anyway (`cert-manager`, `monitoring`, `loki`) are not on it.
+- **One app is exempt too, temporarily**: `wedding-manuele-robine`, whose images run as root
+  (supervisord, nginx, php-fpm and cron on port 80). A TODO next to the entry: make the images
+  rootless, then remove it. No other app goes on the list.
 
 ## Authentication: Zitadel's ID tokens
 
