@@ -1,8 +1,0 @@
----
-# The Keel proof (components/keel): a throwaway app on a floating tag. Removed after the test.
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
-
-resources:
-  - namespace.yaml
-  - deployment.yaml
