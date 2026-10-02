@@ -32,9 +32,11 @@ Within one Application pruning works as usual either way: a manifest removed fro
 component is deleted.
 
 - **The finalizer is on apps whose data lives elsewhere or does not matter**: `gatus`,
-  `zitadel`, `oauth2-proxy`, `kured`, `alloy`, `etcd-snapshots`,
-  `cluster-rbac`, `argocd-integrations`. A Postgres app's database and role stay when it goes - CloudNativePG's
-  `databaseReclaimPolicy` and `databaseRoleReclaimPolicy` default to `retain`.
+  `zitadel`, `oauth2-proxy`, `phpmyadmin`, `kured`, `alloy`, `etcd-snapshots`,
+  `cluster-rbac`, `argocd-integrations`. A Postgres app's database and role stay when it goes -
+  CloudNativePG's `databaseReclaimPolicy` and `databaseRoleReclaimPolicy` default to `retain`;
+  a MariaDB app's stay because its objects set `cleanupPolicy: Skip` (the operator's default is
+  `Delete`).
 - **Never on an app that brings CRDs** (deleting a CRD deletes every object of its kind -
   `cloudnative-pg` would take the Postgres `Cluster` with it): cert-manager,
   external-secrets, kyverno, cloudnative-pg, the mariadb-operator ones,

@@ -1,0 +1,13 @@
+---
+# phpMyAdmin's certificate for Traefik.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: phpmyadmin-tls
+spec:
+  secretName: phpmyadmin-tls
+  dnsNames:
+    - phpmyadmin.d3strukt0r.dev
+  issuerRef:
+    kind: ClusterIssuer
+    name: letsencrypt

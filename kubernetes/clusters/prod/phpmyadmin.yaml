@@ -1,0 +1,28 @@
+---
+# phpMyAdmin for this cluster, from kubernetes/components/phpmyadmin: the web UI for the shared
+# MariaDB at phpmyadmin.d3strukt0r.dev, behind the Zitadel gate.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: phpmyadmin
+  namespace: argocd
+  # Removing this file removes everything it deployed, namespace included; its database and user
+  # in the shared MariaDB stay (cleanupPolicy Skip).
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Team-MaRo/infrastructure.git
+    targetRevision: master
+    path: kubernetes/components/phpmyadmin
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: phpmyadmin
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      # Not required here (no large CRDs); used for consistency.
+      - ServerSideApply=true

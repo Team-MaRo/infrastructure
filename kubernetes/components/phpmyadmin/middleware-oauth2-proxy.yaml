@@ -1,0 +1,11 @@
+---
+# The Zitadel login gate (see kubernetes/components/oauth2-proxy): Traefik asks oauth2-proxy
+# about every request first and lets it through only for a login with the role infra-admin.
+# Traefik only accepts middleware from the router's own namespace, so this is phpMyAdmin's copy.
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: oauth2-proxy
+spec:
+  forwardAuth:
+    address: http://oauth2-proxy.oauth2-proxy.svc

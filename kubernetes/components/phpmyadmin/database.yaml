@@ -1,0 +1,72 @@
+---
+# phpMyAdmin's configuration storage in the shared MariaDB: a database of its own and the
+# "control user" phpMyAdmin reaches it with, whoever is logged in. mariadb-operator requires a
+# User, its password Secret, a Grant and a Database to be in the MariaDB's namespace, so these
+# objects live in mariadb although this component deploys them. The password comes from
+# OpenBao secret/mariadb-apps/phpmyadmin; phpMyAdmin reads the same value in its own namespace.
+# 1Password "MariaDB | Prod | phpmyadmin"
+#   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=jpwo2g36stjynqahgcwnjqfcsy&h=my.1password.com
+#
+# cleanupPolicy Skip on all three: the operator's default (Delete) would drop the database and
+# the user when this component is removed. Removing the app keeps its data, as CloudNativePG's
+# retain does for the PostgreSQL apps.
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: phpmyadmin-db
+  namespace: mariadb
+spec:
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: openbao
+  data:
+    - secretKey: password
+      remoteRef:
+        key: mariadb-apps/phpmyadmin
+        property: password
+---
+apiVersion: k8s.mariadb.com/v1alpha1
+kind: Database
+metadata:
+  name: phpmyadmin
+  namespace: mariadb
+spec:
+  mariaDbRef:
+    name: mariadb
+  name: phpmyadmin
+  cleanupPolicy: Skip
+---
+apiVersion: k8s.mariadb.com/v1alpha1
+kind: User
+metadata:
+  name: phpmyadmin
+  namespace: mariadb
+spec:
+  mariaDbRef:
+    name: mariadb
+  name: phpmyadmin
+  host: "%"
+  passwordSecretKeyRef:
+    name: phpmyadmin-db
+    key: password
+  # Refused without TLS, so the password never crosses the network in the clear.
+  require:
+    ssl: true
+  cleanupPolicy: Skip
+---
+# Everything on its own database and nothing else: phpMyAdmin creates its tables there itself.
+apiVersion: k8s.mariadb.com/v1alpha1
+kind: Grant
+metadata:
+  name: phpmyadmin
+  namespace: mariadb
+spec:
+  mariaDbRef:
+    name: mariadb
+  username: phpmyadmin
+  host: "%"
+  database: phpmyadmin
+  table: "*"
+  privileges:
+    - ALL PRIVILEGES
+  cleanupPolicy: Skip

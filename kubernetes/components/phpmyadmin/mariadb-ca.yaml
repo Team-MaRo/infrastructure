@@ -1,0 +1,65 @@
+---
+# mariadb-operator's CA certificate, copied from the mariadb namespace so phpMyAdmin can verify
+# the server's certificate. External Secrets reads it through its Kubernetes provider with this
+# ServiceAccount, which may read exactly that one Secret and nothing else. The certificate is
+# public; the CA's private key lives in another Secret and is never copied.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: mariadb-ca-reader
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: phpmyadmin-mariadb-ca-reader
+  namespace: mariadb
+rules:
+  - apiGroups: [""]
+    resources: [secrets]
+    resourceNames: [mariadb-ca-bundle]
+    verbs: [get]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: phpmyadmin-mariadb-ca-reader
+  namespace: mariadb
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: phpmyadmin-mariadb-ca-reader
+subjects:
+  - kind: ServiceAccount
+    name: mariadb-ca-reader
+    namespace: phpmyadmin
+---
+apiVersion: external-secrets.io/v1
+kind: SecretStore
+metadata:
+  name: mariadb
+spec:
+  provider:
+    kubernetes:
+      remoteNamespace: mariadb
+      server:
+        caProvider:
+          type: ConfigMap
+          name: kube-root-ca.crt
+          key: ca.crt
+      auth:
+        serviceAccount:
+          name: mariadb-ca-reader
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: mariadb-ca
+spec:
+  secretStoreRef:
+    kind: SecretStore
+    name: mariadb
+  data:
+    - secretKey: ca.crt
+      remoteRef:
+        key: mariadb-ca-bundle
+        property: ca.crt
