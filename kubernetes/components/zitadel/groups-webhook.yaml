@@ -48,6 +48,9 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: zitadel-groups
+  annotations:
+    # Python loads the script once; Reloader restarts the pod when the ConfigMap changes.
+    configmap.reloader.stakater.com/reload: zitadel-groups
 spec:
   replicas: 1
   selector:

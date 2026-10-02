@@ -29,3 +29,10 @@ data:
   # shows as permanent drift. Read live, no restart needed.
   resource.compareoptions: |
     ignoreAggregatedRoles: true
+  # Reloader restarts a workload by setting this annotation on its pod template
+  # (components/reloader). It is not in git, so without this a restart would show as drift and
+  # self-heal could undo it. For every kind, since Reloader also patches StatefulSets and
+  # DaemonSets. Read live, no restart needed.
+  resource.customizations.ignoreDifferences.all: |
+    jsonPointers:
+      - /spec/template/metadata/annotations/reloader.stakater.com~1last-reloaded-from

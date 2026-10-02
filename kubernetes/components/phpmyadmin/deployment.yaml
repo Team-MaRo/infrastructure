@@ -3,6 +3,10 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: phpmyadmin
+  annotations:
+    # Restarted by Reloader when the Secret changes in OpenBao: the entrypoint reads
+    # PMA_CONTROLPASS_FILE into the environment at start.
+    secret.reloader.stakater.com/reload: phpmyadmin
 spec:
   # One instance: sessions are files in the pod, so a second would log users out at random.
   replicas: 1

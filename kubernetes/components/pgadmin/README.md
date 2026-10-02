@@ -60,6 +60,9 @@ namespace `pgadmin`). How the cluster's manifests fit together is in
 - **One replica, `Recreate`**: the old pod must stop before the new one migrates the database.
   8 Gunicorn threads instead of 25 for a handful of users. Memory: request 256Mi, limit 1Gi -
   large result sets are held in memory; adjust once it has run for a while.
+- **Restarted by Reloader** when Secret `pgadmin` changes in OpenBao: the entrypoint reads the
+  `*_FILE` secrets at start ([`../reloader/README.md`](../reloader/README.md)). The ConfigMap's
+  name is hashed, so a change to it rolls the pod anyway.
 
 ## Before the first sync
 

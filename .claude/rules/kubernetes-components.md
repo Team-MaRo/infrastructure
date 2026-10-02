@@ -29,4 +29,7 @@ paths:
 - An app's Postgres `DatabaseRole`/`Database` lives in the app's component with
   `namespace: postgres`; its MariaDB `User`/`Grant`/`Database` with `namespace: mariadb` and
   `cleanupPolicy: Skip`.
+- An app that reads a Secret or ConfigMap only at start gets
+  `secret.reloader.stakater.com/reload: <name>` (or `configmap.`) on its workload, and its
+  namespace goes into `reloader.namespaces` in `kubernetes/components/reloader/values.yaml`.
 - Every `kubectl` in docs or commands carries `--context d3strukt0r-prod-admin`.

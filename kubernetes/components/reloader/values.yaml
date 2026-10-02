@@ -1,0 +1,44 @@
+# Helm values for Reloader; the chart version is pinned in the cluster's Application. Only what
+# differs from the chart's defaults is set.
+
+# Objects named `reloader`, not `reloader-reloader`.
+fullnameOverride: reloader
+
+reloader:
+  # A restart sets an annotation on the pod template instead of an environment variable: Argo CD
+  # ignores that annotation (resource.customizations in components/argocd/patches/argocd-cm.yaml),
+  # while an added variable would be reverted by self-heal and restart the app again.
+  reloadStrategy: annotations
+  # Only these namespaces, each with a Role of its own - no ClusterRole that reads every Secret.
+  # An app that wants its restarts adds its namespace here and the annotation on its workload
+  # (README).
+  watchGlobally: false
+  namespaces:
+    - argocd
+    - gatus
+    - loki
+    - monitoring
+    - oauth2-proxy
+    - pgadmin
+    - phpmyadmin
+    - zitadel
+  # A changed Secret would otherwise start a CronJob's Job at once and recreate Jobs.
+  ignoreJobs: true
+  ignoreCronJobs: true
+  readOnlyRootFileSystem: true
+  deployment:
+    containerSecurityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+          - ALL
+    resources:
+      requests:
+        memory: 64Mi
+      limits:
+        memory: 256Mi
+  podMonitor:
+    enabled: true
+    annotations:
+      # The CRD comes with kube-prometheus-stack, another Application.
+      argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true

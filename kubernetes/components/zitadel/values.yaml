@@ -53,6 +53,10 @@ serviceAccount:
   annotations: *noHelmHook
 annotations:
   argocd.argoproj.io/sync-wave: "3"
+  # Restarted by Reloader when the database password changes in OpenBao (read as an environment
+  # variable). Only this Secret: the masterkey must never change, and the first admin's password
+  # is only read once by the setup job.
+  secret.reloader.stakater.com/reload: zitadel-db
 # A post-delete hook deleting the chart's Secrets; it never runs without an Application finalizer,
 # and would delete the setup job's iam-admin key if it did.
 cleanupJob:

@@ -32,6 +32,8 @@ Loki as a datasource (`additionalDataSources` in the kube-prometheus-stack value
 - **Labels**: `namespace`, `pod`, `container`, `node`, `app` for containers; `job="node-journal"`,
   `unit`, `node` for the journal; `job="loki.source.kubernetes_events"` for events. Anything
   else is searched in the line, not labelled - Loki stays fast with few labels.
+- **Restarted by Reloader** when Secret `loki-s3` changes in OpenBao (environment variables read at
+  start; `singleBinary.annotations`, [`../reloader/README.md`](../reloader/README.md)).
 
 ## Searching logs
 

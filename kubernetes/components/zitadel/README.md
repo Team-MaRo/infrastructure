@@ -67,6 +67,10 @@ is down, the UIs stay reachable by port-forward. Measured idle after the first s
   list when it is created, so the webhook is deployed before `tofu/zitadel` creates the target.
 - The license is AGPL-3.0; running it unmodified puts no obligation on the apps that log in
   through it.
+- **Restarted by Reloader** when Secret `zitadel-db` changes in OpenBao (an environment variable
+  read at start), and the groups webhook when its ConfigMap changes
+  ([`../reloader/README.md`](../reloader/README.md)). Deliberately not for the masterkey, which
+  must never change, or the first admin's password, read once by the setup job.
 
 ## Before the first sync
 

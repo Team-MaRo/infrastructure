@@ -4,7 +4,8 @@ Back to [`kubernetes/README.md`](../../README.md).
 
 Argo CD deploys everything under `kubernetes/` from `master`, itself included. This component
 is Kustomize over the pinned upstream `install.yaml` plus patches (`patches/`: `argocd-cm`
-with the Zitadel login, RBAC, plain HTTP, Dex removed, memory, the webhook secret) and the
+with the Zitadel login, RBAC, plain HTTP, Dex removed, memory, the webhook secret, Reloader's
+annotations and the drift exception for its restarts) and the
 Ingress for UI and API (`ingress.yaml`). What it needs from other components' CRDs is
 [`../argocd-integrations/`](../argocd-integrations/README.md).
 
@@ -32,7 +33,7 @@ Within one Application pruning works as usual either way: a manifest removed fro
 component is deleted.
 
 - **The finalizer is on apps whose data lives elsewhere or does not matter**: `gatus`,
-  `zitadel`, `oauth2-proxy`, `phpmyadmin`, `pgadmin`, `kured`, `alloy`, `etcd-snapshots`,
+  `zitadel`, `oauth2-proxy`, `phpmyadmin`, `pgadmin`, `reloader`, `kured`, `alloy`, `etcd-snapshots`,
   `cluster-rbac`, `argocd-integrations`. A Postgres app's database and role stay when it goes -
   CloudNativePG's `databaseReclaimPolicy` and `databaseRoleReclaimPolicy` default to `retain`;
   a MariaDB app's stay because its objects set `cleanupPolicy: Skip` (the operator's default is
@@ -91,7 +92,8 @@ the CLI's (`cliClientID`, redirect to `localhost:8085`), both PKCE without a cli
 there is no secret to keep. Rights come from the `groups` claim: `infra-admin` is
 `role:admin` (`argocd-rbac-cm`), everyone else gets nothing, and Zitadel's role check keeps
 users without a role out anyway. TLS ends at Traefik; `server.insecure` makes argocd-server
-speak plain HTTP behind it (read at start - a change needs a restart of argocd-server). The
+speak plain HTTP behind it (read at start; Reloader restarts argocd-server when
+`argocd-cmd-params-cm` changes, `patches/reloader.yaml`). The
 CLI logs in with `argocd login argocd.d3strukt0r.dev --sso --grpc-web`: gRPC-web passes as
 plain HTTPS, so no h2c route for native gRPC is configured. The local `admin` account and the
 port-forward stay as the break-glass way in.
@@ -192,13 +194,11 @@ At once: **a push arrives through a GitHub webhook** - GitHub sends every push t
 names needs the label `app.kubernetes.io/part-of: argocd` (it comes from
 [`../argocd-integrations/`](../argocd-integrations/README.md)).
 Polling at Argo CD's default (120 s plus up to 60 s of jitter) remains the fallback for a lost
-delivery. The application controller and the repo server read the polling interval at start,
-so after changing it in `patches/argocd-cm.yaml`, restart both once the change has synced:
-
-```shell
-kubectl --context d3strukt0r-prod-admin -n argocd rollout restart statefulset argocd-application-controller
-kubectl --context d3strukt0r-prod-admin -n argocd rollout restart deployment argocd-repo-server
-```
+delivery. The application controller and the repo server read the polling interval at start;
+Reloader restarts both when `argocd-cm` changes (`patches/reloader.yaml`,
+[`../reloader/README.md`](../reloader/README.md)). Reloader's own restarts set an annotation that
+is not in git; `resource.customizations.ignoreDifferences.all` in `patches/argocd-cm.yaml` keeps
+it from showing as drift on any app.
 
 The webhook itself lives in GitHub, not in this repo (repository settings → Webhooks, or
 `gh api repos/Team-MaRo/infrastructure/hooks`); its recent deliveries and their answers show

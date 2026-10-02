@@ -32,6 +32,8 @@ cluster's manifests fit together is in [`kubernetes/README.md`](../../README.md)
 - The chart meets the restricted Pod Security Standard as it is; the image is on `quay.io`;
   one replica - with it down, the guarded UIs are unreachable (fail closed) but everything
   else keeps running.
+- **Restarted by Reloader** when Secret `oauth2-proxy` changes in OpenBao (environment variables
+  read at start; `deploymentAnnotations`, [`../reloader/README.md`](../reloader/README.md)).
 
 ## Before the first sync
 

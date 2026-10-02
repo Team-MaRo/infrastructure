@@ -47,6 +47,7 @@ kubernetes/
 │       ├── oauth2-proxy.yaml      # the Zitadel login gate for UIs without a login of their own
 │       ├── phpmyadmin.yaml        # the shared MariaDB's web UI
 │       ├── pgadmin.yaml           # the shared PostgreSQL's web UI
+│       ├── reloader.yaml          # restarts apps on changed Secrets: chart pinned here, values in components/
 │       ├── kubeelasti.yaml        # scale to zero: chart pinned here, values in components/
 │       ├── cluster-rbac.yaml      # cluster-wide rights for kubectl logins through Zitadel
 │       ├── etcd-snapshots.yaml    # syncs the subdirectory below
@@ -169,18 +170,22 @@ kubernetes/
     │   ├── certificate.yaml       # phpmyadmin.d3strukt0r.dev
     │   ├── middleware-oauth2-proxy.yaml  # the Zitadel gate
     │   └── ingress.yaml
-    └── pgadmin/
-        ├── kustomization.yaml     # config_system.py and servers.json become the ConfigMap pgadmin
-        ├── config_system.py       # the Zitadel login, cookie settings
-        ├── servers.json           # the shared server "PostgreSQL"
-        ├── namespace.yaml
-        ├── database.yaml          # its configuration database and role, in the postgres namespace
-        ├── postgres-ca.yaml       # copies CloudNativePG's CA certificate for verify-full
-        ├── external-secrets.yaml  # the configuration database's URI, the internal user's password
-        ├── deployment.yaml        # one replica, pinned image, no volume
-        ├── service.yaml
-        ├── certificate.yaml       # pgadmin.d3strukt0r.dev
-        └── ingress.yaml           # no gate: pgAdmin logs in through Zitadel itself
+    ├── pgadmin/
+    │   ├── kustomization.yaml     # config_system.py and servers.json become the ConfigMap pgadmin
+    │   ├── config_system.py       # the Zitadel login, cookie settings
+    │   ├── servers.json           # the shared server "PostgreSQL"
+    │   ├── namespace.yaml
+    │   ├── database.yaml          # its configuration database and role, in the postgres namespace
+    │   ├── postgres-ca.yaml       # copies CloudNativePG's CA certificate for verify-full
+    │   ├── external-secrets.yaml  # the configuration database's URI, the internal user's password
+    │   ├── deployment.yaml        # one replica, pinned image, no volume
+    │   ├── service.yaml
+    │   ├── certificate.yaml       # pgadmin.d3strukt0r.dev
+    │   └── ingress.yaml           # no gate: pgAdmin logs in through Zitadel itself
+    └── reloader/
+        ├── values.yaml            # Helm values: annotations strategy, watched namespaces, securityContext
+        ├── kustomization.yaml
+        └── namespace.yaml
 ```
 
 | Component | What it is |
@@ -207,6 +212,7 @@ kubernetes/
 | [`oauth2-proxy`](components/oauth2-proxy/README.md) | The Zitadel login gate for UIs without a login of their own |
 | [`phpmyadmin`](components/phpmyadmin/README.md) | The shared MariaDB's web UI, behind the Zitadel gate |
 | [`pgadmin`](components/pgadmin/README.md) | The shared PostgreSQL's web UI, with its own Zitadel login |
+| [`reloader`](components/reloader/README.md) | Restarts apps when a Secret or ConfigMap they read at start changes |
 | [`kubeelasti`](components/kubeelasti/README.md) | Scale to zero; letting an app sleep |
 | [`cluster-rbac`](components/cluster-rbac/README.md) | Cluster-wide rights for kubectl logins through Zitadel |
 | [`clusters/prod/etcd-snapshots`](clusters/prod/etcd-snapshots/README.md) | prod-only: the S3 settings k3s uploads etcd snapshots with; restore |
@@ -224,7 +230,9 @@ Each cluster directory is an app-of-apps: `root` syncs the directory it lives in
 manages itself as well as its siblings.
 
 - **Adding a component** means a directory under `components/` with its own `README.md`, and
-  one Application file in each cluster directory that should run it.
+  one Application file in each cluster directory that should run it. If the app reads a Secret
+  or ConfigMap only at start, it opts in to Reloader: the annotation on its workload and its
+  namespace in Reloader's list ([`components/reloader/README.md`](components/reloader/README.md)).
 - **When one cluster needs something different**, give it a small Kustomize overlay under
   its own directory that references the component, rather than copying the component.
 - **Adding a cluster** means a new `clusters/<name>/` with its own `root.yaml` and

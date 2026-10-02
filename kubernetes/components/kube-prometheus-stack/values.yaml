@@ -168,6 +168,11 @@ alertmanager:
 grafana:
   admin:
     existingSecret: grafana-admin
+  # Restarted by Reloader when the admin password changes in OpenBao (read as an environment
+  # variable at start). The chart puts these annotations on all its Grafana objects; Reloader
+  # only acts on the Deployment.
+  annotations:
+    secret.reloader.stakater.com/reload: grafana-admin
   # At grafana.d3strukt0r.dev (its own record in tofu/cloudflare), certificate from
   # certificates.yaml. No className: Traefik is the cluster's default IngressClass.
   ingress:
