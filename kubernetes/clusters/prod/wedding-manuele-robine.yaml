@@ -1,0 +1,26 @@
+---
+# The wedding website, from kubernetes/components/wedding-manuele-robine.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: wedding-manuele-robine
+  namespace: argocd
+  # Removing this file removes everything it deployed, namespace included; its database and user
+  # in the shared MariaDB stay (cleanupPolicy Skip), and so do its media in Object Storage.
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Team-MaRo/infrastructure.git
+    targetRevision: master
+    path: kubernetes/components/wedding-manuele-robine
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: wedding-manuele-robine
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - ServerSideApply=true

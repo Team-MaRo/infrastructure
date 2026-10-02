@@ -52,6 +52,8 @@ themselves (Gatus' config, Alertmanager's ntfy secret, Alloy, Argo CD's webhook 
 | `gatus` | Secret `gatus` | environment variables |
 | `pgadmin` | Secret `pgadmin` | the entrypoint reads its `*_FILE` secrets |
 | `phpmyadmin` | Secret `phpmyadmin` | the entrypoint reads `PMA_CONTROLPASS_FILE` into the environment |
+| `api` (wedding-manuele-robine) | Secrets `api`, `jwt` | environment variables; `jwt` too, so a new key pair arrives together with its passphrase |
+| `pwa` (wedding-manuele-robine) | Secret `pwa` | envsubst writes the Maps key into the files at start |
 | `zitadel` | Secret `zitadel-db` | environment variable |
 | `zitadel-groups` | ConfigMap `zitadel-groups` | Python loads the script once |
 | `oauth2-proxy` | Secret `oauth2-proxy` | environment variables |

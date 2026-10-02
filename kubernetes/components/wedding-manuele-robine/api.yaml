@@ -1,0 +1,107 @@
+---
+# The Symfony API: nginx, php-fpm, a Messenger worker and cron under supervisord, as root (the
+# namespace's Pod Security exemption). At start it waits for the database and runs Doctrine's
+# migrations itself.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+  annotations:
+    # A new image under the same tag rolls it out (kubernetes/components/keel).
+    keel.sh/policy: force
+    keel.sh/matchTag: "true"
+    keel.sh/trigger: poll
+    # Read as environment variables and files at start (kubernetes/components/reloader).
+    secret.reloader.stakater.com/reload: api,jwt
+spec:
+  # One instance: sessions are files in the pod, and migrations run at start.
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: api
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: api
+    spec:
+      containers:
+        - name: api
+          # Without docker.io/: Keel writes the short form back (kubernetes/components/keel).
+          image: d3strukt0r/wedding-manuele-robine:api-latest
+          imagePullPolicy: Always
+          envFrom:
+            - secretRef:
+                name: api
+          env:
+            - name: APP_URL
+              value: https://wedding-manuele-robine.d3strukt0r.dev
+            # Traefik reaches the pod from the pod network or a node's address.
+            - name: TRUSTED_PROXIES
+              value: 127.0.0.1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16
+            - name: CORS_ALLOW_ORIGIN
+              value: ^https?://(wedding-manuele-robine\.d3strukt0r\.dev|(?:www\.)?manuele-robine\.wedding|localhost|127\.0\.0\.1)(:[0-9]+)?$
+            - name: CLEAR_SESSIONS_IN
+              value: /var/cache/sessions/prod
+            # Media in Hetzner Object Storage (tofu/objectstorage/wedding-manuele-robine.tf), at
+            # the bucket's root - the bucket is the app's own.
+            - name: DEFAULT_STORAGE_SOURCE
+              value: default.storage.aws
+            - name: S3_STORAGE_ENDPOINT
+              value: https://nbg1.your-objectstorage.com
+            - name: S3_STORAGE_BUCKET
+              value: d3strukt0r-prod-wedding-manuele-robine
+            - name: S3_STORAGE_PREFIX
+              value: ""
+            - name: S3_USE_PATH_STYLE_ENDPOINT
+              value: "true"
+          ports:
+            - name: http
+              containerPort: 80
+          resources:
+            requests:
+              memory: 256Mi
+            limits:
+              memory: 512Mi
+          # Migrations and the database wait come first.
+          startupProbe:
+            httpGet:
+              path: /ping
+              port: http
+            failureThreshold: 30
+          readinessProbe:
+            httpGet:
+              path: /ping
+              port: http
+          livenessProbe:
+            httpGet:
+              path: /ping
+              port: http
+            periodSeconds: 30
+          volumeMounts:
+            # File sessions: a restart logs admins out, nothing else is lost.
+            - name: sessions
+              mountPath: /var/cache/sessions
+            - name: jwt
+              mountPath: /usr/local/src/app/config/jwt
+              readOnly: true
+      volumes:
+        - name: sessions
+          emptyDir: {}
+        - name: jwt
+          secret:
+            secretName: jwt
+---
+# Also the PWA's server-side address of the API (API_URL http://api).
+apiVersion: v1
+kind: Service
+metadata:
+  name: api
+spec:
+  selector:
+    app.kubernetes.io/name: api
+  ports:
+    - name: http
+      port: 80
+      targetPort: http

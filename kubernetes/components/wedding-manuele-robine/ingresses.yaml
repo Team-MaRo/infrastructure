@@ -1,0 +1,77 @@
+---
+# The website under the wedding's own domain (www. through the zone's wildcard) and under
+# d3strukt0r.dev; the API only under d3strukt0r.dev, as before. Their records are in
+# tofu/cloudflare. No className: Traefik is the cluster's default IngressClass.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: pwa-tls
+spec:
+  secretName: pwa-tls
+  dnsNames:
+    - manuele-robine.wedding
+    - www.manuele-robine.wedding
+    - wedding-manuele-robine.d3strukt0r.dev
+  issuerRef:
+    kind: ClusterIssuer
+    name: letsencrypt
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: api-tls
+spec:
+  secretName: api-tls
+  dnsNames:
+    - api-wedding-manuele-robine.d3strukt0r.dev
+  issuerRef:
+    kind: ClusterIssuer
+    name: letsencrypt
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: pwa
+spec:
+  tls:
+    - hosts:
+        - manuele-robine.wedding
+        - www.manuele-robine.wedding
+        - wedding-manuele-robine.d3strukt0r.dev
+      secretName: pwa-tls
+  rules:
+    - host: manuele-robine.wedding
+      http: &pwa
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: pwa
+                port:
+                  name: http
+    - host: www.manuele-robine.wedding
+      http: *pwa
+    - host: wedding-manuele-robine.d3strukt0r.dev
+      http: *pwa
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: api
+spec:
+  tls:
+    - hosts:
+        - api-wedding-manuele-robine.d3strukt0r.dev
+      secretName: api-tls
+  rules:
+    - host: api-wedding-manuele-robine.d3strukt0r.dev
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: api
+                port:
+                  name: http

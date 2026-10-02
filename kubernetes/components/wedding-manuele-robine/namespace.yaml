@@ -1,0 +1,8 @@
+---
+# Part of the app, so removing the app removes the namespace and anything left in it. Exempt from
+# the restricted Pod Security standard (k3s_psa_exempt_namespaces) while its images run as root -
+# see the TODO there.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: wedding-manuele-robine
