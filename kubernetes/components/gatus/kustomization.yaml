@@ -8,7 +8,6 @@ kind: Kustomization
 resources:
   - namespace.yaml
   - database.yaml
-  - postgres-ca.yaml
   - external-secrets.yaml
   - deployment.yaml
   - service.yaml

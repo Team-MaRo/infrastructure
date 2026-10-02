@@ -23,7 +23,7 @@ monitoring component it has its own namespace, under the restricted Pod Security
   database password); Gatus expands every `$` in the file, so a literal one is written `$$`,
   and the generated values contain no `$`.
 - **History is in the shared PostgreSQL** (database `gatus`, `sslmode=verify-full` against
-  CloudNativePG's CA - the Zitadel pattern), so a restart keeps uptime and response times and
+  CloudNativePG's CA, the ConfigMap `postgres-ca` from trust-manager), so a restart keeps uptime and response times and
   the nightly Postgres backup covers them. Postgres unreachable at start: Gatus exits and
   retries with the pod (seen once on the first deploy, before the database existed); gone
   while running: checks and ntfy alerts go on (alerting runs before the result is saved),

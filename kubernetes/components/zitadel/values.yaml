@@ -2,10 +2,8 @@
 # differs from the chart's defaults is set.
 
 zitadel:
-  # Both from this directory: our own masterkey (external-secrets.yaml) instead of one the chart
-  # generates in a Helm hook, and CloudNativePG's CA (postgres-ca.yaml).
+  # Our own masterkey (external-secrets.yaml) instead of one the chart generates in a Helm hook.
   masterkeySecretName: zitadel-masterkey
-  dbSslCaCrtSecret: postgres-ca
   configmapConfig:
     ExternalDomain: auth.d3strukt0r.dev
     # Traefik terminates TLS on 443; without this, Zitadel and the login page build every URL
@@ -64,6 +62,12 @@ cleanupJob:
 
 # Given to Zitadel, its init job and its setup job alike.
 env:
+  # CloudNativePG's CA for verify-full, the ConfigMap trust-manager puts into this namespace
+  # (extraVolumes below). The chart's own option, dbSslCaCrtSecret, takes only a Secret.
+  - name: ZITADEL_DATABASE_POSTGRES_USER_SSL_ROOTCERT
+    value: /etc/postgres-ca/ca.crt
+  - name: ZITADEL_DATABASE_POSTGRES_ADMIN_SSL_ROOTCERT
+    value: /etc/postgres-ca/ca.crt
   - name: ZITADEL_DATABASE_POSTGRES_USER_PASSWORD
     valueFrom:
       secretKeyRef:
@@ -167,3 +171,13 @@ login:
       - hosts:
           - auth.d3strukt0r.dev
         secretName: auth-tls
+
+# Mounted into Zitadel and its init and setup jobs alike (see env above).
+extraVolumes:
+  - name: postgres-ca
+    configMap:
+      name: postgres-ca
+extraVolumeMounts:
+  - name: postgres-ca
+    mountPath: /etc/postgres-ca
+    readOnly: true
