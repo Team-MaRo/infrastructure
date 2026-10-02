@@ -1,0 +1,16 @@
+---
+# Keel's metrics (pending approvals, registry errors, updates). Here rather than through the chart,
+# which has no ServiceMonitor.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: keel
+  annotations:
+    # The CRD comes with kube-prometheus-stack, another Application.
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  selector:
+    matchLabels:
+      app: keel
+  endpoints:
+    - port: keel

@@ -1,0 +1,11 @@
+---
+# Keel, shared by every cluster: rolls a workload out when a new image appears under the floating
+# tag it runs. The Helm chart is pinned in the cluster's Application with values.yaml from here;
+# these are the objects it needs besides the chart.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - namespace.yaml
+  - external-secrets.yaml
+  - service-monitor.yaml

@@ -161,8 +161,8 @@ its paths and flags).
   deleting a file from `clusters/<name>/` deletes what the Application deployed; without it
   only the Application goes and its resources keep running, untracked.
   - It is on apps whose data lives elsewhere or does not matter: `gatus`, `zitadel`,
-    `oauth2-proxy`, `phpmyadmin`, `pgadmin`, `reloader`, `kured`, `alloy`, `etcd-snapshots`,
-    `cluster-rbac`, `argocd-integrations`. A Postgres app's database and role stay when it goes
+    `oauth2-proxy`, `phpmyadmin`, `pgadmin`, `reloader`, `keel`, `kured`, `alloy`,
+    `etcd-snapshots`, `cluster-rbac`, `argocd-integrations`. A Postgres app's database and role stay when it goes
     (CloudNativePG's reclaim policies default to `retain`); a MariaDB app's objects set
     `cleanupPolicy: Skip`, since mariadb-operator's default is `Delete`.
   - **Never on an app that brings CRDs** (deleting a CRD deletes every object of its kind):
@@ -201,6 +201,11 @@ its paths and flags).
   namespace in `reloader.namespaces` - External Secrets updates Secrets in place, so nothing
   else restarts it after a change in OpenBao. Never on operator-managed databases or OpenBao
   ([`kubernetes/components/reloader/README.md`](kubernetes/components/reloader/README.md)).
+- **An app on a floating tag** (`:latest`, `:1`) opts in to Keel: `keel.sh/policy: force`,
+  `keel.sh/matchTag: "true"` and `keel.sh/trigger: poll` on its workload, `imagePullPolicy:
+  Always`, and a Docker Hub image written **without** `docker.io/` - Keel writes the short form
+  back, and the long one in git would make self-heal roll it out twice
+  ([`kubernetes/components/keel/README.md`](kubernetes/components/keel/README.md)).
 - **The databases are shared**: one PostgreSQL (CloudNativePG) and one MariaDB, a database per
   app. An app's database objects live in the app's own component with `namespace: postgres`
   (`DatabaseRole`/`Database`) or `namespace: mariadb` (`User`/`Grant`/`Database`); the database's
@@ -323,5 +328,6 @@ component); update it in the same change.
 | [`kubernetes/components/pgadmin/README.md`](kubernetes/components/pgadmin/README.md) | The shared PostgreSQL's web UI, its Zitadel login and configuration database |
 | [`kubernetes/components/reloader/README.md`](kubernetes/components/reloader/README.md) | Restarting apps when a Secret or ConfigMap they read at start changes |
 | [`kubernetes/components/trust-manager/README.md`](kubernetes/components/trust-manager/README.md) | The databases' CA certificates in the apps' namespaces |
+| [`kubernetes/components/keel/README.md`](kubernetes/components/keel/README.md) | Rolling out new images under floating tags, opting an app in |
 | [`kubernetes/components/kubeelasti/README.md`](kubernetes/components/kubeelasti/README.md) | Scale to zero, letting an app sleep |
 | [`kubernetes/clusters/prod/etcd-snapshots/README.md`](kubernetes/clusters/prod/etcd-snapshots/README.md) | etcd snapshots to Object Storage, restoring one |
