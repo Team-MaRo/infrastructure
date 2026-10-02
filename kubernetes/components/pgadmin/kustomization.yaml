@@ -1,0 +1,23 @@
+---
+# pgAdmin, shared by every cluster: the web UI for the shared PostgreSQL at
+# pgadmin.d3strukt0r.dev, with its own Zitadel login. Its configuration lives in a database of
+# its own in that PostgreSQL, so it needs no volume.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - namespace.yaml
+  - database.yaml
+  - postgres-ca.yaml
+  - external-secrets.yaml
+  - deployment.yaml
+  - service.yaml
+  - certificate.yaml
+  - ingress.yaml
+
+# Hashed name: pgAdmin reads its config only at start, so a change must roll the pod.
+configMapGenerator:
+  - name: pgadmin
+    files:
+      - config_system.py
+      - servers.json

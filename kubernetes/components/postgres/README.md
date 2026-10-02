@@ -103,6 +103,18 @@ postgres`, which shows the primary, replication and the archiving state in one v
    `SecretStore` (External Secrets' Kubernetes provider) and an ExternalSecret taking just
    `ca.crt`; rename the Role and RoleBinding after the app.
 
+## The role `admin`
+
+A superuser for people, to work in pgAdmin or `psql` - the counterpart of MariaDB's `root`
+(`admin-role.yaml`). CloudNativePG's own superuser `postgres` keeps superuser access off (the
+operator's default): it has no password from outside, and the operator's own connections stay
+apart from a person's in `pg_stat_activity` and in error messages. The password is in 1Password
+[`PostgreSQL | Prod | admin`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=4apn53q53ypoi2ruryq6voicz4&h=my.1password.com) (a Login with pgAdmin's URL) and OpenBao
+`secret/postgres-admin`; how it was created is "Before the first sync" in
+[`../pgadmin/README.md`](../pgadmin/README.md). To take it away, set `login: false` on the
+`DatabaseRole`, or `ensure: absent` to drop the role - deleting the object alone keeps the role,
+since CloudNativePG retains it. Nothing else uses it.
+
 ## Failover hangs
 
 `PostgresNoReadyPrimary` means apps cannot write. A failover normally finishes on its own: 8-11

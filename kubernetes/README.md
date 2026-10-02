@@ -46,6 +46,7 @@ kubernetes/
 │       ├── zitadel.yaml           # the identity provider (SSO)
 │       ├── oauth2-proxy.yaml      # the Zitadel login gate for UIs without a login of their own
 │       ├── phpmyadmin.yaml        # the shared MariaDB's web UI
+│       ├── pgadmin.yaml           # the shared PostgreSQL's web UI
 │       ├── kubeelasti.yaml        # scale to zero: chart pinned here, values in components/
 │       ├── cluster-rbac.yaml      # cluster-wide rights for kubectl logins through Zitadel
 │       ├── etcd-snapshots.yaml    # syncs the subdirectory below
@@ -119,6 +120,7 @@ kubernetes/
     ├── postgres/
     │   ├── kustomization.yaml
     │   ├── cluster.yaml           # primary + replica, synchronous replication
+    │   ├── admin-role.yaml        # the superuser role `admin` for people
     │   ├── backups.yaml           # the object store, WAL archiving, the nightly base backup
     │   ├── external-secrets.yaml  # the S3 key from OpenBao
     │   ├── pod-monitor.yaml       # the instances' metrics
@@ -156,17 +158,29 @@ kubernetes/
     │   ├── service.yaml
     │   ├── certificate.yaml       # status.d3strukt0r.dev
     │   └── ingress.yaml           # public, no login
-    └── phpmyadmin/
-        ├── kustomization.yaml
+    ├── phpmyadmin/
+    │   ├── kustomization.yaml
+    │   ├── namespace.yaml
+    │   ├── database.yaml          # its configuration storage and control user, in the mariadb namespace
+    │   ├── mariadb-ca.yaml        # copies mariadb-operator's CA certificate to verify TLS
+    │   ├── external-secrets.yaml  # the control user's password
+    │   ├── deployment.yaml        # one replica, pinned image, as www-data
+    │   ├── service.yaml
+    │   ├── certificate.yaml       # phpmyadmin.d3strukt0r.dev
+    │   ├── middleware-oauth2-proxy.yaml  # the Zitadel gate
+    │   └── ingress.yaml
+    └── pgadmin/
+        ├── kustomization.yaml     # config_system.py and servers.json become the ConfigMap pgadmin
+        ├── config_system.py       # the Zitadel login, cookie settings
+        ├── servers.json           # the shared server "PostgreSQL"
         ├── namespace.yaml
-        ├── database.yaml          # its configuration storage and control user, in the mariadb namespace
-        ├── mariadb-ca.yaml        # copies mariadb-operator's CA certificate to verify TLS
-        ├── external-secrets.yaml  # the control user's password
-        ├── deployment.yaml        # one replica, pinned image, as www-data
+        ├── database.yaml          # its configuration database and role, in the postgres namespace
+        ├── postgres-ca.yaml       # copies CloudNativePG's CA certificate for verify-full
+        ├── external-secrets.yaml  # the configuration database's URI, the internal user's password
+        ├── deployment.yaml        # one replica, pinned image, no volume
         ├── service.yaml
-        ├── certificate.yaml       # phpmyadmin.d3strukt0r.dev
-        ├── middleware-oauth2-proxy.yaml  # the Zitadel gate
-        └── ingress.yaml
+        ├── certificate.yaml       # pgadmin.d3strukt0r.dev
+        └── ingress.yaml           # no gate: pgAdmin logs in through Zitadel itself
 ```
 
 | Component | What it is |
@@ -192,6 +206,7 @@ kubernetes/
 | [`zitadel`](components/zitadel/README.md) | The identity provider (SSO) |
 | [`oauth2-proxy`](components/oauth2-proxy/README.md) | The Zitadel login gate for UIs without a login of their own |
 | [`phpmyadmin`](components/phpmyadmin/README.md) | The shared MariaDB's web UI, behind the Zitadel gate |
+| [`pgadmin`](components/pgadmin/README.md) | The shared PostgreSQL's web UI, with its own Zitadel login |
 | [`kubeelasti`](components/kubeelasti/README.md) | Scale to zero; letting an app sleep |
 | [`cluster-rbac`](components/cluster-rbac/README.md) | Cluster-wide rights for kubectl logins through Zitadel |
 | [`clusters/prod/etcd-snapshots`](clusters/prod/etcd-snapshots/README.md) | prod-only: the S3 settings k3s uploads etcd snapshots with; restore |
@@ -256,6 +271,8 @@ way in (a local admin and a port-forward).
   [`components/oauth2-proxy/README.md`](components/oauth2-proxy/README.md)
 - **phpMyAdmin** - `https://phpmyadmin.d3strukt0r.dev`, behind the Zitadel gate, then a MariaDB
   login: [`components/phpmyadmin/README.md`](components/phpmyadmin/README.md)
+- **pgAdmin** - `https://pgadmin.d3strukt0r.dev`, "Login with Zitadel", then a PostgreSQL role
+  (`admin`): [`components/pgadmin/README.md`](components/pgadmin/README.md)
 - **Zitadel console** - `https://auth.d3strukt0r.dev`:
   [`components/zitadel/README.md`](components/zitadel/README.md)
 - **Status page** - `https://status.d3strukt0r.dev`, public, no login:

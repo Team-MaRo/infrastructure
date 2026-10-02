@@ -1,0 +1,58 @@
+---
+# pgAdmin's configuration database in the shared PostgreSQL: its users, their saved servers and
+# preferences, its keys. CloudNativePG requires a DatabaseRole, its password Secret and a
+# Database to be in the Cluster's namespace, so these objects live in postgres although this
+# component deploys them. The password comes from OpenBao secret/postgres-apps/pgadmin; pgAdmin
+# reads the same value in its own namespace.
+# 1Password "PostgreSQL | Prod | pgadmin"
+#   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=57fj3tlsl6rvegv46lio457qnq&h=my.1password.com
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: pgadmin-db
+  namespace: postgres
+spec:
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: openbao
+  target:
+    template:
+      type: kubernetes.io/basic-auth
+      metadata:
+        labels:
+          # CloudNativePG applies a role only when its spec or its password Secret changes; with
+          # this label it watches the Secret, so the first apply and every password change take
+          # effect at once.
+          cnpg.io/reload: "true"
+      data:
+        username: pgadmin
+        password: "{{ .password }}"
+  data:
+    - secretKey: password
+      remoteRef:
+        key: postgres-apps/pgadmin
+        property: password
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: DatabaseRole
+metadata:
+  name: pgadmin
+  namespace: postgres
+spec:
+  cluster:
+    name: postgres
+  name: pgadmin
+  login: true
+  passwordSecret:
+    name: pgadmin-db
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: pgadmin
+  namespace: postgres
+spec:
+  cluster:
+    name: postgres
+  name: pgadmin
+  owner: pgadmin

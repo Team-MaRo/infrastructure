@@ -161,7 +161,7 @@ its paths and flags).
   deleting a file from `clusters/<name>/` deletes what the Application deployed; without it
   only the Application goes and its resources keep running, untracked.
   - It is on apps whose data lives elsewhere or does not matter: `gatus`, `zitadel`,
-    `oauth2-proxy`, `phpmyadmin`, `kured`, `alloy`, `etcd-snapshots`, `cluster-rbac`,
+    `oauth2-proxy`, `phpmyadmin`, `pgadmin`, `kured`, `alloy`, `etcd-snapshots`, `cluster-rbac`,
     `argocd-integrations`. A Postgres app's database and role stay when it goes
     (CloudNativePG's reclaim policies default to `retain`); a MariaDB app's objects set
     `cleanupPolicy: Skip`, since mariadb-operator's default is `Delete`.
@@ -314,5 +314,6 @@ component); update it in the same change.
 | [`kubernetes/components/zitadel/README.md`](kubernetes/components/zitadel/README.md) | The identity provider, its database, keys and groups webhook |
 | [`kubernetes/components/oauth2-proxy/README.md`](kubernetes/components/oauth2-proxy/README.md) | The login gate for UIs without their own Zitadel login |
 | [`kubernetes/components/phpmyadmin/README.md`](kubernetes/components/phpmyadmin/README.md) | The shared MariaDB's web UI, its configuration storage |
+| [`kubernetes/components/pgadmin/README.md`](kubernetes/components/pgadmin/README.md) | The shared PostgreSQL's web UI, its Zitadel login and configuration database |
 | [`kubernetes/components/kubeelasti/README.md`](kubernetes/components/kubeelasti/README.md) | Scale to zero, letting an app sleep |
 | [`kubernetes/clusters/prod/etcd-snapshots/README.md`](kubernetes/clusters/prod/etcd-snapshots/README.md) | etcd snapshots to Object Storage, restoring one |

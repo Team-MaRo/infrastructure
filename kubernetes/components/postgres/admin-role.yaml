@@ -1,0 +1,45 @@
+---
+# The role `admin`: a superuser for people, to work in pgAdmin or psql - the counterpart of
+# MariaDB's root. CloudNativePG's own superuser `postgres` stays without a password from outside
+# (superuser access off, the operator's default), so the operator's connections and a person's
+# stay apart. The password comes from OpenBao secret/postgres-admin.
+# 1Password "PostgreSQL | Prod | admin"
+#   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=4apn53q53ypoi2ruryq6voicz4&h=my.1password.com
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: admin-db
+spec:
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: openbao
+  target:
+    template:
+      type: kubernetes.io/basic-auth
+      metadata:
+        labels:
+          # CloudNativePG applies a role only when its spec or its password Secret changes; with
+          # this label it watches the Secret, so the first apply and every password change take
+          # effect at once.
+          cnpg.io/reload: "true"
+      data:
+        username: admin
+        password: "{{ .password }}"
+  data:
+    - secretKey: password
+      remoteRef:
+        key: postgres-admin
+        property: password
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: DatabaseRole
+metadata:
+  name: admin
+spec:
+  cluster:
+    name: postgres
+  name: admin
+  login: true
+  superuser: true
+  passwordSecret:
+    name: admin-db

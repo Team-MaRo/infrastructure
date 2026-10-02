@@ -1,0 +1,18 @@
+{
+  "Servers": {
+    "1": {
+      "Name": "PostgreSQL",
+      "Group": "prod",
+      "Host": "postgres-rw.postgres.svc",
+      "Port": 5432,
+      "MaintenanceDB": "postgres",
+      "Username": "admin",
+      "Shared": true,
+      "SharedUsername": "admin",
+      "ConnectionParameters": {
+        "sslmode": "verify-full",
+        "sslrootcert": "/etc/postgres-ca/ca.crt"
+      }
+    }
+  }
+}
