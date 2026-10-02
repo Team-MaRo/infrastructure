@@ -9,6 +9,9 @@ trying things, `letsencrypt` for anything serving traffic. `external-secret.yaml
 two Cloudflare tokens from OpenBao; `service-monitor.yaml` and `rules.yaml` are its metrics and
 alerts.
 
+The databases' CA certificates are distributed by trust-manager, from the same project
+([`../trust-manager/README.md`](../trust-manager/README.md)).
+
 ## How it issues
 
 - **DNS-01 over the Cloudflare API**, not HTTP-01: cert-manager proves a name by creating an

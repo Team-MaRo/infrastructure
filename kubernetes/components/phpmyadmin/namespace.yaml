@@ -4,3 +4,7 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: phpmyadmin
+  labels:
+    # trust-manager puts the shared MariaDB's CA here as ConfigMap mariadb-ca
+    # (components/trust-manager).
+    trust.d3strukt0r.dev/mariadb-ca: "true"

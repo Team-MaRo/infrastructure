@@ -48,6 +48,7 @@ kubernetes/
 │       ├── phpmyadmin.yaml        # the shared MariaDB's web UI
 │       ├── pgadmin.yaml           # the shared PostgreSQL's web UI
 │       ├── reloader.yaml          # restarts apps on changed Secrets: chart pinned here, values in components/
+│       ├── trust-manager.yaml     # the databases' CAs in the apps' namespaces: chart pinned here
 │       ├── kubeelasti.yaml        # scale to zero: chart pinned here, values in components/
 │       ├── cluster-rbac.yaml      # cluster-wide rights for kubectl logins through Zitadel
 │       ├── etcd-snapshots.yaml    # syncs the subdirectory below
@@ -182,10 +183,17 @@ kubernetes/
     │   ├── service.yaml
     │   ├── certificate.yaml       # pgadmin.d3strukt0r.dev
     │   └── ingress.yaml           # no gate: pgAdmin logs in through Zitadel itself
-    └── reloader/
-        ├── values.yaml            # Helm values: annotations strategy, watched namespaces, securityContext
+    ├── reloader/
+    │   ├── values.yaml            # Helm values: annotations strategy, watched namespaces, securityContext
+    │   ├── kustomization.yaml
+    │   └── namespace.yaml
+    └── trust-manager/
+        ├── values.yaml            # Helm values: its own trust namespace
         ├── kustomization.yaml
-        └── namespace.yaml
+        ├── namespace.yaml
+        ├── ca-copies.yaml         # the two CA certificates copied into its trust namespace
+        ├── bundles.yaml           # postgres-ca and mariadb-ca for labelled namespaces
+        └── service-monitor.yaml
 ```
 
 | Component | What it is |
@@ -213,6 +221,7 @@ kubernetes/
 | [`phpmyadmin`](components/phpmyadmin/README.md) | The shared MariaDB's web UI, behind the Zitadel gate |
 | [`pgadmin`](components/pgadmin/README.md) | The shared PostgreSQL's web UI, with its own Zitadel login |
 | [`reloader`](components/reloader/README.md) | Restarts apps when a Secret or ConfigMap they read at start changes |
+| [`trust-manager`](components/trust-manager/README.md) | The databases' CA certificates as ConfigMaps in the namespaces that ask for them |
 | [`kubeelasti`](components/kubeelasti/README.md) | Scale to zero; letting an app sleep |
 | [`cluster-rbac`](components/cluster-rbac/README.md) | Cluster-wide rights for kubectl logins through Zitadel |
 | [`clusters/prod/etcd-snapshots`](clusters/prod/etcd-snapshots/README.md) | prod-only: the S3 settings k3s uploads etcd snapshots with; restore |

@@ -1,0 +1,13 @@
+# Helm values for trust-manager; the chart version is pinned in the cluster's Application. Only
+# what differs from the chart's defaults is set.
+
+app:
+  trust:
+    # trust-manager reads its sources - and may read every Secret - only in this namespace. Its
+    # own instead of the default cert-manager, which holds the Cloudflare tokens and the ACME
+    # keys: here are only the two CA certificates copied in by ca-copies.yaml.
+    namespace: trust-manager
+
+# The public CAs of a Debian bundle; the Bundles here distribute only the databases' own CAs.
+defaultPackage:
+  enabled: false

@@ -1,0 +1,46 @@
+---
+# The databases' CAs as a ConfigMap of the same name (key ca.crt) in every namespace with the
+# matching label - an app that connects with verify-full labels its namespace.yaml and mounts the
+# ConfigMap. One Bundle per database, so an app trusts only the one it uses. Deleting a Bundle
+# deletes its ConfigMaps everywhere (they belong to it), so these stay here, in an Application
+# without the finalizer.
+#
+# After the chart's own objects: the CRD comes with them, and the webhook that checks Bundles must
+# be running first.
+apiVersion: trust.cert-manager.io/v1alpha1
+kind: Bundle
+metadata:
+  name: postgres-ca
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  sources:
+    - secret:
+        name: postgres-ca
+        key: ca.crt
+  target:
+    configMap:
+      key: ca.crt
+    namespaceSelector:
+      matchLabels:
+        trust.d3strukt0r.dev/postgres-ca: "true"
+---
+apiVersion: trust.cert-manager.io/v1alpha1
+kind: Bundle
+metadata:
+  name: mariadb-ca
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  sources:
+    - secret:
+        name: mariadb-ca
+        key: ca.crt
+  target:
+    configMap:
+      key: ca.crt
+    namespaceSelector:
+      matchLabels:
+        trust.d3strukt0r.dev/mariadb-ca: "true"

@@ -167,8 +167,8 @@ its paths and flags).
     `cleanupPolicy: Skip`, since mariadb-operator's default is `Delete`.
   - **Never on an app that brings CRDs** (deleting a CRD deletes every object of its kind):
     cert-manager, external-secrets, kyverno, cloudnative-pg, the mariadb-operator ones,
-    system-upgrade-controller, kube-prometheus-stack, kubeelasti. **Never on an app with a
-    volume** (openbao, mariadb, postgres, loki, kube-prometheus-stack). **Never on the
+    system-upgrade-controller, kube-prometheus-stack, kubeelasti, trust-manager. **Never on an
+    app with a volume** (openbao, mariadb, postgres, loki, kube-prometheus-stack). **Never on the
     foundation**: root, argocd, hcloud-csi, traefik.
   - An app with the finalizer brings its own `namespace.yaml` instead of `CreateNamespace`,
     since Argo CD never deletes a namespace it created that way. Apps in `kube-system` get no
@@ -321,5 +321,6 @@ component); update it in the same change.
 | [`kubernetes/components/phpmyadmin/README.md`](kubernetes/components/phpmyadmin/README.md) | The shared MariaDB's web UI, its configuration storage |
 | [`kubernetes/components/pgadmin/README.md`](kubernetes/components/pgadmin/README.md) | The shared PostgreSQL's web UI, its Zitadel login and configuration database |
 | [`kubernetes/components/reloader/README.md`](kubernetes/components/reloader/README.md) | Restarting apps when a Secret or ConfigMap they read at start changes |
+| [`kubernetes/components/trust-manager/README.md`](kubernetes/components/trust-manager/README.md) | The databases' CA certificates in the apps' namespaces |
 | [`kubernetes/components/kubeelasti/README.md`](kubernetes/components/kubeelasti/README.md) | Scale to zero, letting an app sleep |
 | [`kubernetes/clusters/prod/etcd-snapshots/README.md`](kubernetes/clusters/prod/etcd-snapshots/README.md) | etcd snapshots to Object Storage, restoring one |
