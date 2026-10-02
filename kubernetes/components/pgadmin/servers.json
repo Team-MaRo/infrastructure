@@ -10,8 +10,7 @@
       "Shared": true,
       "SharedUsername": "admin",
       "ConnectionParameters": {
-        "sslmode": "verify-full",
-        "sslrootcert": "/etc/postgres-ca/ca.crt"
+        "sslmode": "verify-full"
       }
     }
   }
