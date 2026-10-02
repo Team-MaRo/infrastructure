@@ -30,9 +30,13 @@ namespace `pgadmin`). How the cluster's manifests fit together is in
   too (`MASTER_PASSWORD_REQUIRED = False`).
 - **The configuration database is in the shared PostgreSQL**, `pgadmin` with the role `pgadmin`
   (`database.yaml`, the pattern every PostgreSQL app follows), reached with `verify-full` against
-  CloudNativePG's CA (`postgres-ca.yaml`). pgAdmin migrates it at start. So the pod needs no
-  volume: `/var/lib/pgadmin` is an emptyDir holding only sessions and the file manager's
-  storage - a restart logs everyone out and empties the file manager, nothing else. The URI is
+  CloudNativePG's CA (`postgres-ca.yaml`). The CA is mounted where libpq looks by default,
+  `~/.postgresql/root.crt`, rather than named with `sslrootcert`: pgAdmin drops file paths such
+  as `sslrootcert` from the copy of a shared server it makes for each user (so one user cannot
+  point at another's files), and the default location applies to every connection anyway.
+  pgAdmin migrates the database at start. So the pod needs no volume: `/var/lib/pgadmin` is an
+  emptyDir holding only sessions and the file manager's storage - a restart logs everyone out
+  and empties the file manager, nothing else. The URI is
   passed as `PGADMIN_CONFIG_CONFIG_DATABASE_URI_FILE`, not in `config_system.py`: the entrypoint
   checks that variable to decide whether this is a first start.
 - **An internal user is created anyway** (`PGADMIN_DEFAULT_EMAIL`, password from

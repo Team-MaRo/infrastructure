@@ -91,8 +91,12 @@ spec:
             - name: secret
               mountPath: /etc/pgadmin-secret
               readOnly: true
+            # CloudNativePG's CA where libpq looks by default (~/.postgresql/root.crt), for
+            # the configuration database and every server a user opens: pgAdmin drops
+            # sslrootcert from the copy of a shared server it makes for each user, so a path in
+            # servers.json would reach only the internal user.
             - name: postgres-ca
-              mountPath: /etc/postgres-ca
+              mountPath: /home/pgadmin/.postgresql
               readOnly: true
       volumes:
         - name: data
@@ -106,3 +110,6 @@ spec:
         - name: postgres-ca
           secret:
             secretName: postgres-ca
+            items:
+              - key: ca.crt
+                path: root.crt
