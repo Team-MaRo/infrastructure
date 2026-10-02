@@ -41,7 +41,8 @@ the digest behind one changes.
   "Keel" - through Keel's plain webhook notifier (`WEBHOOK_ENDPOINT` in `external-secrets.yaml`),
   with ntfy's templating turning Keel's JSON into the message. Not Shoutrrr, Keel's own route to
   ntfy: Keel 0.22.4 sets a `level` parameter on every Shoutrrr message, and Shoutrrr's ntfy service
-  rejects it (tested 2026-10-02 - every notification failed). Keel reads the URL only at start,
+  rejects it (tested 2026-10-02 - every notification failed;
+  https://github.com/keel-hq/keel/issues/941). Keel reads the URL only at start,
   and its chart cannot annotate its Deployment for Reloader: after the ntfy token or topic changes
   in OpenBao, restart it once -
   `kubectl --context d3strukt0r-prod-admin -n keel rollout restart deployment keel`.
@@ -77,6 +78,10 @@ spec:
 ```
 
 An app pinned to a version needs none of this.
+
+Proven on 2026-10-02 with a throwaway app on `d3strukt0r/keel-test:latest` (removed again): each of
+three pushes under the same tag was noticed at the next poll, rolled out exactly once (one new
+ReplicaSet, the image string unchanged), Argo CD stayed in sync, and the last one arrived on ntfy.
 
 ## Checking it
 
