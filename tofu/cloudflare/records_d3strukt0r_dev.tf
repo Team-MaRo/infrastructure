@@ -210,6 +210,37 @@ resource "cloudflare_dns_record" "d3strukt0r_dev_cname_pgadmin" {
   }
 }
 
+# The wedding website's second name and its API (kubernetes/components/wedding-manuele-robine).
+resource "cloudflare_dns_record" "d3strukt0r_dev_cname_wedding_manuele_robine" {
+  provider = cloudflare.personal
+
+  content = "prod.d3strukt0r.dev"
+  name    = "wedding-manuele-robine.d3strukt0r.dev"
+  proxied = true
+  tags    = []
+  ttl     = 1
+  type    = "CNAME"
+  zone_id = local.zone_ids["d3strukt0r.dev"]
+  settings = {
+    flatten_cname = false
+  }
+}
+
+resource "cloudflare_dns_record" "d3strukt0r_dev_cname_api_wedding_manuele_robine" {
+  provider = cloudflare.personal
+
+  content = "prod.d3strukt0r.dev"
+  name    = "api-wedding-manuele-robine.d3strukt0r.dev"
+  proxied = true
+  tags    = []
+  ttl     = 1
+  type    = "CNAME"
+  zone_id = local.zone_ids["d3strukt0r.dev"]
+  settings = {
+    flatten_cname = false
+  }
+}
+
 # The public status page (Gatus), on the cluster.
 resource "cloudflare_dns_record" "d3strukt0r_dev_cname_status" {
   provider = cloudflare.personal
