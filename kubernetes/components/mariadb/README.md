@@ -170,8 +170,11 @@ kubectl --context d3strukt0r-prod-admin -n mariadb get mariadb mariadb -o jsonpa
    every object with `namespace: mariadb` and `mariaDbRef: {name: mariadb}` - mariadb-operator
    wants a user, its password Secret, a grant and a database in the MariaDB's namespace:
    - an ExternalSecret building Secret `<app>-db` with the `password` from OpenBao;
-   - a `Database` `<app>`, a `User` `<app>` (host `%`, `passwordSecretKeyRef` to `<app>-db`,
-     `require.ssl: true`) and a `Grant` of what the app needs on `<app>.*`.
+   - a `Database` `<app>` with `characterSet: utf8mb4` and `collate: utf8mb4_uca1400_ai_ci`
+     (the server's default; the operator's own default is the old three-byte `utf8`), a `User`
+     `<app>` (host `%`, `passwordSecretKeyRef` to `<app>-db`, `require.ssl: true`) and a
+     `Grant` of what the app needs on `<app>.*`. The operator only creates a database: changing
+     the character set later needs an `ALTER DATABASE` by hand, and existing tables keep theirs.
    - **`cleanupPolicy: Skip` on all three.** The operator's default is `Delete`: removing the
      component would drop the database with it.
 
