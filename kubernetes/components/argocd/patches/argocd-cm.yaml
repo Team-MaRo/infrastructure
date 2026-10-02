@@ -29,10 +29,14 @@ data:
   # shows as permanent drift. Read live, no restart needed.
   resource.compareoptions: |
     ignoreAggregatedRoles: true
-  # Reloader restarts a workload by setting this annotation on its pod template
-  # (components/reloader). It is not in git, so without this a restart would show as drift and
-  # self-heal could undo it. For every kind, since Reloader also patches StatefulSets and
-  # DaemonSets. Read live, no restart needed.
+  # Reloader (components/reloader) and Keel (components/keel) restart a workload by setting an
+  # annotation on its pod template; Keel also records the digest and a change cause on the
+  # workload. None of it is in git, so without this a restart would show as drift and self-heal
+  # could undo it. For every kind, since both also patch StatefulSets and DaemonSets. Never the
+  # image itself: that would hide an image changed in git. Read live, no restart needed.
   resource.customizations.ignoreDifferences.all: |
     jsonPointers:
       - /spec/template/metadata/annotations/reloader.stakater.com~1last-reloaded-from
+      - /spec/template/metadata/annotations/keel.sh~1update-time
+      - /metadata/annotations/keel.sh~1digest
+      - /metadata/annotations/kubernetes.io~1change-cause

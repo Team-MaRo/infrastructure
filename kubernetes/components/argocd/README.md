@@ -33,8 +33,8 @@ Within one Application pruning works as usual either way: a manifest removed fro
 component is deleted.
 
 - **The finalizer is on apps whose data lives elsewhere or does not matter**: `gatus`,
-  `zitadel`, `oauth2-proxy`, `phpmyadmin`, `pgadmin`, `reloader`, `kured`, `alloy`, `etcd-snapshots`,
-  `cluster-rbac`, `argocd-integrations`. A Postgres app's database and role stay when it goes -
+  `zitadel`, `oauth2-proxy`, `phpmyadmin`, `pgadmin`, `reloader`, `keel`, `kured`, `alloy`,
+  `etcd-snapshots`, `cluster-rbac`, `argocd-integrations`. A Postgres app's database and role stay when it goes -
   CloudNativePG's `databaseReclaimPolicy` and `databaseRoleReclaimPolicy` default to `retain`;
   a MariaDB app's stay because its objects set `cleanupPolicy: Skip` (the operator's default is
   `Delete`).

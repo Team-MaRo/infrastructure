@@ -49,6 +49,7 @@ kubernetes/
 │       ├── pgadmin.yaml           # the shared PostgreSQL's web UI
 │       ├── reloader.yaml          # restarts apps on changed Secrets: chart pinned here, values in components/
 │       ├── trust-manager.yaml     # the databases' CAs in the apps' namespaces: chart pinned here
+│       ├── keel.yaml              # rolls out new images under floating tags: chart pinned here
 │       ├── kubeelasti.yaml        # scale to zero: chart pinned here, values in components/
 │       ├── cluster-rbac.yaml      # cluster-wide rights for kubectl logins through Zitadel
 │       ├── etcd-snapshots.yaml    # syncs the subdirectory below
@@ -183,12 +184,18 @@ kubernetes/
     │   ├── values.yaml            # Helm values: annotations strategy, watched namespaces, securityContext
     │   ├── kustomization.yaml
     │   └── namespace.yaml
-    └── trust-manager/
-        ├── values.yaml            # Helm values: its own trust namespace
+    ├── trust-manager/
+    │   ├── values.yaml            # Helm values: its own trust namespace
+    │   ├── kustomization.yaml
+    │   ├── namespace.yaml
+    │   ├── ca-copies.yaml         # the two CA certificates copied into its trust namespace
+    │   ├── bundles.yaml           # postgres-ca and mariadb-ca for labelled namespaces
+    │   └── service-monitor.yaml
+    └── keel/
+        ├── values.yaml            # Helm values: polling, RBAC without Secrets, securityContext
         ├── kustomization.yaml
         ├── namespace.yaml
-        ├── ca-copies.yaml         # the two CA certificates copied into its trust namespace
-        ├── bundles.yaml           # postgres-ca and mariadb-ca for labelled namespaces
+        ├── external-secrets.yaml  # the ntfy URL for its notifications
         └── service-monitor.yaml
 ```
 
@@ -218,6 +225,7 @@ kubernetes/
 | [`pgadmin`](components/pgadmin/README.md) | The shared PostgreSQL's web UI, with its own Zitadel login |
 | [`reloader`](components/reloader/README.md) | Restarts apps when a Secret or ConfigMap they read at start changes |
 | [`trust-manager`](components/trust-manager/README.md) | The databases' CA certificates as ConfigMaps in the namespaces that ask for them |
+| [`keel`](components/keel/README.md) | Rolls out new images under floating tags without a commit |
 | [`kubeelasti`](components/kubeelasti/README.md) | Scale to zero; letting an app sleep |
 | [`cluster-rbac`](components/cluster-rbac/README.md) | Cluster-wide rights for kubectl logins through Zitadel |
 | [`clusters/prod/etcd-snapshots`](clusters/prod/etcd-snapshots/README.md) | prod-only: the S3 settings k3s uploads etcd snapshots with; restore |
@@ -238,6 +246,7 @@ manages itself as well as its siblings.
   one Application file in each cluster directory that should run it. If the app reads a Secret
   or ConfigMap only at start, it opts in to Reloader: the annotation on its workload and its
   namespace in Reloader's list ([`components/reloader/README.md`](components/reloader/README.md)).
+  An app on a floating tag opts in to Keel ([`components/keel/README.md`](components/keel/README.md)).
 - **When one cluster needs something different**, give it a small Kustomize overlay under
   its own directory that references the component, rather than copying the component.
 - **Adding a cluster** means a new `clusters/<name>/` with its own `root.yaml` and

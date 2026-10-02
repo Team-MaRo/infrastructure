@@ -1,0 +1,35 @@
+---
+# Keel for this cluster: the keel Helm chart with values from kubernetes/components/keel, plus
+# that directory's manifests. Rolls out new images under floating tags without a commit.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: keel
+  namespace: argocd
+  # Removing this file removes everything it deployed, namespace included.
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  sources:
+    # Pinned: bumping the version is the upgrade. 1.2.3 deploys Keel 0.22.4 (from ghcr.io; the
+    # Docker Hub image is no longer published).
+    - repoURL: https://charts.keel.sh
+      chart: keel
+      targetRevision: 1.2.3
+      helm:
+        valueFiles:
+          - $repo/kubernetes/components/keel/values.yaml
+    - repoURL: https://github.com/Team-MaRo/infrastructure.git
+      targetRevision: master
+      ref: repo
+      path: kubernetes/components/keel
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: keel
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - ServerSideApply=true

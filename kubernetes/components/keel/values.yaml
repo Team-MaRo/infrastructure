@@ -1,0 +1,65 @@
+# Helm values for Keel; the chart version is pinned in the cluster's Application. Only what
+# differs from the chart's defaults is set.
+
+# Keel only updates workloads: no Helm releases here (Argo CD only renders charts).
+helmProvider:
+  enabled: false
+
+# How often a workload's image is checked, unless it sets keel.sh/pollSchedule. A check is a
+# manifest HEAD request, which Docker Hub does not count against its pull limit.
+polling:
+  defaultSchedule: "@every 5m"
+
+# The ntfy URL (external-secrets.yaml) instead of a Secret the chart would create.
+secret:
+  create: false
+  name: keel
+
+# The metrics, for service-monitor.yaml. Inside the cluster only: webhooks from registries, the
+# other use of this Service, are not used (README).
+service:
+  enabled: true
+  type: ClusterIP
+
+# What the Kubernetes provider needs and nothing else: no Secrets (the images are public and
+# polled anonymously), no pod deletes or port-forwards (those are for the Helm provider).
+rbac:
+  clusterRole:
+    rules:
+      - apiGroups: [""]
+        resources: [namespaces, nodes]
+        verbs: [get, list, watch]
+      - apiGroups: [""]
+        resources: [pods]
+        verbs: [get, list, watch]
+      - apiGroups: [apps]
+        resources: [deployments, statefulsets, daemonsets]
+        verbs: [get, list, watch, update]
+      - apiGroups: [batch]
+        resources: [cronjobs]
+        verbs: [get, list, watch, update]
+
+# No CPU limit (null removes the chart's 100m).
+resources:
+  limits:
+    cpu: null
+
+podSecurityContext:
+  runAsNonRoot: true
+  seccompProfile:
+    type: RuntimeDefault
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+# Keel keeps approvals and its audit log in SQLite under /data. Neither is used here, so an
+# emptyDir instead of a volume; the root filesystem stays read-only.
+extraVolumes:
+  - name: data
+    emptyDir: {}
+extraVolumeMounts:
+  - name: data
+    mountPath: /data

@@ -33,4 +33,7 @@ paths:
 - An app that reads a Secret or ConfigMap only at start gets
   `secret.reloader.stakater.com/reload: <name>` (or `configmap.`) on its workload, and its
   namespace goes into `reloader.namespaces` in `kubernetes/components/reloader/values.yaml`.
+- An app on a floating tag gets `keel.sh/policy: force`, `keel.sh/matchTag: "true"`,
+  `keel.sh/trigger: poll` on its workload, `imagePullPolicy: Always`, and its Docker Hub image
+  without `docker.io/` (`kubernetes/components/keel/README.md`).
 - Every `kubectl` in docs or commands carries `--context d3strukt0r-prod-admin`.
