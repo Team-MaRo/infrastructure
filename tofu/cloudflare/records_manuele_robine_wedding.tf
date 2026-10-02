@@ -15,10 +15,12 @@ resource "cloudflare_dns_record" "manuele_robine_wedding_cname_wildcard" {
   }
 }
 
+# The wedding website on the cluster (kubernetes/components/wedding-manuele-robine); www.
+# follows through the wildcard.
 resource "cloudflare_dns_record" "manuele_robine_wedding_cname_apex" {
   provider = cloudflare.personal
 
-  content = "prod-old.d3strukt0r.dev"
+  content = "prod.d3strukt0r.dev"
   name    = "manuele-robine.wedding"
   proxied = true
   tags    = []

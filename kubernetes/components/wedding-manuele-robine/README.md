@@ -42,22 +42,26 @@ ran under Docker Compose. How the cluster's manifests fit together is in
 - Dropped from prod-old: the app's own MariaDB (now the shared one, backed up by the operator),
   phpMyAdmin (the shared one at `phpmyadmin.d3strukt0r.dev`) and tiredofit/db-backup.
 
-## Moving it from prod-old
+## How it moved from prod-old (2026-10-02)
 
 1. **Secrets** into 1Password and OpenBao - the values from prod-old's `.env` and `jwt/`, read
    over SSH into `op` and `bao kv put` without ever printing them.
-2. **Deploy** - push; Argo CD creates the database, the user and the app. The API's migrations
-   create the schema in the empty database.
-3. **Test before DNS moves**, against a node directly:
-   `curl --resolve manuele-robine.wedding:443:<node IP> https://manuele-robine.wedding/` (the
-   certificates come by DNS-01, so they exist already).
-4. **Media**: copy `s3://eu-prod-d3strukt0r/prod/wedding-manuele-robine/` from DigitalOcean to the
-   bucket's root.
-5. **Database**: stop the API on prod-old, dump `db` there and import it into
-   `wedding_manuele_robine` (into the primary pod), copy the media once more.
+2. **Deploy**; the API's migrations created the schema in the empty database.
+3. **Tested before DNS moved**, against a node's own IP (not `prod.d3strukt0r.dev`, which is
+   proxied and so reaches whatever the name's DNS points at):
+   `curl --resolve manuele-robine.wedding:443:<node IP> https://manuele-robine.wedding/`.
+4. **Database from the last full backup.** prod-old's live database had been empty since
+   2026-04-29 (its data directory was no longer mounted), so the data came from the last full
+   tiredofit dump, `db-backup-d3strukt0r/prod/wedding-manuele-robine/mariadb_db_db_20260429-092658.sql.gz`
+   on DigitalOcean, checked against its `.sha1` and imported into `wedding_manuele_robine` on the
+   primary. The dump has no `CREATE DATABASE`/`USE` and drops each table before creating it.
+5. **Media**: `aws s3 sync` of `s3://eu-prod-d3strukt0r/prod/wedding-manuele-robine/` from
+   DigitalOcean to a local directory, then to the bucket's root - 2248 objects, 8.95 GB. Six rows
+   of `file` (two uploads in three sizes each) had no object on DigitalOcean either.
 6. **DNS** in `tofu/cloudflare`: the apex of `manuele-robine.wedding` and the two
    `d3strukt0r.dev` names to `prod.d3strukt0r.dev`.
-7. Check the site, a login and an upload; then stop the compose project on prod-old.
+
+Gatus checks the website and the API's `/ping` (group Apps).
 
 ## Checking it
 

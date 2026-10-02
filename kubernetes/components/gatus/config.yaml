@@ -35,6 +35,24 @@ endpoints:
     alerts:
       - type: ntfy
 
+  - name: Wedding Manuele & Robine
+    group: Apps
+    url: https://manuele-robine.wedding/
+    interval: 5m
+    conditions:
+      - "[STATUS] == 200"
+    alerts:
+      - type: ntfy
+
+  - name: Wedding Manuele & Robine API
+    group: Apps
+    url: https://api-wedding-manuele-robine.d3strukt0r.dev/ping
+    interval: 5m
+    conditions:
+      - "[STATUS] == 200"
+    alerts:
+      - type: ntfy
+
 # The alerting pipeline itself: Alertmanager's always-firing Watchdog alert arrives here every
 # minute (kube-prometheus-stack values, receiver watchdog), at
 # /api/v1/endpoints/alerting_watchdog/external?success=true with the token as a Bearer header.
