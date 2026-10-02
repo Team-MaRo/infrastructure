@@ -1,0 +1,24 @@
+---
+# pgAdmin at pgadmin.d3strukt0r.dev (its own record in tofu/cloudflare). No Zitadel gate in
+# front: pgAdmin logs in through Zitadel itself. No className: Traefik is the cluster's default
+# IngressClass.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: pgadmin
+spec:
+  tls:
+    - hosts:
+        - pgadmin.d3strukt0r.dev
+      secretName: pgadmin-tls
+  rules:
+    - host: pgadmin.d3strukt0r.dev
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: pgadmin
+                port:
+                  name: http

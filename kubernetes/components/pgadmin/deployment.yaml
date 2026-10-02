@@ -1,0 +1,108 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pgadmin
+spec:
+  # One instance, and the old pod stopped before the new one starts: pgAdmin migrates its
+  # configuration database at start, which an old pod must not keep using.
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: pgadmin
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: pgadmin
+    spec:
+      securityContext:
+        # The image's own user, set explicitly.
+        runAsUser: 5050
+        runAsGroup: 5050
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: pgadmin
+          # Pinned by tag and digest: pgAdmin re-pushes even version tags. Bumping both is the
+          # upgrade.
+          image: docker.io/dpage/pgadmin4:9.18@sha256:c332c5f6dfba995d9ebc4af261d93506d6876085d712eaaa3defc8dd1a3f26de
+          env:
+            # Without this the entrypoint starts postfix (for password-reset mails) through sudo,
+            # which cannot work without privilege escalation; Zitadel handles passwords anyway.
+            - name: PGADMIN_DISABLE_POSTFIX
+              value: "true"
+            # Its default, port 80, needs a capability the restricted standard does not grant.
+            - name: PGADMIN_LISTEN_PORT
+              value: "8080"
+            - name: PGADMIN_CONFIG_CONFIG_DATABASE_URI_FILE
+              value: /etc/pgadmin-secret/config-database-uri
+            # The internal user its first start requires (see external-secrets.yaml).
+            - name: PGADMIN_DEFAULT_EMAIL
+              value: pgadmin@d3strukt0r.dev
+            - name: PGADMIN_DEFAULT_PASSWORD_FILE
+              value: /etc/pgadmin-secret/default-password
+            # The shared server, loaded again on every start so the file stays the truth.
+            - name: PGADMIN_SERVER_JSON_FILE
+              value: /etc/pgadmin/servers.json
+            - name: PGADMIN_REPLACE_SERVERS_ON_STARTUP
+              value: "True"
+            # A handful of users, not 25 threads' worth.
+            - name: GUNICORN_THREADS
+              value: "8"
+          ports:
+            - name: http
+              containerPort: 8080
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          resources:
+            requests:
+              memory: 256Mi
+            limits:
+              memory: 1Gi
+          readinessProbe:
+            httpGet:
+              path: /misc/ping
+              port: http
+          livenessProbe:
+            httpGet:
+              path: /misc/ping
+              port: http
+            periodSeconds: 30
+          # pgAdmin waits for its configuration database and migrates it before it answers.
+          startupProbe:
+            httpGet:
+              path: /misc/ping
+              port: http
+            failureThreshold: 30
+          volumeMounts:
+            # Sessions and the file manager's storage only; everything else is in the
+            # configuration database, so nothing here needs to survive a restart.
+            - name: data
+              mountPath: /var/lib/pgadmin
+            - name: config
+              mountPath: /etc/pgadmin
+              readOnly: true
+            - name: secret
+              mountPath: /etc/pgadmin-secret
+              readOnly: true
+            - name: postgres-ca
+              mountPath: /etc/postgres-ca
+              readOnly: true
+      volumes:
+        - name: data
+          emptyDir: {}
+        - name: config
+          configMap:
+            name: pgadmin
+        - name: secret
+          secret:
+            secretName: pgadmin
+        - name: postgres-ca
+          secret:
+            secretName: postgres-ca

@@ -194,6 +194,22 @@ resource "cloudflare_dns_record" "d3strukt0r_dev_cname_phpmyadmin" {
   }
 }
 
+# pgAdmin, the shared PostgreSQL's web UI, with its own Zitadel login.
+resource "cloudflare_dns_record" "d3strukt0r_dev_cname_pgadmin" {
+  provider = cloudflare.personal
+
+  content = "prod.d3strukt0r.dev"
+  name    = "pgadmin.d3strukt0r.dev"
+  proxied = true
+  tags    = []
+  ttl     = 1
+  type    = "CNAME"
+  zone_id = local.zone_ids["d3strukt0r.dev"]
+  settings = {
+    flatten_cname = false
+  }
+}
+
 # The public status page (Gatus), on the cluster.
 resource "cloudflare_dns_record" "d3strukt0r_dev_cname_status" {
   provider = cloudflare.personal
