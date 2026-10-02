@@ -45,6 +45,7 @@ kubernetes/
 │       ├── postgres.yaml          # the shared PostgreSQL itself
 │       ├── zitadel.yaml           # the identity provider (SSO)
 │       ├── oauth2-proxy.yaml      # the Zitadel login gate for UIs without a login of their own
+│       ├── phpmyadmin.yaml        # the shared MariaDB's web UI
 │       ├── kubeelasti.yaml        # scale to zero: chart pinned here, values in components/
 │       ├── cluster-rbac.yaml      # cluster-wide rights for kubectl logins through Zitadel
 │       ├── etcd-snapshots.yaml    # syncs the subdirectory below
@@ -144,17 +145,28 @@ kubernetes/
     │   ├── values.yaml            # Helm values: the collection pipeline
     │   ├── kustomization.yaml
     │   └── clusterrole.yaml       # only what the pipeline reads
-    └── gatus/
-        ├── kustomization.yaml     # config.yaml becomes the ConfigMap gatus
-        ├── config.yaml            # what is checked, the Watchdog heartbeat, ntfy
+    ├── gatus/
+    │   ├── kustomization.yaml     # config.yaml becomes the ConfigMap gatus
+    │   ├── config.yaml            # what is checked, the Watchdog heartbeat, ntfy
+    │   ├── namespace.yaml
+    │   ├── deployment.yaml        # one replica, pinned image, read-only
+    │   ├── database.yaml          # its role and database, in the postgres namespace
+    │   ├── postgres-ca.yaml       # copies CloudNativePG's CA certificate for verify-full
+    │   ├── external-secrets.yaml  # ntfy, the heartbeat token, the database password
+    │   ├── service.yaml
+    │   ├── certificate.yaml       # status.d3strukt0r.dev
+    │   └── ingress.yaml           # public, no login
+    └── phpmyadmin/
+        ├── kustomization.yaml
         ├── namespace.yaml
-        ├── deployment.yaml        # one replica, pinned image, read-only
-        ├── database.yaml          # its role and database, in the postgres namespace
-        ├── postgres-ca.yaml       # copies CloudNativePG's CA certificate for verify-full
-        ├── external-secrets.yaml  # ntfy, the heartbeat token, the database password
+        ├── database.yaml          # its configuration storage and control user, in the mariadb namespace
+        ├── mariadb-ca.yaml        # copies mariadb-operator's CA certificate to verify TLS
+        ├── external-secrets.yaml  # the control user's password
+        ├── deployment.yaml        # one replica, pinned image, as www-data
         ├── service.yaml
-        ├── certificate.yaml       # status.d3strukt0r.dev
-        └── ingress.yaml           # public, no login
+        ├── certificate.yaml       # phpmyadmin.d3strukt0r.dev
+        ├── middleware-oauth2-proxy.yaml  # the Zitadel gate
+        └── ingress.yaml
 ```
 
 | Component | What it is |
@@ -179,6 +191,7 @@ kubernetes/
 | [`postgres`](components/postgres/README.md) | The shared PostgreSQL: adding an app, failover, restore runbooks |
 | [`zitadel`](components/zitadel/README.md) | The identity provider (SSO) |
 | [`oauth2-proxy`](components/oauth2-proxy/README.md) | The Zitadel login gate for UIs without a login of their own |
+| [`phpmyadmin`](components/phpmyadmin/README.md) | The shared MariaDB's web UI, behind the Zitadel gate |
 | [`kubeelasti`](components/kubeelasti/README.md) | Scale to zero; letting an app sleep |
 | [`cluster-rbac`](components/cluster-rbac/README.md) | Cluster-wide rights for kubectl logins through Zitadel |
 | [`clusters/prod/etcd-snapshots`](clusters/prod/etcd-snapshots/README.md) | prod-only: the S3 settings k3s uploads etcd snapshots with; restore |
@@ -241,6 +254,8 @@ way in (a local admin and a port-forward).
 - **Traefik dashboard** - `https://traefik.d3strukt0r.dev`, behind the Zitadel gate:
   [`components/traefik/README.md`](components/traefik/README.md),
   [`components/oauth2-proxy/README.md`](components/oauth2-proxy/README.md)
+- **phpMyAdmin** - `https://phpmyadmin.d3strukt0r.dev`, behind the Zitadel gate, then a MariaDB
+  login: [`components/phpmyadmin/README.md`](components/phpmyadmin/README.md)
 - **Zitadel console** - `https://auth.d3strukt0r.dev`:
   [`components/zitadel/README.md`](components/zitadel/README.md)
 - **Status page** - `https://status.d3strukt0r.dev`, public, no login:

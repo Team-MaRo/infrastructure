@@ -160,6 +160,34 @@ kubectl --context d3strukt0r-prod-admin -n mariadb get mariadb,pods,physicalback
 kubectl --context d3strukt0r-prod-admin -n mariadb get mariadb mariadb -o jsonpath='{.status.replication}' | jq
 ```
 
+## Adding an app
+
+1. A generated password in 1Password (`MariaDB | Prod | <app>`), then into OpenBao as
+   `secret/mariadb-apps/<app>` with a `password` field (JSON on stdin, as for the root
+   password).
+2. In the app's own component, `components/<app>/database.yaml` (`phpmyadmin/` is the model),
+   every object with `namespace: mariadb` and `mariaDbRef: {name: mariadb}` - mariadb-operator
+   wants a user, its password Secret, a grant and a database in the MariaDB's namespace:
+   - an ExternalSecret building Secret `<app>-db` with the `password` from OpenBao;
+   - a `Database` `<app>`, a `User` `<app>` (host `%`, `passwordSecretKeyRef` to `<app>-db`,
+     `require.ssl: true`) and a `Grant` of what the app needs on `<app>.*`.
+   - **`cleanupPolicy: Skip` on all three.** The operator's default is `Delete`: removing the
+     component would drop the database with it.
+
+   Check them with
+   `kubectl --context d3strukt0r-prod-admin -n mariadb get databases.k8s.mariadb.com,users.k8s.mariadb.com,grants.k8s.mariadb.com`
+   (`READY` true; `status.conditions` says why not).
+3. In the app's own component: an ExternalSecret reading the same `secret/mariadb-apps/<app>`,
+   host `mariadb-primary.mariadb.svc` (it follows a failover), port 3306, and TLS verified
+   against the operator's CA. The CA certificate is copied into the app's namespace by
+   `mariadb-ca.yaml` - copy phpMyAdmin's, which holds a ServiceAccount, a Role in `mariadb`
+   that may `get` only Secret `mariadb-ca-bundle`, a `SecretStore` (External Secrets'
+   Kubernetes provider) and an ExternalSecret taking just `ca.crt`; rename the Role and
+   RoleBinding after the app.
+
+To look into the databases by hand, phpMyAdmin is at `https://phpmyadmin.d3strukt0r.dev`
+([`../phpmyadmin/README.md`](../phpmyadmin/README.md)).
+
 ## Failover hangs
 
 `MariaDBNoReadyPrimary` means apps cannot write. Most failovers finish on their own within a

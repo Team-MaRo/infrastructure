@@ -27,5 +27,6 @@ paths:
 - A 1Password item is referenced by its title and its link (in comments: the title, the link
   on the line below) - see "Conventions" in `AGENTS.md`.
 - An app's Postgres `DatabaseRole`/`Database` lives in the app's component with
-  `namespace: postgres`.
+  `namespace: postgres`; its MariaDB `User`/`Grant`/`Database` with `namespace: mariadb` and
+  `cleanupPolicy: Skip`.
 - Every `kubectl` in docs or commands carries `--context d3strukt0r-prod-admin`.

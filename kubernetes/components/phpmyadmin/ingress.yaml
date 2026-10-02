@@ -1,0 +1,26 @@
+---
+# phpMyAdmin at phpmyadmin.d3strukt0r.dev (its own record in tofu/cloudflare), behind the Zitadel
+# gate; phpMyAdmin then asks for a MariaDB login of its own. No className: Traefik is the
+# cluster's default IngressClass.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: phpmyadmin
+  annotations:
+    traefik.ingress.kubernetes.io/router.middlewares: phpmyadmin-oauth2-proxy@kubernetescrd
+spec:
+  tls:
+    - hosts:
+        - phpmyadmin.d3strukt0r.dev
+      secretName: phpmyadmin-tls
+  rules:
+    - host: phpmyadmin.d3strukt0r.dev
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: phpmyadmin
+                port:
+                  name: http

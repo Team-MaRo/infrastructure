@@ -1,0 +1,100 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: phpmyadmin
+spec:
+  # One instance: sessions are files in the pod, so a second would log users out at random.
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: phpmyadmin
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: phpmyadmin
+    spec:
+      securityContext:
+        # The image starts as root, but everything it writes at start (the session secret, the
+        # sessions, its temp directory) already belongs to www-data, so it runs as www-data.
+        runAsUser: 33
+        runAsGroup: 33
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+        # Apache listens on port 80, which a non-root process may only bind with this. It is
+        # one of the namespaced sysctls the restricted standard allows, and it applies to the
+        # pod's own network namespace only. Changing Apache's port instead (APACHE_PORT) does
+        # not work as www-data: the entrypoint rewrites root-owned files for it.
+        sysctls:
+          - name: net.ipv4.ip_unprivileged_port_start
+            value: "0"
+      containers:
+        - name: phpmyadmin
+          # Pinned; bumping the tag is the upgrade.
+          image: docker.io/phpmyadmin:5.2.3-apache
+          env:
+            - name: PMA_HOST
+              value: mariadb-primary.mariadb.svc
+            - name: PMA_PORT
+              value: "3306"
+            - name: PMA_ABSOLUTE_URI
+              value: https://phpmyadmin.d3strukt0r.dev/
+            # TLS to MariaDB, verified against the operator's CA.
+            - name: PMA_SSL
+              value: "1"
+            - name: PMA_SSL_VERIFY
+              value: "1"
+            - name: PMA_SSL_CA
+              value: /etc/mariadb-ca/ca.crt
+            # The configuration storage (database.yaml).
+            - name: PMA_PMADB
+              value: phpmyadmin
+            - name: PMA_CONTROLUSER
+              value: phpmyadmin
+            - name: PMA_CONTROLPASS_FILE
+              value: /etc/phpmyadmin-secret/password
+            # Imports up to 100 MB instead of 2 MB - the most Cloudflare's proxy lets through in
+            # one request on its free plan.
+            - name: UPLOAD_LIMIT
+              value: 100M
+          ports:
+            - name: http
+              containerPort: 80
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          resources:
+            # PHP may use up to 512 MB for one request (MEMORY_LIMIT), which large imports and
+            # exports do; idle it needs well under 128 MB.
+            requests:
+              memory: 128Mi
+            limits:
+              memory: 640Mi
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 30
+          volumeMounts:
+            - name: mariadb-ca
+              mountPath: /etc/mariadb-ca
+              readOnly: true
+            - name: secret
+              mountPath: /etc/phpmyadmin-secret
+              readOnly: true
+      volumes:
+        - name: mariadb-ca
+          secret:
+            secretName: mariadb-ca
+        - name: secret
+          secret:
+            secretName: phpmyadmin

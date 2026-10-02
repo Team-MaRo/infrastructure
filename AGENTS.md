@@ -161,9 +161,10 @@ its paths and flags).
   deleting a file from `clusters/<name>/` deletes what the Application deployed; without it
   only the Application goes and its resources keep running, untracked.
   - It is on apps whose data lives elsewhere or does not matter: `gatus`, `zitadel`,
-    `oauth2-proxy`, `kured`, `alloy`, `etcd-snapshots`, `cluster-rbac`,
+    `oauth2-proxy`, `phpmyadmin`, `kured`, `alloy`, `etcd-snapshots`, `cluster-rbac`,
     `argocd-integrations`. A Postgres app's database and role stay when it goes
-    (CloudNativePG's reclaim policies default to `retain`).
+    (CloudNativePG's reclaim policies default to `retain`); a MariaDB app's objects set
+    `cleanupPolicy: Skip`, since mariadb-operator's default is `Delete`.
   - **Never on an app that brings CRDs** (deleting a CRD deletes every object of its kind):
     cert-manager, external-secrets, kyverno, cloudnative-pg, the mariadb-operator ones,
     system-upgrade-controller, kube-prometheus-stack, kubeelasti. **Never on an app with a
@@ -196,8 +197,8 @@ its paths and flags).
   [`tofu/openbao/README.md`](tofu/openbao/README.md)). Only the bootstrap Secrets come from
   1Password through `ansible/secrets.yml`.
 - **The databases are shared**: one PostgreSQL (CloudNativePG) and one MariaDB, a database per
-  app. An app's `DatabaseRole`/`Database` objects live in the app's own component with
-  `namespace: postgres`
+  app. An app's database objects live in the app's own component with `namespace: postgres`
+  (`DatabaseRole`/`Database`) or `namespace: mariadb` (`User`/`Grant`/`Database`)
   ([`kubernetes/components/postgres/README.md`](kubernetes/components/postgres/README.md),
   [`kubernetes/components/mariadb/README.md`](kubernetes/components/mariadb/README.md)).
 - **Persistent data is on Hetzner Volumes** (`hcloud-volumes`, `Retain`), never a node disk;
@@ -312,5 +313,6 @@ component); update it in the same change.
 | [`kubernetes/components/postgres/README.md`](kubernetes/components/postgres/README.md) | The shared PostgreSQL: adding an app, failover, restore |
 | [`kubernetes/components/zitadel/README.md`](kubernetes/components/zitadel/README.md) | The identity provider, its database, keys and groups webhook |
 | [`kubernetes/components/oauth2-proxy/README.md`](kubernetes/components/oauth2-proxy/README.md) | The login gate for UIs without their own Zitadel login |
+| [`kubernetes/components/phpmyadmin/README.md`](kubernetes/components/phpmyadmin/README.md) | The shared MariaDB's web UI, its configuration storage |
 | [`kubernetes/components/kubeelasti/README.md`](kubernetes/components/kubeelasti/README.md) | Scale to zero, letting an app sleep |
 | [`kubernetes/clusters/prod/etcd-snapshots/README.md`](kubernetes/clusters/prod/etcd-snapshots/README.md) | etcd snapshots to Object Storage, restoring one |
