@@ -142,6 +142,11 @@ only what applies across directories.
 tool: `k3s` appears only where something genuinely is k3s (the Ansible role that installs it,
 its paths and flags).
 
+**An app keeps its full name everywhere** - namespace, bucket, database, OpenBao paths,
+1Password titles, Terraform names: `wedding-manuele-robine`, never a shortened `wedding` (user
+rule, 2026-10-02). Where a name cannot hold a hyphen, the hyphens become underscores
+(`wedding_manuele_robine`).
+
 **Every `kubectl` command names its context** (`--context d3strukt0r-prod-admin`, or
 `d3strukt0r-prod` through Zitadel) - the admin's current context may be another cluster.
 
@@ -230,7 +235,9 @@ in `ansible/roles/k3s/README.md`.
   A pod that misses one is rejected at creation, with the reasons in the error.
 - **Infrastructure namespaces are exempt** (`k3s_psa_exempt_namespaces` in
   `ansible/roles/k3s/defaults/main.yml`). A new infrastructure component that needs more than
-  the restricted standard goes onto that list in the commit that deploys it.
+  the restricted standard goes onto that list in the commit that deploys it. One app is on it as
+  a temporary exception with a TODO (`wedding-manuele-robine`, root images); apps otherwise
+  never are.
 - **The namespace label can override the default.** A namespace labelled
   `pod-security.kubernetes.io/enforce: baseline` (or `privileged`) gets that instead, so
   whoever may edit namespaces - today only the admin - can loosen it. Prefer adding a

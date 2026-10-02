@@ -74,3 +74,15 @@ variable "openbao_snapshots_access_key_id" {
     error_message = "openbao_snapshots_access_key_id must be a 20-character Hetzner access key ID."
   }
 }
+
+# 1Password "Hetzner | S3 | prod wedding-manuele-robine"
+#   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=ytvt5yczmlghqtf7ki6orppn6e&h=my.1password.com
+variable "wedding_manuele_robine_access_key_id" {
+  description = "Access key ID of the S3 key wedding-manuele-robine stores its media with (1Password: Hetzner | S3 | prod wedding-manuele-robine, username). Set in terraform.tfvars."
+  type        = string
+
+  validation {
+    condition     = can(regex("^[A-Z0-9]{20}$", var.wedding_manuele_robine_access_key_id))
+    error_message = "wedding_manuele_robine_access_key_id must be a 20-character Hetzner access key ID."
+  }
+}
