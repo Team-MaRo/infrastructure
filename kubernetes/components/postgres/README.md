@@ -98,10 +98,9 @@ postgres`, which shows the primary, replication and the archiving state in one v
    (`APPLIED` true; `status.message` says why not).
 3. In the app's own component: an ExternalSecret reading the same `secret/postgres-apps/<app>`,
    host `postgres-rw.postgres.svc`, and `sslmode=verify-full` against CloudNativePG's CA. The CA
-   certificate is copied into the app's namespace by `postgres-ca.yaml` - copy Zitadel's, which
-   holds a ServiceAccount, a Role in `postgres` that may `get` only Secret `postgres-ca`, a
-   `SecretStore` (External Secrets' Kubernetes provider) and an ExternalSecret taking just
-   `ca.crt`; rename the Role and RoleBinding after the app.
+   comes from trust-manager: the label `trust.d3strukt0r.dev/postgres-ca: "true"` on the app's
+   `namespace.yaml` puts it there as ConfigMap `postgres-ca` (key `ca.crt`), which the app mounts
+   as a directory ([`../trust-manager/README.md`](../trust-manager/README.md)).
 
 ## The role `admin`
 

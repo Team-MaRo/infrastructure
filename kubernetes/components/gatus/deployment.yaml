@@ -67,6 +67,7 @@ spec:
         - name: config
           configMap:
             name: gatus
+        # CloudNativePG's CA, put here by trust-manager (components/trust-manager).
         - name: postgres-ca
-          secret:
-            secretName: postgres-ca
+          configMap:
+            name: postgres-ca

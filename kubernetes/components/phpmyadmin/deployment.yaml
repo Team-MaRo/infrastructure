@@ -96,9 +96,10 @@ spec:
               mountPath: /etc/phpmyadmin-secret
               readOnly: true
       volumes:
+        # mariadb-operator's CA, put here by trust-manager (components/trust-manager).
         - name: mariadb-ca
-          secret:
-            secretName: mariadb-ca
+          configMap:
+            name: mariadb-ca
         - name: secret
           secret:
             secretName: phpmyadmin

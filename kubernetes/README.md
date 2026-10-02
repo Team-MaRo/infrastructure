@@ -132,7 +132,6 @@ kubernetes/
     │   ├── kustomization.yaml
     │   ├── database.yaml          # its role and database, in the postgres namespace
     │   ├── external-secrets.yaml  # masterkey, first admin password, database password
-    │   ├── postgres-ca.yaml       # copies CloudNativePG's CA certificate for verify-full
     │   ├── certificates.yaml      # auth.d3strukt0r.dev, and the login page's key pair
     │   └── groups-webhook.yaml    # adds the flat `groups` claim to Zitadel's tokens
     ├── oauth2-proxy/
@@ -155,7 +154,6 @@ kubernetes/
     │   ├── namespace.yaml
     │   ├── deployment.yaml        # one replica, pinned image, read-only
     │   ├── database.yaml          # its role and database, in the postgres namespace
-    │   ├── postgres-ca.yaml       # copies CloudNativePG's CA certificate for verify-full
     │   ├── external-secrets.yaml  # ntfy, the heartbeat token, the database password
     │   ├── service.yaml
     │   ├── certificate.yaml       # status.d3strukt0r.dev
@@ -164,7 +162,6 @@ kubernetes/
     │   ├── kustomization.yaml
     │   ├── namespace.yaml
     │   ├── database.yaml          # its configuration storage and control user, in the mariadb namespace
-    │   ├── mariadb-ca.yaml        # copies mariadb-operator's CA certificate to verify TLS
     │   ├── external-secrets.yaml  # the control user's password
     │   ├── deployment.yaml        # one replica, pinned image, as www-data
     │   ├── service.yaml
@@ -177,7 +174,6 @@ kubernetes/
     │   ├── servers.json           # the shared server "PostgreSQL"
     │   ├── namespace.yaml
     │   ├── database.yaml          # its configuration database and role, in the postgres namespace
-    │   ├── postgres-ca.yaml       # copies CloudNativePG's CA certificate for verify-full
     │   ├── external-secrets.yaml  # the configuration database's URI, the internal user's password
     │   ├── deployment.yaml        # one replica, pinned image, no volume
     │   ├── service.yaml

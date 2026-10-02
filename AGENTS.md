@@ -203,7 +203,8 @@ its paths and flags).
   ([`kubernetes/components/reloader/README.md`](kubernetes/components/reloader/README.md)).
 - **The databases are shared**: one PostgreSQL (CloudNativePG) and one MariaDB, a database per
   app. An app's database objects live in the app's own component with `namespace: postgres`
-  (`DatabaseRole`/`Database`) or `namespace: mariadb` (`User`/`Grant`/`Database`)
+  (`DatabaseRole`/`Database`) or `namespace: mariadb` (`User`/`Grant`/`Database`); the database's
+  CA reaches the app through a label on its namespace (trust-manager)
   ([`kubernetes/components/postgres/README.md`](kubernetes/components/postgres/README.md),
   [`kubernetes/components/mariadb/README.md`](kubernetes/components/mariadb/README.md)).
 - **Persistent data is on Hetzner Volumes** (`hcloud-volumes`, `Retain`), never a node disk;

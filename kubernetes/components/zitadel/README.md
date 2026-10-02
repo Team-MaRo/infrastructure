@@ -19,10 +19,12 @@ is down, the UIs stay reachable by port-forward. Measured idle after the first s
 - **Its database** is `database.yaml` (namespace `postgres`, see
   [`../postgres/README.md`](../postgres/README.md));
   the init job runs only `zitadel init zitadel` (`initJob.command`), the schema, so Zitadel never
-  needs a database admin. It connects with `sslmode=verify-full` against CloudNativePG's CA,
-  which `postgres-ca.yaml` copies into `zitadel` through External Secrets' Kubernetes provider: a
-  ServiceAccount whose Role in `postgres` may `get` only Secret `postgres-ca`, and an ExternalSecret
-  taking only `ca.crt` - never the CA's key. The pattern for every Postgres app.
+  needs a database admin. It connects with `sslmode=verify-full` against CloudNativePG's CA, the
+  ConfigMap `postgres-ca` that trust-manager puts into `zitadel` (the namespace's label). The
+  chart's own option for it, `dbSslCaCrtSecret`, takes only a Secret, so `values.yaml` mounts the
+  ConfigMap through `extraVolumes` - into Zitadel and both jobs - and points
+  `ZITADEL_DATABASE_POSTGRES_USER_SSL_ROOTCERT` (and `..._ADMIN_...`) at it. On a fresh cluster
+  the jobs' pods wait until trust-manager has created it.
 - **The masterkey** (OpenBao `secret/zitadel`, 1Password [`Zitadel | Prod | Masterkey`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=cpgucnzccroyrl5zwzdrmcbfau&h=my.1password.com)) encrypts
   secrets in the database; losing it makes them unreadable and it cannot be changed after the
   first start - like OpenBao's seal key. Ours, not the chart's, which would generate one in a Helm

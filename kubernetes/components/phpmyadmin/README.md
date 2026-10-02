@@ -28,8 +28,8 @@ namespace `phpmyadmin`). How the cluster's manifests fit together is in
   rewrites root-owned files, which fails as www-data. The root filesystem is not read-only,
   since the entrypoint writes into the image at start.
 - **TLS to MariaDB**, verified against mariadb-operator's CA (`PMA_SSL`, `PMA_SSL_VERIFY`,
-  `PMA_SSL_CA`). The CA certificate is copied from `mariadb-ca-bundle` into this namespace by
-  `mariadb-ca.yaml`, with a ServiceAccount that may read only that Secret. It connects to
+  `PMA_SSL_CA`), the ConfigMap `mariadb-ca` that trust-manager puts into this namespace (the
+  namespace's label, [`../trust-manager/README.md`](../trust-manager/README.md)). It connects to
   `mariadb-primary.mariadb.svc`, which follows a failover.
 - **The configuration storage is a database of its own**, `phpmyadmin` in the shared MariaDB
   (`database.yaml`): bookmarks, SQL history, the designer and relations, settings saved on the

@@ -8,7 +8,6 @@ kind: Kustomization
 resources:
   - namespace.yaml
   - database.yaml
-  - mariadb-ca.yaml
   - external-secrets.yaml
   - deployment.yaml
   - service.yaml
