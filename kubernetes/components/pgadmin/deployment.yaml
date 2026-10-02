@@ -3,6 +3,10 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: pgadmin
+  annotations:
+    # Restarted by Reloader when the Secret changes in OpenBao: pgAdmin's entrypoint reads its
+    # *_FILE secrets at start.
+    secret.reloader.stakater.com/reload: pgadmin
 spec:
   # One instance, and the old pod stopped before the new one starts: pgAdmin migrates its
   # configuration database at start, which an old pod must not keep using.

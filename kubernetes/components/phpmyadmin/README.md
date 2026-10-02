@@ -45,6 +45,9 @@ namespace `phpmyadmin`). How the cluster's manifests fit together is in
   640Mi - idle it needs far less, but PHP may use up to 512 MB for one large import or export
   (`MEMORY_LIMIT`). Imports up to 100 MB (`UPLOAD_LIMIT`, default 2 MB) - the most Cloudflare's
   proxy accepts in one request on the free plan, so a higher value would not help.
+- **Restarted by Reloader** when Secret `phpmyadmin` changes in OpenBao: the entrypoint reads
+  `PMA_CONTROLPASS_FILE` into the environment at start
+  ([`../reloader/README.md`](../reloader/README.md)).
 
 ## Before the first sync
 

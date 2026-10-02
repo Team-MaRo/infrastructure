@@ -1,0 +1,36 @@
+---
+# Reloader for this cluster: the stakater/reloader Helm chart with values from
+# kubernetes/components/reloader, plus that directory's manifests. Restarts the workloads that
+# opt in when a Secret or ConfigMap they read only at start changes.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: reloader
+  namespace: argocd
+  # Removing this file removes everything it deployed, namespace included.
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  sources:
+    # Pinned: bumping the version is the upgrade. 2.2.18 deploys Reloader v1.4.22. Chart 3.x
+    # (Reloader v2, with an enterprise subchart) is still in beta.
+    - repoURL: https://stakater.github.io/stakater-charts
+      chart: reloader
+      targetRevision: 2.2.18
+      helm:
+        valueFiles:
+          - $repo/kubernetes/components/reloader/values.yaml
+    - repoURL: https://github.com/Team-MaRo/infrastructure.git
+      targetRevision: master
+      ref: repo
+      path: kubernetes/components/reloader
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: reloader
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - ServerSideApply=true

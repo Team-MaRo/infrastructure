@@ -173,8 +173,15 @@ kubectl --context d3strukt0r-prod-admin -n mariadb get mariadb mariadb -o jsonpa
    - a `Database` `<app>` with `characterSet: utf8mb4` and `collate: utf8mb4_uca1400_ai_ci`
      (the server's default; the operator's own default is the old three-byte `utf8`), a `User`
      `<app>` (host `%`, `passwordSecretKeyRef` to `<app>-db`, `require.ssl: true`) and a
-     `Grant` of what the app needs on `<app>.*`. The operator only creates a database: changing
-     the character set later needs an `ALTER DATABASE` by hand, and existing tables keep theirs.
+     `Grant` of what the app needs on `<app>.*`. The operator only creates a database, and its
+     webhook refuses any change to `characterSet` or `collate` on an existing `Database` object
+     (immutable) - Argo CD then fails the sync and, after five tries, stops retrying that commit.
+     To change them later: `ALTER DATABASE` by hand (existing tables keep theirs), change the
+     object in git, and delete the live object
+     (`kubectl --context d3strukt0r-prod-admin -n mariadb delete database.k8s.mariadb.com <app>`)
+     so Argo CD recreates it - with `cleanupPolicy: Skip` the database itself stays. If Argo CD
+     has already given up on the commit, the recreation waits for the next push or a manual
+     sync of the app.
    - **`cleanupPolicy: Skip` on all three.** The operator's default is `Delete`: removing the
      component would drop the database with it.
 

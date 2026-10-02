@@ -26,6 +26,11 @@ extraArgs:
   # Straight to Zitadel instead of oauth2-proxy's own "Sign in with OpenID Connect" page.
   skip-provider-button: true
 
+# Restarted by Reloader when the client or cookie secret changes in OpenBao (read as environment
+# variables at start).
+deploymentAnnotations:
+  secret.reloader.stakater.com/reload: oauth2-proxy
+
 # At oauth2-proxy.d3strukt0r.dev (its own record in tofu/cloudflare), certificate from
 # certificates.yaml. No className: Traefik is the cluster's default IngressClass.
 ingress:

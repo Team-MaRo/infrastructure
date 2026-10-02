@@ -40,6 +40,9 @@ monitoring component it has its own namespace, under the restricted Pod Security
   after a full `repeat_interval` (1m), which the check misses by a hair every other time.
 - **It cannot report a dead cluster** while it runs inside it: a complete outage takes the page
   down too. It moves to a machine outside (the home server) later - one binary and this config.
+- **Restarted by Reloader** when Secret `gatus` changes in OpenBao: Gatus reads it as environment
+  variables at start ([`../reloader/README.md`](../reloader/README.md)). Its ConfigMap needs no
+  restart - Gatus reloads it itself.
 
 ## Adding or changing a check
 

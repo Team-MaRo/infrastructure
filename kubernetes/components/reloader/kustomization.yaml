@@ -1,0 +1,9 @@
+---
+# Reloader, shared by every cluster: restarts a workload when a Secret or ConfigMap it reads only
+# at start changes in place. The Helm chart is pinned in the cluster's Application with
+# values.yaml from here; this is what it needs besides the chart.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - namespace.yaml

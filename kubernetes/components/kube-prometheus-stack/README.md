@@ -107,6 +107,10 @@ port-forwards stay the break-glass way in. The status page and alerting heartbea
   (`signout_redirect_url`). Only settings that differ from Grafana's defaults are written;
   new users are created at their first login (`allow_sign_up`, a default).
 
+Grafana is restarted by Reloader when Secret `grafana-admin` changes in OpenBao (environment
+variables read at start; `grafana.annotations`, which the chart puts on all its Grafana objects -
+Reloader only acts on the Deployment; [`../reloader/README.md`](../reloader/README.md)).
+
 ## Accessing the UIs
 
 **Grafana** is at `https://grafana.d3strukt0r.dev` - "Sign in with Zitadel"; its local `admin`

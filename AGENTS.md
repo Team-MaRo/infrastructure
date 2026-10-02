@@ -161,8 +161,8 @@ its paths and flags).
   deleting a file from `clusters/<name>/` deletes what the Application deployed; without it
   only the Application goes and its resources keep running, untracked.
   - It is on apps whose data lives elsewhere or does not matter: `gatus`, `zitadel`,
-    `oauth2-proxy`, `phpmyadmin`, `pgadmin`, `kured`, `alloy`, `etcd-snapshots`, `cluster-rbac`,
-    `argocd-integrations`. A Postgres app's database and role stay when it goes
+    `oauth2-proxy`, `phpmyadmin`, `pgadmin`, `reloader`, `kured`, `alloy`, `etcd-snapshots`,
+    `cluster-rbac`, `argocd-integrations`. A Postgres app's database and role stay when it goes
     (CloudNativePG's reclaim policies default to `retain`); a MariaDB app's objects set
     `cleanupPolicy: Skip`, since mariadb-operator's default is `Delete`.
   - **Never on an app that brings CRDs** (deleting a CRD deletes every object of its kind):
@@ -196,6 +196,11 @@ its paths and flags).
   ([`kubernetes/components/external-secrets/README.md`](kubernetes/components/external-secrets/README.md),
   [`tofu/openbao/README.md`](tofu/openbao/README.md)). Only the bootstrap Secrets come from
   1Password through `ansible/secrets.yml`.
+- **An app that reads a Secret or ConfigMap only at start opts in to Reloader**: the annotation
+  `secret.reloader.stakater.com/reload: <name>` (or `configmap.`) on its workload and its
+  namespace in `reloader.namespaces` - External Secrets updates Secrets in place, so nothing
+  else restarts it after a change in OpenBao. Never on operator-managed databases or OpenBao
+  ([`kubernetes/components/reloader/README.md`](kubernetes/components/reloader/README.md)).
 - **The databases are shared**: one PostgreSQL (CloudNativePG) and one MariaDB, a database per
   app. An app's database objects live in the app's own component with `namespace: postgres`
   (`DatabaseRole`/`Database`) or `namespace: mariadb` (`User`/`Grant`/`Database`)
@@ -315,5 +320,6 @@ component); update it in the same change.
 | [`kubernetes/components/oauth2-proxy/README.md`](kubernetes/components/oauth2-proxy/README.md) | The login gate for UIs without their own Zitadel login |
 | [`kubernetes/components/phpmyadmin/README.md`](kubernetes/components/phpmyadmin/README.md) | The shared MariaDB's web UI, its configuration storage |
 | [`kubernetes/components/pgadmin/README.md`](kubernetes/components/pgadmin/README.md) | The shared PostgreSQL's web UI, its Zitadel login and configuration database |
+| [`kubernetes/components/reloader/README.md`](kubernetes/components/reloader/README.md) | Restarting apps when a Secret or ConfigMap they read at start changes |
 | [`kubernetes/components/kubeelasti/README.md`](kubernetes/components/kubeelasti/README.md) | Scale to zero, letting an app sleep |
 | [`kubernetes/clusters/prod/etcd-snapshots/README.md`](kubernetes/clusters/prod/etcd-snapshots/README.md) | etcd snapshots to Object Storage, restoring one |

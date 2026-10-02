@@ -3,6 +3,10 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: gatus
+  annotations:
+    # Restarted by Reloader when the Secret changes in OpenBao: Gatus reads it as environment
+    # variables, fixed at start.
+    secret.reloader.stakater.com/reload: gatus
 spec:
   # One instance: a second would run every check and send every alert again.
   replicas: 1

@@ -53,6 +53,10 @@ singleBinary:
   extraEnvFrom:
     - secretRef:
         name: loki-s3
+  # Restarted by Reloader when the S3 key changes in OpenBao (read as environment variables at
+  # start).
+  annotations:
+    secret.reloader.stakater.com/reload: loki-s3
   # Memory only; the CPU request comes from the namespace's LimitRange.
   resources:
     requests:
