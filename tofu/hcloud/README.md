@@ -13,8 +13,8 @@ The Hetzner resources predate this repo; they were clicked together in the conso
 `tofu/hcloud/imports.tf` adopts each one by its live ID. The config therefore describes
 reality rather than an ideal, which is why some values look arbitrary:
 
-- The three nodes are **not** the same type: `prod-01` and `prod-02` are `cx33`,
-  `prod-03` is `cx23`.
+- All three nodes are `cx33`. `prod-03` was created as `cx23` and resized in the console
+  (2026-10-02, CPU and RAM only, so its disk stayed at 40 GB and a downgrade stays possible).
 - Private IPs follow the node number: `prod-NN` = `10.0.0.1NN`. Not `10.0.0.NN`, because
   Hetzner reserves the first address of a network for its gateway, so `.1` can never be
   assigned. Changing a node's IP replaces its network attachment - never while k3s runs

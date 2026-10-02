@@ -20,7 +20,7 @@ locals {
     }
     "prod-03" = {
       id          = 166653576
-      server_type = "cx23"
+      server_type = "cx33"
       private_ip  = "10.0.0.103"
     }
   }
