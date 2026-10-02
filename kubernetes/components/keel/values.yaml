@@ -10,7 +10,7 @@ helmProvider:
 polling:
   defaultSchedule: "@every 5m"
 
-# The ntfy URL (external-secrets.yaml) instead of a Secret the chart would create.
+# The ntfy webhook URL (external-secrets.yaml) instead of a Secret the chart would create.
 secret:
   create: false
   name: keel

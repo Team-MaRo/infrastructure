@@ -37,8 +37,14 @@ the digest behind one changes.
   short form as `index.docker.io`.
 - **`imagePullPolicy: Always`** on such a workload, or a node keeps running the `:latest` it pulled
   first. With an unchanged digest a pull is only a `HEAD`.
-- **Notifications**: every update goes to the alerts' ntfy topic (`external-secrets.yaml`, a
-  Shoutrrr URL from OpenBao `secret/ntfy`), titled "Keel".
+- **Notifications**: every update goes to the alerts' ntfy topic (OpenBao `secret/ntfy`), titled
+  "Keel" - through Keel's plain webhook notifier (`WEBHOOK_ENDPOINT` in `external-secrets.yaml`),
+  with ntfy's templating turning Keel's JSON into the message. Not Shoutrrr, Keel's own route to
+  ntfy: Keel 0.22.4 sets a `level` parameter on every Shoutrrr message, and Shoutrrr's ntfy service
+  rejects it (tested 2026-10-02 - every notification failed). Keel reads the URL only at start,
+  and its chart cannot annotate its Deployment for Reloader: after the ntfy token or topic changes
+  in OpenBao, restart it once -
+  `kubectl --context d3strukt0r-prod-admin -n keel rollout restart deployment keel`.
 - **RBAC** is the chart's ClusterRole cut down to the Kubernetes provider: read namespaces,
   nodes and pods, update Deployments, StatefulSets, DaemonSets and CronJobs - **no Secrets**. The
   images are public and polled anonymously. A private image needs a Docker Hub token
