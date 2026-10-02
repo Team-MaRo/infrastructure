@@ -22,10 +22,12 @@ namespace `pgadmin`). How the cluster's manifests fit together is in
 - **A public Zitadel client** (`tofu/zitadel/apps_pgadmin.tf`): authorization code with PKCE and
   no secret, like Grafana's; the client ID, not secret, is in `config_system.py`. Logging out of
   pgAdmin ends the Zitadel session too (`OAUTH2_LOGOUT_URL`).
-- **Saved passwords need pgAdmin's master password.** A server's password can be saved in the
-  user's pgAdmin account, encrypted; with a Zitadel login pgAdmin has no password of the user to
-  derive the key from, so it asks for a master password of the user's choosing once per session
-  (set on the first save). Forgetting it only means re-entering the server passwords.
+- **pgAdmin saves no database passwords** (`ALLOW_SAVE_PASSWORD = False`, user decision). A role's
+  password lives in PostgreSQL (as a hash) and in 1Password; pgAdmin asks for it when a server
+  is opened and keeps it for that session only. Saving would mean a second, encrypted copy in
+  pgAdmin's database, unlocked with a master password per pgAdmin user (with a Zitadel login
+  pgAdmin has no password of the user to derive the key from) - so the master password is off
+  too (`MASTER_PASSWORD_REQUIRED = False`).
 - **The configuration database is in the shared PostgreSQL**, `pgadmin` with the role `pgadmin`
   (`database.yaml`, the pattern every PostgreSQL app follows), reached with `verify-full` against
   CloudNativePG's CA (`postgres-ca.yaml`). pgAdmin migrates it at start. So the pod needs no
@@ -86,8 +88,8 @@ The configuration database's password has letters and digits only, since it sits
 
 Then `tofu/zitadel` (the app) and `tofu/cloudflare` (the record `pgadmin.d3strukt0r.dev`).
 
-The first login: "Login with Zitadel", open "PostgreSQL" under "prod", log in as `admin`, tick
-"Save password" and choose the master password.
+The first login: "Login with Zitadel", open "PostgreSQL" under "prod" and enter the password of
+`admin` from 1Password.
 
 ## Checking it
 

@@ -25,6 +25,12 @@ OAUTH2_CONFIG = [
     }
 ]
 
+# No saved database passwords: PostgreSQL keeps the roles' passwords and 1Password a copy, so
+# pgAdmin asks on connecting and holds nothing. Without saved passwords there is nothing for a
+# master password to protect, and pgAdmin stops asking for one.
+ALLOW_SAVE_PASSWORD = False
+MASTER_PASSWORD_REQUIRED = False
+
 # The cookie only over HTTPS; Traefik ends TLS in front of pgAdmin.
 SESSION_COOKIE_SECURE = True
 
