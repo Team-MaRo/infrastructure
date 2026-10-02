@@ -14,7 +14,7 @@ namespace `phpmyadmin`). How the cluster's manifests fit together is in
   no user is configured). So a stolen gate session alone reaches no data, MariaDB's grants still
   decide what each login may do, and no administrator password is stored for phpMyAdmin. For
   full access log in as `root` with the password from 1Password
-  [`MariaDB | Prod | Root & replication`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=uxnuz66uu5e2jojwk5xqq3tpgi&h=my.1password.com).
+  [`MariaDB | Prod | Root & replication`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=gsadufiuptw2el3nhww22ub22m&h=my.1password.com).
 - **The official image `docker.io/phpmyadmin`, Apache variant, plain manifests.** There is no
   maintained chart from the phpMyAdmin team, and Bitnami's image and chart are frozen since
   2025. The tag is pinned; it is re-pushed when the base image changes, so the same tag can
@@ -54,14 +54,14 @@ The control user's password must be in OpenBao (logging in as in
 ```shell
 export BAO_ADDR=https://openbao.d3strukt0r.dev
 bao login -method=oidc -no-print
-op item create --account my.1password.com --vault Private --category password --title 'MariaDB | Prod | phpmyadmin' \
-  --generate-password='letters,digits,symbols,20' >/dev/null
+op item create --account my.1password.com --vault Private --category login --title 'MariaDB | Prod | phpmyadmin' \
+  --url 'https://phpmyadmin.d3strukt0r.dev/' --generate-password='letters,digits,symbols,20' 'username=phpmyadmin' >/dev/null
 jq -n --arg p "$(op item get 'MariaDB | Prod | phpmyadmin' --account my.1password.com --vault Private --fields password --reveal)" \
   'if ($p|length)!=20 then error("password must be 20 characters - 1Password lookup failed?") else {"password":$p} end' \
 | bao kv put secret/mariadb-apps/phpmyadmin -
 ```
 
-1Password: [`MariaDB | Prod | phpmyadmin`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=jpwo2g36stjynqahgcwnjqfcsy&h=my.1password.com).
+1Password: [`MariaDB | Prod | phpmyadmin`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=ylqengf5omkwaov4jlytatw4lu&h=my.1password.com).
 
 The record `phpmyadmin.d3strukt0r.dev` comes from `tofu/cloudflare` (without it the wildcard
 sends the name to the old server).

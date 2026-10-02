@@ -132,14 +132,15 @@ to any moment in the last 30 days. How the cluster's manifests fit together is i
 Its passwords and S3 key go into OpenBao (port-forward and `BAO_TOKEN` as in
 [OpenBao](../openbao/README.md)):
 
-1. A 1Password item [`MariaDB | Prod | Root & replication`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=uxnuz66uu5e2jojwk5xqq3tpgi&h=my.1password.com) with two generated password
-   fields, `root-password` and `repl-password`.
+1. A 1Password item [`MariaDB | Prod | Root & replication`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=gsadufiuptw2el3nhww22ub22m&h=my.1password.com), a Login
+   (username `root`, URL `https://phpmyadmin.d3strukt0r.dev/`) whose generated password is the
+   root password, plus a second generated password field `repl-password`.
 2. As JSON on stdin (generated passwords may start with `@`; an empty lookup must not be
    stored - see "Putting secret values in" in
    [`tofu/openbao/README.md`](../../../tofu/openbao/README.md)):
 
    ```shell
-   jq -n --arg r "$(op item get 'MariaDB | Prod | Root & replication' --account my.1password.com --vault Private --fields root-password --reveal)" \
+   jq -n --arg r "$(op item get 'MariaDB | Prod | Root & replication' --account my.1password.com --vault Private --fields password --reveal)" \
          --arg p "$(op item get 'MariaDB | Prod | Root & replication' --account my.1password.com --vault Private --fields repl-password --reveal)" \
      'if ($r|length)==0 or ($p|length)==0 then error("empty value - 1Password lookup failed") else {"root-password":$r,"repl-password":$p} end' \
    | BAO_ADDR=http://127.0.0.1:8200 BAO_TOKEN="$(op item get 'OpenBao | Prod | Recovery keys & root token' --account my.1password.com --vault Private --fields credential --reveal)" \

@@ -5,7 +5,7 @@
 # objects live in mariadb although this component deploys them. The password comes from
 # OpenBao secret/mariadb-apps/phpmyadmin; phpMyAdmin reads the same value in its own namespace.
 # 1Password "MariaDB | Prod | phpmyadmin"
-#   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=jpwo2g36stjynqahgcwnjqfcsy&h=my.1password.com
+#   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=ylqengf5omkwaov4jlytatw4lu&h=my.1password.com
 #
 # cleanupPolicy Skip on all three: the operator's default (Delete) would drop the database and
 # the user when this component is removed. Removing the app keeps its data, as CloudNativePG's
