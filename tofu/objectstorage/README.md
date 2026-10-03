@@ -31,6 +31,14 @@ mistyped one shuts only that key out of its bucket. A `NotPrincipal` naming two 
 on the Loki bucket first (2026-09-28): the admin key kept full access, and the etcd key got
 `AccessDenied` there.
 
+**A new bucket's policy takes about 15 minutes to hold everywhere.** Hetzner's gateways learn a
+new bucket and its policy one by one; until all have, each request lands on one that may not
+know them yet. Measured on 2026-10-03 with a key the policy shuts out: in the first ~13 minutes
+after the apply it could read and write in the bucket on some requests, others answered 404 for
+the bucket itself; from then on, an hour of tests every 5 minutes denied it every time. A bucket
+that existed before showed no such gap. So **nothing goes into a new bucket within 15 minutes of
+its apply**, and a policy test run right after the apply proves nothing - repeat it after that.
+
 **Every bucket has a lifecycle rule** that aborts multipart uploads not completed within 7
 days: a broken large upload leaves its parts behind, invisible in a listing but stored and
 billed. **A versioned bucket's rule also expires noncurrent versions** and then orphaned
