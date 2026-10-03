@@ -15,10 +15,12 @@ locals {
   admin_principal = "arn:aws:iam:::user/p${var.project_id}:${local.aws_profile.access_key}"
 
   # The keys handed to the cluster, one per bucket they may reach.
-  etcd_principal                   = "arn:aws:iam:::user/p${var.project_id}:${var.etcd_access_key_id}"
-  loki_principal                   = "arn:aws:iam:::user/p${var.project_id}:${var.loki_access_key_id}"
-  mariadb_backups_principal        = "arn:aws:iam:::user/p${var.project_id}:${var.mariadb_backups_access_key_id}"
-  postgres_backups_principal       = "arn:aws:iam:::user/p${var.project_id}:${var.postgres_backups_access_key_id}"
-  openbao_snapshots_principal      = "arn:aws:iam:::user/p${var.project_id}:${var.openbao_snapshots_access_key_id}"
-  wedding_manuele_robine_principal = "arn:aws:iam:::user/p${var.project_id}:${var.wedding_manuele_robine_access_key_id}"
+  etcd_principal                            = "arn:aws:iam:::user/p${var.project_id}:${var.etcd_access_key_id}"
+  loki_principal                            = "arn:aws:iam:::user/p${var.project_id}:${var.loki_access_key_id}"
+  mariadb_backups_principal                 = "arn:aws:iam:::user/p${var.project_id}:${var.mariadb_backups_access_key_id}"
+  postgres_backups_principal                = "arn:aws:iam:::user/p${var.project_id}:${var.postgres_backups_access_key_id}"
+  openbao_snapshots_principal               = "arn:aws:iam:::user/p${var.project_id}:${var.openbao_snapshots_access_key_id}"
+  wedding_manuele_robine_principal          = "arn:aws:iam:::user/p${var.project_id}:${var.wedding_manuele_robine_access_key_id}"
+  robines_portfolio_principal               = "arn:aws:iam:::user/p${var.project_id}:${var.robines_portfolio_access_key_id}"
+  robines_portfolio_uploads_proxy_principal = "arn:aws:iam:::user/p${var.project_id}:${var.robines_portfolio_uploads_proxy_access_key_id}"
 }
