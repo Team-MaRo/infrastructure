@@ -24,8 +24,9 @@ kubernetes/
 ├── clusters/                  # what runs where - one directory per cluster
 │   └── prod/
 │       ├── root.yaml          # syncs this directory - itself and every sibling
+│       ├── private.yaml       # syncs Team-MaRo/infrastructure-private, what must not be public
 │       ├── argocd.yaml        # Argo CD managing its own installation
-│       ├── argocd-integrations.yaml  # its certificate, webhook secret and metrics monitors
+│       ├── argocd-integrations.yaml  # its certificate, webhook secret, private repository access, monitors
 │       ├── hcloud-csi.yaml    # persistent volumes
 │       ├── openbao.yaml       # the secret store: Helm chart pinned here, values in components/
 │       ├── external-secrets.yaml  # delivers OpenBao values as Kubernetes Secrets

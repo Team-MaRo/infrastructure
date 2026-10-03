@@ -176,7 +176,7 @@ rule, 2026-10-02). Where a name cannot hold a hyphen, the hyphens become undersc
     cert-manager, external-secrets, kyverno, cloudnative-pg, the mariadb-operator ones,
     system-upgrade-controller, kube-prometheus-stack, kubeelasti, trust-manager. **Never on an
     app with a volume** (openbao, mariadb, postgres, loki, kube-prometheus-stack). **Never on the
-    foundation**: root, argocd, hcloud-csi, traefik.
+    foundation**: root, private, argocd, hcloud-csi, traefik.
   - An app with the finalizer brings its own `namespace.yaml` instead of `CreateNamespace`,
     since Argo CD never deletes a namespace it created that way. Apps in `kube-system` get no
     `namespace.yaml`, or removing them would delete `kube-system`.

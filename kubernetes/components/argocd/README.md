@@ -44,8 +44,8 @@ component is deleted.
   external-secrets, kyverno, cloudnative-pg, the mariadb-operator ones,
   system-upgrade-controller, kube-prometheus-stack, kubeelasti, trust-manager. **Never on an
   app with a volume** (openbao, mariadb, postgres, loki, kube-prometheus-stack): a mistakenly
-  deleted file must not take its data along. **Never on the foundation**: root, argocd,
-  hcloud-csi, traefik.
+  deleted file must not take its data along. **Never on the foundation**: root, private,
+  argocd, hcloud-csi, traefik.
 - **An app with the finalizer brings its own `namespace.yaml`** instead of `CreateNamespace`,
   since Argo CD never deletes a namespace it created that way; so the namespace, and
   anything a job left in it outside git, goes with the app. Apps in `kube-system` get no
@@ -204,13 +204,17 @@ it from showing as drift on any app.
 
 The webhook itself lives in GitHub, not in this repo (repository settings → Webhooks, or
 `gh api repos/Team-MaRo/infrastructure/hooks`); its recent deliveries and their answers show
-there too. Creating it again:
+there too. **`Team-MaRo/infrastructure-private` has the same webhook** with the same secret -
+Argo CD takes one GitHub secret and matches each push to the Applications by repository URL.
+Creating them again:
 
 ```shell
-gh api repos/Team-MaRo/infrastructure/hooks --method POST -f name=web -F active=true -f 'events[]=push' \
-  -f 'config[url]=https://argocd.d3strukt0r.dev/api/webhook' -f 'config[content_type]=json' -f 'config[insecure_ssl]=0' \
-  -f "config[secret]=$(op item get 'GitHub | infrastructure | Argo CD webhook' --account my.1password.com --vault Private --fields password --reveal)" \
-  --jq '.id'
+for repo in infrastructure infrastructure-private; do
+  gh api "repos/Team-MaRo/$repo/hooks" --method POST -f name=web -F active=true -f 'events[]=push' \
+    -f 'config[url]=https://argocd.d3strukt0r.dev/api/webhook' -f 'config[content_type]=json' -f 'config[insecure_ssl]=0' \
+    -f "config[secret]=$(op item get 'GitHub | infrastructure | Argo CD webhook' --account my.1password.com --vault Private --fields password --reveal)" \
+    --jq '.id'
+done
 ```
 
 ## When Argo CD breaks itself
