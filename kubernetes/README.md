@@ -52,6 +52,7 @@ kubernetes/
 │       ├── trust-manager.yaml     # the databases' CAs in the apps' namespaces: chart pinned here
 │       ├── keel.yaml              # rolls out new images under floating tags: chart pinned here
 │       ├── wedding-manuele-robine.yaml  # the wedding website
+│       ├── robines-portfolio.yaml  # the old WordPress portfolio at old.robines.space
 │       ├── kubeelasti.yaml        # scale to zero: chart pinned here, values in components/
 │       ├── cluster-rbac.yaml      # cluster-wide rights for kubectl logins through Zitadel
 │       ├── etcd-snapshots.yaml    # syncs the subdirectory below
@@ -199,14 +200,25 @@ kubernetes/
     │   ├── namespace.yaml
     │   ├── external-secrets.yaml  # the ntfy URL for its notifications
     │   └── service-monitor.yaml
-    └── wedding-manuele-robine/
+    ├── wedding-manuele-robine/
+    │   ├── kustomization.yaml
+    │   ├── namespace.yaml         # exempt from restricted Pod Security (root images, TODO)
+    │   ├── database.yaml          # its database and user, in the mariadb namespace
+    │   ├── external-secrets.yaml  # app secrets, database URL, S3 key, JWT keys, Maps key
+    │   ├── api.yaml               # the Symfony API and its Service
+    │   ├── pwa.yaml               # the website and its Service
+    │   └── ingresses.yaml         # certificates and Ingresses for the four names
+    └── robines-portfolio/
         ├── kustomization.yaml
-        ├── namespace.yaml         # exempt from restricted Pod Security (root images, TODO)
+        ├── namespace.yaml
         ├── database.yaml          # its database and user, in the mariadb namespace
-        ├── external-secrets.yaml  # app secrets, database URL, S3 key, JWT keys, Maps key
-        ├── api.yaml               # the Symfony API and its Service
-        ├── pwa.yaml               # the website and its Service
-        └── ingresses.yaml         # certificates and Ingresses for the four names
+        ├── external-secrets.yaml  # keys and salts, database password, the two S3 keys
+        ├── deployment.yaml        # WordPress from stock images, plugins at start, uploads proxy
+        ├── cronjob.yaml           # WP-Cron every five minutes
+        ├── service.yaml
+        ├── certificate.yaml
+        ├── ingress.yaml           # old.robines.space
+        └── config/                # plugin list, nginx, php.ini, the S3-Uploads loader
 ```
 
 | Component | What it is |
@@ -237,6 +249,7 @@ kubernetes/
 | [`trust-manager`](components/trust-manager/README.md) | The databases' CA certificates as ConfigMaps in the namespaces that ask for them |
 | [`keel`](components/keel/README.md) | Rolls out new images under floating tags without a commit |
 | [`wedding-manuele-robine`](components/wedding-manuele-robine/README.md) | The wedding website (moved from prod-old) |
+| [`robines-portfolio`](components/robines-portfolio/README.md) | The old WordPress portfolio at old.robines.space (moved from prod-old) |
 | [`kubeelasti`](components/kubeelasti/README.md) | Scale to zero; letting an app sleep |
 | [`cluster-rbac`](components/cluster-rbac/README.md) | Cluster-wide rights for kubectl logins through Zitadel |
 | [`clusters/prod/etcd-snapshots`](clusters/prod/etcd-snapshots/README.md) | prod-only: the S3 settings k3s uploads etcd snapshots with; restore |

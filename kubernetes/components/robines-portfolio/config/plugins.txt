@@ -1,0 +1,30 @@
+# What the init container `plugins` installs into wp-content at every start, as
+# `<kind> <slug> [<version>]`: the latest release of each from wordpress.org, or the version given.
+# WordPress cannot install anything itself (DISALLOW_FILE_MODS), so this list is the site's plugins
+# and themes; whether a plugin is active stays in the database, as before. S3-Uploads is installed
+# beside these (deployment.yaml). Everything prod-old had, active or not, except the premium theme
+# mintraro-pro (inactive, not on wordpress.org).
+plugin akismet
+plugin all-in-one-seo-pack
+plugin better-youtube-embed-block
+plugin block-for-mailchimp
+plugin cloudflare
+plugin duplicator
+plugin embedpress
+plugin font-awesome
+plugin galleryberg-gallery-block
+plugin google-analytics-for-wordpress
+plugin greenshift-animation-and-page-builder-blocks
+plugin jetpack
+plugin jetpack-boost
+plugin jetpack-protect
+plugin phpinfo-wp
+plugin svg-block
+plugin use-any-font
+plugin userfeedback-lite
+plugin wordpress-seo
+plugin wp-mail-smtp
+plugin wpconsent-cookies-banner-privacy-suite
+plugin wpforms-lite
+theme mintraro
+theme blogarise

@@ -1,0 +1,13 @@
+---
+# The old site's certificate for Traefik. robines.space and www are the Cloudflare Worker, not this.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: web-tls
+spec:
+  secretName: web-tls
+  dnsNames:
+    - old.robines.space
+  issuerRef:
+    kind: ClusterIssuer
+    name: letsencrypt

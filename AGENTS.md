@@ -169,7 +169,8 @@ rule, 2026-10-02). Where a name cannot hold a hyphen, the hyphens become undersc
   only the Application goes and its resources keep running, untracked.
   - It is on apps whose data lives elsewhere or does not matter: `gatus`, `zitadel`,
     `oauth2-proxy`, `phpmyadmin`, `pgadmin`, `reloader`, `keel`, `wedding-manuele-robine`,
-    `kured`, `alloy`, `etcd-snapshots`, `cluster-rbac`, `argocd-integrations`. A Postgres app's database and role stay when it goes
+    `robines-portfolio`, `kured`, `alloy`, `etcd-snapshots`, `cluster-rbac`,
+    `argocd-integrations`. A Postgres app's database and role stay when it goes
     (CloudNativePG's reclaim policies default to `retain`); a MariaDB app's objects set
     `cleanupPolicy: Skip`, since mariadb-operator's default is `Delete`.
   - **Never on an app that brings CRDs** (deleting a CRD deletes every object of its kind):
@@ -339,5 +340,6 @@ component); update it in the same change.
 | [`kubernetes/components/trust-manager/README.md`](kubernetes/components/trust-manager/README.md) | The databases' CA certificates in the apps' namespaces |
 | [`kubernetes/components/keel/README.md`](kubernetes/components/keel/README.md) | Rolling out new images under floating tags, opting an app in |
 | [`kubernetes/components/wedding-manuele-robine/README.md`](kubernetes/components/wedding-manuele-robine/README.md) | The wedding website; its two TODOs; moving it from prod-old |
+| [`kubernetes/components/robines-portfolio/README.md`](kubernetes/components/robines-portfolio/README.md) | The old WordPress portfolio: stock images, plugins at start, uploads behind a signing proxy, WP-Cron |
 | [`kubernetes/components/kubeelasti/README.md`](kubernetes/components/kubeelasti/README.md) | Scale to zero, letting an app sleep |
 | [`kubernetes/clusters/prod/etcd-snapshots/README.md`](kubernetes/clusters/prod/etcd-snapshots/README.md) | etcd snapshots to Object Storage, restoring one |
