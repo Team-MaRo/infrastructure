@@ -1,0 +1,25 @@
+---
+# The root of Team-MaRo/infrastructure-private's app-of-apps: what must not be public runs from
+# there, beside this repository's own Applications. It syncs that repository's
+# kubernetes/clusters/prod, read with the token in
+# kubernetes/components/argocd-integrations/repository-infrastructure-private.yaml.
+#
+# No finalizer, like root: deleting this file must never take those apps with it.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: private
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Team-MaRo/infrastructure-private.git
+    targetRevision: master
+    path: kubernetes/clusters/prod
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
