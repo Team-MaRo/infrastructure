@@ -32,10 +32,12 @@ resource "cloudflare_dns_record" "robines_space_cname_dk2_domainkey" {
   }
 }
 
+# The old WordPress portfolio on the cluster (kubernetes/components/robines-portfolio); robines.space
+# and www are the Cloudflare Worker (the AAAA records below).
 resource "cloudflare_dns_record" "robines_space_cname_old" {
   provider = cloudflare.personal
 
-  content = "prod-old.d3strukt0r.dev"
+  content = "prod.d3strukt0r.dev"
   name    = "old.robines.space"
   proxied = true
   tags    = []

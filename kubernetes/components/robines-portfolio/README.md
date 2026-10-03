@@ -67,6 +67,16 @@ the bucket `d3strukt0r-prod-robines-portfolio` (`tofu/objectstorage`).
   keeps nginx's own redirects on the site's address instead of `http://…:8081`.
 - **Restricted Pod Security**: the pod runs as 33 (`www-data`), the two nginx images as their own
   user 101, the curl job as 100.
+- **Watched by Gatus** ("Robines Portfolio (old)" on the status page, `components/gatus`): the home
+  page every five minutes.
+- **Not for search engines.** The live site is the Worker at robines.space; this archive tells
+  search engines `noindex, nofollow` (wp-admin → Settings → Reading → "Discourage search engines",
+  set 2026-10-04 - in the database, not in git). Before the move its pages named robines.space as
+  their address, so the rewrite to old.robines.space made them a site of their own.
+- **No e-mail.** WP Mail SMTP is on PHP's `mail()`, which needs a local `sendmail` the image does
+  not have ("Could not instantiate mail function"); on prod-old sending failed every month too.
+  Password resets and form notifications (WPForms, Gutena Forms) do not go out - form entries are
+  still stored. Sending needs an SMTP account in WP Mail SMTP, its password through OpenBao.
 - **Not migrated**: prod-old's Duplicator package (`wp-content/backups-dup-lite`, 222 MB, from
   2025-10-14) and the `robines-portfolio.d3strukt0r.dev` name.
 
@@ -78,6 +88,10 @@ the bucket `d3strukt0r-prod-robines-portfolio` (`tofu/objectstorage`).
 | `secret/mariadb-apps/robines-portfolio` | `password` (20 characters) | 1Password [`MariaDB | Prod | robines-portfolio`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=swneckmu7nc3tkxv5c2njudv2q&h=my.1password.com) |
 | `secret/robines-portfolio-s3` | `access-key`, `secret-key` (read and write) | 1Password [`Hetzner | S3 | prod robines-portfolio`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=j3phtimnb5zbwonzf655meqrb4&h=my.1password.com) |
 | `secret/robines-portfolio-uploads-proxy-s3` | `access-key`, `secret-key` (read only) | 1Password [`Hetzner | S3 | prod robines-portfolio uploads-proxy`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=3icb7ypn2ub7bk7x2yzbwhkrfm&h=my.1password.com) |
+
+A changed value in OpenBao reaches the pod through External Secrets (within an hour, or at once
+with `kubectl --context d3strukt0r-prod-admin -n robines-portfolio annotate externalsecret --all force-sync=$(date +%s) --overwrite`),
+and Reloader then restarts it (`components/reloader`).
 
 ## Runbooks
 

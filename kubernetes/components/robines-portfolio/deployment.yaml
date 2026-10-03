@@ -12,6 +12,8 @@ metadata:
     keel.sh/policy: force
     keel.sh/matchTag: "true"
     keel.sh/trigger: poll
+    # Read as environment variables at start (components/reloader).
+    secret.reloader.stakater.com/reload: web,uploads-proxy
 spec:
   replicas: 1
   selector:
