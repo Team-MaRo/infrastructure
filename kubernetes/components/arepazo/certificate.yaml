@@ -1,0 +1,16 @@
+---
+# The shop's certificate for Traefik. arepazo.ch is in the arepazo Cloudflare account, so the
+# ClusterIssuer's arepazo solver (selected by zone) answers the DNS-01 challenge
+# (components/cert-manager).
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: web-tls
+spec:
+  secretName: web-tls
+  dnsNames:
+    - arepazo.ch
+    - www.arepazo.ch
+  issuerRef:
+    kind: ClusterIssuer
+    name: letsencrypt

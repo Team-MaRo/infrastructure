@@ -1,0 +1,26 @@
+---
+# Both names reach WordPress, which redirects to its own address, www.arepazo.ch. Their records are
+# in tofu/cloudflare. No className: Traefik is the cluster's default IngressClass.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: web
+spec:
+  tls:
+    - hosts:
+        - arepazo.ch
+        - www.arepazo.ch
+      secretName: web-tls
+  rules:
+    - host: www.arepazo.ch
+      http: &web
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: web
+                port:
+                  name: http
+    - host: arepazo.ch
+      http: *web

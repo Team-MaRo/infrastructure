@@ -1,0 +1,24 @@
+---
+# arepazo, the WooCommerce shop at www.arepazo.ch: stock images assembled at every start, its
+# database in the shared MariaDB, its uploads (invoices included) in a private bucket (README).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - namespace.yaml
+  - database.yaml
+  - external-secrets.yaml
+  - deployment.yaml
+  - cronjob.yaml
+  - service.yaml
+  - certificate.yaml
+  - ingress.yaml
+
+# A hash in the name, so a change to any of these files rolls the pod.
+configMapGenerator:
+  - name: web-config
+    files:
+      - config/plugins.txt
+      - config/default.conf
+      - config/s3-uploads-hetzner.php
+      - config/php.ini

@@ -1,0 +1,26 @@
+---
+# The WooCommerce shop at www.arepazo.ch, from kubernetes/components/arepazo.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: arepazo
+  namespace: argocd
+  # Removing this file removes everything it deployed, namespace included; its database and user
+  # in the shared MariaDB stay (cleanupPolicy Skip), and so do its uploads in Object Storage.
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Team-MaRo/infrastructure.git
+    targetRevision: master
+    path: kubernetes/components/arepazo
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: arepazo
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - ServerSideApply=true

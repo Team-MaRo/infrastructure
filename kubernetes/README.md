@@ -53,6 +53,7 @@ kubernetes/
 │       ├── keel.yaml              # rolls out new images under floating tags: chart pinned here
 │       ├── wedding-manuele-robine.yaml  # the wedding website
 │       ├── robines-portfolio.yaml  # the old WordPress portfolio at old.robines.space
+│       ├── arepazo.yaml       # the WooCommerce shop at www.arepazo.ch
 │       ├── kubeelasti.yaml        # scale to zero: chart pinned here, values in components/
 │       ├── cluster-rbac.yaml      # cluster-wide rights for kubectl logins through Zitadel
 │       ├── etcd-snapshots.yaml    # syncs the subdirectory below
@@ -208,17 +209,18 @@ kubernetes/
     │   ├── api.yaml               # the Symfony API and its Service
     │   ├── pwa.yaml               # the website and its Service
     │   └── ingresses.yaml         # certificates and Ingresses for the four names
-    └── robines-portfolio/
-        ├── kustomization.yaml
-        ├── namespace.yaml
-        ├── database.yaml          # its database and user, in the mariadb namespace
-        ├── external-secrets.yaml  # keys and salts, database password, the two S3 keys
-        ├── deployment.yaml        # WordPress from stock images, plugins at start, uploads proxy
-        ├── cronjob.yaml           # WP-Cron every five minutes
-        ├── service.yaml
-        ├── certificate.yaml
-        ├── ingress.yaml           # old.robines.space
-        └── config/                # plugin list, nginx, php.ini, the S3-Uploads loader
+    ├── robines-portfolio/
+    │   ├── kustomization.yaml
+    │   ├── namespace.yaml
+    │   ├── database.yaml          # its database and user, in the mariadb namespace
+    │   ├── external-secrets.yaml  # keys and salts, database password, the two S3 keys
+    │   ├── deployment.yaml        # WordPress from stock images, plugins at start, uploads proxy
+    │   ├── cronjob.yaml           # WP-Cron every five minutes
+    │   ├── service.yaml
+    │   ├── certificate.yaml
+    │   ├── ingress.yaml           # old.robines.space
+    │   └── config/                # plugin list, nginx, php.ini, the S3-Uploads loader
+    └── arepazo/                   # the same files as robines-portfolio, for the shop
 ```
 
 | Component | What it is |
@@ -250,6 +252,7 @@ kubernetes/
 | [`keel`](components/keel/README.md) | Rolls out new images under floating tags without a commit |
 | [`wedding-manuele-robine`](components/wedding-manuele-robine/README.md) | The wedding website (moved from prod-old) |
 | [`robines-portfolio`](components/robines-portfolio/README.md) | The old WordPress portfolio at old.robines.space (moved from prod-old) |
+| [`arepazo`](components/arepazo/README.md) | The WooCommerce shop at www.arepazo.ch (moved from prod-old) |
 | [`kubeelasti`](components/kubeelasti/README.md) | Scale to zero; letting an app sleep |
 | [`cluster-rbac`](components/cluster-rbac/README.md) | Cluster-wide rights for kubectl logins through Zitadel |
 | [`clusters/prod/etcd-snapshots`](clusters/prod/etcd-snapshots/README.md) | prod-only: the S3 settings k3s uploads etcd snapshots with; restore |

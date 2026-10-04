@@ -1,0 +1,11 @@
+---
+# Part of the app, so removing the app removes the namespace and anything left in it. The
+# restricted Pod Security standard applies: every container runs as a non-root user.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: arepazo
+  labels:
+    # trust-manager puts the shared MariaDB's CA here as ConfigMap mariadb-ca
+    # (components/trust-manager).
+    trust.d3strukt0r.dev/mariadb-ca: "true"

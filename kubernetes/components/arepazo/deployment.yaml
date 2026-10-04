@@ -1,0 +1,283 @@
+---
+# WordPress from the stock images, without a build: the init containers assemble the site into an
+# emptyDir at every start (core from the image, plugins and theme from wordpress.org per
+# config/plugins.txt), php-fpm runs it, nginx serves it, and the uploads proxy serves the uploads
+# from the private bucket. Nothing on the pod's disk needs to survive a restart.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+  annotations:
+    # A new image under the same tag rolls it out (components/keel).
+    keel.sh/policy: force
+    keel.sh/matchTag: "true"
+    keel.sh/trigger: poll
+    # Read as environment variables at start (components/reloader).
+    secret.reloader.stakater.com/reload: web,uploads-proxy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: web
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: web
+    spec:
+      securityContext:
+        # www-data in the Debian WordPress image. The Alpine cli image's www-data is 82, so it
+        # runs as 33 too; the nginx images keep their own user (101), with 33 as their group.
+        runAsUser: 33
+        runAsGroup: 33
+        fsGroup: 33
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        # The CA bundle PHP verifies MariaDB against (config/php.ini), then WordPress core and
+        # wp-config.php into the empty html volume - the image's own entrypoint, which exits after
+        # installing when called as docker-ensure-installed.sh.
+        - name: core
+          image: wordpress:7-php8.4-fpm
+          imagePullPolicy: Always
+          command:
+            - sh
+            - -ec
+            - |
+              cat /etc/ssl/certs/ca-certificates.crt /etc/mariadb-ca/ca.crt > /tls/ca-bundle.crt
+              exec docker-ensure-installed.sh true
+          env: &wordpress-env
+            # wp-cli keeps its cache under HOME; the images' own home is not writable for 33.
+            - name: HOME
+              value: /tmp
+            - name: WORDPRESS_DB_HOST
+              value: mariadb-primary.mariadb.svc:3306
+            - name: WORDPRESS_DB_USER
+              value: arepazo
+            - name: WORDPRESS_DB_NAME
+              value: arepazo
+            # wp-config.php reads every WORDPRESS_* variable at runtime, so each container that
+            # loads WordPress carries the same set.
+            - name: WORDPRESS_CONFIG_EXTRA
+              value: &config-extra |
+                define( 'S3_UPLOADS_BUCKET', 'd3strukt0r-prod-arepazo' );
+                define( 'S3_UPLOADS_REGION', 'nbg1' );
+                define( 'S3_UPLOADS_KEY', getenv( 'S3_KEY' ) );
+                define( 'S3_UPLOADS_SECRET', getenv( 'S3_SECRET' ) );
+                // Never public: browsers get uploads through the site and its uploads proxy.
+                define( 'S3_UPLOADS_OBJECT_ACL', 'private' );
+                define( 'S3_UPLOADS_BUCKET_URL', 'https://www.arepazo.ch/wp-content' );
+                // The shop's own address, whatever the database says.
+                define( 'WP_HOME', 'https://www.arepazo.ch' );
+                define( 'WP_SITEURL', 'https://www.arepazo.ch' );
+                // TLS alone is not checked: PHP verifies MariaDB's certificate (against
+                // config/php.ini's openssl.cafile) only with VERIFY_SERVER_CERT - tested 2026-10-03.
+                define( 'MYSQL_CLIENT_FLAGS', MYSQLI_CLIENT_SSL | MYSQLI_CLIENT_SSL_VERIFY_SERVER_CERT );
+                // Plugins and themes come from config/plugins.txt, WordPress itself from the image.
+                define( 'DISALLOW_FILE_MODS', true );
+                define( 'DISALLOW_FILE_EDIT', true );
+                define( 'AUTOMATIC_UPDATER_DISABLED', true );
+                // Scheduled tasks run from the CronJob wp-cron, not on page loads (cronjob.yaml).
+                define( 'DISABLE_WP_CRON', true );
+          envFrom: &wordpress-secrets
+            - secretRef:
+                name: web
+          securityContext: &restricted
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: html
+              mountPath: /var/www/html
+            - name: tls
+              mountPath: /tls
+            - name: mariadb-ca
+              mountPath: /etc/mariadb-ca
+              readOnly: true
+        # Plugins, themes and S3-Uploads, then - once the database holds the site - a database
+        # update if a new WordPress needs one and the language packs, which WordPress cannot fetch
+        # itself (DISALLOW_FILE_MODS): de_CH for wp-admin, de_DE, en_US and es_ES for the shop's
+        # Polylang languages (en_US needs none). A failed language pack only leaves English text,
+        # so it does not stop the start.
+        - name: plugins
+          image: wordpress:cli-2-php8.4
+          imagePullPolicy: Always
+          command:
+            - sh
+            - -ec
+            - |
+              cd /var/www/html/wp-content
+              fetch() {
+                curl -fsSL --retry 3 -o /tmp/download.zip "$1"
+                unzip -qo /tmp/download.zip -d "$2"
+                rm /tmp/download.zip
+              }
+              grep -v '^#' /config/plugins.txt | while read -r kind slug version; do
+                [ -n "$kind" ] || continue
+                fetch "https://downloads.wordpress.org/$kind/$slug${version:+.$version}.zip" "${kind}s"
+              done
+              # Not on wordpress.org; the release zip has its files at the root.
+              mkdir -p plugins/s3-uploads mu-plugins
+              fetch https://github.com/humanmade/S3-Uploads/releases/download/3.0.10/manual-install.zip plugins/s3-uploads
+              cp /config/s3-uploads-hetzner.php mu-plugins/
+              if wp core is-installed; then
+                wp core update-db
+                for l in de_CH de_DE es_ES; do
+                  wp language core install "$l" || echo "warning: $l for core not installed"
+                  wp language plugin install --all "$l" || echo "warning: $l for plugins not installed"
+                  wp language theme install --all "$l" || echo "warning: $l for themes not installed"
+                done
+              fi
+          env:
+            # wp-cli loads WooCommerce and its admin code, which needs far more than 256M
+            # (measured on prod-old: 128M crashed). Only this short-lived container gets it.
+            - name: WP_CLI_PHP_ARGS
+              value: -d memory_limit=1024M
+            - name: HOME
+              value: /tmp
+            - name: WORDPRESS_DB_HOST
+              value: mariadb-primary.mariadb.svc:3306
+            - name: WORDPRESS_DB_USER
+              value: arepazo
+            - name: WORDPRESS_DB_NAME
+              value: arepazo
+            - name: WORDPRESS_CONFIG_EXTRA
+              value: *config-extra
+          envFrom: *wordpress-secrets
+          securityContext: *restricted
+          resources:
+            limits:
+              memory: 1280Mi
+          volumeMounts:
+            - name: html
+              mountPath: /var/www/html
+            - name: tls
+              mountPath: /tls
+              readOnly: true
+            - name: config
+              mountPath: /config
+              readOnly: true
+            - name: config
+              mountPath: /usr/local/etc/php/conf.d/zz-arepazo.ini
+              subPath: php.ini
+              readOnly: true
+      containers:
+        - name: php-fpm
+          image: wordpress:7-php8.4-fpm
+          imagePullPolicy: Always
+          env: *wordpress-env
+          envFrom: *wordpress-secrets
+          securityContext: *restricted
+          resources:
+            requests:
+              memory: 192Mi
+            # prod-old's php-fpm was OOM-killed at 280M; up to 256M per request (config/php.ini).
+            limits:
+              memory: 512Mi
+          volumeMounts:
+            - name: html
+              mountPath: /var/www/html
+            - name: tls
+              mountPath: /tls
+              readOnly: true
+            - name: config
+              mountPath: /usr/local/etc/php/conf.d/zz-arepazo.ini
+              subPath: php.ini
+              readOnly: true
+        - name: nginx
+          # Without docker.io/: Keel writes the short form back (components/keel).
+          image: nginxinc/nginx-unprivileged:stable
+          imagePullPolicy: Always
+          securityContext:
+            runAsUser: 101
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          ports:
+            - name: http
+              containerPort: 8081
+          # robots.txt is answered by WordPress, so this exercises nginx, php-fpm and the database.
+          startupProbe:
+            httpGet: &robots
+              path: /robots.txt
+              port: http
+              httpHeaders:
+                - name: Host
+                  value: www.arepazo.ch
+            periodSeconds: 5
+            failureThreshold: 24
+          readinessProbe:
+            httpGet: *robots
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet: *robots
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 5
+          volumeMounts:
+            - name: html
+              mountPath: /var/www/html
+              readOnly: true
+            - name: config
+              mountPath: /etc/nginx/conf.d/default.conf
+              subPath: default.conf
+              readOnly: true
+        # Signs nginx's requests for /wp-content/uploads/ with the read-only key and streams the
+        # files from the private bucket (nginx/nginx-s3-gateway). GET and HEAD only.
+        - name: uploads-proxy
+          image: ghcr.io/nginxinc/nginx-s3-gateway/nginx-oss-s3-gateway:unprivileged-oss
+          imagePullPolicy: Always
+          envFrom:
+            - secretRef:
+                name: uploads-proxy
+          env:
+            - name: S3_BUCKET_NAME
+              value: d3strukt0r-prod-arepazo
+            - name: S3_SERVER
+              value: nbg1.your-objectstorage.com
+            - name: S3_SERVER_PORT
+              value: "443"
+            - name: S3_SERVER_PROTO
+              value: https
+            - name: S3_REGION
+              value: nbg1
+            # Not `path`: the gateway then signs `Host: <server>:443`, and Hetzner rejects that
+            # signature (SignatureDoesNotMatch, tested 2026-10-03). Virtual-host style sends the
+            # bucket's own host name without a port.
+            - name: S3_STYLE
+              value: virtual
+            - name: AWS_SIGS_VERSION
+              value: "4"
+            - name: ALLOW_DIRECTORY_LIST
+              value: "false"
+            # The default (10g) would outgrow the pod's ephemeral storage and get it evicted.
+            - name: PROXY_CACHE_MAX_SIZE
+              value: 256m
+          securityContext:
+            runAsUser: 101
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: proxy-cache
+              mountPath: /var/cache/nginx/s3_proxy
+      volumes:
+        - name: html
+          emptyDir:
+            sizeLimit: 1Gi
+        - name: tls
+          emptyDir:
+            sizeLimit: 1Mi
+        - name: proxy-cache
+          emptyDir:
+            sizeLimit: 300Mi
+        - name: config
+          configMap:
+            name: web-config
+        - name: mariadb-ca
+          configMap:
+            name: mariadb-ca

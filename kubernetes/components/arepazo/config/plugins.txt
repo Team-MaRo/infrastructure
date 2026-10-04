@@ -1,0 +1,44 @@
+# What the init container `plugins` installs into wp-content at every start, as
+# `<kind> <slug> [<version>]`: the latest release of each from wordpress.org, or the version given.
+# WordPress cannot install anything itself (DISALLOW_FILE_MODS), so this list is the site's plugins
+# and themes; whether a plugin is active stays in the database, as before. S3-Uploads is installed
+# beside these (deployment.yaml). Everything prod-old had, active or not.
+plugin block-options
+plugin bulk-delete
+plugin cloudflare
+plugin disqus-comment-system
+plugin duplicator
+plugin fancybox-for-wordpress
+plugin google-analytics-for-wordpress
+plugin google-listings-and-ads
+plugin homepage-control
+plugin jetpack
+plugin jetpack-boost
+plugin jetpack-protect
+plugin litespeed-cache
+plugin loginizer
+plugin polylang
+plugin press-tab-to-search
+# 1.23.4 ships without vendor/symfony/polyfill-ctype/bootstrap80.php and takes the whole site down
+# with a fatal error; Timber 1.x is no longer maintained, so no fixed release will come.
+plugin timber-library 1.23.1
+plugin tinymce-advanced
+plugin woo-gutenberg-products-block
+plugin woocommerce
+plugin woocommerce-coupon-shortcodes
+plugin woocommerce-customizer
+plugin woocommerce-eu-vat-compliance
+plugin woocommerce-gateway-paypal-powered-by-braintree
+plugin woocommerce-google-analytics-integration
+plugin woocommerce-paypal-payments
+plugin woocommerce-pdf-invoices-packing-slips
+plugin wordpress-seo
+plugin wp-mail-smtp
+plugin wpforms-lite
+plugin wpzoom-portfolio
+plugin yith-essential-kit-for-woocommerce-1
+plugin yith-woocommerce-advanced-reviews
+plugin yith-woocommerce-order-tracking
+plugin yith-woocommerce-request-a-quote
+theme inspiro-blocks
+theme twentytwentyfive

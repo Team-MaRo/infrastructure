@@ -1,0 +1,58 @@
+---
+# WordPress's scheduled tasks (WP-Cron: Action Scheduler queues, cache clean-up, plugin jobs) every
+# five minutes, on time and independent of visitors. WordPress would otherwise start them on page
+# loads by calling its own public address; this calls the Service inside the cluster instead.
+# DISABLE_WP_CRON (deployment.yaml) stops the page-load calls.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: wp-cron
+  annotations:
+    # A new image under the same tag rolls it out (components/keel).
+    keel.sh/policy: force
+    keel.sh/matchTag: "true"
+    keel.sh/trigger: poll
+spec:
+  schedule: "*/5 * * * *"
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 300
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 600
+      template:
+        spec:
+          restartPolicy: Never
+          securityContext:
+            runAsNonRoot: true
+            # curl_user in the curl image.
+            runAsUser: 100
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: wp-cron
+              # Without docker.io/: Keel writes the short form back (components/keel).
+              image: curlimages/curl:latest
+              imagePullPolicy: Always
+              # The headers make it an ordinary request to the site's own address, so WordPress
+              # neither redirects it nor takes it for plain http.
+              args:
+                - --fail
+                - --silent
+                - --show-error
+                - --max-time
+                - "540"
+                - --output
+                - /dev/null
+                - --header
+                - "Host: www.arepazo.ch"
+                - --header
+                - "X-Forwarded-Proto: https"
+                - http://web/wp-cron.php
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
