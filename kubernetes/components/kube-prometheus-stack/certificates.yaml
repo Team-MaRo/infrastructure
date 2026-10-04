@@ -1,5 +1,5 @@
 ---
-# Grafana's certificate for Traefik, issued separately rather than through Ingress annotations
+# The UIs' certificates for Traefik, issued separately rather than through Ingress annotations
 # (as for Zitadel and Argo CD).
 apiVersion: cert-manager.io/v1
 kind: Certificate
@@ -9,6 +9,30 @@ spec:
   secretName: grafana-tls
   dnsNames:
     - grafana.d3strukt0r.dev
+  issuerRef:
+    kind: ClusterIssuer
+    name: letsencrypt
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: prometheus-tls
+spec:
+  secretName: prometheus-tls
+  dnsNames:
+    - prometheus.d3strukt0r.dev
+  issuerRef:
+    kind: ClusterIssuer
+    name: letsencrypt
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: alertmanager-tls
+spec:
+  secretName: alertmanager-tls
+  dnsNames:
+    - alertmanager.d3strukt0r.dev
   issuerRef:
     kind: ClusterIssuer
     name: letsencrypt

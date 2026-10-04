@@ -115,7 +115,12 @@ Reloader only acts on the Deployment; [`../reloader/README.md`](../reloader/READ
 
 **Grafana** is at `https://grafana.d3strukt0r.dev` - "Sign in with Zitadel"; its local `admin`
 (password in 1Password [`Grafana | Prod | Admin`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=25tqaghtajnc3efoop2ve6jfze&h=my.1password.com)) and the port-forward below
-stay as break-glass. Grafana, Prometheus and Alertmanager by port-forward:
+stay as break-glass. **Prometheus** is at `https://prometheus.d3strukt0r.dev` and
+**Alertmanager** at `https://alertmanager.d3strukt0r.dev`, both behind the Zitadel gate
+(`middleware-oauth2-proxy.yaml`, [`../oauth2-proxy/README.md`](../oauth2-proxy/README.md)),
+since neither has a login of its own. Prometheus' address is its `externalUrl`, so the
+"Source" link in an alert message opens the alert's query there; Alertmanager's is set
+explicitly, as the chart would derive `http://`. All three by port-forward:
 
 ```shell
 kubectl --context d3strukt0r-prod-admin -n monitoring port-forward svc/kube-prometheus-stack-grafana 3000:80
@@ -171,7 +176,8 @@ minutes.
 Its message says what fired and where. The cluster's own alerts (`rules.yaml`) carry what to do
 in their description; the chart's are explained in the
 [runbooks](https://runbooks.prometheus-operator.dev/), which each alert links as `runbook_url`.
-A known cause being worked on can be silenced in Alertmanager's UI (Silences → New Silence),
+A known cause being worked on can be silenced in Alertmanager's UI
+(`https://alertmanager.d3strukt0r.dev`, Silences → New Silence),
 for a fixed time.
 
 **A volume alert** (80 %, 90 %, 95 %) is answered by growing the volume: raise the PVC's

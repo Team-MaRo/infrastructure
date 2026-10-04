@@ -105,7 +105,8 @@ kubernetes/
     │   ├── external-secrets.yaml  # ntfy URLs and token, Grafana's admin, from OpenBao
     │   ├── scrape-etcd.yaml       # etcd's metrics on the servers' private IPs
     │   ├── rules.yaml             # this cluster's own alerts
-    │   └── certificates.yaml      # grafana.d3strukt0r.dev
+    │   ├── certificates.yaml      # grafana., prometheus., alertmanager.d3strukt0r.dev
+    │   └── middleware-oauth2-proxy.yaml  # the Zitadel gate for Prometheus and Alertmanager
     ├── loki/
     │   ├── values.yaml            # Helm values: one instance, S3, 30 days
     │   ├── kustomization.yaml
@@ -310,8 +311,9 @@ way in (a local admin and a port-forward).
 
 - **Argo CD** - `https://argocd.d3strukt0r.dev`, CLI `argocd login argocd.d3strukt0r.dev --sso --grpc-web`:
   "Accessing the UI" in [`components/argocd/README.md`](components/argocd/README.md)
-- **Grafana, Prometheus, Alertmanager** - `https://grafana.d3strukt0r.dev`, the other two by
-  port-forward: "Accessing the UIs" in
+- **Grafana, Prometheus, Alertmanager** - `https://grafana.d3strukt0r.dev`,
+  `https://prometheus.d3strukt0r.dev` and `https://alertmanager.d3strukt0r.dev` (the last two
+  behind the Zitadel gate): "Accessing the UIs" in
   [`components/kube-prometheus-stack/README.md`](components/kube-prometheus-stack/README.md)
 - **OpenBao** - `https://openbao.d3strukt0r.dev`, method OIDC: "Logging in" in
   [`components/openbao/README.md`](components/openbao/README.md)

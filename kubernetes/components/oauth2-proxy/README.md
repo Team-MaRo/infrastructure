@@ -1,7 +1,7 @@
 # oauth2-proxy
 
-The login gate: UIs without a Zitadel login of their own - the Traefik dashboard and
-phpMyAdmin - sit behind oauth2-proxy (`kubernetes/clusters/prod/oauth2-proxy.yaml`, chart pinned, values and extra
+The login gate: UIs without a Zitadel login of their own - the Traefik dashboard, phpMyAdmin,
+Prometheus and Alertmanager - sit behind oauth2-proxy (`kubernetes/clusters/prod/oauth2-proxy.yaml`, chart pinned, values and extra
 objects in this directory, namespace `oauth2-proxy`). Traefik asks it about every request (a
 `forwardAuth` Middleware); it never proxies a request itself (`upstreams: static://202`). How the
 cluster's manifests fit together is in [`kubernetes/README.md`](../../README.md).
@@ -24,8 +24,9 @@ cluster's manifests fit together is in [`kubernetes/README.md`](../../README.md)
   are in 1Password [`Zitadel | Prod | oauth2-proxy`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=7ckbf72eceri3t2s3cy7c5du2y&h=my.1password.com) and OpenBao `secret/oauth2-proxy`, delivered
   by the ExternalSecret `oauth2-proxy` (the client ID, not secret, is written into its
   template).
-- **The Middleware exists once per guarded namespace** (`kube-system`, `phpmyadmin`) - Traefik
-  only takes middleware from the router's own namespace (`allowCrossNamespace` stays off);
+- **The Middleware exists once per guarded namespace** (`kube-system`, `phpmyadmin`,
+  `monitoring`) - Traefik only takes middleware from the router's own namespace
+  (`allowCrossNamespace` stays off);
   each points at `http://oauth2-proxy.oauth2-proxy.svc`. A new guarded UI gets a copy in its
   namespace, the annotation `traefik.ingress.kubernetes.io/router.middlewares:
   <namespace>-oauth2-proxy@kubernetescrd` on its Ingress, and its hostname under the domain.

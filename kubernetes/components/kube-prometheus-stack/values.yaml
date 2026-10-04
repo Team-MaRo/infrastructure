@@ -64,6 +64,19 @@ prometheusOperator:
       enabled: true
 
 prometheus:
+  # At prometheus.d3strukt0r.dev behind the Zitadel gate (middleware-oauth2-proxy.yaml), its
+  # record in tofu/cloudflare, certificate from certificates.yaml. From host and TLS the chart
+  # derives Prometheus' externalUrl (https), which the alerts' Source link is built from.
+  ingress:
+    enabled: true
+    annotations:
+      traefik.ingress.kubernetes.io/router.middlewares: monitoring-oauth2-proxy@kubernetescrd
+    hosts:
+      - prometheus.d3strukt0r.dev
+    tls:
+      - hosts:
+          - prometheus.d3strukt0r.dev
+        secretName: prometheus-tls
   prometheusSpec:
     retention: 30d
     # Deletes the oldest data before the volume fills, whatever the age. At about 350 MB a
@@ -92,7 +105,20 @@ prometheus:
     scrapeConfigSelectorNilUsesHelmValues: false
 
 alertmanager:
+  # At alertmanager.d3strukt0r.dev behind the Zitadel gate, like Prometheus.
+  ingress:
+    enabled: true
+    annotations:
+      traefik.ingress.kubernetes.io/router.middlewares: monitoring-oauth2-proxy@kubernetescrd
+    hosts:
+      - alertmanager.d3strukt0r.dev
+    tls:
+      - hosts:
+          - alertmanager.d3strukt0r.dev
+        secretName: alertmanager-tls
   alertmanagerSpec:
+    # The chart would derive http:// from the ingress, unlike for Prometheus.
+    externalUrl: https://alertmanager.d3strukt0r.dev
     # Mounted under /etc/alertmanager/secrets/alertmanager-ntfy/, from external-secrets.yaml.
     secrets:
       - alertmanager-ntfy

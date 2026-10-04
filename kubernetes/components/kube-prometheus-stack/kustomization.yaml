@@ -10,3 +10,4 @@ resources:
   - scrape-etcd.yaml
   - rules.yaml
   - certificates.yaml
+  - middleware-oauth2-proxy.yaml
