@@ -13,6 +13,7 @@ own docs use.
 | `d3strukt0r-prod-openbao-snapshots` | bucket, object lock, lifecycle, policy | only OpenBao's snapshot key and the admin key; like the etcd bucket, the key cannot bypass the lock or change the bucket's rules |
 | `d3strukt0r-prod-wedding-manuele-robine` | bucket, versioning, lifecycle, policy | only the app's key and the admin key |
 | `d3strukt0r-prod-robines-portfolio` | bucket, versioning, lifecycle, policy | only the app's key, its uploads proxy's key (read only) and the admin key; only the admin key may change the bucket |
+| `d3strukt0r-prod-arepazo` | bucket, versioning, lifecycle, policy | as robines-portfolio's: the app's key, its uploads proxy's key (read only), the admin key |
 
 Shared rules, credentials and the state backend are in [`../README.md`](../README.md).
 
@@ -24,9 +25,10 @@ way to scope one is a bucket policy, so `tofu/objectstorage` writes every policy
 (`local.admin_principal`), plus at most the one cluster key that bucket is for
 (`local.etcd_principal`, `local.loki_principal`, `local.mariadb_backups_principal`,
 `local.postgres_backups_principal`, `local.openbao_snapshots_principal`,
-`local.wedding_manuele_robine_principal`, `local.robines_portfolio_principal`;
-robines-portfolio's bucket also names its uploads proxy's read-only key,
-`local.robines_portfolio_uploads_proxy_principal`). That covers keys that do not exist yet, so
+`local.wedding_manuele_robine_principal`, `local.robines_portfolio_principal`,
+`local.arepazo_principal`; the WordPress sites' buckets also name their uploads proxy's read-only
+key, `local.robines_portfolio_uploads_proxy_principal`, `local.arepazo_uploads_proxy_principal`).
+That covers keys that do not exist yet, so
 **each key the cluster holds reaches only its own bucket**. The cluster keys' access key IDs
 (not their secrets) are `etcd_access_key_id`, `loki_access_key_id`,
 `mariadb_backups_access_key_id` and `postgres_backups_access_key_id` in the module's tfvars; a
@@ -124,6 +126,11 @@ below). **Whether Hetzner expires current objects depends on versioning**, both 
   write (`PutObject`, the deletes, `PutObjectAcl`, `AbortMultipartUpload`) for all but the app's
   and the admin key, so the proxy key only reads; bucket changes (lifecycle, versioning, policy,
   deletion) for all but the admin key. Versions and lifecycle as for wedding-manuele-robine.
+- **`d3strukt0r-prod-arepazo`: the same for the shop arepazo** - keys `prod arepazo` (1Password
+  [`Hetzner | S3 | prod arepazo`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=t6onf7inzynbh6oqvdggcrdzoy&h=my.1password.com), OpenBao `secret/arepazo-s3`) and
+  `prod arepazo uploads-proxy` (1Password [`Hetzner | S3 | prod arepazo uploads-proxy`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=gs5mn5w3sfbqsljokq3ukhjtjy&h=my.1password.com),
+  OpenBao `secret/arepazo-uploads-proxy-s3`). It also holds invoice PDFs with customer data, which
+  the site's nginx never hands to the proxy.
 - **Provider `aminueza/minio`, `s3_compat_mode` off.** The `aws` provider cannot refresh a
   bucket here (it reads Accelerate, Website, Logging, Replication and Tagging, all
   unimplemented). Compat mode would swallow "not implemented" errors, object lock and
@@ -150,7 +157,8 @@ labels live only in the Hetzner console.
 Needs `project_id`, `etcd_access_key_id`, `loki_access_key_id`,
 `mariadb_backups_access_key_id`, `postgres_backups_access_key_id`,
 `openbao_snapshots_access_key_id`, `wedding_manuele_robine_access_key_id`,
-`robines_portfolio_access_key_id` and `robines_portfolio_uploads_proxy_access_key_id` in
+`robines_portfolio_access_key_id`, `robines_portfolio_uploads_proxy_access_key_id`,
+`arepazo_access_key_id` and `arepazo_uploads_proxy_access_key_id` in
 `objectstorage/terraform.tfvars` - the key IDs are the username fields of the keys'
 1Password items, never the secrets. The provider cannot read
 AWS profiles, so `locals.tf` parses the `[d3strukt0r-hetzner]` section of

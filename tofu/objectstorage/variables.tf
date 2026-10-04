@@ -110,3 +110,27 @@ variable "robines_portfolio_uploads_proxy_access_key_id" {
     error_message = "robines_portfolio_uploads_proxy_access_key_id must be a 20-character Hetzner access key ID."
   }
 }
+
+# 1Password "Hetzner | S3 | prod arepazo"
+#   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=t6onf7inzynbh6oqvdggcrdzoy&h=my.1password.com
+variable "arepazo_access_key_id" {
+  description = "Access key ID of the S3 key arepazo's WordPress stores its uploads with (1Password: Hetzner | S3 | prod arepazo, username). Set in terraform.tfvars."
+  type        = string
+
+  validation {
+    condition     = can(regex("^[A-Z0-9]{20}$", var.arepazo_access_key_id))
+    error_message = "arepazo_access_key_id must be a 20-character Hetzner access key ID."
+  }
+}
+
+# 1Password "Hetzner | S3 | prod arepazo uploads-proxy"
+#   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=gs5mn5w3sfbqsljokq3ukhjtjy&h=my.1password.com
+variable "arepazo_uploads_proxy_access_key_id" {
+  description = "Access key ID of the read-only S3 key arepazo's uploads proxy serves the uploads with (1Password: Hetzner | S3 | prod arepazo uploads-proxy, username). Set in terraform.tfvars."
+  type        = string
+
+  validation {
+    condition     = can(regex("^[A-Z0-9]{20}$", var.arepazo_uploads_proxy_access_key_id))
+    error_message = "arepazo_uploads_proxy_access_key_id must be a 20-character Hetzner access key ID."
+  }
+}

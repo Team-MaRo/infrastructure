@@ -35,3 +35,9 @@ robines_portfolio_access_key_id = ""
 # 1Password "Hetzner | S3 | prod robines-portfolio uploads-proxy"
 #   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=3icb7ypn2ub7bk7x2yzbwhkrfm&h=my.1password.com
 robines_portfolio_uploads_proxy_access_key_id = ""
+# 1Password "Hetzner | S3 | prod arepazo"
+#   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=t6onf7inzynbh6oqvdggcrdzoy&h=my.1password.com
+arepazo_access_key_id = ""
+# 1Password "Hetzner | S3 | prod arepazo uploads-proxy"
+#   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=gs5mn5w3sfbqsljokq3ukhjtjy&h=my.1password.com
+arepazo_uploads_proxy_access_key_id = ""

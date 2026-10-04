@@ -23,4 +23,6 @@ locals {
   wedding_manuele_robine_principal          = "arn:aws:iam:::user/p${var.project_id}:${var.wedding_manuele_robine_access_key_id}"
   robines_portfolio_principal               = "arn:aws:iam:::user/p${var.project_id}:${var.robines_portfolio_access_key_id}"
   robines_portfolio_uploads_proxy_principal = "arn:aws:iam:::user/p${var.project_id}:${var.robines_portfolio_uploads_proxy_access_key_id}"
+  arepazo_principal                         = "arn:aws:iam:::user/p${var.project_id}:${var.arepazo_access_key_id}"
+  arepazo_uploads_proxy_principal           = "arn:aws:iam:::user/p${var.project_id}:${var.arepazo_uploads_proxy_access_key_id}"
 }
