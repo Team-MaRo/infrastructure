@@ -175,6 +175,12 @@ spec:
         - name: php-fpm
           image: wordpress:7-php8.4-fpm
           imagePullPolicy: Always
+          # All containers get the stop signal at once, while Traefik still sends requests to the
+          # pod for a moment; each keeps serving 10 s more, so the pod leaves the endpoints first.
+          lifecycle: &drain
+            preStop:
+              sleep:
+                seconds: 10
           env: *wordpress-env
           envFrom: *wordpress-secrets
           securityContext: *restricted
@@ -200,6 +206,7 @@ spec:
           # Without docker.io/: Keel writes the short form back (components/keel).
           image: nginxinc/nginx-unprivileged:stable
           imagePullPolicy: Always
+          lifecycle: *drain
           securityContext:
             runAsUser: 101
             allowPrivilegeEscalation: false
@@ -246,6 +253,7 @@ spec:
         - name: uploads-proxy
           image: ghcr.io/nginxinc/nginx-s3-gateway/nginx-oss-s3-gateway:unprivileged-oss
           imagePullPolicy: Always
+          lifecycle: *drain
           envFrom:
             - secretRef:
                 name: uploads-proxy

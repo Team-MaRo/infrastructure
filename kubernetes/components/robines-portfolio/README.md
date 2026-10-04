@@ -65,6 +65,9 @@ the bucket `d3strukt0r-prod-robines-portfolio` (`tofu/objectstorage`).
   `wp-config*`, readme or licence, no dotfiles, nothing executable under uploads; prod-old's
   security headers and permissive CSP (embeds from YouTube and Twitter). `absolute_redirect off`
   keeps nginx's own redirects on the site's address instead of `http://…:8081`.
+- **A drain before stopping.** Every container of the pod waits 10 s (`preStop` `sleep`) before
+  it stops: all of them get the stop signal at once, while Traefik still routes to the pod for a
+  moment, so without it a rollout answered a few requests with 502.
 - **Restricted Pod Security**: the pod runs as 33 (`www-data`), the two nginx images as their own
   user 101, the curl job as 100.
 - **Watched by Gatus** ("Robines Portfolio (old)" on the status page, `components/gatus`): the home
