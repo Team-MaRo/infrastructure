@@ -31,10 +31,10 @@ resource "minio_s3_bucket_object_lock_configuration" "prod_openbao_snapshots" {
   }
 }
 
-# The agent deletes snapshots older than 30 days itself (Hetzner's lifecycle never expires
-# current objects), which on a versioned bucket only adds a delete marker. This removes the
-# hidden version 7 days later - never earlier than its lock allows - and then the orphaned
-# marker, so storage stays bounded. Parts of an upload that never completed
+# The agent deletes snapshots older than 30 days itself (on a versioned bucket Hetzner's
+# lifecycle does not expire current objects - README), which only adds a delete marker. This
+# removes the hidden version 7 days later - never earlier than its lock allows - and then the
+# orphaned marker, so storage stays bounded. Parts of an upload that never completed
 # go after 7 days, as on every bucket.
 resource "minio_s3_bucket_lifecycle" "prod_openbao_snapshots" {
   bucket = minio_s3_bucket.prod_openbao_snapshots.bucket

@@ -48,9 +48,15 @@ billed. **A versioned bucket's rule also expires noncurrent versions** and then 
 delete markers - versioning never forgets on its own. An unversioned bucket's rule does no
 more than the abort: its writer deletes old data itself (Loki's compactor, a backup tool's
 retention), and a second deleter could remove objects the tool still expects. The one
-exception is `d3strukt0r-prod-mariadb-backups`, whose writer does not prune everything (see below). Hetzner's lifecycle only removes
-*orphaned* markers with `expired_object_delete_marker`; it never expires current objects,
-although uploads answer with an `Expiration` header that suggests so (tested 2026-09).
+exception is `d3strukt0r-prod-mariadb-backups`, whose writer does not prune everything (see
+below). **Whether Hetzner expires current objects depends on versioning**, both tested:
+
+- **Unversioned: yes.** An object in a test bucket with a one-day `Expiration` rule was gone the
+  next day (uploaded 2026-10-02, checked 2026-10-04) - so the 35-day rule of the unversioned
+  `d3strukt0r-prod-mariadb-backups` does delete old backups and binlogs.
+- **Versioned: no.** On a versioned bucket the current objects stayed (2026-09-25 to 28),
+  although uploads answer with an `Expiration` header that suggests otherwise; there the rule
+  only removes noncurrent versions and, with `expired_object_delete_marker`, orphaned markers.
 
 - **`d3strukt0r-tfstate`: every action denied to every other key** - the Hetzner web
   console included, which reads buckets under its own identity and so shows "Ressource ist
