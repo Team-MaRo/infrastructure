@@ -32,5 +32,11 @@ spec:
     automated:
       prune: true
       selfHeal: true
+    # The chart puts a Role into every namespace in values.yaml; a namespace added in the same
+    # commit as its app may not exist yet when this syncs. Without a retry, automated sync never
+    # tries that commit again. Ten attempts at the default backoff (5s doubling, at most 3m) span
+    # about 17 minutes.
+    retry:
+      limit: 10
     syncOptions:
       - ServerSideApply=true

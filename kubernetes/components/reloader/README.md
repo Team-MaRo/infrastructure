@@ -27,7 +27,8 @@ themselves (Gatus' config, Alertmanager's ntfy secret, Alloy, Argo CD's webhook 
 - **Only listed namespaces** (`watchGlobally: false`, `namespaces` in `values.yaml`, user
   decision): the chart creates a Role in each, and no ClusterRole that could read every Secret
   in the cluster (OpenBao's, the databases', kube-system's). Every listed namespace must exist,
-  or the sync fails.
+  or the sync fails - so the Application retries a failed sync (`retry.limit: 10`, about 17
+  minutes), and a new app's namespace can go in with the app in one commit.
 - **The annotations strategy** (`reloadStrategy: annotations`): a restart sets
   `reloader.stakater.com/last-reloaded-from` on the pod template. The default strategy adds an
   environment variable instead, which Argo CD's self-heal would revert - restarting the app
@@ -55,6 +56,7 @@ themselves (Gatus' config, Alertmanager's ntfy secret, Alloy, Argo CD's webhook 
 | `api` (wedding-manuele-robine) | Secrets `api`, `jwt` | environment variables; `jwt` too, so a new key pair arrives together with its passphrase |
 | `pwa` (wedding-manuele-robine) | Secret `pwa` | envsubst writes the Maps key into the files at start |
 | `web` (robines-portfolio) | Secrets `web`, `uploads-proxy` | environment variables (WordPress's keys, database password, the two S3 keys) |
+| `web` (arepazo) | Secrets `web`, `uploads-proxy` | as robines-portfolio's |
 | `zitadel` | Secret `zitadel-db` | environment variable |
 | `zitadel-groups` | ConfigMap `zitadel-groups` | Python loads the script once |
 | `oauth2-proxy` | Secret `oauth2-proxy` | environment variables |
