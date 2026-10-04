@@ -180,10 +180,11 @@ spec:
           securityContext: *restricted
           resources:
             requests:
-              memory: 192Mi
-            # prod-old's php-fpm was OOM-killed at 280M; up to 256M per request (config/php.ini).
+              memory: 384Mi
+            # Five workers (pm.max_children) run at once under real traffic, each up to 256M per
+            # request (config/php.ini); 512Mi was OOM-killed twice right after the switch.
             limits:
-              memory: 512Mi
+              memory: 1Gi
           volumeMounts:
             - name: html
               mountPath: /var/www/html

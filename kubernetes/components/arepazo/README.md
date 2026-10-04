@@ -39,7 +39,9 @@ a CronJob, `absolute_redirect off`, restricted Pod Security. What differs:
   proxy sees the request. WordPress reads them itself through S3-Uploads. A plugin that adds
   such a directory needs it added to the list in `config/default.conf`.
 - **More memory.** prod-old's php-fpm was OOM-killed at 280M: PHP gets `memory_limit 256M`, the
-  php-fpm container 512Mi. wp-cli in the init container loads WooCommerce's admin code and
+  php-fpm container a 1Gi limit (384Mi requested; it idles at 250-300Mi). Under real traffic all
+  five workers (`pm.max_children`) run at once - 512Mi was OOM-killed twice right after the
+  switch (2026-10-04). wp-cli in the init container loads WooCommerce's admin code and
   crashes at 128M, so it runs with `-d memory_limit=1024M` (`WP_CLI_PHP_ARGS`) in a 1280Mi
   container that exits once the site is assembled.
 - **Slow requests, patient probes.** Every page takes about 3 s, on prod-old as here (WooCommerce,
