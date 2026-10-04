@@ -1,9 +1,14 @@
 # DNS records for arepazo.ch (arepazo account).
 
+# The shop on the prod cluster (kubernetes/components/arepazo): one proxied A and AAAA record per
+# node, as prod.d3strukt0r.dev has. Not a CNAME to that name: it lives in the personal account,
+# and Cloudflare refuses a proxied CNAME to a proxied name in another account (error 1014).
+# www. follows through its CNAME to the apex.
 resource "cloudflare_dns_record" "arepazo_ch_a_apex" {
+  for_each = local.prod_nodes
   provider = cloudflare.arepazo
 
-  content  = "161.35.16.9"
+  content  = each.value.ipv4
   name     = "arepazo.ch"
   proxied  = true
   tags     = []
@@ -14,9 +19,10 @@ resource "cloudflare_dns_record" "arepazo_ch_a_apex" {
 }
 
 resource "cloudflare_dns_record" "arepazo_ch_aaaa_apex" {
+  for_each = local.prod_nodes
   provider = cloudflare.arepazo
 
-  content  = "2a03:b0c0:3:d0::f65:2001"
+  content  = each.value.ipv6
   name     = "arepazo.ch"
   proxied  = true
   tags     = []
@@ -24,6 +30,17 @@ resource "cloudflare_dns_record" "arepazo_ch_aaaa_apex" {
   type     = "AAAA"
   zone_id  = local.zone_ids["arepazo.ch"]
   settings = {}
+}
+
+# The single records that pointed at the old server become prod-01's.
+moved {
+  from = cloudflare_dns_record.arepazo_ch_a_apex
+  to   = cloudflare_dns_record.arepazo_ch_a_apex["prod-01"]
+}
+
+moved {
+  from = cloudflare_dns_record.arepazo_ch_aaaa_apex
+  to   = cloudflare_dns_record.arepazo_ch_aaaa_apex["prod-01"]
 }
 
 resource "cloudflare_dns_record" "arepazo_ch_cname_autodiscover" {

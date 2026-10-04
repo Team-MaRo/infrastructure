@@ -71,14 +71,16 @@ Things that will bite:
 The old DigitalOcean server still serves its apps and tools. It is
 `prod-old.d3strukt0r.dev` (A and AAAA to its IPs), and every record for something it
 serves points there: the wildcard `*.d3strukt0r.dev`, `ssh.`, and the apex CNAMEs of
-`d3st.dev`, `d3st.org`, `d3strukt0r.me`, `manuele-vaccari.ch`, `manuele-robine.wedding`
-and `old.robines.space`. `arepazo.ch` points at its IPs directly.
+`d3st.dev`, `d3st.org`, `d3strukt0r.me` and `manuele-vaccari.ch`.
 
 - **The wildcard is the default route**: any `*.d3strukt0r.dev` without a record of its own
   reaches the old server, whose Traefik routes it (it keeps its hostnames unchanged).
 - **A service moving to the cluster gets its own record**, a CNAME to
   `prod.d3strukt0r.dev`; an explicit record beats the wildcard, so that one name moves and
-  everything else stays.
+  everything else stays. So far `manuele-robine.wedding` and `old.robines.space`.
+- **A zone in the arepazo account cannot CNAME there**: Cloudflare refuses a proxied CNAME to
+  a proxied name in another account (error 1014). `arepazo.ch` therefore has its own A and
+  AAAA record per node from the same `local.prod_nodes` - a node change updates it too.
 - **`prod.d3strukt0r.dev` is the cluster**: one proxied A and one AAAA record per node
   (`local.prod_nodes` in `records_d3strukt0r_dev.tf`), and Cloudflare spreads requests over
   them. IPv6 reaches the cluster only through Traefik on the nodes' host network (see

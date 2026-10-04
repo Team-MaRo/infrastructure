@@ -423,12 +423,12 @@ import {
 }
 
 import {
-  to = cloudflare_dns_record.arepazo_ch_a_apex
+  to = cloudflare_dns_record.arepazo_ch_a_apex["prod-01"]
   id = "643779bc80b781ad8246192ed73cc559/f3ea5a3e7bf6e59a91b148c6249417c2"
 }
 
 import {
-  to = cloudflare_dns_record.arepazo_ch_aaaa_apex
+  to = cloudflare_dns_record.arepazo_ch_aaaa_apex["prod-01"]
   id = "643779bc80b781ad8246192ed73cc559/3ef6721f6528a3989a333edfb5c046ad"
 }
 
