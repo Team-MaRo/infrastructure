@@ -12,6 +12,7 @@ own docs use.
 | `d3strukt0r-prod-postgres-backups` | bucket, lifecycle, policy | only the PostgreSQL backup key and the admin key |
 | `d3strukt0r-prod-openbao-snapshots` | bucket, object lock, lifecycle, policy | only OpenBao's snapshot key and the admin key; like the etcd bucket, the key cannot bypass the lock or change the bucket's rules |
 | `d3strukt0r-prod-wedding-manuele-robine` | bucket, versioning, lifecycle, policy | only the app's key and the admin key |
+| `d3strukt0r-prod-robines-portfolio` | bucket, versioning, lifecycle, policy | only the app's key, its uploads proxy's key (read only) and the admin key; only the admin key may change the bucket |
 
 Shared rules, credentials and the state backend are in [`../README.md`](../README.md).
 
@@ -23,7 +24,9 @@ way to scope one is a bucket policy, so `tofu/objectstorage` writes every policy
 (`local.admin_principal`), plus at most the one cluster key that bucket is for
 (`local.etcd_principal`, `local.loki_principal`, `local.mariadb_backups_principal`,
 `local.postgres_backups_principal`, `local.openbao_snapshots_principal`,
-`local.wedding_manuele_robine_principal`). That covers keys that do not exist yet, so
+`local.wedding_manuele_robine_principal`, `local.robines_portfolio_principal`;
+robines-portfolio's bucket also names its uploads proxy's read-only key,
+`local.robines_portfolio_uploads_proxy_principal`). That covers keys that do not exist yet, so
 **each key the cluster holds reaches only its own bucket**. The cluster keys' access key IDs
 (not their secrets) are `etcd_access_key_id`, `loki_access_key_id`,
 `mariadb_backups_access_key_id` and `postgres_backups_access_key_id` in the module's tfvars; a
@@ -103,6 +106,18 @@ although uploads answer with an `Expiration` header that suggests so (tested 202
   [`Hetzner | S3 | prod wedding-manuele-robine`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=ytvt5yczmlghqtf7ki6orppn6e&h=my.1password.com), OpenBao
   `secret/wedding-manuele-robine-s3`) reach it. The app signs with region `eu-west-1`
   (hard-coded in its code), which Hetzner accepts.
+- **`d3strukt0r-prod-robines-portfolio`: versioned, no lock, two keys.** The uploads of the
+  WordPress site robines-portfolio: WordPress writes them through S3-Uploads with the app's key
+  (console label `prod robines-portfolio`, 1Password
+  [`Hetzner | S3 | prod robines-portfolio`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=j3phtimnb5zbwonzf655meqrb4&h=my.1password.com), OpenBao `secret/robines-portfolio-s3`), and
+  the site's uploads proxy reads them with a key of its own (console label
+  `prod robines-portfolio uploads-proxy`, 1Password
+  [`Hetzner | S3 | prod robines-portfolio uploads-proxy`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=3icb7ypn2ub7bk7x2yzbwhkrfm&h=my.1password.com), OpenBao
+  `secret/robines-portfolio-uploads-proxy-s3`), so the bucket is never public. The policy has
+  three statements, each `Deny` + `NotPrincipal`: everything for all but the three keys; every
+  write (`PutObject`, the deletes, `PutObjectAcl`, `AbortMultipartUpload`) for all but the app's
+  and the admin key, so the proxy key only reads; bucket changes (lifecycle, versioning, policy,
+  deletion) for all but the admin key. Versions and lifecycle as for wedding-manuele-robine.
 - **Provider `aminueza/minio`, `s3_compat_mode` off.** The `aws` provider cannot refresh a
   bucket here (it reads Accelerate, Website, Logging, Replication and Tagging, all
   unimplemented). Compat mode would swallow "not implemented" errors, object lock and
@@ -128,7 +143,8 @@ labels live only in the Hetzner console.
 
 Needs `project_id`, `etcd_access_key_id`, `loki_access_key_id`,
 `mariadb_backups_access_key_id`, `postgres_backups_access_key_id`,
-`openbao_snapshots_access_key_id` and `wedding_manuele_robine_access_key_id` in
+`openbao_snapshots_access_key_id`, `wedding_manuele_robine_access_key_id`,
+`robines_portfolio_access_key_id` and `robines_portfolio_uploads_proxy_access_key_id` in
 `objectstorage/terraform.tfvars` - the key IDs are the username fields of the keys'
 1Password items, never the secrets. The provider cannot read
 AWS profiles, so `locals.tf` parses the `[d3strukt0r-hetzner]` section of

@@ -86,3 +86,27 @@ variable "wedding_manuele_robine_access_key_id" {
     error_message = "wedding_manuele_robine_access_key_id must be a 20-character Hetzner access key ID."
   }
 }
+
+# 1Password "Hetzner | S3 | prod robines-portfolio"
+#   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=j3phtimnb5zbwonzf655meqrb4&h=my.1password.com
+variable "robines_portfolio_access_key_id" {
+  description = "Access key ID of the S3 key robines-portfolio's WordPress stores its uploads with (1Password: Hetzner | S3 | prod robines-portfolio, username). Set in terraform.tfvars."
+  type        = string
+
+  validation {
+    condition     = can(regex("^[A-Z0-9]{20}$", var.robines_portfolio_access_key_id))
+    error_message = "robines_portfolio_access_key_id must be a 20-character Hetzner access key ID."
+  }
+}
+
+# 1Password "Hetzner | S3 | prod robines-portfolio uploads-proxy"
+#   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=3icb7ypn2ub7bk7x2yzbwhkrfm&h=my.1password.com
+variable "robines_portfolio_uploads_proxy_access_key_id" {
+  description = "Access key ID of the read-only S3 key robines-portfolio's uploads proxy serves the uploads with (1Password: Hetzner | S3 | prod robines-portfolio uploads-proxy, username). Set in terraform.tfvars."
+  type        = string
+
+  validation {
+    condition     = can(regex("^[A-Z0-9]{20}$", var.robines_portfolio_uploads_proxy_access_key_id))
+    error_message = "robines_portfolio_uploads_proxy_access_key_id must be a 20-character Hetzner access key ID."
+  }
+}
