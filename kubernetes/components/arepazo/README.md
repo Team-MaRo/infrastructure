@@ -32,9 +32,12 @@ a CronJob, `absolute_redirect off`, restricted Pod Security. What differs:
 
 - **Private files never reach the proxy.** WooCommerce and its plugins keep files under uploads
   that must not be public: the invoice PDFs (`wpo_wcpdf_*`), protected downloads
-  (`woocommerce_uploads`), logs (`wc-logs`), and a removed file manager's leftovers. On a plain
-  disk their `.htaccess` hid them; behind the proxy nginx refuses them (403) before the proxy
-  sees the request. WordPress reads them itself through S3-Uploads.
+  (`woocommerce_uploads`), logs (`wc-logs`), Facebook's product catalog exports
+  (`facebook_for_woocommerce`), Contact Form 7's temporary uploads (`wpcf7_uploads`), WPForms'
+  cache (`wpforms/cache`) and a removed file manager's leftovers. Their `.htaccess` files work
+  only under Apache - prod-old's nginx ignored them; here nginx refuses them (403) before the
+  proxy sees the request. WordPress reads them itself through S3-Uploads. A plugin that adds
+  such a directory needs it added to the list in `config/default.conf`.
 - **More memory.** prod-old's php-fpm was OOM-killed at 280M: PHP gets `memory_limit 256M`, the
   php-fpm container 512Mi. wp-cli in the init container loads WooCommerce's admin code and
   crashes at 128M, so it runs with `-d memory_limit=1024M` (`WP_CLI_PHP_ARGS`) in a 1280Mi
