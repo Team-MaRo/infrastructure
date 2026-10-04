@@ -40,8 +40,9 @@ spec:
         - name: core
           image: wordpress:7-php8.4-fpm
           imagePullPolicy: Always
-          # Not the image's /var/www/html: the runtime would create it in the volume, as root.
-          workingDir: /var/www
+          # Not under /var/www/html: the image declares that a VOLUME, so the runtime would put an
+          # empty volume of its own there and the copy would never reach the pod's.
+          workingDir: /wordpress
           command:
             - sh
             - -ec
@@ -96,7 +97,7 @@ spec:
                 - ALL
           volumeMounts:
             - name: html
-              mountPath: /var/www
+              mountPath: /wordpress
             - name: tls
               mountPath: /tls
             - name: mariadb-ca
