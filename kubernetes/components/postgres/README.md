@@ -19,8 +19,16 @@ in the last 30 days. How the cluster's manifests fit together is in
   - synchronous replication with `dataDurability: preferred` - a commit waits for the replica
     while it is up, and the primary goes on alone while it is not, like MariaDB's semi-sync;
   - 256Mi/512Mi and `shared_buffers` 128MB, raised with real data.
-  WAL stays on the data volume - a WAL volume per instance would make four. The initdb bootstrap
-  creates CloudNativePG's default `app` database and owner, which nothing uses.
+  WAL stays on the data volume - a WAL volume per instance would make four.
+- **The `app` database and its owner `app` stay, although no app uses them.** The initdb
+  bootstrap creates them as CloudNativePG's default, and the operator keeps depending on them:
+  the metrics exporter runs its monitoring queries in that database (it falls back to
+  `postgres` only when no application database is configured), and on every reconciliation the
+  primary sets the role's password from the Secret `postgres-app`, which the operator recreates
+  when it is deleted. Without the role that `ALTER ROLE` fails and aborts the instance's whole
+  reconciliation; without the database the PostgreSQL metrics go missing. Checked in
+  CloudNativePG's `instance_controller.go` and `cluster_create.go` (2026-10-04); the database is
+  empty (7.6 MB, no tables).
 - **Apps get their users and databases declaratively**, as `DatabaseRole` (the docs' recommended
   way, over the Cluster's inline `managed.roles`) and `Database` objects in `postgres`. The role's
   password comes from a `kubernetes.io/basic-auth` Secret there, built by an ExternalSecret from
