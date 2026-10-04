@@ -146,6 +146,38 @@ resource "cloudflare_dns_record" "d3strukt0r_dev_cname_grafana" {
   }
 }
 
+# Prometheus' UI, on the cluster behind the Zitadel gate (oauth2-proxy).
+resource "cloudflare_dns_record" "d3strukt0r_dev_cname_prometheus" {
+  provider = cloudflare.personal
+
+  content = "prod.d3strukt0r.dev"
+  name    = "prometheus.d3strukt0r.dev"
+  proxied = true
+  tags    = []
+  ttl     = 1
+  type    = "CNAME"
+  zone_id = local.zone_ids["d3strukt0r.dev"]
+  settings = {
+    flatten_cname = false
+  }
+}
+
+# Alertmanager's UI, on the cluster behind the Zitadel gate (oauth2-proxy).
+resource "cloudflare_dns_record" "d3strukt0r_dev_cname_alertmanager" {
+  provider = cloudflare.personal
+
+  content = "prod.d3strukt0r.dev"
+  name    = "alertmanager.d3strukt0r.dev"
+  proxied = true
+  tags    = []
+  ttl     = 1
+  type    = "CNAME"
+  zone_id = local.zone_ids["d3strukt0r.dev"]
+  settings = {
+    flatten_cname = false
+  }
+}
+
 # oauth2-proxy's own address, where Zitadel returns after a login for the UIs it guards.
 resource "cloudflare_dns_record" "d3strukt0r_dev_cname_oauth2_proxy" {
   provider = cloudflare.personal
