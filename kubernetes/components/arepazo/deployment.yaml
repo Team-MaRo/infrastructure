@@ -199,6 +199,8 @@ spec:
             - name: http
               containerPort: 8081
           # robots.txt is answered by WordPress, so this exercises nginx, php-fpm and the database.
+          # The shop takes about 3 s per request (as on prod-old), so the probes wait 10 s and run
+          # rarely - each one costs a full WordPress request.
           startupProbe:
             httpGet: &robots
               path: /robots.txt
@@ -206,16 +208,18 @@ spec:
               httpHeaders:
                 - name: Host
                   value: www.arepazo.ch
-            periodSeconds: 5
-            failureThreshold: 24
+            periodSeconds: 10
+            timeoutSeconds: 10
+            failureThreshold: 12
           readinessProbe:
             httpGet: *robots
-            periodSeconds: 10
+            periodSeconds: 30
+            timeoutSeconds: 10
             failureThreshold: 3
           livenessProbe:
             httpGet: *robots
-            periodSeconds: 30
-            timeoutSeconds: 5
+            periodSeconds: 60
+            timeoutSeconds: 10
             failureThreshold: 5
           volumeMounts:
             - name: html
