@@ -40,11 +40,18 @@ spec:
         - name: core
           image: wordpress:7-php8.4-fpm
           imagePullPolicy: Always
+          # Not the image's /var/www/html: the runtime would create it in the volume, as root.
+          workingDir: /var/www
           command:
             - sh
             - -ec
             - |
               cat /etc/ssl/certs/ca-certificates.crt /etc/mariadb-ca/ca.crt > /tls/ca-bundle.crt
+              # The image's tar sets the permissions of the directory it copies into, which
+              # only the owner may: into the root-owned volume it copies every file and then
+              # exits 2. So 33 creates html itself; the other containers mount it (subPath).
+              mkdir -p html
+              cd html
               exec docker-ensure-installed.sh true
           env: &wordpress-env
             # wp-cli keeps its cache under HOME; the images' own home is not writable for 33.
@@ -90,7 +97,7 @@ spec:
                 - ALL
           volumeMounts:
             - name: html
-              mountPath: /var/www/html
+              mountPath: /var/www
             - name: tls
               mountPath: /tls
             - name: mariadb-ca
@@ -136,6 +143,7 @@ spec:
           volumeMounts:
             - name: html
               mountPath: /var/www/html
+              subPath: html
             - name: tls
               mountPath: /tls
               readOnly: true
@@ -161,6 +169,7 @@ spec:
           volumeMounts:
             - name: html
               mountPath: /var/www/html
+              subPath: html
             - name: tls
               mountPath: /tls
               readOnly: true
@@ -203,6 +212,7 @@ spec:
           volumeMounts:
             - name: html
               mountPath: /var/www/html
+              subPath: html
               readOnly: true
             - name: config
               mountPath: /etc/nginx/conf.d/default.conf

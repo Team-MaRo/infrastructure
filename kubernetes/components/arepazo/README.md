@@ -12,7 +12,7 @@ One pod (`deployment.yaml`) and a CronJob (`cronjob.yaml`):
 
 | Container | Image | Does |
 |---|---|---|
-| init `core` | `wordpress:7-php8.4-fpm` | writes the CA bundle, copies WordPress core and writes `wp-config.php` into the emptyDir `html` |
+| init `core` | `wordpress:7-php8.4-fpm` | writes the CA bundle, copies WordPress core and writes `wp-config.php` into `html`, a directory it creates itself in the emptyDir - the image's `tar` exits 2 when it cannot set the target's permissions, as in the root-owned volume; the other containers mount `html` as a `subPath` |
 | init `plugins` | `wordpress:cli-2-php8.4` | installs `config/plugins.txt` and S3-Uploads; once the database holds the site, `wp core update-db` and the language packs |
 | `php-fpm` | `wordpress:7-php8.4-fpm` | runs WordPress |
 | `nginx` | `nginxinc/nginx-unprivileged:stable` | serves it on 8081 (`config/default.conf`) |
