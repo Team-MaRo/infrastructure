@@ -22,3 +22,4 @@ configMapGenerator:
       - config/default.conf
       - config/s3-uploads-hetzner.php
       - config/php.ini
+      - config/php-fpm.conf

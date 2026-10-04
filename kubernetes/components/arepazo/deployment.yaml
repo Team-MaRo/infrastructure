@@ -24,6 +24,9 @@ spec:
       labels:
         app.kubernetes.io/name: web
     spec:
+      # The preStop pause (10 s) plus php-fpm finishing running requests (up to 20 s,
+      # config/php-fpm.conf), with room to spare over the default 30 s.
+      terminationGracePeriodSeconds: 40
       securityContext:
         # www-data in the Debian WordPress image. The Alpine cli image's www-data is 82, so it
         # runs as 33 too; the nginx images keep their own user (101), with 33 as their group.
@@ -201,6 +204,10 @@ spec:
             - name: config
               mountPath: /usr/local/etc/php/conf.d/zz-arepazo.ini
               subPath: php.ini
+              readOnly: true
+            - name: config
+              mountPath: /usr/local/etc/php-fpm.d/zz-arepazo.conf
+              subPath: php-fpm.conf
               readOnly: true
         - name: nginx
           # Without docker.io/: Keel writes the short form back (components/keel).
