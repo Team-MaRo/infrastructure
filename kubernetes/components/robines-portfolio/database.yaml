@@ -1,0 +1,72 @@
+---
+# robines-portfolio's database in the shared MariaDB. mariadb-operator requires a User, its
+# password Secret, a Grant and a Database to be in the MariaDB's namespace, so these objects live
+# in mariadb although this component deploys them. The password comes from OpenBao
+# secret/mariadb-apps/robines-portfolio; WordPress reads the same value in its own namespace.
+# 1Password "MariaDB | Prod | robines-portfolio"
+#   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=swneckmu7nc3tkxv5c2njudv2q&h=my.1password.com
+#
+# cleanupPolicy Skip on all three: the operator's default (Delete) would drop the database and the
+# user when this component is removed.
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: robines-portfolio-db
+  namespace: mariadb
+spec:
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: openbao
+  data:
+    - secretKey: password
+      remoteRef:
+        key: mariadb-apps/robines-portfolio
+        property: password
+---
+# The collation the site had on prod-old, so its dump imports unchanged.
+apiVersion: k8s.mariadb.com/v1alpha1
+kind: Database
+metadata:
+  name: robines-portfolio
+  namespace: mariadb
+spec:
+  mariaDbRef:
+    name: mariadb
+  name: robines_portfolio
+  characterSet: utf8mb4
+  collate: utf8mb4_unicode_ci
+  cleanupPolicy: Skip
+---
+apiVersion: k8s.mariadb.com/v1alpha1
+kind: User
+metadata:
+  name: robines-portfolio
+  namespace: mariadb
+spec:
+  mariaDbRef:
+    name: mariadb
+  name: robines_portfolio
+  host: "%"
+  passwordSecretKeyRef:
+    name: robines-portfolio-db
+    key: password
+  # Refused without TLS, so the password never crosses the network in the clear.
+  require:
+    ssl: true
+  cleanupPolicy: Skip
+---
+apiVersion: k8s.mariadb.com/v1alpha1
+kind: Grant
+metadata:
+  name: robines-portfolio
+  namespace: mariadb
+spec:
+  mariaDbRef:
+    name: mariadb
+  username: robines_portfolio
+  host: "%"
+  database: robines_portfolio
+  table: "*"
+  privileges:
+    - ALL PRIVILEGES
+  cleanupPolicy: Skip
