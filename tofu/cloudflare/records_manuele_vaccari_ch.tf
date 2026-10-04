@@ -15,10 +15,12 @@ resource "cloudflare_dns_record" "manuele_vaccari_ch_cname_wildcard" {
   }
 }
 
+# On the prod cluster, like every web name; until something serves manuele-vaccari.ch there,
+# Traefik answers 404. The wildcard follows through its CNAME to the apex.
 resource "cloudflare_dns_record" "manuele_vaccari_ch_cname_apex" {
   provider = cloudflare.personal
 
-  content = "prod-old.d3strukt0r.dev"
+  content = "prod.d3strukt0r.dev"
   name    = "manuele-vaccari.ch"
   proxied = true
   tags    = []

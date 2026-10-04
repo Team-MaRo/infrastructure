@@ -14,10 +14,9 @@ cluster's manifests fit together is in [`kubernetes/README.md`](../../README.md)
   from Traefik's headers; `whitelist-domain` allows returning anywhere under the domain).
   **Logged in with `infra-admin`** (the `groups` claim, `allowed-group`): 202, and Traefik
   passes the request on. Logged in without it: refused.
-- **One login for all guarded UIs**: the cookie is for `.d3strukt0r.dev`. The trade-off,
-  accepted: browsers also send it to names the old server still answers through the wildcard;
-  it is encrypted with the cookie secret, but a compromised old server could replay it. It goes
-  away with the old server.
+- **One login for all guarded UIs**: the cookie is for `.d3strukt0r.dev`, so browsers send it
+  to every name under the domain - all of them on the cluster since the old server went
+  (2026-10-04). It is encrypted with the cookie secret.
 - **The one client with a secret** (`tofu/zitadel/apps_oauth2_proxy.tf`, auth method BASIC):
   oauth2-proxy refuses to run without one. The secret Zitadel returned at creation is in the
   tofu state, so it was regenerated in the console at once; the live one and the cookie secret

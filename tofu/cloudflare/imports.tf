@@ -148,11 +148,6 @@ import {
 }
 
 import {
-  to = cloudflare_dns_record.d3strukt0r_dev_cname_wildcard
-  id = "1a6f0bb01dc074c1a03af0f173aef29f/f459f20c6afc3cba8145ec3e6ab98f1a"
-}
-
-import {
   to = cloudflare_dns_record.d3strukt0r_dev_cname_dk1_domainkey
   id = "1a6f0bb01dc074c1a03af0f173aef29f/46ae6558ec376cd9e97092a9191bac9a"
 }
@@ -160,11 +155,6 @@ import {
 import {
   to = cloudflare_dns_record.d3strukt0r_dev_cname_dk2_domainkey
   id = "1a6f0bb01dc074c1a03af0f173aef29f/47c306e23d3efba78a27ad065697dbdb"
-}
-
-import {
-  to = cloudflare_dns_record.d3strukt0r_dev_cname_ssh
-  id = "1a6f0bb01dc074c1a03af0f173aef29f/d9bf576127a07f63cfa757c0bc370fa9"
 }
 
 import {

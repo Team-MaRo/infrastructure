@@ -15,10 +15,12 @@ resource "cloudflare_dns_record" "d3strukt0r_me_cname_wildcard" {
   }
 }
 
+# On the prod cluster, like every web name; until something serves d3strukt0r.me there,
+# Traefik answers 404. The wildcard follows through its CNAME to the apex.
 resource "cloudflare_dns_record" "d3strukt0r_me_cname_apex" {
   provider = cloudflare.personal
 
-  content = "prod-old.d3strukt0r.dev"
+  content = "prod.d3strukt0r.dev"
   name    = "d3strukt0r.me"
   proxied = true
   tags    = []

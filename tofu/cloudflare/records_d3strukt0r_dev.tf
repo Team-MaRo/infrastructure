@@ -1,35 +1,5 @@
 # DNS records for d3strukt0r.dev (personal account).
 
-# The old DigitalOcean server. Everything still served there points at this name - the
-# wildcard among them, so any *.d3strukt0r.dev without a record of its own lands there.
-# A service moving to the cluster gets its own record pointing at prod instead, which
-# beats the wildcard.
-resource "cloudflare_dns_record" "d3strukt0r_dev_a_prod_old" {
-  provider = cloudflare.personal
-
-  content  = "161.35.16.9"
-  name     = "prod-old.d3strukt0r.dev"
-  proxied  = true
-  tags     = []
-  ttl      = 1
-  type     = "A"
-  zone_id  = local.zone_ids["d3strukt0r.dev"]
-  settings = {}
-}
-
-resource "cloudflare_dns_record" "d3strukt0r_dev_aaaa_prod_old" {
-  provider = cloudflare.personal
-
-  content  = "2a03:b0c0:3:d0::f65:2001"
-  name     = "prod-old.d3strukt0r.dev"
-  proxied  = true
-  tags     = []
-  ttl      = 1
-  type     = "AAAA"
-  zone_id  = local.zone_ids["d3strukt0r.dev"]
-  settings = {}
-}
-
 # The prod cluster's entry point: one A and one AAAA record per node, each node's public
 # addresses. Traefik listens on every node's host network, IPv4 and IPv6 alike, and
 # Cloudflare spreads requests over the records. Services on the cluster CNAME to this name.
@@ -83,22 +53,7 @@ moved {
   to   = cloudflare_dns_record.d3strukt0r_dev_aaaa_prod["prod-01"]
 }
 
-resource "cloudflare_dns_record" "d3strukt0r_dev_cname_wildcard" {
-  provider = cloudflare.personal
-
-  content = "prod-old.d3strukt0r.dev"
-  name    = "*.d3strukt0r.dev"
-  proxied = true
-  tags    = []
-  ttl     = 1
-  type    = "CNAME"
-  zone_id = local.zone_ids["d3strukt0r.dev"]
-  settings = {
-    flatten_cname = false
-  }
-}
-
-# Zitadel, the identity provider, on the cluster. An explicit record beats the wildcard above.
+# Zitadel, the identity provider, on the cluster.
 resource "cloudflare_dns_record" "d3strukt0r_dev_cname_auth" {
   provider = cloudflare.personal
 
@@ -327,22 +282,6 @@ resource "cloudflare_dns_record" "d3strukt0r_dev_cname_dk2_domainkey" {
   comment = "AnonAddy (Proxy not supported!)"
   content = "dk2._domainkey.anonaddy.me"
   name    = "dk2._domainkey.d3strukt0r.dev"
-  proxied = false
-  tags    = []
-  ttl     = 1
-  type    = "CNAME"
-  zone_id = local.zone_ids["d3strukt0r.dev"]
-  settings = {
-    flatten_cname = false
-  }
-}
-
-resource "cloudflare_dns_record" "d3strukt0r_dev_cname_ssh" {
-  provider = cloudflare.personal
-
-  comment = "SSH for Gitea"
-  content = "prod-old.d3strukt0r.dev"
-  name    = "ssh.d3strukt0r.dev"
   proxied = false
   tags    = []
   ttl     = 1

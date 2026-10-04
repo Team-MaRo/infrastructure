@@ -41,10 +41,9 @@ Things that will bite:
 - **`ssl` is not managed; `ssl_automatic_mode = "auto"` is.** Every zone uses Automatic
   SSL/TLS, so `ssl` is the scanner's current result and changes on its own; a plan writing it
   would switch the zone to manual mode. `d3st.dev`, `d3st.org` and `d3strukt0r.me` are on
-  `flexible` by the scanner's choice and **loop with `301`s**: their web records point at
-  `prod-old.d3strukt0r.dev` (the old DigitalOcean server, `161.35.16.9`), whose Traefik
-  redirects HTTP to HTTPS but has no HTTPS route for these names. Left as is until they are
-  served by the cluster with cert-manager, where the scanner will pick `strict` by itself.
+  `flexible` by the scanner's choice (Cloudflare talks plain HTTP to the origin). That works
+  with the cluster's Traefik, which does not redirect HTTP to HTTPS; once one of them is served
+  there with a cert-manager certificate, the scanner picks `strict` by itself.
 - **Destroying a `cloudflare_zone_setting` only removes it from state** - the provider's
   Delete is a no-op and it says so in the plan. Dropping a setting from `local.zone_settings`
   therefore shows as destroys that change nothing in Cloudflare (the switch from `ssl` to
@@ -66,18 +65,16 @@ Things that will bite:
   tool. Also, `--resource-type cloudflare_zone` ignores `--zone` and dumps every zone
   the token can see, so its output needs deduplicating.
 
-## The old server and the cluster share the names
+## Web names point at the cluster
 
-The old DigitalOcean server still serves its apps and tools. It is
-`prod-old.d3strukt0r.dev` (A and AAAA to its IPs), and every record for something it
-serves points there: the wildcard `*.d3strukt0r.dev`, `ssh.`, and the apex CNAMEs of
-`d3st.dev`, `d3st.org`, `d3strukt0r.me` and `manuele-vaccari.ch`.
+Every web name points at the prod cluster; the old DigitalOcean server (`prod-old`) and its
+records are gone (2026-10-04).
 
-- **The wildcard is the default route**: any `*.d3strukt0r.dev` without a record of its own
-  reaches the old server, whose Traefik routes it (it keeps its hostnames unchanged).
-- **A service moving to the cluster gets its own record**, a CNAME to
-  `prod.d3strukt0r.dev`; an explicit record beats the wildcard, so that one name moves and
-  everything else stays. So far `manuele-robine.wedding` and `old.robines.space`.
+- **A service gets its own record**, a CNAME to `prod.d3strukt0r.dev`. `d3strukt0r.dev` has no
+  wildcard, so a name without a record does not resolve.
+- **The apexes of `d3st.dev`, `d3st.org`, `d3strukt0r.me` and `manuele-vaccari.ch`** (and their
+  wildcards, which CNAME to the apex) point at the cluster too, though nothing serves them yet:
+  Traefik answers 404 until an Ingress claims a name, which then needs no DNS change.
 - **A zone in the arepazo account cannot CNAME there**: Cloudflare refuses a proxied CNAME to
   a proxied name in another account (error 1014). `arepazo.ch` therefore has its own A and
   AAAA record per node from the same `local.prod_nodes` - a node change updates it too.
@@ -93,14 +90,12 @@ serves points there: the wildcard `*.d3strukt0r.dev`, `ssh.`, and the apex CNAME
   written there by hand (no other module's state is readable from here), so **adding or
   replacing a node means updating that map**, until a Hetzner Load Balancer gives the
   cluster one address.
-- The rename was done without an interruption: prod-old was created with the old IPs and the
-  CNAMEs were repointed to it first, in a separate apply before `prod` itself changed.
 
 ## CAA: only Let's Encrypt
 
 Every zone has `0 issue "letsencrypt.org"` and `0 issuewild "letsencrypt.org"`
 (`records_caa.tf`), since every certificate issued for these names comes from Let's Encrypt
-- the old server's Traefik, GitHub Pages and cert-manager. Cloudflare's edge certificates
+- GitHub Pages and cert-manager. Cloudflare's edge certificates
 come from Google Trust Services and SSL.com (crt.sh showed nothing else in use when this was
 set); **Cloudflare adds CAA records for its own CAs automatically** once a zone has any, and
 hides them from the dashboard and API, so they never appear as drift - after the apply that
