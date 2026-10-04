@@ -62,6 +62,15 @@ endpoints:
     alerts:
       - type: ntfy
 
+  - name: Arepazo
+    group: Apps
+    url: https://www.arepazo.ch/
+    interval: 5m
+    conditions:
+      - "[STATUS] == 200"
+    alerts:
+      - type: ntfy
+
 # The alerting pipeline itself: Alertmanager's always-firing Watchdog alert arrives here every
 # minute (kube-prometheus-stack values, receiver watchdog), at
 # /api/v1/endpoints/alerting_watchdog/external?success=true with the token as a Bearer header.
