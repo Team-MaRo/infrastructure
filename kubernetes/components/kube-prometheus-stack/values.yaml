@@ -90,10 +90,12 @@ prometheus:
           resources:
             requests:
               storage: 10Gi
+    # Usually about 1.2 GB, at most 1.5 GB in the first week (2026-10-05); its size is capped
+    # by retentionSize, so the limit stays.
     resources:
       requests:
         cpu: 200m
-        memory: 1Gi
+        memory: 1280Mi
       limits:
         memory: 2Gi
     # Pick up monitors, rules and scrape configs from every Application, not only from
@@ -238,12 +240,13 @@ grafana:
   # A test pod Helm would run on install; Argo CD would only ever show it as extra.
   testFramework:
     enabled: false
-  # About 300 MiB idle; browsing dashboards took it past 512Mi into OOM kills.
+  # About 300 MiB idle; browsing dashboards took it past 512Mi into OOM kills, and in the
+  # first week (2026-10-05) to 1018 MiB of the 1Gi it had then - usually about 500 MiB.
   resources:
     requests:
-      memory: 384Mi
+      memory: 512Mi
     limits:
-      memory: 1Gi
+      memory: 2Gi
   # Logs, next to the chart's own Prometheus and Alertmanager datasources.
   additionalDataSources:
     - name: Loki
@@ -305,6 +308,13 @@ prometheus-node-exporter:
       memory: 128Mi
 
 kube-state-metrics:
+  # It holds every object it reports on in memory: about 120 MiB usually, and the namespace's
+  # LimitRange limit of 128Mi got it OOM-killed when many objects arrived at once (2026-10-02).
+  resources:
+    requests:
+      memory: 128Mi
+    limits:
+      memory: 256Mi
   # Metrics from objects that report their state nowhere else. The mariadb-operator's status
   # conditions become kube_customresource_condition{customresource_kind, name, type, status},
   # valued with the condition's lastTransitionTime (alerts in kubernetes/components/mariadb).

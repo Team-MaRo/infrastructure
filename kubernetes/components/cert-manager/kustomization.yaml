@@ -12,3 +12,19 @@ resources:
   - cluster-issuers.yaml
   - service-monitor.yaml
   - rules.yaml
+
+patches:
+  # The cainjector holds every certificate, CRD and webhook configuration it patches in memory:
+  # about 127 MiB usually, and the namespace's LimitRange limit of 128Mi got it OOM-killed
+  # when many CRDs arrived at once (2026-10-02). The manifest sets no resources.
+  - target:
+      kind: Deployment
+      name: cert-manager-cainjector
+    patch: |-
+      - op: add
+        path: /spec/template/spec/containers/0/resources
+        value:
+          requests:
+            memory: 128Mi
+          limits:
+            memory: 256Mi

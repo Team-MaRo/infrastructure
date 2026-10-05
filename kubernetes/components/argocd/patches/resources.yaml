@@ -1,11 +1,11 @@
 ---
 # Memory for the Argo CD containers the namespace's LimitRange defaults (64Mi, limit 128Mi) do
 # not fit, from what they used when set (2026-09-28): the request about the usual use, the
-# limit about twice the highest seen. Redis and the applicationset and notifications
-# controllers stay within the defaults.
+# limit about twice the highest seen; checked again after the first week (2026-10-05). Redis
+# stays within the defaults.
 #
-# The application controller caches every resource it manages and was the largest user in the
-# cluster, 1.2-1.6 GB.
+# The application controller caches every resource it manages and is the largest user in the
+# cluster: about 1.55 GB usually, 1.6 GB at most.
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -17,7 +17,7 @@ spec:
         - name: argocd-application-controller
           resources:
             requests:
-              memory: 1280Mi
+              memory: 1536Mi
             limits:
               memory: 2560Mi
 ---
@@ -37,6 +37,7 @@ spec:
             limits:
               memory: 1Gi
 ---
+# About 230 MiB usually, 254 MiB at most of the 256Mi it had (2026-10-05).
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -48,6 +49,37 @@ spec:
         - name: argocd-server
           resources:
             requests:
-              memory: 64Mi
-            limits:
               memory: 256Mi
+            limits:
+              memory: 512Mi
+---
+# Both used about 95 MiB of the defaults' 128Mi limit (2026-10-05).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: argocd-applicationset-controller
+spec:
+  template:
+    spec:
+      containers:
+        - name: argocd-applicationset-controller
+          resources:
+            requests:
+              memory: 96Mi
+            limits:
+              memory: 192Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: argocd-notifications-controller
+spec:
+  template:
+    spec:
+      containers:
+        - name: argocd-notifications-controller
+          resources:
+            requests:
+              memory: 96Mi
+            limits:
+              memory: 192Mi

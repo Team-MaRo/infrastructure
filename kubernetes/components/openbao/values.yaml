@@ -53,13 +53,14 @@ server:
         current_key    = "file:///openbao/seal/key"
       }
 
-  # From what it used when set (2026-09-28): about 70 MiB at most, and it can spike on
-  # startup and snapshots - above the namespace's LimitRange limit of 128Mi.
+  # About 70 MiB when set (2026-09-28); with the apps' secrets it grew to about 210 MiB usually
+  # and 228 MiB at most in the first week (2026-10-05), and it can spike on startup and
+  # snapshots.
   resources:
     requests:
-      memory: 96Mi
+      memory: 224Mi
     limits:
-      memory: 256Mi
+      memory: 512Mi
 
   volumes:
     - name: seal

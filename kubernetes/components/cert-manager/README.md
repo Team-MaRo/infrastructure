@@ -36,6 +36,9 @@ The databases' CA certificates are distributed by trust-manager, from the same p
   longer sends expiry mails. cert-manager renews by itself 30 days before expiry.
 - **Its pods run restricted** (non-root, seccomp, no capabilities), so `cert-manager` is not
   in `k3s_psa_exempt_namespaces`.
+- **The cainjector gets 128Mi / 256Mi** (a patch in `kustomization.yaml`); the manifest sets no
+  resources, and the LimitRange default of 128Mi got it OOM-killed. The controller and webhook
+  stay on the defaults.
 
 ## Metrics and alerts
 

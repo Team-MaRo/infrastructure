@@ -12,8 +12,9 @@ resources:
   - plan.yaml
 
 patches:
-  # Memory, from what it used when set (2026-09-28): about 77 MiB at most. The manifest sets
-  # none, and system-upgrade is left out of Kyverno's LimitRange.
+  # Memory: about 77 MiB at most when set (2026-09-28), 136 MiB at most in the first week
+  # (2026-10-05). The manifest sets none, and system-upgrade is left out of Kyverno's
+  # LimitRange.
   - target:
       kind: Deployment
       name: system-upgrade-controller
@@ -22,6 +23,6 @@ patches:
         path: /spec/template/spec/containers/0/resources
         value:
           requests:
-            memory: 96Mi
+            memory: 128Mi
           limits:
-            memory: 192Mi
+            memory: 256Mi
