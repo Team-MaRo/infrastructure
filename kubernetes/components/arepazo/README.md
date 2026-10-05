@@ -48,7 +48,7 @@ requests (`config/php-fpm.conf`), restricted Pod Security. What differs:
 - **Slow requests, patient probes.** Every page takes about 3 s, on prod-old as here (WooCommerce,
   Jetpack, Yoast and some thirty more plugins, no page cache). The probes still go through
   WordPress (`/robots.txt`), but wait 10 s and run every 30 s (readiness) and 60 s (liveness);
-  robines-portfolio's 1 s timeout left nginx not ready. A page cache would be the real fix
+  the 1 s default left nginx not ready. A page cache would be the real fix
   (`litespeed-cache` is installed but works only on a LiteSpeed server).
 - **Three languages.** wp-admin runs in `de_CH`, the shop in German, English and Spanish
   (Polylang); the init container installs `de_CH`, `de_DE` and `es_ES` for core, plugins and

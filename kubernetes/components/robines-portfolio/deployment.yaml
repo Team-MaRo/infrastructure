@@ -206,6 +206,9 @@ spec:
             - name: http
               containerPort: 8081
           # robots.txt is answered by WordPress, so this exercises nginx, php-fpm and the database.
+          # PHP sometimes takes over a second under load, and three slow answers in a row at the 1 s
+          # default take the pod out of its Service (seen on another WordPress site, 2026-10-05), so
+          # the probes wait 10 s and run rarely; each one is a full WordPress request.
           startupProbe:
             httpGet: &robots
               path: /robots.txt
@@ -213,16 +216,18 @@ spec:
               httpHeaders:
                 - name: Host
                   value: old.robines.space
-            periodSeconds: 5
-            failureThreshold: 24
+            periodSeconds: 10
+            timeoutSeconds: 10
+            failureThreshold: 12
           readinessProbe:
             httpGet: *robots
-            periodSeconds: 10
+            periodSeconds: 30
+            timeoutSeconds: 10
             failureThreshold: 3
           livenessProbe:
             httpGet: *robots
-            periodSeconds: 30
-            timeoutSeconds: 5
+            periodSeconds: 60
+            timeoutSeconds: 10
             failureThreshold: 5
           volumeMounts:
             - name: html

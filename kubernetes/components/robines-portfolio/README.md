@@ -65,6 +65,10 @@ the bucket `d3strukt0r-prod-robines-portfolio` (`tofu/objectstorage`).
   `wp-config*`, readme or licence, no dotfiles, nothing executable under uploads; prod-old's
   security headers and permissive CSP (embeds from YouTube and Twitter). `absolute_redirect off`
   keeps nginx's own redirects on the site's address instead of `http://…:8081`.
+- **Patient probes.** They go through WordPress (`/robots.txt`), but wait 10 s and run every
+  30 s (readiness) and 60 s (liveness): under load PHP sometimes needs more than the 1 s
+  default, and three slow answers in a row take the pod out of its Service - then wp-cron and
+  visitors get no answer (seen on another WordPress site, 2026-10-05).
 - **A drain before stopping.** Every container of the pod waits 10 s (`preStop` `sleep`) before
   it stops: all of them get the stop signal at once, while Traefik still routes to the pod for a
   moment (measured: 8 s after the signal). php-fpm then lets running requests finish for up to
