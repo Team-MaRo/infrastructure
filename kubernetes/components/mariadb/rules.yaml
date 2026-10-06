@@ -78,3 +78,19 @@ spec:
               logs - and those expire after 35 days. Check kubectl -n mariadb get physicalbackup
               and the log of the latest mariadb-daily Job, then start one by hand with the
               command in kubernetes/components/mariadb/README.md ("Failover hangs").
+        # Usually 2-5 queries run at once. On 2026-10-06 the primary stopped answering and
+        # running queries climbed to 47 within four minutes until the operator switched over;
+        # what jammed it was not recorded. This fires while it happens, and the slow log (myCnf)
+        # now records the queries.
+        - alert: MariaDBQueriesPilingUp
+          expr: max by (namespace) (mysql_global_status_threads_running{namespace="mariadb"}) > 20
+          for: 1m
+          labels:
+            severity: warning
+          annotations:
+            summary: "{{ $value }} queries are running at once on the MariaDB primary."
+            description: >-
+              Queries are piling up - a long query or a lock blocks the rest. While it lasts, run
+              SHOW FULL PROCESSLIST on the primary; afterwards the slow queries are in Loki
+              ({namespace="mariadb", container="mariadb"} |= "Query_time"). Runbook in
+              kubernetes/components/mariadb/README.md ("Queries pile up").

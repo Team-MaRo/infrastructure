@@ -72,3 +72,28 @@ spec:
               Check kubectl -n postgres get backups and the failed Backup's status; start one by
               hand with kubectl cnpg backup postgres -n postgres --method plugin --plugin-name
               barman-cloud.cloudnative-pg.io.
+        # Usually no connection waits on a lock (at most 1 in the first week). More than five
+        # waiting for a minute means one transaction blocks the rest.
+        - alert: PostgresQueriesWaiting
+          expr: max by (namespace) (cnpg_backends_waiting_total{namespace="postgres"}) > 5
+          for: 1m
+          labels:
+            severity: warning
+          annotations:
+            summary: "{{ $value }} PostgreSQL connections are waiting on locks."
+            description: >-
+              A transaction holds locks the others need. While it lasts, look at pg_stat_activity
+              and pg_locks on the primary; afterwards the lock waits and slow statements are in
+              Loki ({namespace="postgres"} |~ "duration:|still waiting for").
+        # The longest transaction in the first week ran 174 s. One open for more than five
+        # minutes holds its locks and keeps vacuum from cleaning up.
+        - alert: PostgresLongTransaction
+          expr: max by (namespace, pod) (cnpg_backends_max_tx_duration_seconds{namespace="postgres"}) > 300
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "A transaction on {{ $labels.pod }} has been open for {{ $value | humanizeDuration }}."
+            description: >-
+              Find it in pg_stat_activity (xact_start) on that instance; an idle-in-transaction
+              session from an app is the usual cause.

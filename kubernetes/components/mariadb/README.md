@@ -198,6 +198,29 @@ kubectl --context d3strukt0r-prod-admin -n mariadb get mariadb mariadb -o jsonpa
 To look into the databases by hand, phpMyAdmin is at `https://phpmyadmin.d3strukt0r.dev`
 ([`../phpmyadmin/README.md`](../phpmyadmin/README.md)).
 
+## Queries pile up
+
+`MariaDBQueriesPilingUp` fires when more than 20 queries run at once for a minute (usually 2-5).
+That is what happened on **2026-10-06 at 08:52**: the primary (`mariadb-1`) stopped answering,
+running queries climbed to 47, the operator's readiness check timed out after 90 s and it
+switched over to `mariadb-0` (read-locking the old primary for three minutes meanwhile - the
+WordPress apps' probes and wp-cron runs failed), then rebuilt `mariadb-1` as a replica. Not the
+semi-sync bug above (the replica had been up for days, no semi-sync waits). Which query or lock
+jammed it was not recorded - since then the slow log is on (`myCnf`: over 2 s, to stderr).
+
+1. While it lasts, see what runs and what waits on the primary:
+
+   ```shell
+   P=$(kubectl --context d3strukt0r-prod-admin -n mariadb get mariadb mariadb -o jsonpath='{.status.currentPrimary}')
+   kubectl --context d3strukt0r-prod-admin -n mariadb exec "$P" -c mariadb -- sh -c 'mariadb -uroot -p"$MARIADB_ROOT_PASSWORD" -e "SHOW FULL PROCESSLIST"'
+   ```
+
+2. Afterwards, the slow queries in Grafana's Explore (Loki):
+   `{namespace="mariadb", container="mariadb"} |= "Query_time"` - each entry is the
+   `# Query_time` line, followed by the statement in the next lines of the same stream.
+3. If a failover followed, check that the old primary rejoined as a replica (`kubectl get mariadb`
+   shows both ready) and that the after-switchover backup ran.
+
 ## Failover hangs
 
 `MariaDBNoReadyPrimary` means apps cannot write. Most failovers finish on their own within a

@@ -33,8 +33,13 @@ spec:
       method: any
       number: 1
       dataDurability: preferred
+    # Statements over 2 s and lock waits over deadlock_timeout (1 s) go to the log and with it
+    # to Loki, so a jam leaves a trace (MariaDB's did not, 2026-10-06). Both reload without a
+    # restart.
     parameters:
       shared_buffers: 128MB
+      log_min_duration_statement: "2000"
+      log_lock_waits: "on"
 
   resources:
     requests:

@@ -19,6 +19,8 @@ in the last 30 days. How the cluster's manifests fit together is in
   - synchronous replication with `dataDurability: preferred` - a commit waits for the replica
     while it is up, and the primary goes on alone while it is not, like MariaDB's semi-sync;
   - 256Mi/512Mi and `shared_buffers` 128MB, raised with real data.
+  - `log_min_duration_statement` 2 s and `log_lock_waits` on: slow statements and lock waits
+    over 1 s land in Loki (`{namespace="postgres"} |~ "duration:|still waiting for"`).
   WAL stays on the data volume - a WAL volume per instance would make four.
 - **The `app` database and its owner `app` stay, although no app uses them.** The initdb
   bootstrap creates them as CloudNativePG's default, and the operator keeps depending on them:
@@ -50,7 +52,9 @@ in the last 30 days. How the cluster's manifests fit together is in
   `enablePodMonitor` is deprecated): `PostgresNoReadyPrimary` (critical, 5 minutes),
   `PostgresReplicaMissing`, `PostgresReplicaLagging`, `PostgresWALArchivingFailing` (a failure
   newer than the last success - a quiet database archives nothing for hours without that being a
-  problem) and `PostgresBackupFailed` (last backup failed, or none for 26 hours).
+  problem), `PostgresBackupFailed` (last backup failed, or none for 26 hours),
+  `PostgresQueriesWaiting` (more than five connections waiting on locks for a minute) and
+  `PostgresLongTransaction` (a transaction open for more than five minutes).
 - **`ServerSideDiff=true` on the Application** from the start, the MariaDB lesson.
 - **A `DatabaseRole`'s password Secret must carry `cnpg.io/reload: "true"`.** CloudNativePG
   applies a role only when its spec or its Secret changes; the first attempt raced the operator

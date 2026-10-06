@@ -92,12 +92,18 @@ spec:
   # closed binary log files every ten minutes; flush-binlogs.yaml closes the active one as
   # often, and 128M caps a file under heavy writes. The server keeps binary logs forever by
   # default; after 7 days they are long in Object Storage, and a replica that has been gone
-  # longer is rebuilt from a backup anyway.
+  # longer is rebuilt from a backup anyway. Queries over 2 s go to the container's stderr and
+  # with it to Loki - which query jammed the primary on 2026-10-06 was not recorded anywhere.
+  # Running as 999 from the start, the server can open /dev/stderr (started as root and
+  # switching user, it cannot - and then turns the slow log off).
   myCnf: |
     [mariadb]
     innodb_buffer_pool_size=256M
     max_binlog_size=128M
     binlog_expire_logs_seconds=604800
+    slow_query_log=ON
+    long_query_time=2
+    slow_query_log_file=/dev/stderr
 
   metrics:
     enabled: true
