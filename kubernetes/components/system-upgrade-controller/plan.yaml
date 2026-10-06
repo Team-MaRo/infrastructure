@@ -1,7 +1,7 @@
 ---
-# Every server - all nodes are servers, so there is no agent Plan - one at a time, cordoned
-# but not drained: restarting k3s leaves running pods alone, so evicting them would only
-# move volumes around for nothing.
+# Every server one at a time, cordoned but not drained: restarting k3s leaves running pods
+# alone, so evicting them would only move volumes around for nothing. Workers have the agent
+# Plan at the end of this file.
 apiVersion: upgrade.cattle.io/v1
 kind: Plan
 metadata:
@@ -29,6 +29,39 @@ spec:
   # First in the night's order, right after the scheduled etcd snapshot at 00:00 UTC, so
   # every upgrade starts from a fresh one in Object Storage. OS updates follow at 03:30 and
   # kured's reboots at 04:30; Jobs start only inside the window but may run past its end.
+  window:
+    days: [monday, tuesday, wednesday, thursday, friday, saturday, sunday]
+    startTime: "02:30"
+    endTime: "03:30"
+    timeZone: Europe/Zurich
+---
+# Every worker (k3s agent: no control-plane label), after all servers - the prepare step waits
+# until the server Plan has finished, so a worker never runs newer than the servers (Kubernetes'
+# skew policy allows the kubelet to be older, not newer). Same channel and window, cordoned
+# but not drained, for the same reason as above.
+apiVersion: upgrade.cattle.io/v1
+kind: Plan
+metadata:
+  name: agent
+  namespace: system-upgrade
+  annotations:
+    # The CRD arrives in the same sync.
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  concurrency: 1
+  cordon: true
+  nodeSelector:
+    matchExpressions:
+      - key: node-role.kubernetes.io/control-plane
+        operator: DoesNotExist
+  serviceAccountName: system-upgrade
+  prepare:
+    image: rancher/k3s-upgrade
+    args: [prepare, server]
+  upgrade:
+    image: rancher/k3s-upgrade
+  # Kept in step with the server Plan's channel.
+  channel: https://update.k3s.io/v1-release/channels/v1.37
   window:
     days: [monday, tuesday, wednesday, thursday, friday, saturday, sunday]
     startTime: "02:30"

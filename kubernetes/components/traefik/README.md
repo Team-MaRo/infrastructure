@@ -26,8 +26,9 @@ rebuild) the complete one.
 ## How it is set up
 
 - **Ingress nodes are the ones labelled `node-role.kubernetes.io/ingress=true`**
-  (`k3s_node_labels`, today all three). **That label, the DNS map `local.prod_nodes` in
-  `tofu/cloudflare` and later a load balancer's targets must list the same nodes** - a node in
+  (`k3s_node_labels`, today the three servers; the worker `prod-04` has none). **That label,
+  the DNS map `local.prod_nodes` in `tofu/cloudflare` and later a load balancer's targets must
+  list the same nodes** - a node in
   DNS without Traefik answers nothing. A workload-only node gets no label: no Traefik, not
   internet-facing. There is no standard ratio; keep at least two or three for redundancy and
   size them by traffic, not by node count.

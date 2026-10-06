@@ -3,9 +3,10 @@
 Back to [`kubernetes/README.md`](../../README.md).
 
 k3s upgrades itself. `kubernetes/components/system-upgrade-controller/` deploys Rancher's
-system-upgrade-controller (pinned release manifests, v0.20.2, in `kustomization.yaml`) and one
-Plan, `server` (`plan.yaml`), covering all three nodes. For each node it runs a privileged Job
-that replaces the k3s binary and restarts k3s. Ansible's `k3s_version` is therefore only the
+system-upgrade-controller (pinned release manifests, v0.20.2, in `kustomization.yaml`) and two
+Plans in `plan.yaml`: `server` for the three servers and `agent` for the workers (nodes without
+the `control-plane` label). For each node it runs a privileged Job that replaces the k3s binary
+and restarts k3s. Ansible's `k3s_version` is therefore only the
 version a node is *installed* with; the Ansible install never upgrades (`creates:`), and a new
 node catches up in the next window.
 
@@ -22,6 +23,9 @@ node catches up in the next window.
   OS updates at 03:30 (see "The night's maintenance order" in
   [`AGENTS.md`](../../../AGENTS.md)). The channel is polled every 15 minutes; Jobs start only
   inside the window but may run past it.
+- **Workers after servers.** The `agent` Plan's `prepare` step (`prepare server`) waits until
+  the `server` Plan has finished, so a worker is never newer than the servers. Its channel and
+  window are the server Plan's, and the two channels must be changed together.
 - **One node at a time, cordoned but not drained.** Restarting k3s leaves running pods alone
   (the containerd shims survive), so a drain would only move volumes around. The API is
   briefly unavailable on each node; etcd keeps quorum with two of three.
@@ -33,7 +37,7 @@ node catches up in the next window.
 ## Watching it
 
 ```shell
-kubectl --context d3strukt0r-prod-admin -n system-upgrade get plan server -o wide   # the version it aims for
+kubectl --context d3strukt0r-prod-admin -n system-upgrade get plan -o wide          # the version each Plan aims for
 kubectl --context d3strukt0r-prod-admin -n system-upgrade get jobs                 # one per node and upgrade
 kubectl --context d3strukt0r-prod-admin get nodes                                  # versions, SchedulingDisabled
 ```

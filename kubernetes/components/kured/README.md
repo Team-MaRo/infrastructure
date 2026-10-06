@@ -30,7 +30,7 @@ node at a time and only between 04:30 and 06:00 Zurich time: cordon, drain, rebo
 uncordon.
 
 ```shell
-kubectl --context d3strukt0r-prod-admin -n kube-system logs -l name=kured --prefix   # all three nodes
+kubectl --context d3strukt0r-prod-admin -n kube-system logs -l name=kured --prefix   # every node
 ```
 
 To test it, or to have a node rebooted in the next window without a kernel update, create
