@@ -9,3 +9,7 @@ metadata:
 spec:
   forwardAuth:
     address: http://oauth2-proxy.oauth2-proxy.svc
+    # Client X-Forwarded-* headers are dropped and Traefik sends its own, which oauth2-proxy
+    # builds the redirect from. oauth2-proxy answers with a few KB; anything bigger is refused.
+    trustForwardHeader: false
+    maxResponseBodySize: 1048576  # 1 MiB

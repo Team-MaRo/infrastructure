@@ -31,11 +31,24 @@ spec:
       rollingUpdate:
         maxUnavailable: 1
         maxSurge: 0
+    # Headers that turn into a real one's name once a backend maps "_" to "-" (X_Forwarded_For
+    # for X-Forwarded-For - PHP's $_SERVER does) are dropped, so a client cannot slip one past
+    # what Traefik sets. Per entry point; "reject" would answer 400 to clients that send them.
     ports:
       web:
         port: 80
+        http:
+          aliasHeadersStrategy: delete
       websecure:
         port: 443
+        http:
+          aliasHeadersStrategy: delete
+      metrics:
+        http:
+          aliasHeadersStrategy: delete
+      traefik:
+        http:
+          aliasHeadersStrategy: delete
     # ClusterIP instead of LoadBalancer, so servicelb stops claiming the nodes' 80 and 443.
     service:
       spec:
@@ -49,6 +62,11 @@ spec:
           enabled: false
         ingressEndpoint:
           hostname: prod.d3strukt0r.dev
+      # Names generated from CRDs join namespace and name with "_" (phpmyadmin_oauth2-proxy), so
+      # two objects can never end up with the same name. An Ingress references a Middleware as
+      # <namespace>_<name>@kubernetescrd.
+      kubernetesCRD:
+        safeNaming: true
     # The dashboard (read-only: routers, services, middlewares, certificates) at
     # traefik.d3strukt0r.dev, behind the Zitadel login gate (middleware-oauth2-proxy.yaml).
     ingressRoute:

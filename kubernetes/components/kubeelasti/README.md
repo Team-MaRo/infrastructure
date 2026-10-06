@@ -57,7 +57,7 @@ needs, all in its own component:
 1. **No `replicas` in its Deployment** - KubeElasti scales it, and one replica when awake.
 2. **Its Service** carries `traefik.ingress.kubernetes.io/service.nativelb: "true"`.
 3. **A Middleware** telling KubeElasti which app a request is for, referenced from its Ingress
-   (`traefik.ingress.kubernetes.io/router.middlewares: <ns>-kubeelasti-target@kubernetescrd`):
+   (`traefik.ingress.kubernetes.io/router.middlewares: <ns>_kubeelasti-target@kubernetescrd`):
 
    ```yaml
    apiVersion: traefik.io/v1alpha1

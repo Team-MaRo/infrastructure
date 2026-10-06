@@ -70,7 +70,7 @@ prometheus:
   ingress:
     enabled: true
     annotations:
-      traefik.ingress.kubernetes.io/router.middlewares: monitoring-oauth2-proxy@kubernetescrd
+      traefik.ingress.kubernetes.io/router.middlewares: monitoring_oauth2-proxy@kubernetescrd
     hosts:
       - prometheus.d3strukt0r.dev
     tls:
@@ -111,7 +111,7 @@ alertmanager:
   ingress:
     enabled: true
     annotations:
-      traefik.ingress.kubernetes.io/router.middlewares: monitoring-oauth2-proxy@kubernetescrd
+      traefik.ingress.kubernetes.io/router.middlewares: monitoring_oauth2-proxy@kubernetescrd
     hosts:
       - alertmanager.d3strukt0r.dev
     tls:

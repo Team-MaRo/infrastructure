@@ -26,9 +26,12 @@ cluster's manifests fit together is in [`kubernetes/README.md`](../../README.md)
 - **The Middleware exists once per guarded namespace** (`kube-system`, `phpmyadmin`,
   `monitoring`) - Traefik only takes middleware from the router's own namespace
   (`allowCrossNamespace` stays off);
-  each points at `http://oauth2-proxy.oauth2-proxy.svc`. A new guarded UI gets a copy in its
-  namespace, the annotation `traefik.ingress.kubernetes.io/router.middlewares:
-  <namespace>-oauth2-proxy@kubernetescrd` on its Ingress, and its hostname under the domain.
+  each points at `http://oauth2-proxy.oauth2-proxy.svc`, drops the client's `X-Forwarded-*`
+  headers (`trustForwardHeader: false`) and takes at most 1 MiB as answer
+  (`maxResponseBodySize`). A new guarded UI gets a copy in its namespace, the annotation
+  `traefik.ingress.kubernetes.io/router.middlewares: <namespace>_oauth2-proxy@kubernetescrd` on
+  its Ingress (`_`: Traefik's safe naming, [`../traefik/README.md`](../traefik/README.md)), and
+  its hostname under the domain.
 - The chart meets the restricted Pod Security Standard as it is; the image is on `quay.io`;
   one replica - with it down, the guarded UIs are unreachable (fail closed) but everything
   else keeps running.

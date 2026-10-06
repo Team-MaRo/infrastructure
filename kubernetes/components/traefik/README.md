@@ -46,6 +46,16 @@ rebuild) the complete one.
   `{namespace="kube-system", container="traefik"} | json | DownstreamStatus >= 500`. Traefik's
   own log (start, configuration, backend and TLS errors) is JSON as well (`log.format`), in the
   same stream: `| json | level="error"`.
+- **Alias headers are dropped** (`aliasHeadersStrategy: delete` on every entry point): a header
+  such as `X_Forwarded_For` becomes `X-Forwarded-For` in PHP's `$_SERVER`, so a client could
+  otherwise forge what Traefik sets. Dropped, not rejected - odd clients still get an answer.
+- **Safe naming** (`providers.kubernetesCRD.safeNaming`): names Traefik generates from CRDs join
+  namespace and name with `_` instead of `-`, so two objects can never collide. A Middleware is
+  referenced from an Ingress as `<namespace>_<name>@kubernetescrd`
+  (`traefik.ingress.kubernetes.io/router.middlewares`); an IngressRoute names it by `name` and
+  `namespace` and is unaffected. A wrong reference fails closed - the router is not served (404)
+  and the dashboard lists its error. The same names appear in the access log (`RouterName`,
+  `ServiceName`) and in the metrics' `router`/`service` labels.
 - **Tracing is off on purpose** - it needs a trace store (such as Grafana Tempo) and apps that
   report their own spans, and the cluster has neither yet.
 - **The dashboard is at `https://traefik.d3strukt0r.dev`** (read-only), switched on through the
