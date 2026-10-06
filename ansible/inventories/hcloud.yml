@@ -11,6 +11,12 @@ label_selector: cluster=prod
 # are hosted rather than what they are - and what they are is what playbooks select on.
 group: prod
 
+# Workers - k3s agents, no API server or etcd - carry the Hetzner label role=agent
+# (tofu/hcloud) and land in prod_agents as well, whose group_vars turn the k3s role into an
+# agent install. Every other prod node is a server.
+groups:
+  prod_agents: hcloud_labels.role | default('') == 'agent'
+
 # Filters to servers on the prod network and, as a side effect, exposes each node's
 # address in it as hcloud_private_ipv4. That is a value for the cluster to be configured
 # with; it is not how Ansible connects.

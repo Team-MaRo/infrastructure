@@ -1,0 +1,24 @@
+---
+# prod's workers: k3s agents (kubelet, containerd, flannel) that join the servers in prod and
+# run workloads only - no API server, no etcd, so etcd keeps its three members. Selected by the
+# Hetzner label role=agent (inventories/hcloud.yml); everything in group_vars/prod.yml applies
+# too, these values take precedence.
+k3s_agent: true
+
+# Workload-only: no ingress label, so no Traefik here and no DNS record for it in
+# tofu/cloudflare.
+k3s_node_labels: {}
+
+# An agent runs no API server or etcd, so it needs far less than a server's 1.5 GiB for k3s
+# itself. The whole map is repeated: a variable replaces the role default as a whole.
+# failSwapOn is here instead of the servers' --kubelet-arg install flag, which agents do not get.
+k3s_kubelet_config:
+  evictionHard:
+    memory.available: 200Mi
+    imagefs.available: 5%
+    nodefs.available: 5%
+  kubeReserved:
+    memory: 512Mi
+  systemReserved:
+    memory: 256Mi
+  failSwapOn: false

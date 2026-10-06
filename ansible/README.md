@@ -47,7 +47,10 @@ ansible/
     │       ├── main.yml      # detect iface, assemble flags, install, wait
     │       ├── server_init.yml
     │       ├── server_join.yml
-    │       └── labels.yml    # node labels via kubectl
+    │       ├── agent_join.yml   # workers: k3s agent with the server token
+    │       ├── wait_ready.yml   # a server's API answers
+    │       ├── wait_node_ready.yml  # an agent's node is Ready, asked of prod-01
+    │       └── labels.yml    # node labels via kubectl, on prod-01
     └── swap/
         ├── defaults/main.yml # swap_size and the three sysctls
         └── tasks/main.yml    # the six tasks
@@ -96,7 +99,9 @@ Role defaults are the weakest thing in Ansible (rank 2), so `group_vars/prod.yml
 Dynamic, so the three addresses are not copied out of `../tofu/hcloud/locals.tf` a third
 time and adding a node needs no edit here. It selects by the same `cluster=prod` label the
 firewall attaches by, and puts the results in the **`prod` group** rather than the plugin's default
-`hcloud` - the group name should say what the hosts are, not where they are hosted.
+`hcloud` - the group name should say what the hosts are, not where they are hosted. Workers
+carry the extra label `role=agent` and land in **`prod_agents`** too (a constructed group in
+`inventories/hcloud.yml`); its group_vars make the k3s role install an agent.
 
 **The prod inventory connects over public IPs.** `network: prod` filters to nodes on the
 private network and exposes each node's `hcloud_private_ipv4` as a hostvar. That is a value
@@ -160,10 +165,11 @@ Re-running is safe: every install task is guarded, so a second run reports `chan
 
 ## The playbooks
 
-- **`prod.yml`** - the `prod` cluster, in two plays: `hosts: prod-01` initialises the first
-  server, `hosts: prod:!prod-01` joins the others with `serial: 1`. Each play runs
+- **`prod.yml`** - the `prod` cluster, in three plays: `hosts: prod-01` initialises the first
+  server, `hosts: prod:!prod-01:!prod_agents` joins the other servers and `hosts: prod_agents`
+  the workers, each with `serial: 1`. Each play runs
   [`hostname`](roles/hostname/README.md), [`os_updates`](roles/os_updates/README.md) and
-  [`k3s`](roles/k3s/README.md); why it has to be two plays, and why `prod-01` is written out
+  [`k3s`](roles/k3s/README.md); why it has to be three plays, and why `prod-01` is written out
   literally, is in the k3s role's README.
 - **`site.yml`** - imports the per-type playbooks; today only `prod.yml`.
 - **`kubeconfig.yml`** - writes the two kubeconfigs onto this machine; below, since it has no

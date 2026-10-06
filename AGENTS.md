@@ -92,8 +92,10 @@ Details are in `ansible/README.md` and each role's `ansible/roles/<role>/README.
   are no feature flags.** A default inventory is set, which is safe only because `hosts:`
   constrains each playbook. **Do not write a playbook with `hosts: all`**, or that guarantee
   is gone.
-- `prod.yml` runs the k3s role in two plays, with `prod-01` written out literally in the host
-  patterns and kept in step with `k3s_init_node` - see `ansible/roles/k3s/README.md`.
+- `prod.yml` runs the k3s role in three plays (first server, other servers, workers), with
+  `prod-01` written out literally in the host patterns and kept in step with `k3s_init_node` -
+  see `ansible/roles/k3s/README.md`. Workers are k3s agents: a Hetzner label `role=agent` puts a
+  node into `prod_agents`, and it must never run as a server (etcd stays at three members).
 - `kubeconfig.yml`, `argocd.yml` and `secrets.yml` run from the admin's machine and are not
   imported by `site.yml`.
 

@@ -1,0 +1,32 @@
+---
+- name: Read the cluster join token
+  # Read here from k3s_init_node rather than taken from the first play's hostvars, so the
+  # workers' play also works on its own (--limit prod_agents). The server token admits agents
+  # too. Kept in memory only; the result carries it base64-encoded and -v prints it.
+  ansible.builtin.slurp:
+    src: /var/lib/rancher/k3s/server/token
+  delegate_to: "{{ k3s_init_node }}"
+  register: k3s_agent_token_file
+  no_log: true
+  when:
+    - not k3s_binary.stat.exists
+    - not ansible_check_mode
+
+- name: Install k3s as an agent and join the cluster
+  ansible.builtin.command:
+    cmd: >-
+      /usr/local/bin/k3s-install.sh agent
+      --server https://{{ hostvars[k3s_init_node].hcloud_private_ipv4 }}:6443
+      {{ k3s_agent_args }}
+    creates: /usr/local/bin/k3s
+  environment:
+    INSTALL_K3S_VERSION: "{{ k3s_version }}"
+    K3S_TOKEN: "{{ k3s_agent_token_file.content | b64decode | trim }}"
+  no_log: true
+  # As in server_join.yml: a dry run has no token to hand over.
+  when:
+    - not k3s_binary.stat.exists
+    - not ansible_check_mode
+
+- name: Wait for the joined agent to be ready
+  ansible.builtin.import_tasks: wait_node_ready.yml

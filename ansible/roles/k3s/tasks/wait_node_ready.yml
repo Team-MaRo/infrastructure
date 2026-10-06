@@ -1,0 +1,12 @@
+---
+# An agent has no API server and no admin kubeconfig to ask, so its readiness is asked of
+# k3s_init_node: the node must have registered and report Ready.
+- name: Wait for the node to be Ready
+  ansible.builtin.command: >-
+    k3s kubectl wait --for=condition=Ready node/{{ inventory_hostname }} --timeout=5s
+  delegate_to: "{{ k3s_init_node }}"
+  changed_when: false
+  retries: 30
+  delay: 5
+  register: k3s_node_ready
+  until: k3s_node_ready.rc == 0

@@ -1,7 +1,8 @@
 # k3s
 
-Brings up a three-server cluster with embedded etcd. Every node runs the control plane and
-schedules workloads, so losing one is survivable. Besides the install, the role owns the
+Brings up a three-server cluster with embedded etcd, plus workers (k3s agents). Every server
+runs the control plane and schedules workloads, so losing one is survivable; workers only run
+workloads (see "Workers" below). Besides the install, the role owns the
 k3s configuration that may change later (`k3s_config`), kernel parameters, node labels, the
 Pod Security admission file and the API server's authentication configuration.
 
@@ -9,12 +10,12 @@ How the playbooks and the inventory fit together is in [`../../README.md`](../..
 How the running cluster upgrades itself is in
 [`kubernetes/components/system-upgrade-controller/README.md`](../../../kubernetes/components/system-upgrade-controller/README.md).
 
-## Why it is two plays
+## Why it is three plays
 
-`prod.yml` runs `roles/k3s` in two plays rather than one. That is forced, not stylistic:
+`prod.yml` runs `roles/k3s` in three plays rather than one. That is forced, not stylistic:
 `--cluster-init` has to finish on one node before the others can join, joining wants
-`serial: 1` so etcd keeps a quorum while members are added, and `hosts:` and `serial:` are
-play-level settings a role cannot change.
+`serial: 1` so etcd keeps a quorum while members are added, workers join only once the servers
+are there, and `hosts:` and `serial:` are play-level settings a role cannot change.
 
 - **`prod-01` is written out literally** in the host patterns. A play's pattern is resolved
   before any host is selected, so inventory variables are not available to it - templating
@@ -22,7 +23,8 @@ play-level settings a role cannot change.
   `k3s_init_node` in `group_vars/prod.yml` names the same node and has to be kept in step;
   the role deliberately has no default for it, since it names a host, which is inventory
   data.
-- **The second play is `prod:!prod-01`**, not `all:!prod-01`, which would sweep in `home`.
+- **The second play is `prod:!prod-01:!prod_agents`**, not `all:!prod-01`, which would sweep
+  in `home`; the third is `prod_agents`.
 - **The playbook touches nothing but the nodes.** Fetching a kubeconfig is
   `ansible/kubeconfig.yml`, deliberately separate - see "`kubeconfig.yml`" in
   [`../../README.md`](../../README.md).
@@ -108,12 +110,36 @@ ansible prod -b -m ansible.builtin.shell \
 **Kernel parameters (`k3s_sysctls`) and node labels (`k3s_node_labels`)** are the role's
 too. The sysctls go to `/etc/sysctl.d/50-ansible-k3s.conf` and apply at once, without a
 restart; today only `net.ipv4.ip_unprivileged_port_start = 80`, so Traefik can listen on
-80/443 on the host network without root. Labels are set with `k3s kubectl label` on the node
-itself, after reading the current ones, because k3s's `node-label` only applies at a node's
-first registration and a kubelet may not set `node-role.kubernetes.io/*` on itself. That uses
-the admin kubeconfig every server has; an agent node would need the task delegated to a
-server. `group_vars/prod.yml` labels every node `node-role.kubernetes.io/ingress=true` (see
-[`kubernetes/components/traefik/README.md`](../../../kubernetes/components/traefik/README.md)).
+80/443 on the host network without root. Labels are set with `k3s kubectl label` on
+`k3s_init_node`, after reading the current ones, because k3s's `node-label` only applies at a
+node's first registration and a kubelet may not set `node-role.kubernetes.io/*` on itself. That
+uses the admin kubeconfig every server has and agents lack. `group_vars/prod.yml` labels every
+node `node-role.kubernetes.io/ingress=true` (see
+[`kubernetes/components/traefik/README.md`](../../../kubernetes/components/traefik/README.md));
+`group_vars/prod_agents.yml` takes it away again for workers.
+
+## Workers
+
+**A worker is a k3s agent**: kubelet, containerd and flannel, no API server and no etcd - so
+it adds capacity for workloads without touching etcd's quorum (three members stay three) and
+costs far less memory than a server. A server in Hetzner with the label `role=agent`
+(`tofu/hcloud`) lands in the inventory group **`prod_agents`**, whose
+`group_vars/prod_agents.yml` sets `k3s_agent: true`. The role then:
+
+- installs `k3s agent` against `k3s_init_node`'s private address with the server token, read
+  from that node (`tasks/agent_join.yml`), with only `--node-ip` and `--flannel-iface`;
+- writes `k3s_agent_config` (empty) instead of `k3s_config`, whose server keys (`etcd-*`,
+  `disable`, `kube-apiserver-arg`, `flannel-backend`) stop an agent from starting - the
+  flannel backend comes from the servers;
+- skips the Pod Security and authentication files, which only an API server reads;
+- restarts `k3s-agent` instead of `k3s`, and asks `k3s_init_node` whether the node is Ready
+  (`tasks/wait_node_ready.yml`), since an agent has no API to ask;
+- reserves less memory (`kubeReserved: 512Mi`) and sets `failSwapOn` in the kubelet drop-in, as
+  agents do not get the servers' install flags;
+- sets no ingress label: workers run no Traefik and have no DNS record.
+
+A dry run of a worker that does not exist yet can only show the drop-ins; the join needs the
+real node.
 
 ## Two flags the install has to set up front
 

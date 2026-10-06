@@ -1,9 +1,11 @@
 ---
-# The prod cluster: three k3s servers with embedded etcd. Every node runs the control
-# plane and schedules workloads, so losing one is survivable.
+# The prod cluster: three k3s servers with embedded etcd, which run the control plane and
+# workloads, so losing one is survivable - plus workers (prod_agents), k3s agents that only
+# run workloads and leave etcd at three members.
 #
-# Two plays because --cluster-init has to complete on one node before the others can join
-# it, and because hosts: and serial: are play-level settings a role cannot change.
+# Separate plays because --cluster-init has to complete on one node before the others can
+# join it, servers join before agents, and hosts: and serial: are play-level settings a role
+# cannot change.
 #
 # prod-01 is written out rather than templated: a play's host pattern is resolved before
 # any host is selected, so inventory variables are not available to it. k3s_init_node in
@@ -24,9 +26,22 @@
       k3s_cluster_init: true
 
 - name: Join the remaining servers
-  # Not all:!prod-01 - that would sweep in the home group.
-  hosts: prod:!prod-01
+  # Not all:!prod-01 - that would sweep in the home group. Workers are excluded here and
+  # joined below as agents.
+  hosts: prod:!prod-01:!prod_agents
   # One at a time, so etcd keeps a sane quorum while members are added.
+  serial: 1
+  roles:
+    - role: hostname
+      tags: hostname
+    - role: os_updates
+      tags: os_updates
+    - k3s
+
+- name: Join the workers
+  # After the servers, whose API they join. k3s_agent from group_vars/prod_agents.yml makes the
+  # role install an agent. One at a time, like the servers.
+  hosts: prod_agents
   serial: 1
   roles:
     - role: hostname
