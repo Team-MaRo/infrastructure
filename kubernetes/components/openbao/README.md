@@ -28,13 +28,13 @@ Secrets policy and role and the Zitadel login for admins; see
   encrypted" in [`ansible/roles/k3s/README.md`](../../../ansible/roles/k3s/README.md)); TLS on
   the listener would only add server authentication - clients could verify they talk to the
   real OpenBao.
-- **The StatefulSet updates `OnDelete`** (the chart's default): a change to the pod template
-  syncs, but the running pod keeps the old one until it is deleted -
-  `kubectl --context d3strukt0r-prod-admin -n openbao delete pod openbao-0` - and it unseals
-  itself again on start.
+- **The StatefulSet updates `RollingUpdate`** (`server.updateStrategyType`; the chart's default
+  is `OnDelete`): a change to the pod template, such as a new image, restarts the pod once
+  Argo CD syncs it, and it unseals itself again on start - OpenBao is gone for those seconds.
+  `OnDelete` suits a cluster of several pods, unsealed by hand and updated standbys first; with
+  one pod and the static seal it only adds a manual step (changed 2026-10-06).
 - **PriorityClass `stateful-core`** (`server.priorityClassName`): evicted last when a node runs
-  short of memory ([`../priority-classes/README.md`](../priority-classes/README.md)). Like any
-  pod-template change it reaches the running pod only once the pod is deleted (`OnDelete`).
+  short of memory ([`../priority-classes/README.md`](../priority-classes/README.md)).
 - The injector is off; secrets reach workloads through External Secrets.
 - **The UI and API are public at `https://openbao.d3strukt0r.dev`** (user decision; the chart's
   Ingress, certificate from `components/openbao/certificates.yaml`, TLS ending at Traefik).

@@ -65,8 +65,8 @@ themselves (Gatus' config, Alertmanager's ntfy secret, Alloy, Argo CD's webhook 
 | `argocd-server` | ConfigMap `argocd-cmd-params-cm` | `server.insecure` |
 | `argocd-repo-server`, `argocd-application-controller` | ConfigMap `argocd-cm` | the polling interval |
 
-Deliberately not: OpenBao (its StatefulSet updates `OnDelete`, so a restart annotation would do
-nothing, and its seal key must not change), the databases (CloudNativePG and mariadb-operator
+Deliberately not: OpenBao (its seal key must never change - a restart with a changed key would
+leave it sealed), the databases (CloudNativePG and mariadb-operator
 manage their pods and restart them in their own order - never annotate them), Zitadel's
 masterkey and first-admin password.
 

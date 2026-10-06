@@ -9,6 +9,10 @@ injector:
 server:
   # Evicted last when a node runs short of memory (kubernetes/components/priority-classes).
   priorityClassName: stateful-core
+  # A changed pod template rolls out by itself. The chart's OnDelete is made for clusters of
+  # several pods, unsealed by hand and updated standbys first; with one pod and the static seal,
+  # a restart is the same as deleting the pod by hand, minus the step that is easy to forget.
+  updateStrategyType: RollingUpdate
   # The UI and API at openbao.d3strukt0r.dev (its own record in tofu/cloudflare), certificate
   # from certificates.yaml. TLS ends at Traefik. No ingressClassName: Traefik is the cluster's
   # default IngressClass.
