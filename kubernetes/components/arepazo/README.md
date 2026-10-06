@@ -44,7 +44,9 @@ requests (`config/php-fpm.conf`), restricted Pod Security. What differs:
   five workers (`pm.max_children`) run at once - 512Mi was OOM-killed twice right after the
   switch (2026-10-04). wp-cli in the init container loads WooCommerce's admin code and
   crashes at 128M, so it runs with `-d memory_limit=1024M` (`WP_CLI_PHP_ARGS`) in a 1280Mi
-  container that exits once the site is assembled.
+  container that exits once the site is assembled. It requests only 256Mi: without a request
+  the limit would count as one, and a pod keeps its largest init container's request booked on
+  the node for its whole life.
 - **Slow requests, patient probes.** Every page takes about 3 s, on prod-old as here (WooCommerce,
   Jetpack, Yoast and some thirty more plugins, no page cache). The probes still go through
   WordPress (`/robots.txt`), but wait 10 s and run every 30 s (readiness) and 60 s (liveness);

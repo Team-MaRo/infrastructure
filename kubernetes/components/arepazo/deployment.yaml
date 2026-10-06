@@ -157,7 +157,12 @@ spec:
               value: *config-extra
           envFrom: *wordpress-secrets
           securityContext: *restricted
+          # The request is set explicitly, or it would default to the limit: a pod counts as
+          # requesting its largest init container's request for its whole life, so 1280Mi would
+          # stay booked on the node long after this container has exited.
           resources:
+            requests:
+              memory: 256Mi
             limits:
               memory: 1280Mi
           volumeMounts:
