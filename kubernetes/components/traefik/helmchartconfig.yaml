@@ -61,6 +61,28 @@ spec:
           - name: oauth2-proxy
         tls:
           secretName: traefik-tls
+    # Traefik's own log (start, configuration, backend and TLS errors) as JSON too, so both logs
+    # of the container filter alike in Loki (| json).
+    log:
+      format: json
+    # Access log as JSON on stdout (to Loki through Alloy), but only for requests that failed
+    # (400-599) or took over 2 s - what visitors got during an incident, with little volume and
+    # personal data. Headers stay dropped except the visitor's address behind Cloudflare
+    # (CF-Connecting-IP; the client address Traefik sees is Cloudflare's) and the user agent;
+    # query strings are dropped from the path, since URLs can carry tokens.
+    accessLog:
+      enabled: true
+      format: json
+      filters:
+        statusCodes: "400-599"
+        minDuration: "2s"
+      fields:
+        headers:
+          names:
+            CF-Connecting-IP: keep
+            User-Agent: keep
+        queryParameters:
+          defaultMode: drop
     # About 30 MiB when set (2026-09-28); the limit leaves room for traffic peaks. The chart
     # sets none, and kube-system has no LimitRange.
     resources:

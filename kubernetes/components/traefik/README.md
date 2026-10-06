@@ -38,6 +38,16 @@ rebuild) the complete one.
 - **Its metrics** are scraped through a PodMonitor (`components/traefik/pod-monitor.yaml`, port
   `metrics` 9100 on the host network), which carries `SkipDryRunOnMissingResource=true`, since
   the CRD belongs to another Application.
+- **The access log records only failed and slow requests** (`accessLog` in
+  `helmchartconfig.yaml`, user decision 2026-10-06): status 400-599 or over 2 s, as JSON on
+  stdout, so Alloy ships it to Loki (30 days). Headers are dropped except `CF-Connecting-IP` (the
+  visitor; the client address Traefik sees is Cloudflare's) and `User-Agent`; query strings are
+  dropped from the path. Search it in Grafana's Explore:
+  `{namespace="kube-system", container="traefik"} | json | DownstreamStatus >= 500`. Traefik's
+  own log (start, configuration, backend and TLS errors) is JSON as well (`log.format`), in the
+  same stream: `| json | level="error"`.
+- **Tracing is off on purpose** - it needs a trace store (such as Grafana Tempo) and apps that
+  report their own spans, and the cluster has neither yet.
 - **The dashboard is at `https://traefik.d3strukt0r.dev`** (read-only), switched on through the
   chart's `ingressRoute.dashboard` in the HelmChartConfig - an IngressRoute on `websecure` with
   certificate `traefik-tls` and the Zitadel gate (see [`../oauth2-proxy/README.md`](../oauth2-proxy/README.md)).
