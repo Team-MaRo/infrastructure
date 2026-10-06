@@ -17,7 +17,11 @@ in the last 30 days. How the cluster's manifests fit together is in
   - `podAntiAffinityType: required` (the default only prefers separate nodes);
   - `primaryUpdateMethod: switchover` (the default restarts the primary in place);
   - `priorityClassName: stateful-core`, so its pods are evicted last when a node runs short of
-    memory ([`../priority-classes/README.md`](../priority-classes/README.md));
+    memory ([`../priority-classes/README.md`](../priority-classes/README.md)). CloudNativePG
+    rolls its pods only for some changes (the image, PostgreSQL parameters that need a restart,
+    resources, volume size); others, such as this one, reach the pods only through a rolling
+    restart - replica first, then a switchover:
+    `kubectl cnpg restart postgres -n postgres --context d3strukt0r-prod-admin`;
   - synchronous replication with `dataDurability: preferred` - a commit waits for the replica
     while it is up, and the primary goes on alone while it is not, like MariaDB's semi-sync;
   - 256Mi/512Mi and `shared_buffers` 128MB, raised with real data.
