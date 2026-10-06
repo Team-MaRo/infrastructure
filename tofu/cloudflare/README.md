@@ -102,6 +102,29 @@ hides them from the dashboard and API, so they never appear as drift - after the
 was `comodoca.com`, `digicert.com`, `pki.goog` and `ssl.com`, `issue` and `issuewild` each.
 `dig CAA <zone> @1.1.1.1` shows the full set. A new certificate source using another CA needs that CA added here first.
 
+## Sending through mailomat
+
+[mailomat.swiss](https://mailomat.swiss) is the smarthost for mail sent from the cluster
+(Hetzner blocks outgoing 25 and 465; it is reached on 587). A sending domain receives mail
+elsewhere or may one day - `arepazo.ch` at Microsoft 365, `d3strukt0r.dev` at addy,
+`wundexpertinplus.com` not yet - so mailomat gets a **subdomain per domain**, `mailomat.<domain>`,
+with three records, keeping the apex's MX free: SPF (`include:mailomat.cloud`) and MX
+(`mx.mailomat.cloud`) for bounces, which return to that subdomain, and the DKIM key under `mom1._domainkey.mailomat.<domain>`. Mail can still be sent as
+`@<domain>`: DMARC's relaxed alignment counts the subdomain's SPF and DKIM for the domain, so the
+**apex SPF records stay untouched**. That needs DKIM alignment left relaxed: `d3strukt0r.dev`'s
+DMARC record had `adkim=s`, under which mailomat's signature (`d=mailomat.d3strukt0r.dev`) does not
+count and its mail passes on SPF alone - which breaks whenever a mail is forwarded. `d3st.dev`
+and `d3st.org` keep `adkim=s`; only addy sends for them, signing as exactly those domains. No
+DMARC record asks for reports (`rua`) yet: they are to go to the planned mail server, which
+evaluates them, not into a mailbox.
+
+mailomat has no OpenTofu provider and its API manages no domains, so the account side is set by
+hand. Per domain, in mailomat's "Domains": the subdomain as domain, a public description of what
+is sent, DKIM selector empty (default `mom1`), key length 2048 bit, **tracking off** (it rewrites
+links and adds a pixel - personal data, no use here). mailomat then shows the three records to
+add here; a domain counts as verified once they resolve. SMTP credentials are created per use in
+mailomat and reach the cluster through OpenBao.
+
 ## Records Cloudflare owns but OpenTofu now tracks
 
 Seven AAAA records point at `100::` with `meta.origin_worker_id` set and

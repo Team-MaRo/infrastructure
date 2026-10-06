@@ -140,3 +140,47 @@ resource "cloudflare_dns_record" "arepazo_ch_txt_apex_3" {
   zone_id  = local.zone_ids["arepazo.ch"]
   settings = {}
 }
+
+# mailomat.swiss sends mail for this domain (smarthost, see "Sending through mailomat" in the
+# README). Its records sit on a subdomain because the apex already has a mail service; the
+# subdomain is the return path for bounces (SPF, MX) and the DKIM domain.
+
+resource "cloudflare_dns_record" "arepazo_ch_txt_mailomat" {
+  provider = cloudflare.arepazo
+
+  content  = "v=spf1 include:mailomat.cloud -all"
+  name     = "mailomat.arepazo.ch"
+  proxied  = false
+  tags     = []
+  ttl      = 1
+  type     = "TXT"
+  zone_id  = local.zone_ids["arepazo.ch"]
+  settings = {}
+}
+
+resource "cloudflare_dns_record" "arepazo_ch_txt_mom1_domainkey_mailomat" {
+  provider = cloudflare.arepazo
+
+  content  = "v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAxhson0MAo/IxeoW49FHmDz7fiOIg39IOHHMQLhNOXLo7LEvzxt9vibX5U06IDEU9+RNuJoeEt06qkZcvh+zamCGCmzzeRtrZRYWa5jCDLxXywIL3fdO38LTBvVPvkpiCPEFXT3v6dWtmJ2FTkaF55tTpk4WzQYz0yE+hvQks4QFG5uZ2TiwhSUbZctBjt8HD8Doyme1GTZvFe2eIX7hGc212v3ALMpWj/26thwewCz//mkTOL3cwbpSHE2mGSEDOgyoiC/NkmWpN+ISJC3RCeezfFvUyv2LaHFrJzw2D5nhlKtCt/e+tzSPC55Nfk3HgBmgklz0jXxHpjmwFc9JwSQIDAQAB"
+  name     = "mom1._domainkey.mailomat.arepazo.ch"
+  proxied  = false
+  tags     = []
+  ttl      = 1
+  type     = "TXT"
+  zone_id  = local.zone_ids["arepazo.ch"]
+  settings = {}
+}
+
+resource "cloudflare_dns_record" "arepazo_ch_mx_mailomat" {
+  provider = cloudflare.arepazo
+
+  content  = "mx.mailomat.cloud"
+  name     = "mailomat.arepazo.ch"
+  priority = 10
+  proxied  = false
+  tags     = []
+  ttl      = 1
+  type     = "MX"
+  zone_id  = local.zone_ids["arepazo.ch"]
+  settings = {}
+}

@@ -425,8 +425,8 @@ resource "cloudflare_dns_record" "d3strukt0r_dev_txt_apex_4" {
 resource "cloudflare_dns_record" "d3strukt0r_dev_txt_dmarc" {
   provider = cloudflare.personal
 
-  comment  = "AnonAddy DMARC"
-  content  = "\"v=DMARC1; p=quarantine; adkim=s\""
+  comment  = "DMARC, DKIM relaxed (no adkim=s): mailomat signs as mailomat.d3strukt0r.dev"
+  content  = "\"v=DMARC1; p=quarantine\""
   name     = "_dmarc.d3strukt0r.dev"
   proxied  = false
   tags     = []
@@ -471,6 +471,53 @@ resource "cloudflare_dns_record" "d3strukt0r_dev_aaaa_www" {
   tags     = []
   ttl      = 1
   type     = "AAAA"
+  zone_id  = local.zone_ids["d3strukt0r.dev"]
+  settings = {}
+}
+
+# mailomat.swiss sends mail for this domain (smarthost, see "Sending through mailomat" in the
+# README). Its records sit on a subdomain because the apex already has a mail service; the
+# subdomain is the return path for bounces (SPF, MX) and the DKIM domain.
+
+resource "cloudflare_dns_record" "d3strukt0r_dev_txt_mailomat" {
+  provider = cloudflare.personal
+
+  comment  = "mailomat"
+  content  = "v=spf1 include:mailomat.cloud -all"
+  name     = "mailomat.d3strukt0r.dev"
+  proxied  = false
+  tags     = []
+  ttl      = 1
+  type     = "TXT"
+  zone_id  = local.zone_ids["d3strukt0r.dev"]
+  settings = {}
+}
+
+resource "cloudflare_dns_record" "d3strukt0r_dev_txt_mom1_domainkey_mailomat" {
+  provider = cloudflare.personal
+
+  comment  = "mailomat"
+  content  = "v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA3LbxAfchqUME2RP3iZMnZCn5bntV90LX3NVg62+cP0HFLY4L2Ewaz3jBI6uPQE6Rg/H54LoBa4vMaPcfBKk2PPra/cdDaTOYuy85oNBaEDLJjAZWsGGzgdjFm6npYr30rio4C1O0UkSYuspr8YMm8t5gsc4PByGfhJSSFYC7I90HEQ1yy+dOCTGrFKBGz2OHYC7vpVVjl/wDN5X/RD2fxol2O/rqGBrVKDtOSX3G/Z6sWPLni48+T2GTLtOpbFxKzG/T0TmjIUCjCtcUhjgZx0Gp1UXsRUnKWbIOJFXfddUs/rc9OlCp0W8DWEi9EmXDsT2DGeoIe3fpTMsg/VJ2HwIDAQAB"
+  name     = "mom1._domainkey.mailomat.d3strukt0r.dev"
+  proxied  = false
+  tags     = []
+  ttl      = 1
+  type     = "TXT"
+  zone_id  = local.zone_ids["d3strukt0r.dev"]
+  settings = {}
+}
+
+resource "cloudflare_dns_record" "d3strukt0r_dev_mx_mailomat" {
+  provider = cloudflare.personal
+
+  comment  = "mailomat"
+  content  = "mx.mailomat.cloud"
+  name     = "mailomat.d3strukt0r.dev"
+  priority = 10
+  proxied  = false
+  tags     = []
+  ttl      = 1
+  type     = "MX"
   zone_id  = local.zone_ids["d3strukt0r.dev"]
   settings = {}
 }
