@@ -56,6 +56,7 @@ kubernetes/
 │       ├── arepazo.yaml       # the WooCommerce shop at www.arepazo.ch
 │       ├── kubeelasti.yaml        # scale to zero: chart pinned here, values in components/
 │       ├── cluster-rbac.yaml      # cluster-wide rights for kubectl logins through Zitadel
+│       ├── priority-classes.yaml  # the cluster's PriorityClasses - no finalizer
 │       ├── etcd-snapshots.yaml    # syncs the subdirectory below
 │       └── etcd-snapshots/        # prod-only: the S3 settings k3s uploads snapshots with
 └── components/                # how each component is deployed, shared by clusters
@@ -150,6 +151,9 @@ kubernetes/
     ├── cluster-rbac/
     │   ├── kustomization.yaml
     │   └── infra-admin.yaml       # Zitadel's infra-admin group is cluster-admin
+    ├── priority-classes/
+    │   ├── kustomization.yaml
+    │   └── stateful-core.yaml     # the databases and OpenBao, evicted last
     ├── alloy/
     │   ├── values.yaml            # Helm values: the collection pipeline
     │   ├── kustomization.yaml
@@ -256,6 +260,7 @@ kubernetes/
 | [`arepazo`](components/arepazo/README.md) | The WooCommerce shop at www.arepazo.ch (moved from prod-old) |
 | [`kubeelasti`](components/kubeelasti/README.md) | Scale to zero; letting an app sleep |
 | [`cluster-rbac`](components/cluster-rbac/README.md) | Cluster-wide rights for kubectl logins through Zitadel |
+| [`priority-classes`](components/priority-classes/README.md) | `stateful-core`: the shared databases and OpenBao, evicted last under memory pressure |
 | [`clusters/prod/etcd-snapshots`](clusters/prod/etcd-snapshots/README.md) | prod-only: the S3 settings k3s uploads etcd snapshots with; restore |
 
 Components are Kustomize over a pinned upstream manifest where upstream publishes one.

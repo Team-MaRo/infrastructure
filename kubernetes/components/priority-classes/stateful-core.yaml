@@ -1,0 +1,15 @@
+---
+# The pods that hold data everything else depends on: the shared MariaDB and PostgreSQL, and
+# OpenBao. When a node runs short of memory, the kubelet evicts pods above their requests by
+# priority first, so these go last.
+#
+# preemptionPolicy Never: the class orders evictions only and never pushes other pods off a node
+# to schedule one of these. With the cluster's requests as they are, a drained node's pods do
+# not all fit on the other two, and preemption would turn every drain into a chain of evictions.
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: stateful-core
+value: 1000000
+preemptionPolicy: Never
+description: Shared databases and OpenBao - evicted last under memory pressure.

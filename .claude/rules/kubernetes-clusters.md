@@ -13,7 +13,8 @@ paths:
 - Pushing to `master` deploys, pruning included: deleting an Application file here deletes
   what it deployed if it carries `resources-finalizer.argocd.argoproj.io`.
 - The finalizer only on apps whose data lives elsewhere or does not matter - never on an app
-  that brings CRDs, holds a volume, or is foundation (root, private, argocd, hcloud-csi, traefik). See
+  that brings CRDs, holds a volume, or is foundation (root, private, argocd, hcloud-csi, traefik),
+  and never on `priority-classes` (a pod naming a missing class is refused). See
   "Pruning and the finalizer" in `kubernetes/components/argocd/README.md`.
 - Pin every chart and manifest version. A Helm-only upstream: chart pinned in the Application,
   values from `components/<app>/` as a second source, its manifests as a third.

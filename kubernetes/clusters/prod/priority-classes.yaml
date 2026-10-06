@@ -1,0 +1,26 @@
+---
+# The cluster's PriorityClasses, from kubernetes/components/priority-classes. Cluster-scoped
+# objects only, so no destination namespace.
+#
+# No finalizer: a pod naming a PriorityClass that does not exist is refused, so removing this
+# file must not take the classes along - the databases would fail at their next restart.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: priority-classes
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Team-MaRo/infrastructure.git
+    targetRevision: master
+    path: kubernetes/components/priority-classes
+  destination:
+    server: https://kubernetes.default.svc
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      # Not required here (no large CRDs); used for consistency.
+      - ServerSideApply=true

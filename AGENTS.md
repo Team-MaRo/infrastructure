@@ -177,7 +177,8 @@ rule, 2026-10-02). Where a name cannot hold a hyphen, the hyphens become undersc
     cert-manager, external-secrets, kyverno, cloudnative-pg, the mariadb-operator ones,
     system-upgrade-controller, kube-prometheus-stack, kubeelasti, trust-manager. **Never on an
     app with a volume** (openbao, mariadb, postgres, loki, kube-prometheus-stack). **Never on the
-    foundation**: root, private, argocd, hcloud-csi, traefik.
+    foundation**: root, private, argocd, hcloud-csi, traefik. **Never on `priority-classes`**: a
+    pod naming a missing class is refused.
   - An app with the finalizer brings its own `namespace.yaml` instead of `CreateNamespace`,
     since Argo CD never deletes a namespace it created that way. Apps in `kube-system` get no
     `namespace.yaml`, or removing them would delete `kube-system`.
@@ -324,6 +325,7 @@ component); update it in the same change.
 | [`kubernetes/components/traefik/README.md`](kubernetes/components/traefik/README.md) | Ingress on the host network, ingress nodes, the dashboard |
 | [`kubernetes/components/cert-manager/README.md`](kubernetes/components/cert-manager/README.md) | DNS-01 issuers, the Cloudflare tokens, requesting a certificate |
 | [`kubernetes/components/cluster-rbac/README.md`](kubernetes/components/cluster-rbac/README.md) | Cluster-wide rights for Zitadel logins, revoking |
+| [`kubernetes/components/priority-classes/README.md`](kubernetes/components/priority-classes/README.md) | `stateful-core`: the databases and OpenBao evicted last |
 | [`kubernetes/components/gatus/README.md`](kubernetes/components/gatus/README.md) | The status page, the Watchdog heartbeat, adding checks |
 | [`kubernetes/components/kube-prometheus-stack/README.md`](kubernetes/components/kube-prometheus-stack/README.md) | Prometheus, Alertmanager, Grafana, scraping k3s, alerts |
 | [`kubernetes/components/loki/README.md`](kubernetes/components/loki/README.md) | Log storage, retention, searching logs |

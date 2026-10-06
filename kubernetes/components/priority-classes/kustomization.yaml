@@ -1,0 +1,8 @@
+---
+# The cluster's PriorityClasses. Cluster-scoped, shared by every component that names one; k3s's
+# own system-cluster-critical and system-node-critical stay above all of them.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - stateful-core.yaml
