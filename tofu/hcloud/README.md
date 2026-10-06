@@ -1,9 +1,9 @@
 # hcloud
 
 OpenTofu config for the Hetzner Cloud project, named after the provider like the other
-modules. Today that is the `prod` cluster: three servers, their network, placement group
-and firewall. Resources are named after the cluster, not after the Kubernetes distribution
-running on it.
+modules. Today that is the `prod` cluster: three k3s servers and one worker, their network,
+placement group and firewall. Resources are named after the cluster, not after the
+Kubernetes distribution running on it.
 
 Shared rules, credentials and the state backend are in [`../README.md`](../README.md).
 
@@ -13,8 +13,11 @@ The Hetzner resources predate this repo; they were clicked together in the conso
 `tofu/hcloud/imports.tf` adopts each one by its live ID. The config therefore describes
 reality rather than an ideal, which is why some values look arbitrary:
 
-- All three nodes are `cx33`. `prod-03` was created as `cx23` and resized in the console
+- The three servers are `cx33`. `prod-03` was created as `cx23` and resized in the console
   (2026-10-02, CPU and RAM only, so its disk stayed at 40 GB and a downgrade stays possible).
+  Every server now has `keep_disk = true`, so a `server_type` change in `locals.tf` does the
+  same: CPU and RAM only, the disk keeps its size and the server can be scaled down again. The
+  change powers the server off and on - drain it first.
 - Private IPs follow the node number: `prod-NN` = `10.0.0.1NN`. Not `10.0.0.NN`, because
   Hetzner reserves the first address of a network for its gateway, so `.1` can never be
   assigned. Changing a node's IP replaces its network attachment - never while k3s runs
@@ -23,8 +26,18 @@ reality rather than an ideal, which is why some values look arbitrary:
 
 `tofu/hcloud/locals.tf` holds the `servers` map, which is the single source of truth: it
 drives `hcloud_server`, `hcloud_server_network` **and** the `for_each` import blocks
-(the live server IDs live in that map). Adding a node means adding one map entry - and its
-public IP to `local.prod_nodes` in `tofu/cloudflare`, the cluster's DNS entry point.
+(the live server IDs live in that map; `id = null` for a server OpenTofu creates itself, which
+the import blocks skip). Adding a node means adding one map entry. Its `role` goes into the
+server's labels: `server` runs the control plane and etcd, `agent` is a worker, which the
+Ansible inventory groups into `prod_agents` and installs as a k3s agent - etcd stays at three
+members (see "Workers" in [`ansible/roles/k3s/README.md`](../../ansible/roles/k3s/README.md)).
+A node's role never changes in place. Only an ingress node also needs its public IP in
+`local.prod_nodes` in `tofu/cloudflare`, the cluster's DNS entry point - a worker gets no
+record.
+
+- **`prod-04` is the first worker** (`cx23`, 2026-10-07): with every node's memory reserved for
+  k3s, two servers could no longer hold all pods' requests if the third failed
+  (`KubeMemoryOvercommit`). A worker adds room without an API server or etcd of its own.
 
 **The server name is the host's identity** - the OS hostname, the Kubernetes node name
 and the etcd member name. On the nodes, cloud-init runs `update_hostname` and

@@ -26,15 +26,16 @@ import {
   id = "11653280"
 }
 
+# Only the servers that existed before OpenTofu; one it creates itself has no ID to import.
 import {
-  for_each = local.servers
+  for_each = { for name, server in local.servers : name => server if server.id != null }
 
   to = hcloud_server.this[each.key]
   id = tostring(each.value.id)
 }
 
 import {
-  for_each = local.servers
+  for_each = { for name, server in local.servers : name => server if server.id != null }
 
   to = hcloud_server_network.this[each.key]
   id = "${each.value.id}-12670314"

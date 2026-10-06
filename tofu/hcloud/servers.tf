@@ -10,13 +10,18 @@ resource "hcloud_server" "this" {
   image       = "debian-13"
   location    = local.location
 
-  labels = local.cluster_label
+  labels = merge(local.cluster_label, { role = each.value.role })
 
   ssh_keys           = [hcloud_ssh_key.d3strukt0r.id]
   placement_group_id = hcloud_placement_group.prod.id
 
   delete_protection  = true
   rebuild_protection = true
+
+  # A server_type change rescales CPU and RAM only and leaves the disk at its size, so a
+  # server can be scaled down again later (a larger disk cannot shrink). The change powers the
+  # server off and on - drain it first.
+  keep_disk = true
 
   user_data = <<-EOT
     #include

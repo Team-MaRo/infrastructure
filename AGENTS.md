@@ -14,8 +14,8 @@ directory being edited.
 ## What this is
 
 Infrastructure for a small Kubernetes cluster, `prod`, on Hetzner Cloud
-(`Team-MaRo/infrastructure`), running the k3s distribution. Three nodes in nbg1, private
-network, one public firewall. There is no application code here - everything is
+(`Team-MaRo/infrastructure`), running the k3s distribution. Three servers and one worker in
+nbg1, private network, one public firewall. There is no application code here - everything is
 declarative infrastructure.
 
 - `tofu/` - the cloud resources, one root module per directory ([`tofu/README.md`](tofu/README.md))
