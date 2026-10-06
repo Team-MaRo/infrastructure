@@ -21,11 +21,15 @@ spec:
     # The LimitRange follows edits to this policy and goes away with its namespace.
     synchronize:
       enabled: true
+  # UPDATE as well as CREATE: with synchronize, Kyverno re-checks the policy on every change to
+  # the namespace (an Argo CD sync of its namespace.yaml, a label), and a change that no longer
+  # matches deletes the LimitRange - until the hourly generateExisting scan brought it back,
+  # pods started in between ran without any defaults (seen 2026-10-06).
   matchConstraints:
     resourceRules:
       - apiGroups: [""]
         apiVersions: [v1]
-        operations: [CREATE]
+        operations: [CREATE, UPDATE]
         resources: [namespaces]
   # Infrastructure is covered too: its components set their memory where the defaults would
   # not fit, so the LimitRange only fills in the rest. Left out are k3s's own namespace, whose

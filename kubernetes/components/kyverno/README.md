@@ -51,7 +51,11 @@ registries. `rbac-limitranges.yaml` lets Kyverno create LimitRanges.
 - **`GeneratingPolicy`, not `ClusterPolicy`**, which is deprecated since Kyverno's CEL-based
   policy types. `generateExisting` covers namespaces created before the policy;
   `synchronize` keeps the LimitRange in step with the policy and removes it with its
-  namespace - hand edits to it are reverted.
+  namespace - hand edits to it are reverted. **The policy matches `UPDATE` too, not only
+  `CREATE`**: with `synchronize`, Kyverno re-checks it on every change to a namespace (an Argo CD
+  sync of its `namespace.yaml`, a label) and deletes the LimitRange when the change no longer
+  matches. With `CREATE` alone that happened on every such change; the hourly `generateExisting`
+  scan brought it back, but pods started in between ran without any requests or limits.
 - **Kyverno needs RBAC for what it generates.** Its background controller's own ClusterRole
   covers only a few kinds; `rbac-limitranges.yaml` adds LimitRanges through the aggregation
   label `rbac.kyverno.io/aggregate-to-background-controller`. Generating another kind means
