@@ -70,6 +70,35 @@ k3s_config:
     - admission-control-config-file=/etc/rancher/k3s/psa.yaml
     - authentication-config=/etc/rancher/k3s/authn.yaml
 
+# kubelet settings, written as a KubeletConfiguration drop-in to
+# /var/lib/rancher/k3s/agent/etc/kubelet.conf.d/50-ansible.conf; a change restarts one server
+# at a time, like k3s_config. Not kubelet-arg in k3s_config: the installer put a --kubelet-arg
+# on the command line (k3s_server_args), and k3s lets the command line replace that whole list.
+# A drop-in replaces every field it names, maps included.
+#
+# evictionHard: k3s's defaults set only the two disk thresholds, which drops the kubelet's
+# memory one - nothing evicted pods before a node ran out of memory. With memory.available the
+# kubelet evicts pods (those furthest over their requests first) before the kernel's OOM killer
+# picks anything, k3s and etcd included. The disk thresholds are k3s's own, repeated because the
+# map is replaced as a whole.
+#
+# kubeReserved and systemReserved take memory that k3s itself and the OS use out of the node's
+# allocatable, so the scheduler stops placing pods into it. Measured 2026-10-06: k3s (API server,
+# etcd, controllers, kubelet, containerd) 1.9-2.7 GiB, the rest of the OS with the kernel about
+# 0.2 GiB. kubeReserved is k3s's baseline with embedded etcd (about 1.5 GiB per k3s's resource
+# profiling) - less than measured, so the largest node's pod requests still fit; raise it once
+# requests are trimmed. Reserved only: enforcing it (enforceNodeAllocatable) would put a hard
+# memory limit on k3s and etcd.
+k3s_kubelet_config:
+  evictionHard:
+    memory.available: 200Mi
+    imagefs.available: 5%
+    nodefs.available: 5%
+  kubeReserved:
+    memory: 1536Mi
+  systemReserved:
+    memory: 256Mi
+
 # Kernel settings on the node itself. ip_unprivileged_port_start lets non-root processes bind
 # ports from 80 up in the host's network namespace (it covers IPv6 too, despite the name):
 # Traefik runs on the host network, as UID 65532 without capabilities, and listens on 80 and

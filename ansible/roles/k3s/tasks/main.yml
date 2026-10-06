@@ -62,6 +62,25 @@
     mode: "0600"
   register: k3s_config_dropin
 
+- name: Create the kubelet config drop-in directory
+  # k3s creates it on first start; created here too, so a new node's first start already
+  # reads the drop-in below.
+  ansible.builtin.file:
+    path: /var/lib/rancher/k3s/agent/etc/kubelet.conf.d
+    state: directory
+    mode: "0700"
+
+- name: Write the kubelet config drop-in
+  # Read after k3s's own 00-k3s-defaults.conf in the same directory; every field it names
+  # replaces k3s's value as a whole (see k3s_kubelet_config).
+  ansible.builtin.copy:
+    content: >-
+      {{ {'apiVersion': 'kubelet.config.k8s.io/v1beta1', 'kind': 'KubeletConfiguration'}
+         | combine(k3s_kubelet_config) | to_nice_yaml(indent=2) }}
+    dest: /var/lib/rancher/k3s/agent/etc/kubelet.conf.d/50-ansible.conf
+    mode: "0600"
+  register: k3s_kubelet_dropin
+
 - name: Write the Pod Security Admission configuration
   # Read by the API server through admission-control-config-file in k3s_config, at start -
   # so a change here restarts k3s just like a change to the drop-in.
@@ -118,11 +137,13 @@
     mode: "0600"
   register: k3s_authn
 
-- name: Restart k3s to apply the drop-in and the API server's configuration files
+- name: Restart k3s to apply the drop-ins and the API server's configuration files
   # Only on a node that already runs k3s; a fresh install reads the files when it first
   # starts. Inline rather than a handler, so the node is back and ready before the play
   # moves on - with serial: 1, one server restarts at a time and etcd keeps its quorum.
-  when: (k3s_config_dropin.changed or k3s_psa.changed or k3s_authn.changed) and k3s_binary.stat.exists
+  when: >-
+    (k3s_config_dropin.changed or k3s_kubelet_dropin.changed or k3s_psa.changed or k3s_authn.changed)
+    and k3s_binary.stat.exists
   block:
     - name: Restart k3s
       ansible.builtin.systemd_service:

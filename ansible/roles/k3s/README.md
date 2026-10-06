@@ -50,6 +50,42 @@ backend for the pod network (`flannel-backend: wireguard-native`, which encrypts
 between nodes), and the paths to the Pod Security and the authentication configuration - each
 described below.
 
+## Memory: eviction and reservation for k3s
+
+**The kubelet's own settings go in `k3s_kubelet_config`**, which the role writes as a
+`KubeletConfiguration` drop-in to `/var/lib/rancher/k3s/agent/etc/kubelet.conf.d/50-ansible.conf`
+(k3s 1.32 and later read that directory; a change restarts one node at a time, as above). Not
+as `kubelet-arg` in `k3s_config`: the installer put `--kubelet-arg=fail-swap-on=false` on the
+command line, and k3s lets a command-line flag replace the whole list from its config files. The
+kubelet reads k3s's `00-k3s-defaults.conf` first and ours after it; **every field ours names
+replaces k3s's as a whole**, maps included.
+
+What it sets, and why (measured 2026-10-06):
+
+- **`evictionHard`**: k3s sets only `imagefs.available` and `nodefs.available` (5% each), which
+  drops the kubelet's memory threshold - no pod was ever evicted for memory, and prod-03 went
+  down to 78 MiB available. `memory.available: 200Mi` has the kubelet evict pods (those
+  furthest over their requests first) before the kernel's OOM killer chooses, which could hit
+  k3s or etcd. The two disk values are k3s's, repeated because the map is replaced.
+- **`kubeReserved: 1536Mi` and `systemReserved: 256Mi`** take memory k3s itself and the OS use
+  out of the node's allocatable, so the scheduler stops placing pods into it: allocatable drops
+  from 7.6 GiB to about 5.6 GiB. Measured: k3s (API server, etcd, controllers, kubelet,
+  containerd) holds 1.9-2.7 GiB, the rest of the OS including the kernel about 0.2 GiB. 1.5 GiB is
+  k3s's baseline with embedded etcd ([resource profiling](https://docs.k3s.io/reference/resource-profiling));
+  above that it grows mostly with the CRDs - 133 here, whose schemas the API server keeps parsed
+  several times over - and the controllers watching them. Less than measured, so the largest
+  node's pod requests keep fitting; raise it once oversized requests are trimmed. It only
+  reserves: enforcing it (`enforceNodeAllocatable`) would put a hard memory limit on k3s and etcd.
+
+Checking what a kubelet uses, and the nodes' allocatable memory:
+
+```sh
+kubectl --context d3strukt0r-prod-admin get --raw /api/v1/nodes/prod-01/proxy/configz \
+  | jq '.kubeletconfig | {evictionHard, kubeReserved, systemReserved, failSwapOn}'
+kubectl --context d3strukt0r-prod-admin get nodes \
+  -o custom-columns=NAME:.metadata.name,CAPACITY:.status.capacity.memory,ALLOCATABLE:.status.allocatable.memory
+```
+
 ## Kernel parameters and node labels
 
 **Kernel parameters (`k3s_sysctls`) and node labels (`k3s_node_labels`)** are the role's
