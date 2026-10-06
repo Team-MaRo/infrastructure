@@ -43,7 +43,18 @@ the SSH user would never be created. New servers point at `node.yaml` directly.
 
 It holds no comments on purpose: in an `#include` file every line is read as a URL, and
 cloud-init stops at the first one it cannot fetch. Per the cloud-init docs, included
-content "can be any kind of user-data format", which is what lets it chain to `node.yaml`
-- but that has not been exercised by an actual rebuild yet.
+content "can be any kind of user-data format", which is what lets it chain to `node.yaml`.
+**Tested 2026-10-07** on a throwaway cx23 created with exactly the old nodes' user-data:
+cloud-init fetched `k3s.yaml`, then `node.yaml`, and finished without errors - user, sshd
+hardening, fail2ban, forwarding and the one reboot all in place, about 1.5 minutes after
+creation.
+
+## Waiting for a new node
+
+Never wait for a new node by trying to log in again and again: fail2ban is running before the
+`d3strukt0r` user exists, and three failed logins ban the address for an hour (`maxretry = 3`,
+`bantime = 1h`) - the first test above locked itself out that way. Watch only whether port 22
+answers (`nc -z <ip> 22`): it opens, closes for the final reboot, and opens again; log in
+after that.
 
 Delete it once none of those three servers exists any more.
