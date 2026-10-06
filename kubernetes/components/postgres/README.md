@@ -16,6 +16,8 @@ in the last 30 days. How the cluster's manifests fit together is in
     with every rebuild and the two instances could end up on different images;
   - `podAntiAffinityType: required` (the default only prefers separate nodes);
   - `primaryUpdateMethod: switchover` (the default restarts the primary in place);
+  - `priorityClassName: stateful-core`, so its pods are evicted last when a node runs short of
+    memory ([`../priority-classes/README.md`](../priority-classes/README.md));
   - synchronous replication with `dataDurability: preferred` - a commit waits for the replica
     while it is up, and the primary goes on alone while it is not, like MariaDB's semi-sync;
   - 256Mi/512Mi and `shared_buffers` 128MB, raised with real data.

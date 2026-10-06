@@ -24,6 +24,8 @@ spec:
   # A new image or setting reaches the replica first; the primary is then switched over
   # instead of restarted in place, so writes pause for seconds rather than for a restart.
   primaryUpdateMethod: switchover
+  # Evicted last when a node runs short of memory (kubernetes/components/priority-classes).
+  priorityClassName: stateful-core
 
   postgresql:
     # A commit waits until the replica has it, so a failover loses nothing while the replica

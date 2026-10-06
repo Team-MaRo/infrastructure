@@ -6,8 +6,10 @@ node, run by the mariadb-operator ([`../mariadb-operator/README.md`](../mariadb-
 Apps connect to the Service **`mariadb-primary`** (`mariadb-primary.mariadb.svc:3306`), which
 follows the primary through a failover (`mariadb-secondary` reads from the replica). It is
 backed up every night and its binary logs are archived every ten minutes, so it can be restored
-to any moment in the last 30 days. How the cluster's manifests fit together is in
-[`kubernetes/README.md`](../../README.md).
+to any moment in the last 30 days. Its pods carry the PriorityClass `stateful-core`, so they are
+evicted last when a node runs short of memory
+([`../priority-classes/README.md`](../priority-classes/README.md)). How the cluster's manifests
+fit together is in [`kubernetes/README.md`](../../README.md).
 
 ## Failover
 

@@ -7,6 +7,8 @@ injector:
   enabled: false
 
 server:
+  # Evicted last when a node runs short of memory (kubernetes/components/priority-classes).
+  priorityClassName: stateful-core
   # The UI and API at openbao.d3strukt0r.dev (its own record in tofu/cloudflare), certificate
   # from certificates.yaml. TLS ends at Traefik. No ingressClassName: Traefik is the cluster's
   # default IngressClass.

@@ -22,6 +22,8 @@ spec:
     antiAffinityEnabled: true
   podDisruptionBudget:
     maxUnavailable: 1
+  # Evicted last when a node runs short of memory (kubernetes/components/priority-classes).
+  priorityClassName: stateful-core
 
   replication:
     enabled: true

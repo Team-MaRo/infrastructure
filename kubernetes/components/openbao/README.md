@@ -32,6 +32,9 @@ Secrets policy and role and the Zitadel login for admins; see
   syncs, but the running pod keeps the old one until it is deleted -
   `kubectl --context d3strukt0r-prod-admin -n openbao delete pod openbao-0` - and it unseals
   itself again on start.
+- **PriorityClass `stateful-core`** (`server.priorityClassName`): evicted last when a node runs
+  short of memory ([`../priority-classes/README.md`](../priority-classes/README.md)). Like any
+  pod-template change it reaches the running pod only once the pod is deleted (`OnDelete`).
 - The injector is off; secrets reach workloads through External Secrets.
 - **The UI and API are public at `https://openbao.d3strukt0r.dev`** (user decision; the chart's
   Ingress, certificate from `components/openbao/certificates.yaml`, TLS ending at Traefik).
