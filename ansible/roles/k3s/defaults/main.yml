@@ -87,8 +87,9 @@ k3s_config:
 # etcd, controllers, kubelet, containerd) 1.9-2.7 GiB, the rest of the OS with the kernel about
 # 0.2 GiB. kubeReserved is k3s's baseline with embedded etcd (about 1.5 GiB per k3s's resource
 # profiling) - less than measured, so the largest node's pod requests still fit; raise it once
-# requests are trimmed. Reserved only: enforcing it (enforceNodeAllocatable) would put a hard
-# memory limit on k3s and etcd.
+# requests are trimmed. The pods together are capped at capacity minus both reservations (the
+# kubelet's default enforceNodeAllocatable: [pods]); k3s and the OS are not - enforcing their
+# reservations would put a hard memory limit on k3s and etcd.
 k3s_kubelet_config:
   evictionHard:
     memory.available: 200Mi

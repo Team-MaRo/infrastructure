@@ -74,16 +74,33 @@ What it sets, and why (measured 2026-10-06):
   k3s's baseline with embedded etcd ([resource profiling](https://docs.k3s.io/reference/resource-profiling));
   above that it grows mostly with the CRDs - 133 here, whose schemas the API server keeps parsed
   several times over - and the controllers watching them. Less than measured, so the largest
-  node's pod requests keep fitting; raise it once oversized requests are trimmed. It only
-  reserves: enforcing it (`enforceNodeAllocatable`) would put a hard memory limit on k3s and etcd.
+  node's pod requests keep fitting; raise it once oversized requests are trimmed.
 
-Checking what a kubelet uses, and the nodes' allocatable memory:
+**What is capped and what is not.** The kubelet's default `enforceNodeAllocatable: [pods]`
+turns the reservation into a hard limit **for the pods together**: their cgroup
+(`kubepods.slice`) gets `memory.max` = capacity minus both reservations, 5965 MiB per node.
+k3s and the OS get **no** limit - enforcing `kubeReserved`/`systemReserved` would put one on
+k3s and etcd, so the role does not. Three things can then happen as memory fills up, per node:
+
+| What | When | Effect |
+|---|---|---|
+| Eviction, pods' share | pods together above ~5.6 GiB (allocatable minus 200 MiB) | the kubelet evicts pods |
+| Eviction, whole node | less than 200 MiB free of the 7.6 GiB - k3s grew past its reservation | the kubelet evicts pods |
+| Cgroup limit | pods together at 5965 MiB, faster than the kubelet reacted | the kernel kills a process inside a pod - never k3s |
+
+Pods using more than their requests go first, the PriorityClass `stateful-core` last among those
+([`kubernetes/components/priority-classes/README.md`](../../../kubernetes/components/priority-classes/README.md)).
+
+Checking what a kubelet uses, the nodes' allocatable memory, and the pods' cap:
 
 ```sh
 kubectl --context d3strukt0r-prod-admin get --raw /api/v1/nodes/prod-01/proxy/configz \
   | jq '.kubeletconfig | {evictionHard, kubeReserved, systemReserved, failSwapOn}'
 kubectl --context d3strukt0r-prod-admin get nodes \
   -o custom-columns=NAME:.metadata.name,CAPACITY:.status.capacity.memory,ALLOCATABLE:.status.allocatable.memory
+# from ansible/: the pods' cap and what they use now, in bytes
+ansible prod -b -m ansible.builtin.shell \
+  -a 'cat /sys/fs/cgroup/kubepods.slice/memory.max /sys/fs/cgroup/kubepods.slice/memory.current'
 ```
 
 ## Kernel parameters and node labels
