@@ -98,6 +98,7 @@ kind: ExternalSecret
 metadata:
   name: postgres-ca
 spec:
+  refreshInterval: 5m
   secretStoreRef:
     kind: SecretStore
     name: postgres
@@ -112,6 +113,7 @@ kind: ExternalSecret
 metadata:
   name: mariadb-ca
 spec:
+  refreshInterval: 5m
   secretStoreRef:
     kind: SecretStore
     name: mariadb

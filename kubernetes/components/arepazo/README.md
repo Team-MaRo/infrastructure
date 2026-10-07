@@ -75,7 +75,7 @@ requests (`config/php-fpm.conf`), restricted Pod Security. What differs:
 | `secret/arepazo-s3` | `access-key`, `secret-key` (read and write) | 1Password [`Hetzner | S3 | prod arepazo`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=t6onf7inzynbh6oqvdggcrdzoy&h=my.1password.com) |
 | `secret/arepazo-uploads-proxy-s3` | `access-key`, `secret-key` (read only) | 1Password [`Hetzner | S3 | prod arepazo uploads-proxy`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=gs5mn5w3sfbqsljokq3ukhjtjy&h=my.1password.com) |
 
-A changed value reaches the pod through External Secrets (within an hour, or at once with
+A changed value reaches the pod through External Secrets (within five minutes, or at once with
 `kubectl --context d3strukt0r-prod-admin -n arepazo annotate externalsecret --all force-sync=$(date +%s) --overwrite`),
 and Reloader then restarts it (`components/reloader`).
 

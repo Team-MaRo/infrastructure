@@ -37,7 +37,7 @@ themselves (Gatus' config, Alertmanager's ntfy secret, Alloy, Argo CD's webhook 
   [`../argocd/patches/argocd-cm.yaml`](../argocd/patches/argocd-cm.yaml)), so a restart is not
   drift.
 - **No restart without a real change**: Reloader compares a hash of the data, so External
-  Secrets' hourly refresh with unchanged values restarts nothing.
+  Secrets' refresh every five minutes with unchanged values restarts nothing.
 - **Jobs and CronJobs are ignored**: a changed Secret would otherwise start a CronJob's Job at once
   and recreate Jobs; each run reads its Secrets fresh anyway. `reloadOnCreate` and
   `syncAfterRestart` stay off - together they restart every annotated app when Reloader itself

@@ -35,6 +35,7 @@ metadata:
   name: example
   namespace: example
 spec:
+  refreshInterval: 5m
   secretStoreRef:
     kind: ClusterSecretStore
     name: openbao
@@ -47,3 +48,16 @@ spec:
 
 The Kubernetes Secret it creates gets the ExternalSecret's name; `target.name` is set only
 where the two must differ.
+
+**Every ExternalSecret sets `refreshInterval: 5m`** (user decision, 2026-10-06), so a value
+changed in OpenBao reaches its Secret within five minutes - and through Reloader the pods that
+read it at start. Without it the CRD's default of one hour applies; External Secrets has no
+setting for a cluster-wide default, so the field is written into each one. The cost is
+negligible: about eight reads a minute against OpenBao, and External Secrets rewrites a Secret
+only when its data changed, so an unchanged value restarts nothing. For an immediate refresh:
+`kubectl --context d3strukt0r-prod-admin -n <namespace> annotate externalsecret --all force-sync=$(date +%s) --overwrite`.
+
+**While OpenBao is unreachable nothing breaks**: a failed refresh leaves the Kubernetes Secret
+as it is - neither emptied nor deleted - and only marks the ExternalSecret `Ready=False`
+(`SecretSyncedError`); it retries on its own. Pods keep the last values; only new
+ExternalSecrets and changed values wait until OpenBao is back.

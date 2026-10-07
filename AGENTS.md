@@ -205,7 +205,8 @@ rule, 2026-10-02). Where a name cannot hold a hyphen, the hyphens become undersc
   `bao kv put` (JSON on stdin) and reach workloads through an ExternalSecret against the
   `ClusterSecretStore` `openbao`
   ([`kubernetes/components/external-secrets/README.md`](kubernetes/components/external-secrets/README.md),
-  [`tofu/openbao/README.md`](tofu/openbao/README.md)). Only the bootstrap Secrets come from
+  [`tofu/openbao/README.md`](tofu/openbao/README.md)). Every ExternalSecret sets
+  `refreshInterval: 5m` - the CRD's default is an hour. Only the bootstrap Secrets come from
   1Password through `ansible/secrets.yml`.
 - **An app that reads a Secret or ConfigMap only at start opts in to Reloader**: the annotation
   `secret.reloader.stakater.com/reload: <name>` (or `configmap.`) on its workload and its

@@ -23,7 +23,7 @@ paths:
 - A ServiceMonitor, PodMonitor or PrometheusRule outside kube-prometheus-stack carries the
   sync option `SkipDryRunOnMissingResource=true`.
 - Secret values never go into git: they live in OpenBao (`bao kv put`) and arrive through an
-  ExternalSecret against the `ClusterSecretStore` `openbao`.
+  ExternalSecret against the `ClusterSecretStore` `openbao`, with `refreshInterval: 5m`.
 - A 1Password item is referenced by its title and its link (in comments: the title, the link
   on the line below) - see "Conventions" in `AGENTS.md`.
 - An app's Postgres `DatabaseRole`/`Database` lives in the app's component with

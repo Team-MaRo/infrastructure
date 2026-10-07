@@ -16,6 +16,7 @@ metadata:
   name: phpmyadmin-db
   namespace: mariadb
 spec:
+  refreshInterval: 5m
   secretStoreRef:
     kind: ClusterSecretStore
     name: openbao
