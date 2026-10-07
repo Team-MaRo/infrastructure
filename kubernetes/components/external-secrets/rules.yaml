@@ -1,0 +1,26 @@
+---
+# An ExternalSecret that cannot sync keeps its Kubernetes Secret as it was, so nothing breaks at
+# once - which is exactly why a failure would otherwise go unnoticed: a value changed in OpenBao
+# never arrives, and a new app never gets its Secret.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: external-secrets
+  annotations:
+    # The CRD belongs to kube-prometheus-stack, another Application.
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  groups:
+    - name: external-secrets
+      rules:
+        # Three refreshes in a row (5m each) have failed; a short OpenBao restart stays quiet.
+        - alert: ExternalSecretNotSynced
+          expr: externalsecret_status_condition{condition="Ready", status="False"} == 1
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: "ExternalSecret {{ $labels.namespace }}/{{ $labels.name }} has not synced for 15 minutes."
+            description: >-
+              Its Secret keeps the last values, but changes in OpenBao do not arrive. See
+              "An ExternalSecret does not sync" in kubernetes/components/external-secrets/README.md.

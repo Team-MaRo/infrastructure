@@ -7,8 +7,8 @@ Kubernetes Secrets, through one `ClusterSecretStore` named `openbao` - OpenBao's
 engine, logged into with the operator's own service account (role `external-secrets` in
 `tofu/openbao`, see [`tofu/openbao/README.md`](../../../tofu/openbao/README.md)).
 `kubernetes/clusters/prod/external-secrets.yaml` deploys the chart `external-secrets` 2.11.0
-(pinned) plus this directory: its values (`values.yaml`, memory) and the store
-(`cluster-secret-store.yaml`).
+(pinned) plus this directory: its values (`values.yaml`, memory and the ServiceMonitors), the
+store (`cluster-secret-store.yaml`) and the alert (`rules.yaml`).
 
 ## How it is set up
 
@@ -61,3 +61,22 @@ only when its data changed, so an unchanged value restarts nothing. For an immed
 as it is - neither emptied nor deleted - and only marks the ExternalSecret `Ready=False`
 (`SecretSyncedError`); it retries on its own. Pods keep the last values; only new
 ExternalSecrets and changed values wait until OpenBao is back.
+
+## An ExternalSecret does not sync
+
+Prometheus scrapes External Secrets (`serviceMonitor.enabled` in `values.yaml`), and the alert
+**`ExternalSecretNotSynced`** (`rules.yaml`) fires when an ExternalSecret has not been `Ready`
+for 15 minutes - three failed refreshes, so a short OpenBao restart stays quiet. Its Secret
+still holds the last values; what is lost is that changes no longer arrive.
+
+```shell
+kubectl --context d3strukt0r-prod-admin get externalsecret -A | grep -v SecretSynced
+kubectl --context d3strukt0r-prod-admin -n <namespace> describe externalsecret <name>   # the error
+kubectl --context d3strukt0r-prod-admin -n openbao get pods                             # is OpenBao up?
+```
+
+Usual causes: OpenBao down or sealed (it unseals itself on start), a path or property in the
+ExternalSecret that does not exist in OpenBao (a typo, or the value was never written with
+`bao kv put`), or the store's login failing (`kubectl get clustersecretstore openbao`). Once
+the cause is fixed, `force-sync` (above) syncs at once.
+

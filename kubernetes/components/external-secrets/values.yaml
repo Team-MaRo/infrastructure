@@ -13,3 +13,10 @@ certController:
       memory: 96Mi
     limits:
       memory: 256Mi
+
+# Prometheus scrapes the controller, the webhook and the cert controller (one switch for all
+# three), so the alert in rules.yaml sees an ExternalSecret that stops syncing. The chart renders
+# the ServiceMonitors only where their CRD exists (renderMode skipIfMissing); it comes with
+# kube-prometheus-stack.
+serviceMonitor:
+  enabled: true
