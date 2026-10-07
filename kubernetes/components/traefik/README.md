@@ -65,8 +65,10 @@ rebuild) the complete one.
 - **A rate limit per visitor** (`middleware-rate-limit.yaml`, Middleware `rate-limit` in
   `kube-system`): 20 requests a second on average, bursts of 100, grouped by
   `CF-Connecting-IP` - the client address Traefik sees is Cloudflare's. Above it Traefik
-  answers 429 (and logs it). Not attached anywhere yet; the next step puts it on the
-  `websecure` entry point.
+  answers 429 (and logs it). It sits on the `websecure` entry point
+  (`ports.websecure.http.middlewares` in `helmchartconfig.yaml`), so it covers every route on
+  443 without each Ingress naming it. **A wrong name there stops every route on 443** - check
+  Traefik's log for `middleware ... does not exist` after changing it.
 - **Tracing is off on purpose** - it needs a trace store (such as Grafana Tempo) and apps that
   report their own spans, and the cluster has neither yet.
 - **The dashboard is at `https://traefik.d3strukt0r.dev`** (read-only), switched on through the

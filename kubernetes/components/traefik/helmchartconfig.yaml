@@ -43,6 +43,10 @@ spec:
         port: 443
         http:
           aliasHeadersStrategy: delete
+          # Every route on 443 passes the per-visitor rate limit first (middleware-rate-limit.yaml).
+          # Named <namespace>_<name> (safe naming); a wrong name would stop every route here.
+          middlewares:
+            - kube-system_rate-limit@kubernetescrd
       metrics:
         http:
           aliasHeadersStrategy: delete
