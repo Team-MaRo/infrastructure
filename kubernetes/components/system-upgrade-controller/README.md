@@ -31,6 +31,11 @@ node catches up in the next window.
   briefly unavailable on each node; etcd keeps quorum with two of three.
 - **A failed Job leaves its node cordoned.** Look at the Job's log in `system-upgrade`, fix
   the cause, then `kubectl uncordon <node>`.
+- **On a worker, one failed pod per upgrade is normal.** The first pod replaces the binary and
+  restarts k3s-agent, which runs the kubelet that runs the pod - its end is never reported, so
+  it shows `Unknown`, exit code 255. The Job's retry finds `Binary already been replaced`, exits
+  0 and uncordons the node: the Job ends with one success and one failure (first seen
+  2026-10-07 on prod-04). Only a Job without a success, or a node left cordoned, needs a look.
 - The script exits early when the binary is already the target version, so re-running a
   Plan is harmless.
 
