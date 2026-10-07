@@ -101,10 +101,11 @@ spec:
             User-Agent: keep
         queryParameters:
           defaultMode: drop
-    # About 30 MiB when set (2026-09-28); the limit leaves room for traffic peaks. The chart
-    # sets none, and kube-system has no LimitRange.
+    # 70-160 MiB in normal use (2026-10-07). 256Mi was OOM-killed on prod-02 by a scanner's
+    # burst of requests (2026-10-07 00:09), so the limit leaves room for peaks like that. The
+    # chart sets none, and kube-system has no LimitRange.
     resources:
       requests:
-        memory: 64Mi
+        memory: 128Mi
       limits:
-        memory: 256Mi
+        memory: 512Mi

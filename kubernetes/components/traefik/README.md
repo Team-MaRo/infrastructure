@@ -6,7 +6,8 @@ Traffic enters through Traefik, which k3s ships. Traefik is k3s's own - k3s inst
 upgrades it from its bundled chart - and is configured only through the `HelmChartConfig` in
 `kubernetes/components/traefik/` (`helmchartconfig.yaml`, Application `traefik`), next to the
 dashboard's certificate (`certificate.yaml`), its Zitadel gate
-(`middleware-oauth2-proxy.yaml`) and the PodMonitor for its metrics (`pod-monitor.yaml`). It
+(`middleware-oauth2-proxy.yaml`), the rate limit per visitor (`middleware-rate-limit.yaml`) and
+the PodMonitor for its metrics (`pod-monitor.yaml`). It
 runs as a **DaemonSet on every ingress node's host network** and listens on the node's ports 80
 and 443 itself, IPv4 and IPv6. `prod.d3strukt0r.dev` has an A and an AAAA record per ingress
 node; a service on the cluster gets a CNAME to it and an `Ingress` (class `traefik`, the
@@ -57,6 +58,15 @@ rebuild) the complete one.
   `namespace` and is unaffected. A wrong reference fails closed - the router is not served (404)
   and the dashboard lists its error. The same names appear in the access log (`RouterName`,
   `ServiceName`) and in the metrics' `router`/`service` labels.
+- **Memory: 128Mi requested, 512Mi limit** (`resources` in `helmchartconfig.yaml`). It uses
+  70-160 MiB normally; a scanner's burst of requests (1249 in a minute, 2026-10-07) pushed the
+  Traefik on prod-02 past the former 256Mi and got it OOM-killed. Every ingress node needs the
+  headroom, since any of them can take such a burst.
+- **A rate limit per visitor** (`middleware-rate-limit.yaml`, Middleware `rate-limit` in
+  `kube-system`): 20 requests a second on average, bursts of 100, grouped by
+  `CF-Connecting-IP` - the client address Traefik sees is Cloudflare's. Above it Traefik
+  answers 429 (and logs it). Not attached anywhere yet; the next step puts it on the
+  `websecure` entry point.
 - **Tracing is off on purpose** - it needs a trace store (such as Grafana Tempo) and apps that
   report their own spans, and the cluster has neither yet.
 - **The dashboard is at `https://traefik.d3strukt0r.dev`** (read-only), switched on through the

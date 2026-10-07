@@ -1,0 +1,27 @@
+---
+# A rate limit per visitor, for every route on websecure (attached to the entry point in
+# helmchartconfig.yaml), so one client flooding the cluster is answered 429 by Traefik before
+# it costs memory or reaches an app. On 2026-10-07 a scanner sent 1249 requests in a minute
+# for backup archives (/corp.zip, /composer.json.zip, ...) and Traefik on prod-02 was
+# OOM-killed.
+#
+# Grouped by CF-Connecting-IP: every request arrives from Cloudflare, so the client address
+# Traefik sees is Cloudflare's and would put many visitors into one bucket. A client that
+# skips Cloudflare and talks to a node directly can set the header itself - that only lets it
+# pick its own bucket, no worse than having no limit.
+#
+# 20 requests a second on average with bursts of 100: a page load with its assets and a
+# Grafana dashboard's parallel queries stay well inside; Cloudflare also serves static files
+# from its cache.
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: rate-limit
+  namespace: kube-system
+spec:
+  rateLimit:
+    average: 20
+    period: 1s
+    burst: 100
+    sourceCriterion:
+      requestHeaderName: CF-Connecting-IP
