@@ -37,7 +37,7 @@ locals {
     # without etcd and an API server it costs far less memory than a server.
     "prod-04" = {
       id          = null
-      server_type = "cx23"
+      server_type = "cx33"
       private_ip  = "10.0.0.104"
       role        = "agent"
     }

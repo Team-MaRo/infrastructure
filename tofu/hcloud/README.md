@@ -35,9 +35,11 @@ A node's role never changes in place. Only an ingress node also needs its public
 `local.prod_nodes` in `tofu/cloudflare`, the cluster's DNS entry point - a worker gets no
 record.
 
-- **`prod-04` is the first worker** (`cx23`, 2026-10-07): with every node's memory reserved for
-  k3s, two servers could no longer hold all pods' requests if the third failed
+- **`prod-04` is the first worker** (2026-10-07): with every node's memory reserved for k3s,
+  two servers could no longer hold all pods' requests if the third failed
   (`KubeMemoryOvercommit`). A worker adds room without an API server or etcd of its own.
+  Created as `cx23` and scaled to `cx33` the same night (`keep_disk`, so its disk stayed at
+  40 GB and it can go back to `cx23`): about 6.6 GiB for pods instead of 2.8.
 
 **The server name is the host's identity** - the OS hostname, the Kubernetes node name
 and the etcd member name. On the nodes, cloud-init runs `update_hostname` and
