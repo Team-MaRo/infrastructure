@@ -20,6 +20,13 @@ registries. `rbac-limitranges.yaml` lets Kyverno create LimitRanges.
   and `ignoreAggregatedRoles: true` in `argocd-cm`, since aggregated ClusterRoles never
   match git. Argo CD's own defaults already exclude Kyverno's report kinds.
 - Kyverno is scraped through its chart's `serviceMonitor.enabled` per controller.
+- **Nodes are not filtered out** (`config.resourceFiltersExclude: ["[Node,*,*]"]`, 2026-10-18):
+  Kyverno's default list ignores Nodes, but kube-prometheus-stack's `network-policy.yaml`
+  generates a NetworkPolicy per node from them (Traefik's access to Prometheus). Only the Node
+  itself was taken off the list; its subresources, above all the status every node reports
+  every few seconds, stay ignored, so Kyverno only sees a node being added, changed or removed.
+- **Other components' GeneratingPolicies** bring their own aggregated ClusterRole for what they
+  generate (as `rbac-limitranges.yaml` does here): kube-prometheus-stack's for NetworkPolicies.
 
 ## Default resources
 

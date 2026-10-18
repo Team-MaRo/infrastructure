@@ -4,6 +4,12 @@ config:
   # survives an uninstall - for reinstalling by hand with Helm. Here removal goes through
   # Argo CD, and a kept ConfigMap would only be left behind as an orphan.
   preserve: false
+  # Kyverno ignores Nodes by default; kube-prometheus-stack's network-policy.yaml generates a
+  # NetworkPolicy per node from them. Only the Node itself comes off the filter list: its
+  # subresources (`[Node/?*,*,*]`, the status every node reports every few seconds) stay
+  # ignored, so only a node being added, relabelled or removed reaches Kyverno.
+  resourceFiltersExclude:
+    - "[Node,*,*]"
 global:
   image:
     # The chart pulls from reg.kyverno.io by default; the same images are published on

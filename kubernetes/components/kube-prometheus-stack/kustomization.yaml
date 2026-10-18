@@ -12,6 +12,7 @@ resources:
   - php-fpm.yaml
   - certificates.yaml
   - middleware-oauth2-proxy.yaml
+  - network-policy.yaml
 
 # Dashboards of our own, as ConfigMaps Grafana's sidecar loads (label grafana_dashboard).
 configMapGenerator:

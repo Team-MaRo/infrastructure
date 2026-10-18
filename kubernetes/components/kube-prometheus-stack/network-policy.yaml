@@ -1,0 +1,104 @@
+---
+# Prometheus accepts remote write (values.yaml) without a login, so only the pods that need it
+# may reach it: anything in this namespace (Grafana, the operator, Prometheus itself), Tempo
+# (the metrics generator writes) and KubeElasti (reads, for scale-to-zero). Traefik, which serves
+# prometheus.d3strukt0r.dev from the nodes' host network, is admitted by one NetworkPolicy per
+# node, which the GeneratingPolicy below keeps in step with the nodes - NetworkPolicies add up.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: prometheus
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: prometheus
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector: {}
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: tempo
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kubeelasti
+      ports:
+        - port: 9090
+---
+# Traefik runs on its node's host network: towards a pod on another node it arrives from that
+# node's WireGuard address, the .0 of the node's pod range; on the same node kube-router admits
+# the node's own traffic anyway, health checks included (both measured 2026-10-18). So every
+# ingress node gets a NetworkPolicy prometheus-from-<node> admitting its .0 on 9090 - created
+# when the node has its pod range and the ingress label, deleted when it loses either or is
+# removed. A pod never has a .0 address, so only the host matches. Kyverno had to stop ignoring
+# Nodes for this (config.resourceFiltersExclude in components/kyverno/values.yaml).
+apiVersion: policies.kyverno.io/v1
+kind: GeneratingPolicy
+metadata:
+  name: prometheus-from-nodes
+  annotations:
+    # The CRD comes with Kyverno, another Application.
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  evaluation:
+    # Nodes that existed before this policy get theirs too.
+    generateExisting:
+      enabled: true
+    # The NetworkPolicy follows edits to this policy and goes away with its node.
+    synchronize:
+      enabled: true
+  # UPDATE as well: a node's pod range is assigned just after it registers.
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: [v1]
+        operations: [CREATE, UPDATE]
+        resources: [nodes]
+  # Only the ingress nodes run Traefik - the label that places it (components/traefik) decides
+  # here too. A node that gets the label gets its NetworkPolicy; one that loses it loses it, since
+  # with synchronize a change that no longer matches deletes what was generated.
+  matchConditions:
+    - name: has-pod-range
+      expression: has(object.spec.podCIDR) && object.spec.podCIDR != ''
+    - name: ingress-node
+      expression: >-
+        has(object.metadata.labels) &&
+        object.metadata.labels[?'node-role.kubernetes.io/ingress'].orValue('') == 'true'
+  variables:
+    - name: networkPolicy
+      expression: >-
+        [
+          {
+            "apiVersion": dyn("networking.k8s.io/v1"),
+            "kind": dyn("NetworkPolicy"),
+            "metadata": dyn({
+              "name": "prometheus-from-" + object.metadata.name,
+              "namespace": "monitoring"
+            }),
+            "spec": dyn({
+              "podSelector": {"matchLabels": {"app.kubernetes.io/name": "prometheus"}},
+              "policyTypes": ["Ingress"],
+              "ingress": [{
+                "from": [{"ipBlock": {"cidr": object.spec.podCIDR.split("/")[0] + "/32"}}],
+                "ports": [{"port": 9090}]
+              }]
+            })
+          }
+        ]
+  generate:
+    - expression: generator.Apply("monitoring", variables.networkPolicy)
+---
+# Kyverno's background controller creates what a GeneratingPolicy generates; its own
+# ClusterRole does not cover NetworkPolicies. The label aggregates these rules into it.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kyverno:background-controller:networkpolicies
+  labels:
+    rbac.kyverno.io/aggregate-to-background-controller: "true"
+rules:
+  - apiGroups: [networking.k8s.io]
+    resources: [networkpolicies]
+    verbs: [get, list, watch, create, update, patch, delete]

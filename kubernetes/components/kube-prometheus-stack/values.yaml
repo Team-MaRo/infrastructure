@@ -78,6 +78,10 @@ prometheus:
           - prometheus.d3strukt0r.dev
         secretName: prometheus-tls
   prometheusSpec:
+    # Tempo's metrics generator pushes the metrics it computes from traces (span metrics, the
+    # service graph) to /api/v1/write. Remote write takes no login, so network-policy.yaml lets
+    # only Tempo and the known readers reach port 9090.
+    enableRemoteWriteReceiver: true
     retention: 30d
     # Deletes the oldest data before the volume fills, whatever the age. 8 GB held 12 days
     # (2026-10-17), so 7 GB holds about 10 - this is the limit that applies, not the 30 days.
@@ -250,12 +254,38 @@ grafana:
       memory: 512Mi
     limits:
       memory: 2Gi
-  # Logs, next to the chart's own Prometheus and Alertmanager datasources.
+  # Logs and traces, next to the chart's own Prometheus and Alertmanager datasources, linked
+  # both ways: a log line's TraceId (Traefik's access log) opens the trace, a trace opens its
+  # logs, its service's metrics and the service map.
   additionalDataSources:
     - name: Loki
       uid: loki
       type: loki
       url: http://loki.loki.svc:3100
+      jsonData:
+        derivedFields:
+          - name: TraceId
+            matcherType: regex
+            matcherRegex: '"TraceId":"(\w+)"'
+            # $$ keeps Grafana's provisioning from reading ${...} as an environment variable.
+            url: "$${__value.raw}"
+            datasourceUid: tempo
+    - name: Tempo
+      uid: tempo
+      type: tempo
+      url: http://tempo.tempo.svc:3200
+      jsonData:
+        tracesToLogsV2:
+          datasourceUid: loki
+          filterByTraceID: true
+          spanStartTimeShift: "-5m"
+          spanEndTimeShift: "5m"
+        tracesToMetrics:
+          datasourceUid: prometheus
+        serviceMap:
+          datasourceUid: prometheus
+        nodeGraph:
+          enabled: true
   # Dashboards for what the chart does not cover - Argo CD, cert-manager, Traefik, Kyverno -
   # downloaded from grafana.com by an init container at every start (Grafana keeps nothing on
   # disk), pinned by revision. Their Prometheus input points at the chart's datasource. The

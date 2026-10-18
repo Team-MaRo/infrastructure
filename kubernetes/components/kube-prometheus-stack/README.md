@@ -14,7 +14,34 @@ Standard; components that need the host (node-exporter, the log collector) go to
 `kube-system` instead. Their UIs are at their own addresses behind the Zitadel login;
 port-forwards stay the break-glass way in. The status page and alerting heartbeat is
 [Gatus](../gatus/README.md), the logs are [Loki](../loki/README.md) and
-[Alloy](../alloy/README.md).
+[Alloy](../alloy/README.md), the traces [Tempo](../tempo/README.md).
+
+## Remote write and who may reach Prometheus
+
+- **Prometheus accepts remote write** (`prometheusSpec.enableRemoteWriteReceiver`): Tempo's
+  metrics generator pushes the metrics it computes from traces - `traces_spanmetrics_*` (rate,
+  errors, durations per service and operation) and `traces_service_graph_*` (who calls whom) -
+  to `/api/v1/write` instead of being scraped. Remote write takes no login.
+- **So `network-policy.yaml` limits port 9090** (user decision 2026-10-18 - everyone reading is
+  less dangerous than everyone writing): anything in `monitoring` (Grafana, the operator,
+  Prometheus itself), namespace `tempo`, namespace `kubeelasti` (reads for scale-to-zero) and
+  Traefik for `prometheus.d3strukt0r.dev`. Traefik runs on the host network: towards a pod on
+  another node it arrives from that node's WireGuard address, the `.0` of the node's pod range;
+  on the same node kube-router admits the node's own traffic anyway (both measured with test
+  pods, 2026-10-18). A pod never has a `.0` address, so an ipBlock for it admits only the host.
+- **The node allowances maintain themselves**: the Kyverno GeneratingPolicy
+  `prometheus-from-nodes` (same file) creates a NetworkPolicy `prometheus-from-<node>` for every
+  **ingress node** (`node-role.kubernetes.io/ingress=true`, the label that places Traefik) from
+  its `spec.podCIDR`, and deletes it when the node loses the label or goes - NetworkPolicies add
+  up, so nothing has to be edited when nodes come, go or change roles. The worker prod-04 has no
+  ingress label and gets none. Kyverno ignores Nodes by default; only the Node itself was
+  taken off its filter list (`components/kyverno/values.yaml`), not its status updates. If
+  Kyverno is down, the existing allowances stay; a node added meanwhile gets its own once
+  Kyverno is back. `kubectl port-forward` is not affected by any of it. Anything else that
+  should read Prometheus needs its namespace added to `network-policy.yaml`.
+- **Checking it**:
+  `kubectl --context d3strukt0r-prod-admin -n monitoring get networkpolicy` lists `prometheus`
+  and one `prometheus-from-<node>` per ingress node.
 
 ## Storage and retention
 
@@ -107,6 +134,12 @@ port-forwards stay the break-glass way in. The status page and alerting heartbea
 
 ## Grafana
 
+- **Datasources**: the chart's Prometheus and Alertmanager, plus Loki and Tempo
+  (`additionalDataSources`), linked both ways. A log line's `TraceId` (Traefik's JSON access
+  log) becomes a link to the trace (a derived field on Loki); a trace's spans link to the logs
+  around them (±5 minutes, filtered by trace ID), to their service's metrics and to the service
+  map drawn from `traces_service_graph_*`. In the values the link is written `$${__value.raw}`,
+  since Grafana's provisioning would read `${...}` as an environment variable.
 - **Dashboards of our own** are JSON files in `dashboards/`, turned into ConfigMaps labelled
   `grafana_dashboard: "1"` by the `configMapGenerator` in `kustomization.yaml`; Grafana's
   sidecar loads them from every namespace. Today one: "php-fpm" - per app the workers, queued

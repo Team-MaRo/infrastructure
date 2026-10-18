@@ -49,5 +49,10 @@ kubectl --context d3strukt0r-prod-admin -n tempo logs statefulset/tempo
 kubectl --context d3strukt0r-prod-admin -n tempo port-forward svc/tempo 3200:3200   # then curl localhost:3200/ready
 ```
 
+**A restart at the very first start is harmless**: right after the bucket was created, Hetzner
+answered Tempo's backend scheduler "The specified bucket does not exist" although the bucket was
+there and writable (2026-10-18, as Loki's README describes for keys); Tempo stopped cleanly, the
+second start found it. Restarts after that are not expected.
+
 Traces are searched in Grafana → Explore → Tempo (by service, span name, duration or TraceQL), or
 reached from a log line's trace ID.
