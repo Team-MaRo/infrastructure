@@ -55,7 +55,11 @@ the bucket `d3strukt0r-prod-robines-portfolio` (`tofu/objectstorage`).
 - **WP-Cron from a CronJob.** WordPress would run its scheduled tasks on visitors' page loads by
   calling its own public address; `DISABLE_WP_CRON` turns that off and the CronJob calls
   `wp-cron.php` through the Service every five minutes - on time, independent of visitors, and a
-  failing run shows as a failed Job.
+  failing run shows as a failed Job. While the pod is missing (a node drained for a reboot, the
+  new pod still assembling WordPress) curl retries every 30 s for up to 5 minutes instead of
+  failing; a kured reboot failed a run that way (2026-10-18). A finished Job deletes itself a
+  day later (`ttlSecondsAfterFinished`), so KubeJobFailed fires once and clears itself; the
+  run's output stays in Loki: `{namespace="robines-portfolio", container="wp-cron"}`.
 - **Language packs at start.** The site runs in `de_CH`; WordPress cannot fetch language packs
   itself, so the init container installs them for core, plugins and themes. A failure there only
   logs a warning (English text until the next start).

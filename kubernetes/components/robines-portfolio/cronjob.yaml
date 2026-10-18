@@ -20,6 +20,10 @@ spec:
   failedJobsHistoryLimit: 3
   jobTemplate:
     spec:
+      # A finished Job deletes itself a day later: KubeJobFailed fires once for a failed run and
+      # clears itself, instead of repeating until someone deletes the Job. Its output stays in
+      # Loki (container wp-cron).
+      ttlSecondsAfterFinished: 86400
       backoffLimit: 0
       activeDeadlineSeconds: 600
       template:
@@ -44,6 +48,18 @@ spec:
                 - --show-error
                 - --max-time
                 - "540"
+                # While the pod is missing - a node drained for a reboot, the new pod still
+                # assembling WordPress - the Service refuses the connection. Retry every 30 s for
+                # up to 5 minutes instead of failing (2026-10-18: a kured reboot failed a run).
+                # Timeouts and 5xx answers are retried as well; a WordPress still broken after
+                # 5 minutes fails the run.
+                - --retry
+                - "10"
+                - --retry-delay
+                - "30"
+                - --retry-max-time
+                - "300"
+                - --retry-connrefused
                 - --output
                 - /dev/null
                 - --header
