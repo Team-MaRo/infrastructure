@@ -39,6 +39,18 @@ variable "loki_access_key_id" {
   }
 }
 
+# 1Password "Hetzner | S3 | prod tempo"
+#   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=ndah5ezo3ycg2iah7zxbw2isfe&h=my.1password.com
+variable "tempo_access_key_id" {
+  description = "Access key ID of the S3 key Tempo writes traces with (1Password: Hetzner | S3 | prod tempo, username). Set in terraform.tfvars."
+  type        = string
+
+  validation {
+    condition     = can(regex("^[A-Z0-9]{20}$", var.tempo_access_key_id))
+    error_message = "tempo_access_key_id must be a 20-character Hetzner access key ID."
+  }
+}
+
 # 1Password "Hetzner | S3 | prod mariadb backups"
 #   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=qttplkz3cky6llsjgw7zhww5bu&h=my.1password.com
 variable "mariadb_backups_access_key_id" {

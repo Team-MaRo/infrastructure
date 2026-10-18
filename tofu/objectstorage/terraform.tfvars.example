@@ -17,6 +17,9 @@ etcd_access_key_id = ""
 # 1Password "Hetzner | S3 | prod loki"
 #   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=obsu3brgoh5l3yxawnbbvq4wi4&h=my.1password.com
 loki_access_key_id = ""
+# 1Password "Hetzner | S3 | prod tempo"
+#   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=ndah5ezo3ycg2iah7zxbw2isfe&h=my.1password.com
+tempo_access_key_id = ""
 # 1Password "Hetzner | S3 | prod mariadb backups"
 #   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=qttplkz3cky6llsjgw7zhww5bu&h=my.1password.com
 mariadb_backups_access_key_id = ""

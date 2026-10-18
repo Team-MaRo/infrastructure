@@ -8,6 +8,7 @@ own docs use.
 | `d3strukt0r-tfstate` | bucket (created by hand, adopted through `imports.tf`) and policy | every action denied to every other key |
 | `d3strukt0r-prod-etcd` | bucket, object lock, lifecycle, policy | only the snapshot key and the admin key; the snapshot key may upload, read and delete, but not bypass the lock or change the bucket's rules |
 | `d3strukt0r-prod-loki` | bucket, lifecycle, policy | only Loki's key and the admin key |
+| `d3strukt0r-prod-tempo` | bucket, lifecycle, policy | only Tempo's key and the admin key |
 | `d3strukt0r-prod-mariadb-backups` | bucket, lifecycle (expires after 35 days), policy | only the MariaDB backup key and the admin key |
 | `d3strukt0r-prod-postgres-backups` | bucket, lifecycle, policy | only the PostgreSQL backup key and the admin key |
 | `d3strukt0r-prod-openbao-snapshots` | bucket, object lock, lifecycle, policy | only OpenBao's snapshot key and the admin key; like the etcd bucket, the key cannot bypass the lock or change the bucket's rules |
@@ -87,6 +88,10 @@ below). **Whether Hetzner expires current objects depends on versioning**, both 
 - **`d3strukt0r-prod-loki`: unversioned, no lock**, lifecycle rule only for incomplete
   uploads; Loki's compactor deletes old logs. Only the admin key and Loki's key (console label
   `prod loki`, 1Password [`Hetzner | S3 | prod loki`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=obsu3brgoh5l3yxawnbbvq4wi4&h=my.1password.com), OpenBao `secret/loki-s3`) reach it.
+- **`d3strukt0r-prod-tempo`: unversioned, no lock**, like Loki's: lifecycle rule only for
+  incomplete uploads; Tempo's compactor deletes traces past their 30 days. Only the admin key and
+  Tempo's key (console label `prod tempo`, 1Password [`Hetzner | S3 | prod tempo`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=ndah5ezo3ycg2iah7zxbw2isfe&h=my.1password.com), OpenBao
+  `secret/tempo-s3`) reach it.
 - **`d3strukt0r-prod-mariadb-backups`: unversioned, objects expire after 35 days.** It holds the
   MariaDB operator's physical backups and archived binary logs. The operator deletes backups
   past their 30-day retention itself but never the binary logs, so the lifecycle rule expires
@@ -154,7 +159,7 @@ labels live only in the Hetzner console.
 
 ## Running it
 
-Needs `project_id`, `etcd_access_key_id`, `loki_access_key_id`,
+Needs `project_id`, `etcd_access_key_id`, `loki_access_key_id`, `tempo_access_key_id`,
 `mariadb_backups_access_key_id`, `postgres_backups_access_key_id`,
 `openbao_snapshots_access_key_id`, `wedding_manuele_robine_access_key_id`,
 `robines_portfolio_access_key_id`, `robines_portfolio_uploads_proxy_access_key_id`,
