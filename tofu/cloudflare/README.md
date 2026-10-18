@@ -91,6 +91,58 @@ records are gone (2026-10-04).
   replacing a node means updating that map**, until a Hetzner Load Balancer gives the
   cluster one address.
 
+## Names and what serves them
+
+Every web name in these zones, and what answers it (2026-10-18). Mail records (MX, SPF, DKIM,
+DMARC) are not listed; the private repository keeps its own names. **A new web record or a new
+Ingress host updates this table in the same change.** "Login" is what stands before the page:
+the app's own Zitadel login, or the oauth2-proxy gate
+([`kubernetes/components/oauth2-proxy/README.md`](../../kubernetes/components/oauth2-proxy/README.md)).
+"HTTPS" is the zone's `always_use_https` (`settings.tf`): off means a plain `http://` request
+reaches the origin.
+
+**On the cluster** (all proxied; each a CNAME to `prod.d3strukt0r.dev`, except `arepazo.ch`):
+
+| Name | Serves | Login | HTTPS |
+|---|---|---|---|
+| `arepazo.ch`, `www.arepazo.ch` | arepazo (WooCommerce shop) - arepazo account | - | on |
+| `old.robines.space` | robines-portfolio (archive of the old WordPress site) | - | on |
+| `manuele-robine.wedding`, `www.manuele-robine.wedding`, `wedding-manuele-robine.d3strukt0r.dev` | wedding-manuele-robine, the website (pwa) | - | on |
+| `api-wedding-manuele-robine.d3strukt0r.dev` | wedding-manuele-robine, its API | - | on |
+| `status.d3strukt0r.dev` | Gatus status page | - | on |
+| `auth.d3strukt0r.dev` | Zitadel and its login page | - | on |
+| `argocd.d3strukt0r.dev` | Argo CD | Zitadel | on |
+| `grafana.d3strukt0r.dev` | Grafana | Zitadel | on |
+| `openbao.d3strukt0r.dev` | OpenBao | Zitadel | on |
+| `pgadmin.d3strukt0r.dev` | pgAdmin | Zitadel | on |
+| `prometheus.d3strukt0r.dev` | Prometheus | oauth2-proxy | on |
+| `alertmanager.d3strukt0r.dev` | Alertmanager | oauth2-proxy | on |
+| `phpmyadmin.d3strukt0r.dev` | phpMyAdmin | oauth2-proxy | on |
+| `traefik.d3strukt0r.dev` | Traefik's dashboard (IngressRoute) | oauth2-proxy | on |
+| `oauth2-proxy.d3strukt0r.dev` | oauth2-proxy's own callback | - | on |
+| `prod.d3strukt0r.dev` | the nodes themselves; no route, Traefik answers 404 | - | on |
+| `d3st.dev`, `d3st.org` (+ wildcards) | nothing yet, Traefik answers 404 | - | on |
+| `d3strukt0r.me`, `manuele-vaccari.ch` (+ wildcards) | nothing yet, Traefik answers 404 | - | **off** |
+
+**Not on the cluster** (proxied, never reach Traefik):
+
+| Name | Serves | HTTPS |
+|---|---|---|
+| `d3strukt0r.dev`, `www.d3strukt0r.dev` | Cloudflare Worker (`100::`) | on |
+| `weleda-webcenter-text-export.d3strukt0r.dev` | Cloudflare Worker (`100::`) | on |
+| `robines.space`, `www.robines.space` (+ wildcard) | Cloudflare Worker (`100::`) - the live portfolio | on |
+| `wundexpertinplus.com`, `www.wundexpertinplus.com` | Cloudflare Worker (`100::`) | on |
+| `wundexpertinplus.d3strukt0r.dev` | GitHub Pages (`team-maro.github.io`) | on |
+| `webcenter-text-export.manuele-vaccari.ch` | GitHub Pages (`d3strukt0r.github.io`) | **off** |
+
+`rubyn.li` and `sponte.me` have no web records (mail only). Checked against the live cluster
+with:
+
+```sh
+kubectl --context d3strukt0r-prod-admin get ingress -A -o json | jq -r '.items[] | .metadata.namespace as $n | .spec.rules[].host + " " + $n' | sort
+kubectl --context d3strukt0r-prod-admin get ingressroute -A -o json | jq -r '.items[] | .metadata.namespace + " " + ([.spec.routes[].match] | join(" | "))'
+```
+
 ## CAA: only Let's Encrypt
 
 Every zone has `0 issue "letsencrypt.org"` and `0 issuewild "letsencrypt.org"`

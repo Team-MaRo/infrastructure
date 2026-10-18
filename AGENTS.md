@@ -308,7 +308,7 @@ component); update it in the same change.
 | [`tofu/openbao/README.md`](tofu/openbao/README.md) | OpenBao's engine, Kubernetes auth, policies, OIDC login; putting values in |
 | [`tofu/zitadel/README.md`](tofu/zitadel/README.md) | Zitadel's policies, domains, projects, roles, apps and the groups claim |
 | [`tofu/infomaniak/README.md`](tofu/infomaniak/README.md) | Registrar delegation and DNSSEC checks, drift correction |
-| [`tofu/cloudflare/README.md`](tofu/cloudflare/README.md) | Both Cloudflare accounts, zones, records, CAA and TLS settings |
+| [`tofu/cloudflare/README.md`](tofu/cloudflare/README.md) | Both Cloudflare accounts, zones, records, every web name and what serves it, CAA and TLS settings |
 | [`cloud-init/README.md`](cloud-init/README.md) | Node bootstrap at first boot; why `k3s.yaml` still exists |
 | [`ansible/README.md`](ansible/README.md) | Layout, selection model, inventories, playbooks, the two kubeconfigs |
 | [`ansible/roles/k3s/README.md`](ansible/roles/k3s/README.md) | Installing k3s, its config drop-ins, Pod Security, Zitadel authentication |
