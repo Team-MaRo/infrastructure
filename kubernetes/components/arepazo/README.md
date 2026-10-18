@@ -41,12 +41,26 @@ requests (`config/php-fpm.conf`), restricted Pod Security. What differs:
   such a directory needs it added to the list in `config/default.conf`.
 - **More memory.** prod-old's php-fpm was OOM-killed at 280M: PHP gets `memory_limit 256M`, the
   php-fpm container a 1Gi limit (384Mi requested; it idles at 250-300Mi). Under real traffic all
-  five workers (`pm.max_children`) run at once - 512Mi was OOM-killed twice right after the
+  workers (`pm.max_children`) run at once - 512Mi was OOM-killed twice with five right after the
   switch (2026-10-04). wp-cli in the init container loads WooCommerce's admin code and
   crashes at 128M, so it runs with `-d memory_limit=1024M` (`WP_CLI_PHP_ARGS`) in a 1280Mi
   container that exits once the site is assembled. It requests only 256Mi: without a request
   the limit would count as one, and a pod keeps its largest init container's request booked on
   the node for its whole life.
+- **Six workers, sized from the memory limit** (`config/php-fpm.conf`): `(limit - opcache -
+  master - headroom) / memory per worker` = (1024 - 128 - 40 - ~200) / 90 MB = 7, one fewer so a
+  heavy request (an export, up to `memory_limit` 256M) still fits beside five normal ones: ~160
+  fixed + 5 x 90 + 256 = ~870 MiB; two at once would not. The memory per
+  worker is its own, not the RSS `ps` shows: every worker's RSS includes the opcache (128M, shared
+  once), which made them look 225 MB each. The image's five were taken by a single `/wp-admin/`
+  load (2026-10-18): Jetpack, Yoast and admin-ajax fire ~17 requests at once, each 1.5-9 s and
+  mostly waiting on wordpress.com and the database - five busy workers used 1.65 of the node's 4
+  cores. `pm` stays `dynamic` (2-4 idle), so an idle count of 0 still means a full pool; a worker
+  restarts after 500 requests (`pm.max_requests`) against plugins' memory leaks. To recompute,
+  read the workers' own memory and the pool's peak:
+  `kubectl --context d3strukt0r-prod-admin -n arepazo exec deploy/web -c php-fpm -- sh -c 'grep RssAnon /proc/[0-9]*/status'`
+  and `phpfpm_memory_peak{namespace="arepazo"}` in Prometheus; raise the limit before the count.
+  robines-portfolio keeps the image's five - it has never filled them.
 - **Slow requests, patient probes.** Every page takes about 3 s, on prod-old as here (WooCommerce,
   Jetpack, Yoast and some thirty more plugins, no page cache). Startup and readiness still go
   through WordPress (`/robots.txt`), but wait 10 s and run every 30 s (readiness); the 1 s
