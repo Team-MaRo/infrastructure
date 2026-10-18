@@ -9,6 +9,17 @@ zitadel:
     # Traefik terminates TLS on 443; without this, Zitadel and the login page build every URL
     # with the container port, :8080.
     ExternalPort: 443
+    # Traces of every request (Zitadel's default fraction, 1.0) over OTLP gRPC to the Alloy on
+    # the node, which forwards them to Tempo (components/alloy). TrustRemoteSpans stays false (a
+    # client could otherwise set trace IDs): OIDC and the v2 APIs then start their own trace, the
+    # console's v1 API calls still continue Traefik's (README).
+    Instrumentation:
+      Trace:
+        Exporter:
+          Type: grpc
+          Endpoint: alloy.kube-system.svc:4317
+          # Plain gRPC to Alloy inside the cluster.
+          Insecure: true
     Database:
       Postgres:
         Host: postgres-rw.postgres.svc

@@ -69,6 +69,13 @@ is down, the UIs stay reachable by port-forward. Measured idle after the first s
   list when it is created, so the webhook is deployed before `tofu/zitadel` creates the target.
 - The license is AGPL-3.0; running it unmodified puts no obligation on the apps that log in
   through it.
+- **Traces** (`Instrumentation.Trace.Exporter` in `configmapConfig`): every request, as OTLP gRPC
+  to the Alloy on the node, which forwards to Tempo ([`../tempo/README.md`](../tempo/README.md)).
+  With `TrustRemoteSpans` at its default, false (a client could otherwise set trace IDs), the
+  OIDC endpoints and the v2 APIs the login page calls ignore the trace context Traefik passes on
+  and start a trace of their own, found next to Traefik's in Tempo by time; the console's v1 API
+  calls (`/zitadel.auth.v1…`, `/zitadel.management.v1…`) continue Traefik's trace anyway
+  (measured 2026-10-18). The login page (Next.js) sends none.
 - **Restarted by Reloader** when Secret `zitadel-db` changes in OpenBao (an environment variable
   read at start), and the groups webhook when its ConfigMap changes
   ([`../reloader/README.md`](../reloader/README.md)). Deliberately not for the masterkey, which

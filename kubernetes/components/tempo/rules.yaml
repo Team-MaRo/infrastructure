@@ -1,0 +1,73 @@
+---
+# Alerts for Tempo: traces that stop arriving, writing to the bucket failing, blocks that cannot
+# be finished, and the metrics generator losing its samples.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: tempo
+  annotations:
+    # The CRD comes with kube-prometheus-stack, another Application.
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  groups:
+    - name: tempo
+      rules:
+        # Traefik traces every request, and Gatus alone sends some every minute, so an hour
+        # without a single span means a sender, Alloy or Tempo's receiver is broken. The metric
+        # appears only once spans came, so it also fires when it was never there.
+        - alert: TempoNoSpansReceived
+          expr: >-
+            sum(increase(tempo_distributor_spans_received_total[1h])) == 0
+            or absent(tempo_distributor_spans_received_total)
+          for: 15m
+          labels:
+            severity: warning
+            namespace: tempo
+          annotations:
+            summary: "Tempo has received no spans for an hour."
+            description: >-
+              Check Alloy's log (kubectl -n kube-system logs ds/alloy | grep otelcol), Traefik's
+              and Zitadel's for OTLP export errors, and Tempo's
+              (kubectl -n tempo logs statefulset/tempo).
+        # Tempo writes blocks and its job list to S3; 403 is the bucket policy or the key, 5xx
+        # Hetzner. A 404 is normal (a file Tempo looks for before it exists).
+        - alert: TempoBackendErrors
+          expr: sum(rate(tempodb_backend_request_duration_seconds_count{namespace="tempo", status_code=~"403|5.."}[15m])) > 0
+          for: 15m
+          labels:
+            severity: warning
+            namespace: tempo
+          annotations:
+            summary: "Tempo's requests to its bucket fail."
+            description: >-
+              Check Tempo's log for the status, the Secret tempo-s3 (OpenBao secret/tempo-s3) and
+              the bucket policy in tofu/objectstorage/tempo.tf.
+        # Spans become blocks on the emptyDir, which are finished and uploaded; failures here
+        # mean traces that never reach the bucket.
+        - alert: TempoBlocksFailing
+          expr: >-
+            sum(increase(tempo_live_store_local_failed_flushes_total[30m]))
+            + sum(increase(tempo_live_store_failed_completions_total[30m]))
+            + sum(increase(tempodb_compaction_errors_total[30m])) > 0
+          for: 5m
+          labels:
+            severity: warning
+            namespace: tempo
+          annotations:
+            summary: "Tempo fails to flush, finish or compact blocks."
+            description: >-
+              Check Tempo's log (kubectl -n tempo logs statefulset/tempo) - usually the bucket, or
+              the emptyDir at its 1 GiB cap.
+        # The metrics generator pushes span metrics and the service graph into Prometheus; failed
+        # samples mean Prometheus refuses them (the NetworkPolicy, remote write switched off).
+        - alert: TempoRemoteWriteFailing
+          expr: sum(rate(prometheus_remote_storage_samples_failed_total{namespace="tempo"}[15m])) > 0
+          for: 15m
+          labels:
+            severity: warning
+            namespace: tempo
+          annotations:
+            summary: "Tempo's metrics generator cannot write to Prometheus."
+            description: >-
+              Check network-policy.yaml and enableRemoteWriteReceiver in
+              components/kube-prometheus-stack, and Tempo's log.

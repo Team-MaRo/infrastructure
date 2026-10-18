@@ -28,6 +28,11 @@ is in [`kubernetes/README.md`](../../README.md).
 - **Receivers**: OTLP gRPC 4317 and HTTP 4318 - only Alloy sends. The chart's Jaeger receivers
   stay because its Service template needs them; nothing sends to them, and like every port here
   they are reachable inside the cluster only.
+- **What a trace holds**: every request through Traefik and every Zitadel request, with service,
+  route, path, status and timings - query parameter names but not their values, and no visitor
+  address or user agent (Alloy removes them, [`../alloy/README.md`](../alloy/README.md)). Only
+  the admin reads them, in Grafana; they serve finding faults and slow requests, and go after 30
+  days.
 - **The metrics generator is on**: from the spans it computes request rate, errors and duration
   per service and operation (`traces_spanmetrics_*`) and who calls whom
   (`traces_service_graph_*`), and pushes them into Prometheus by remote write
@@ -40,6 +45,19 @@ is in [`kubernetes/README.md`](../../README.md).
 - Memory 256Mi requested, 1Gi limit - a first guess for a few spans a second, to be measured.
   Restricted Pod Security as the chart ships it plus seccomp, no capabilities, read-only root.
   Usage reports to Grafana are off.
+
+## Alerts
+
+`rules.yaml`, all warnings:
+
+- **`TempoNoSpansReceived`**: no span for an hour (and 15 minutes more). Traefik traces every
+  request and Gatus alone makes some every minute, so this is a broken sender, Alloy or receiver.
+- **`TempoBackendErrors`**: requests to the bucket answered 403 (key, policy) or 5xx (Hetzner)
+  for 15 minutes. A 404 is normal - Tempo looks for files before they exist.
+- **`TempoBlocksFailing`**: blocks that could not be flushed, finished or compacted - traces that
+  never reach the bucket.
+- **`TempoRemoteWriteFailing`**: the metrics generator's samples refused by Prometheus (its
+  NetworkPolicy, or remote write switched off).
 
 ## Checking it
 

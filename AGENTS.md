@@ -334,7 +334,7 @@ component); update it in the same change.
 | [`kubernetes/components/kube-prometheus-stack/README.md`](kubernetes/components/kube-prometheus-stack/README.md) | Prometheus, Alertmanager, Grafana, scraping k3s, alerts |
 | [`kubernetes/components/loki/README.md`](kubernetes/components/loki/README.md) | Log storage, retention, searching logs |
 | [`kubernetes/components/tempo/README.md`](kubernetes/components/tempo/README.md) | Trace storage, retention, the metrics generator, searching traces |
-| [`kubernetes/components/alloy/README.md`](kubernetes/components/alloy/README.md) | Log collection on every node |
+| [`kubernetes/components/alloy/README.md`](kubernetes/components/alloy/README.md) | Log collection on every node; the traces' entry on the way to Tempo |
 | [`kubernetes/components/mariadb-operator/README.md`](kubernetes/components/mariadb-operator/README.md) | The MariaDB operator, its CRDs and webhook |
 | [`kubernetes/components/mariadb/README.md`](kubernetes/components/mariadb/README.md) | The shared MariaDB: failover, backups, PITR, runbooks |
 | [`kubernetes/components/cloudnative-pg/README.md`](kubernetes/components/cloudnative-pg/README.md) | The PostgreSQL operator and the Barman Cloud plugin |

@@ -69,8 +69,13 @@ rebuild) the complete one.
   (`ports.websecure.http.middlewares` in `helmchartconfig.yaml`), so it covers every route on
   443 without each Ingress naming it. **A wrong name there stops every route on 443** - check
   Traefik's log for `middleware ... does not exist` after changing it.
-- **Tracing is off on purpose** - it needs a trace store (such as Grafana Tempo) and apps that
-  report their own spans, and the cluster has neither yet.
+- **Every request is traced** (`tracing.otlp` in `helmchartconfig.yaml`, the default sample rate
+  1.0): Traefik sends a span per request over OTLP gRPC to the Alloy on its node
+  (`alloy.kube-system.svc:4317`, resolved through `ClusterFirstWithHostNet`), which forwards it
+  to Tempo ([`../tempo/README.md`](../tempo/README.md)). The access log then carries the
+  request's `TraceId` (and `trace_id`, the OpenTelemetry name Traefik writes alongside), and
+  Grafana links a logged request to its trace. The apps behind Traefik show up in a trace only
+  once they send their own spans (Zitadel does).
 - **The dashboard is at `https://traefik.d3strukt0r.dev`** (read-only), switched on through the
   chart's `ingressRoute.dashboard` in the HelmChartConfig - an IngressRoute on `websecure` with
   certificate `traefik-tls` and the Zitadel gate (see [`../oauth2-proxy/README.md`](../oauth2-proxy/README.md)).

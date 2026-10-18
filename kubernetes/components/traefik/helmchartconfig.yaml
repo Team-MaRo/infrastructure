@@ -87,6 +87,18 @@ spec:
     # of the container filter alike in Loki (| json).
     log:
       format: json
+    # A trace per request, sent over OTLP to the Alloy on the same node, which forwards it to
+    # Tempo (components/alloy, components/tempo). Every request is traced (the default sample
+    # rate, 1.0), and the access log gets each request's TraceId, which Grafana links to its
+    # trace. The host network resolves the Service name (dnsPolicy ClusterFirstWithHostNet).
+    tracing:
+      otlp:
+        enabled: true
+        grpc:
+          enabled: true
+          endpoint: alloy.kube-system.svc:4317
+          # Plain gRPC to Alloy inside the cluster.
+          insecure: true
     # Access log as JSON on stdout (to Loki through Alloy), but only for requests that failed
     # (400-599) or took over 2 s - what visitors got during an incident, with little volume and
     # personal data. Headers stay dropped except the visitor's address behind Cloudflare

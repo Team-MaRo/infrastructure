@@ -18,6 +18,16 @@ alloy:
       - name: machine-id
         mountPath: /etc/machine-id
         readOnly: true
+  # OTLP for traces (the pipeline below), on the pods and the Service.
+  extraPorts:
+    - name: otlp-grpc
+      port: 4317
+      targetPort: 4317
+      protocol: TCP
+    - name: otlp-http
+      port: 4318
+      targetPort: 4318
+      protocol: TCP
   # The log files belong to root with mode 0640, so root reads them; as their owner it needs no
   # capability to do so.
   securityContext:
@@ -124,6 +134,77 @@ alloy:
           url = "http://loki.loki.svc:3100/loki/api/v1/push"
         }
       }
+
+      // Traces: Traefik and Zitadel send OTLP to the Alloy on their node (the Service's
+      // trafficDistribution below); Alloy drops the visitor's browser, batches the spans and
+      // forwards them to Tempo, keeping them in a queue and retrying while Tempo restarts.
+      otelcol.receiver.otlp "default" {
+        grpc {
+          endpoint = "0.0.0.0:4317"
+        }
+        http {
+          endpoint = "0.0.0.0:4318"
+        }
+        output {
+          traces = [otelcol.processor.attributes.redact.input]
+        }
+      }
+
+      // Every request is traced and kept 30 days, so a span keeps only what finding a fault
+      // needs - path, status, timings - and loses the visitor's user agent and address (the
+      // current and the older attribute names). Hosts not proxied by Cloudflare would otherwise
+      // keep the visitor's real IP; the access log still has both for failed and slow requests.
+      // Query values never get here, Traefik replaces them with REDACTED in spans.
+      otelcol.processor.attributes "redact" {
+        action {
+          key    = "user_agent.original"
+          action = "delete"
+        }
+        action {
+          key    = "http.user_agent"
+          action = "delete"
+        }
+        action {
+          key    = "client.address"
+          action = "delete"
+        }
+        action {
+          key    = "network.peer.address"
+          action = "delete"
+        }
+        action {
+          key    = "http.client_ip"
+          action = "delete"
+        }
+        action {
+          key    = "net.peer.ip"
+          action = "delete"
+        }
+        output {
+          traces = [otelcol.processor.batch.default.input]
+        }
+      }
+
+      otelcol.processor.batch "default" {
+        output {
+          traces = [otelcol.exporter.otlp.tempo.input]
+        }
+      }
+
+      otelcol.exporter.otlp "tempo" {
+        client {
+          endpoint = "tempo.tempo.svc:4317"
+          // Plain gRPC inside the cluster; between nodes WireGuard encrypts it.
+          tls {
+            insecure = true
+          }
+        }
+      }
+
+# A sender reaches the Alloy on its own node - Traefik on the host network too - and another
+# node's only while its own is down.
+service:
+  trafficDistribution: PreferSameNode
 
 controller:
   volumes:
