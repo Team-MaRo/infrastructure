@@ -97,8 +97,8 @@ resource "cloudflare_dns_record" "robines_space_mx_apex_2" {
 resource "cloudflare_dns_record" "robines_space_txt_dmarc" {
   provider = cloudflare.personal
 
-  comment  = "AnonAddy DMARC"
-  content  = "\"v=DMARC1; p=quarantine; adkim=s\""
+  comment  = "DMARC, DKIM relaxed (no adkim=s): mailomat signs as mailomat.robines.space"
+  content  = "\"v=DMARC1; p=quarantine\""
   name     = "_dmarc.robines.space"
   proxied  = false
   tags     = []
@@ -172,6 +172,50 @@ resource "cloudflare_dns_record" "robines_space_aaaa_www" {
   tags     = []
   ttl      = 1
   type     = "AAAA"
+  zone_id  = local.zone_ids["robines.space"]
+  settings = {}
+}
+
+# mailomat.swiss sends mail for this domain (smarthost, see "Sending through mailomat" in the
+# README). Its records sit on a subdomain because the apex already has a mail service; the
+# subdomain is the return path for bounces (SPF, MX) and the DKIM domain.
+
+resource "cloudflare_dns_record" "robines_space_txt_mailomat" {
+  provider = cloudflare.personal
+
+  content  = "v=spf1 include:mailomat.cloud -all"
+  name     = "mailomat.robines.space"
+  proxied  = false
+  tags     = []
+  ttl      = 1
+  type     = "TXT"
+  zone_id  = local.zone_ids["robines.space"]
+  settings = {}
+}
+
+resource "cloudflare_dns_record" "robines_space_txt_mom1_domainkey_mailomat" {
+  provider = cloudflare.personal
+
+  content  = "v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAig0FbaLqQGVytHlrAD23vUM+CsIvrckVBCa+CAVqSO9Hntu2zvv3/OR0s8vesqU54QPoXB6/TRo2mudRZMT/rvlmh6MeqI2Mc4XxZYZ8EUHUFMwBUmX5HUgDAxvyRN+QXFIxTYMNfaL5N2TH6UUv+vfdof+SPrS2ICekMv3mUwFEV5PJRVbSHLPnXiM8H2r+NCv2jP+8qhWUX0BIF14jJ+ZzLF420kEAt85uv2yGDXIQ7HKJHwk6UTCymO5V55xpLKtrjhNhe9MofGEDqMtuTvOgK4fvpsHA6GH3cqo7BaLxfjdQbg/hAtz6UdiKwvx2vY64as8vnp7zxCp/8RIpbwIDAQAB"
+  name     = "mom1._domainkey.mailomat.robines.space"
+  proxied  = false
+  tags     = []
+  ttl      = 1
+  type     = "TXT"
+  zone_id  = local.zone_ids["robines.space"]
+  settings = {}
+}
+
+resource "cloudflare_dns_record" "robines_space_mx_mailomat" {
+  provider = cloudflare.personal
+
+  content  = "mx.mailomat.cloud"
+  name     = "mailomat.robines.space"
+  priority = 10
+  proxied  = false
+  tags     = []
+  ttl      = 1
+  type     = "MX"
   zone_id  = local.zone_ids["robines.space"]
   settings = {}
 }
