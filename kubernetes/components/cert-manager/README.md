@@ -33,7 +33,16 @@ The databases' CA certificates are distributed by trust-manager, from the same p
   `arepazo`) with `bao kv put`, and delivered as Secret `cert-manager/cloudflare-api-tokens`
   by an ExternalSecret. ClusterIssuers read their Secrets from cert-manager's own namespace.
 - **No email on the ACME accounts**: optional, this repo is public, and Let's Encrypt no
-  longer sends expiry mails. cert-manager renews by itself 30 days before expiry.
+  longer sends expiry mails. cert-manager renews by itself at two thirds of a certificate's
+  lifetime - 30 days before expiry today.
+- **Let's Encrypt's `classic` profile** (no `profile` on the issuers): 90-day certificates, 64
+  days from 2027-02-10, 45 days from 2028-02-16 - shorter certificates come by themselves, and
+  renewal follows (two thirds of the lifetime). Not the opt-in `shortlived` profile (6 days): every
+  site would depend on Let's Encrypt and Cloudflare working within about two days.
+- **No ARI** (ACME Renewal Information, RFC 9773 - the CA tells when to renew, e.g. before a mass
+  revocation): cert-manager has it only behind the alpha feature gate `ACMEUseARI` (off by
+  default, since 1.21, with renewal bugs fixed in its patch releases). Switch it on once it is
+  beta, at an upgrade.
 - **Its pods run restricted** (non-root, seccomp, no capabilities), so `cert-manager` is not
   in `k3s_psa_exempt_namespaces`.
 - **The cainjector gets 128Mi / 256Mi** (a patch in `kustomization.yaml`); the manifest sets no
@@ -44,8 +53,9 @@ The databases' CA certificates are distributed by trust-manager, from the same p
 
 cert-manager's controller is scraped through a ServiceMonitor (`http-metrics` 9402); the
 monitor and the rules carry `SkipDryRunOnMissingResource=true`, since the CRD belongs to
-another Application. Alerts: `CertificateNotReady` (1 h), `CertificateExpiringSoon` (under 14
-days - renewal starts at 30, critical).
+another Application. Alerts: `CertificateNotReady` (1 h), `CertificateRenewalOverdue` (2 days
+past the renewal time cert-manager set - independent of the lifetime) and
+`CertificateExpiringSoon` (under 7 days, critical).
 
 ## Requesting a certificate
 

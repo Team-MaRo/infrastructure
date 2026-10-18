@@ -23,15 +23,29 @@ spec:
               CertificateRequest, Order and Challenge it names - usually the Cloudflare token or a
               DNS record.
 
-        # cert-manager renews 30 days before expiry, so 14 days left means renewal has been failing
-        # for over two weeks.
+        # cert-manager renews at two thirds of a certificate's lifetime (30 days before expiry at
+        # Let's Encrypt's 90 days, ~21 at 64 days from 2027-02-10, 15 at 45 days from 2028-02-16).
+        # Measured from the renewal time it sets itself, so the alert holds for any lifetime:
+        # two days past it means renewal is failing, with weeks left before expiry.
+        - alert: CertificateRenewalOverdue
+          expr: time() - max by (namespace, name) (certmanager_certificate_renewal_timestamp_seconds) > 2 * 86400
+          for: 1h
+          labels:
+            severity: warning
+          annotations:
+            summary: "Certificate {{ $labels.namespace }}/{{ $labels.name }} should have been renewed {{ $value | humanizeDuration }} ago."
+            description: >-
+              Renewal is failing. kubectl -n {{ $labels.namespace }} describe certificate
+              {{ $labels.name }}, then the CertificateRequest, Order and Challenge it names;
+              kubectl -n cert-manager logs deploy/cert-manager.
+        # The last line before browsers refuse the site.
         - alert: CertificateExpiringSoon
-          expr: max by (namespace, name) (certmanager_certificate_expiration_timestamp_seconds) - time() < 14 * 86400
+          expr: max by (namespace, name) (certmanager_certificate_expiration_timestamp_seconds) - time() < 7 * 86400
           for: 1h
           labels:
             severity: critical
           annotations:
             summary: "Certificate {{ $labels.namespace }}/{{ $labels.name }} expires in {{ $value | humanizeDuration }}."
             description: >-
-              Renewal has been failing for two weeks. kubectl -n {{ $labels.namespace }} describe
+              Renewal has been failing for days. kubectl -n {{ $labels.namespace }} describe
               certificate {{ $labels.name }}; kubectl -n cert-manager logs deploy/cert-manager.

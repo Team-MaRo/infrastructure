@@ -112,12 +112,12 @@ port-forwards stay the break-glass way in. The status page and alerting heartbea
   `serviceMonitor.enabled` per controller. Prometheus takes monitors from every namespace
   without a release label (`*SelectorNilUsesHelmValues: false`). Each monitor or rule outside
   kube-prometheus-stack carries `SkipDryRunOnMissingResource=true`, since the CRD belongs to
-  another Application. Alerts: `CertificateNotReady` (1 h), `CertificateExpiringSoon` (under 14
-  days - renewal starts at 30, critical), `ArgoCDApplicationOutOfSync` and
-  `ArgoCDApplicationUnhealthy` (30 min). Their dashboards come from grafana.com by revision
-  (`grafana.dashboards` in the values, at the top level next to the chart's own), downloaded
-  at every Grafana start with `defaultCurlOptions: -sLf` - the chart's default `-k` skips the
-  TLS check.
+  another Application. Alerts: `CertificateNotReady` (1 h), `CertificateRenewalOverdue` (2 days
+  past its renewal time), `CertificateExpiringSoon` (under 7 days, critical),
+  `ArgoCDApplicationOutOfSync` and `ArgoCDApplicationUnhealthy` (30 min). Their dashboards come
+  from grafana.com by revision (`grafana.dashboards` in the values, at the top level next to the
+  chart's own), downloaded at every Grafana start with `defaultCurlOptions: -sLf` - the chart's
+  default `-k` skips the TLS check.
 - **Volume alerts at three levels** (`rules.yaml`): 80 % warning, 90 % critical, 95 % critical
   again, each a separate alert so every level notifies once; inhibit rules in the
   Alertmanager config let a higher level silence the lower ones for the same PVC. They replace
