@@ -7,3 +7,12 @@
 #   op document get 'Zitadel | Prod | iam-admin key' --account my.1password.com --vault Private | jq .
 zitadel_jwt_profile = <<-EOT
 EOT
+
+# The SMTP password of mailomat's user zitadel@mailomat.d3strukt0r.dev, from 1Password E-Mail item
+# "Mailomat | Prod | zitadel" (SMTP section):
+#   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=7vpv7gubslfi4qfcvhqaod42zy&h=my.1password.com
+# A generated password may hold " \ ${ or %{, which HCL reads specially, so this prints the line
+# below escaped - it replaces the empty one:
+#   op item get 'Mailomat | Prod | zitadel' --account my.1password.com --vault Private --fields smtp_password --reveal \
+#     | python3 -c 'import json,sys; print("smtp_password = " + json.dumps(sys.stdin.read().strip()).replace("${", "$${").replace("%{", "%%{"))'
+smtp_password = ""

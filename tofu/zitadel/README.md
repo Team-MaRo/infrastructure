@@ -45,6 +45,23 @@ Shared rules, credentials and the state backend are in [`../README.md`](../READM
   2026-09-30. No provider manages that switch, so it is set by hand; the symptom of it being
   off is `server closed the stream without sending trailers`. It opens nothing new: the same
   API is public over REST and gRPC-web.
+- **Email through mailomat** (`email.tf`, since 2026-10-18; before, Zitadel had no email
+  provider and sent nothing). Invitations, email verification, password resets and OTP codes
+  leave from `d3strukt0r Login <auth@d3strukt0r.dev>` through mailomat's SMTP user
+  `zitadel@mailomat.d3strukt0r.dev` (`smtp.mailomat.cloud:587`): mailomat signs as
+  `mailomat.d3strukt0r.dev`, which `d3strukt0r.dev`'s relaxed DMARC counts for the domain
+  ([`../cloudflare/README.md`](../cloudflare/README.md), "Sending through mailomat"); replies
+  go to addy. `tls = true` is right for 587: Zitadel tries TLS from the first byte and falls
+  back to STARTTLS when the server answers in plain text (its `channels/smtp/channel.go`);
+  `false` would never encrypt. `zitadel_email_provider_smtp`, not the deprecated
+  `zitadel_smtp_config`. **The password is write-only** (`smtp_password`, an ephemeral variable
+  from the gitignored tfvars, 1Password
+  [`Mailomat | Prod | zitadel`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=7vpv7gubslfi4qfcvhqaod42zy&h=my.1password.com),
+  an E-Mail item): the state keeps only `password_hash`, so a plan shows when it changed.
+  Zitadel stores it encrypted in its own database; nothing on the cluster needs it. To rotate:
+  "Eigenes Passwort setzen" in mailomat with a new 1Password value, the new line into the tfvars
+  (the command in `terraform.tfvars.example`, which escapes what HCL reads specially), apply.
+  The mailomat plan's 200 mails a month are shared with the websites.
 
 ## Running it
 
@@ -53,6 +70,13 @@ Shared rules, credentials and the state backend are in [`../README.md`](../READM
 
 ```sh
 op document get 'Zitadel | Prod | iam-admin key' --account my.1password.com --vault Private | jq .
+```
+
+and `smtp_password`, the mailomat password (`email.tf`), as a line this prints escaped:
+
+```sh
+op item get 'Mailomat | Prod | zitadel' --account my.1password.com --vault Private --fields smtp_password --reveal \
+  | python3 -c 'import json,sys; print("smtp_password = " + json.dumps(sys.stdin.read().strip()).replace("${", "$${").replace("%{", "%%{"))'
 ```
 
 ```sh

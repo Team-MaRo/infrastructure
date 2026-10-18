@@ -6,3 +6,14 @@ variable "zitadel_jwt_profile" {
   type        = string
   sensitive   = true
 }
+
+# The password of mailomat's SMTP user zitadel@mailomat.d3strukt0r.dev (email.tf). Ephemeral, and
+# written to a write-only attribute: it never enters a plan or the state.
+# 1Password "Mailomat | Prod | zitadel"
+#   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=7vpv7gubslfi4qfcvhqaod42zy&h=my.1password.com
+variable "smtp_password" {
+  description = "Password of the SMTP user Zitadel sends mail through. Set in terraform.tfvars."
+  type        = string
+  sensitive   = true
+  ephemeral   = true
+}
