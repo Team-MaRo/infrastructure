@@ -43,8 +43,10 @@ ran under Docker Compose. How the cluster's manifests fit together is in
   `pod-monitor.yaml`; alerts and the dashboard "php-fpm" are kube-prometheus-stack's), without
   touching the image: two files from the ConfigMap `api-config` go into the image's own include
   folders. `config/php-fpm-metrics.conf` becomes `/etc/php/8.3/fpm/pool.d/zz-metrics.conf` - a
-  status pool of its own (`pm.status_listen`), which answers while every worker is busy, and a
-  slow log (requests over 2 s write their PHP backtrace into the container log);
+  status pool of its own (`pm.status_listen`), which answers while every worker is busy, a
+  slow log (requests over 2 s write their PHP backtrace into the container log) and a memory
+  limit per request of 256M (the image's `php.ini` sets none, so one runaway request could fill
+  the container's 512Mi and kill every other request with it);
   `pm.status_path` is already in the image's `www.conf`. `config/nginx-metrics.conf` is copied
   by the init container `nginx-config` into `/etc/nginx/conf.d/php-fpm-metrics.conf` (an
   emptyDir; the image's conf.d is otherwise empty) - not mounted, because the image's start
