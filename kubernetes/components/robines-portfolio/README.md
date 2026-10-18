@@ -89,6 +89,16 @@ the bucket `d3strukt0r-prod-robines-portfolio` (`tofu/objectstorage`).
   within 2 s. nginx fixes the query, so the per-request detail with request URLs (`?full`) never
   leaves the pod. Not hipages/php-fpm_exporter: last release 2022, and it hangs when php-fpm does
   not answer (its issue #253). Alerts and the dashboard "php-fpm" are kube-prometheus-stack's.
+- **Five workers, and room for one heavy request** (`config/php-fpm.conf`, 2026-10-18):
+  `(limit - opcache and master - headroom) / memory per worker` = (512 - ~140 - ~100) / ~30 MB =
+  9, more than the image's five, which have never all been busy. The memory per worker is its
+  own (`RssAnon` in `/proc/<pid>/status`, php-fpm's peak 22.5 MB), not the RSS `ps` shows, which
+  counts the shared opcache in every worker. The container's limit is 512Mi so that one request
+  up to `memory_limit` 256M (`config/php.ini`) fits beside the idle workers (~140 + 3 x 30 + 266
+  = ~500 MiB); at 384Mi a single one would have OOM-killed the container. A worker restarts after
+  500 requests (`pm.max_requests`) against plugins' memory leaks. To recompute:
+  `kubectl --context d3strukt0r-prod-admin -n robines-portfolio exec deploy/web -c php-fpm -- sh -c 'grep RssAnon /proc/[0-9]*/status'`
+  and `phpfpm_memory_peak{namespace="robines-portfolio"}` in Prometheus.
 - **A drain before stopping.** Every container of the pod waits 10 s (`preStop` `sleep`) before
   it stops: all of them get the stop signal at once, while Traefik still routes to the pod for a
   moment (measured: 8 s after the signal). php-fpm then lets running requests finish for up to

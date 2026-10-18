@@ -186,8 +186,10 @@ spec:
           resources:
             requests:
               memory: 128Mi
+            # One request may use memory_limit's 256M (config/php.ini) beside the opcache and the
+            # idle workers (config/php-fpm.conf); 384Mi could not hold it.
             limits:
-              memory: 384Mi
+              memory: 512Mi
           volumeMounts:
             - name: html
               mountPath: /var/www/html
