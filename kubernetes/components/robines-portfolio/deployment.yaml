@@ -91,6 +91,18 @@ spec:
                 define( 'AUTOMATIC_UPDATER_DISABLED', true );
                 // Scheduled tasks run from the CronJob wp-cron, not on page loads (cronjob.yaml).
                 define( 'DISABLE_WP_CRON', true );
+                // Mail leaves through mailomat (README): WP Mail SMTP takes its connection from
+                // these constants instead of its database settings. Encryption and auth are set
+                // because the plugin's defaults for SMTP are none and off. The sender (From) stays
+                // in wp-admin.
+                define( 'WPMS_ON', true );
+                define( 'WPMS_MAILER', 'smtp' );
+                define( 'WPMS_SMTP_HOST', 'smtp.mailomat.cloud' );
+                define( 'WPMS_SMTP_PORT', 587 );
+                define( 'WPMS_SSL', 'tls' );
+                define( 'WPMS_SMTP_AUTH', true );
+                define( 'WPMS_SMTP_USER', getenv( 'SMTP_USERNAME' ) );
+                define( 'WPMS_SMTP_PASS', getenv( 'SMTP_PASSWORD' ) );
           envFrom: &wordpress-secrets
             - secretRef:
                 name: web
