@@ -267,7 +267,6 @@ grafana:
       apiVersion: 1
       providers:
         - name: grafana-com
-          folder: Components
           type: file
           options:
             path: /var/lib/grafana/dashboards/grafana-com

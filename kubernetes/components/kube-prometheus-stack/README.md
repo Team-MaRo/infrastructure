@@ -88,8 +88,9 @@ port-forwards stay the break-glass way in. The status page and alerting heartbea
   another Application. Alerts: `CertificateNotReady` (1 h), `CertificateExpiringSoon` (under 14
   days - renewal starts at 30, critical), `ArgoCDApplicationOutOfSync` and
   `ArgoCDApplicationUnhealthy` (30 min). Their dashboards come from grafana.com by revision
-  (`grafana.dashboards` in the values, folder "Components"), downloaded at every Grafana start
-  with `defaultCurlOptions: -sLf` - the chart's default `-k` skips the TLS check.
+  (`grafana.dashboards` in the values, at the top level next to the chart's own), downloaded
+  at every Grafana start with `defaultCurlOptions: -sLf` - the chart's default `-k` skips the
+  TLS check.
 - **Volume alerts at three levels** (`rules.yaml`): 80 % warning, 90 % critical, 95 % critical
   again, each a separate alert so every level notifies once; inhibit rules in the
   Alertmanager config let a higher level silence the lower ones for the same PVC. They replace
