@@ -66,10 +66,24 @@ requests (`config/php-fpm.conf`), restricted Pod Security. What differs:
   PayPal).
 - **`timber-library` pinned to 1.23.1**: 1.23.4 lacks a file and takes the site down (a fatal
   error on every page).
-- **No e-mail.** WP Mail SMTP's SMTP login has been refused since 2024-06 (every logged attempt
-  fails), so order confirmations and customer mails do not go out - left as is at the move
-  (2026-10-04). Sending needs a working SMTP account for `info@arepazo.ch` (the domain's mail is
-  Microsoft 365), its password through OpenBao.
+- **Mail through mailomat** (since 2026-10-18; from 2024-06 until then nothing went out - the old
+  SMTP account's login was refused). The website's mail - order confirmations, password resets,
+  contact forms, whatever it sends - leaves through mailomat's SMTP user
+  `web@mailomat.arepazo.ch` (`smtp.mailomat.cloud:587`, STARTTLS), set by WP Mail SMTP's
+  `WPMS_*` constants in `WORDPRESS_CONFIG_EXTRA`, so wp-admin shows the connection greyed out;
+  the sender stays wp-admin's (`Arepazo <info@arepazo.ch>`). The domain's own mail stays at
+  Microsoft 365; mailomat signs as `mailomat.arepazo.ch`, which DMARC's relaxed alignment counts
+  for `arepazo.ch` ([`../../../tofu/cloudflare/README.md`](../../../tofu/cloudflare/README.md),
+  "Sending through mailomat"). No IP restriction on the SMTP user (user decision): the password
+  is its only guard - rotate it in mailomat, then in 1Password and OpenBao, if it may have
+  leaked.
+  - **The FREE plan: 200 mails per 30-day period**, shared by everything on the cluster that
+    sends through mailomat. An order sends about three (to the customer, to the shop, on
+    completion). The counter is in mailomat's dashboard; nothing alerts on it.
+  - **The invoice PDF goes along as an attachment**: mailomat allows attachments on FREE (to
+    test every feature, support ticket #1972, 2026-10) but not on LITE - only from PRO. If they
+    are ever refused, switch the invoice plugin (WooCommerce → PDF Invoices) from attaching to a
+    download link. Which emails carry it is the plugin's setting in wp-admin ("Attach to").
 - **Not migrated**: the `arepazo.d3strukt0r.dev` name (a redirect) and prod-old's public
   phpMyAdmin - the shared one is behind Zitadel.
 
@@ -81,6 +95,7 @@ requests (`config/php-fpm.conf`), restricted Pod Security. What differs:
 | `secret/mariadb-apps/arepazo` | `password` (20 characters) | 1Password [`MariaDB | Prod | arepazo`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=373ezgwhdppj4dsxghr3aqcxpa&h=my.1password.com) |
 | `secret/arepazo-s3` | `access-key`, `secret-key` (read and write) | 1Password [`Hetzner | S3 | prod arepazo`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=t6onf7inzynbh6oqvdggcrdzoy&h=my.1password.com) |
 | `secret/arepazo-uploads-proxy-s3` | `access-key`, `secret-key` (read only) | 1Password [`Hetzner | S3 | prod arepazo uploads-proxy`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=gs5mn5w3sfbqsljokq3ukhjtjy&h=my.1password.com) |
+| `secret/arepazo-mailomat` | `username`, `password` (the SMTP user at mailomat) | 1Password [`Mailomat | Prod | arepazo`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=6ietzpx5jygsojtd5fiflvdlee&h=my.1password.com) (an E-Mail item, SMTP section) |
 
 A changed value reaches the pod through External Secrets (within five minutes, or at once with
 `kubectl --context d3strukt0r-prod-admin -n arepazo annotate externalsecret --all force-sync=$(date +%s) --overwrite`),
