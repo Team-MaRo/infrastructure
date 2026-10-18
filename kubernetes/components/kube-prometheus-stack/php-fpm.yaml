@@ -1,0 +1,52 @@
+---
+# Alerts on the WordPress sites' php-fpm pools (job <namespace>/php-fpm, each site's
+# pod-monitor.yaml). Each pool has five workers; a slow spell like arepazo's on 2026-10-11 (every
+# request 6-9 s for 2.5 hours) shows here as workers all taken and requests queuing. What the
+# workers wait on is in the site's slow log (php-fpm's log, "too slow").
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: php-fpm
+  annotations:
+    # The CRD arrives with the chart in the same sync.
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  groups:
+    - name: php-fpm
+      rules:
+        # Requests wait for a free worker: visitors see the delay on top of the page's own time.
+        - alert: PhpFpmRequestsQueued
+          expr: max by (namespace) (phpfpm_listen_queue) > 0
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "{{ $labels.namespace }}: requests have been waiting for a php-fpm worker for 5 minutes."
+            description: >-
+              All workers are taken and requests queue behind them. See what they wait on in
+              Grafana's Explore: {namespace="{{ $labels.namespace }}", container="php-fpm"} |= "too slow"
+              (dashboard "php-fpm").
+        # Every worker busy, none idle: the pool is at its limit even before anything queues.
+        - alert: PhpFpmNoIdleWorker
+          expr: max by (namespace) (phpfpm_idle_processes) == 0
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "{{ $labels.namespace }}: every php-fpm worker has been busy for 5 minutes."
+            description: >-
+              The pool is at its limit. See what the workers wait on in Grafana's Explore:
+              {namespace="{{ $labels.namespace }}", container="php-fpm"} |= "too slow"
+              (dashboard "php-fpm").
+        # The status pool answers even while every worker is busy, so no answer means php-fpm
+        # itself is down or hung - or nginx, which passes the figures on.
+        - alert: PhpFpmStatusDown
+          expr: max by (namespace) (up{job=~".+/php-fpm"}) == 0
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "{{ $labels.namespace }}: php-fpm has not answered its status for 5 minutes."
+            description: >-
+              php-fpm or nginx in the web pod is down or hung. Check
+              kubectl -n {{ $labels.namespace }} logs deploy/web -c php-fpm (and -c nginx).

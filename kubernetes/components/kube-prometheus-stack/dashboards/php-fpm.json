@@ -1,0 +1,156 @@
+{
+  "title": "php-fpm",
+  "uid": "php-fpm",
+  "description": "The WordPress sites' php-fpm pools: workers, queue, requests, slow requests (each site's pod-monitor.yaml).",
+  "tags": ["php-fpm", "wordpress"],
+  "timezone": "browser",
+  "refresh": "1m",
+  "schemaVersion": 39,
+  "time": { "from": "now-24h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "namespace",
+        "label": "Site",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "query": { "query": "label_values(phpfpm_up, namespace)", "refId": "namespace" },
+        "refresh": 2,
+        "sort": 1
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Status",
+      "description": "1 when the status pool answers. It answers even while every worker is busy, so 0 means php-fpm or nginx is down or hung.",
+      "gridPos": { "x": 0, "y": 0, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "refId": "A", "expr": "max(up{job=\"$namespace/php-fpm\"})" }],
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [{ "type": "value", "options": { "0": { "text": "down", "color": "red" }, "1": { "text": "up", "color": "green" } } }],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 1 }] }
+        }
+      },
+      "options": { "colorMode": "background", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Workers busy",
+      "description": "Busy workers out of the five.",
+      "gridPos": { "x": 6, "y": 0, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "refId": "A", "expr": "sum(phpfpm_active_processes{namespace=\"$namespace\"})" }],
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "max": 5,
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "orange", "value": 4 }, { "color": "red", "value": 5 }] }
+        }
+      },
+      "options": { "colorMode": "value", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Queued requests",
+      "description": "Requests waiting for a free worker right now.",
+      "gridPos": { "x": 12, "y": 0, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "refId": "A", "expr": "sum(phpfpm_listen_queue{namespace=\"$namespace\"})" }],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 1 }] }
+        }
+      },
+      "options": { "colorMode": "value", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "All workers taken (in range)",
+      "description": "How often php-fpm wanted to start a sixth worker and could not, within the selected time range.",
+      "gridPos": { "x": 18, "y": 0, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "refId": "A", "expr": "sum(increase(phpfpm_max_children_reached{namespace=\"$namespace\"}[$__range]))" }],
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "orange", "value": 1 }] }
+        }
+      },
+      "options": { "colorMode": "value", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Workers",
+      "description": "Busy and idle workers; the pool holds at most five (pm.max_children).",
+      "gridPos": { "x": 0, "y": 4, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "sum(phpfpm_active_processes{namespace=\"$namespace\"})", "legendFormat": "busy" },
+        { "refId": "B", "expr": "sum(phpfpm_idle_processes{namespace=\"$namespace\"})", "legendFormat": "idle" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "custom": { "stacking": { "mode": "normal" }, "fillOpacity": 30, "thresholdsStyle": { "mode": "line" } },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "transparent", "value": null }, { "color": "red", "value": 5 }] }
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "busy" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "orange" } }] },
+          { "matcher": { "id": "byName", "options": "idle" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } }] }
+        ]
+      }
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Queued requests",
+      "description": "Requests waiting for a free worker. Above 0 for 5 minutes alerts (PhpFpmRequestsQueued).",
+      "gridPos": { "x": 12, "y": 4, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "refId": "A", "expr": "sum(phpfpm_listen_queue{namespace=\"$namespace\"})", "legendFormat": "queued" }],
+      "fieldConfig": { "defaults": { "min": 0, "decimals": 0, "color": { "mode": "fixed", "fixedColor": "red" } } }
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Requests per second",
+      "description": "Requests php-fpm accepted - page views, wp-cron, probes; uploads and static files never reach it.",
+      "gridPos": { "x": 0, "y": 12, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "refId": "A", "expr": "sum(rate(phpfpm_accepted_connections{namespace=\"$namespace\"}[$__rate_interval]))", "legendFormat": "requests/s" }],
+      "fieldConfig": { "defaults": { "min": 0, "unit": "reqps" } }
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Slow requests and all workers taken",
+      "description": "Requests over 2 s (the slow log) and times every worker was taken, counted per bar - each bar holds only its own time slice. Counted inside php-fpm, so even moments between two scrapes are in.",
+      "gridPos": { "x": 12, "y": 12, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "interval": "1m",
+      "targets": [
+        { "refId": "A", "expr": "clamp_min(sum(phpfpm_slow_requests{namespace=\"$namespace\"}) - sum(phpfpm_slow_requests{namespace=\"$namespace\"} offset $__interval), 0)", "legendFormat": "slow requests" },
+        { "refId": "B", "expr": "clamp_min(sum(phpfpm_max_children_reached{namespace=\"$namespace\"}) - sum(phpfpm_max_children_reached{namespace=\"$namespace\"} offset $__interval), 0)", "legendFormat": "all workers taken" }
+      ],
+      "fieldConfig": { "defaults": { "min": 0, "decimals": 0, "custom": { "drawStyle": "bars", "fillOpacity": 60 } } }
+    },
+    {
+      "id": 9,
+      "type": "logs",
+      "title": "php-fpm log (slow requests, starts, errors)",
+      "description": "php-fpm's own lines, without the access log: requests over 2 s with PHP's backtrace (the first line under script_filename is where PHP was waiting), starts and stops, warnings.",
+      "gridPos": { "x": 0, "y": 20, "w": 24, "h": 12 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [{ "refId": "A", "expr": "{namespace=\"$namespace\", container=\"php-fpm\"} !~ \"^127\\\\.0\\\\.0\\\\.1 \" !~ \"(stopped for|about to|finished) trac\"" }],
+      "options": { "showTime": true, "wrapLogMessage": true, "sortOrder": "Descending" }
+    }
+  ]
+}

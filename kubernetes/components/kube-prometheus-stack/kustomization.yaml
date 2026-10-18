@@ -9,5 +9,15 @@ resources:
   - external-secrets.yaml
   - scrape-etcd.yaml
   - rules.yaml
+  - php-fpm.yaml
   - certificates.yaml
   - middleware-oauth2-proxy.yaml
+
+# Dashboards of our own, as ConfigMaps Grafana's sidecar loads (label grafana_dashboard).
+configMapGenerator:
+  - name: dashboard-php-fpm
+    files:
+      - dashboards/php-fpm.json
+    options:
+      labels:
+        grafana_dashboard: "1"
