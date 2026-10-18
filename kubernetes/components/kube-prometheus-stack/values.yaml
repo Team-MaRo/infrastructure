@@ -79,10 +79,13 @@ prometheus:
         secretName: prometheus-tls
   prometheusSpec:
     retention: 30d
-    # Deletes the oldest data before the volume fills, whatever the age. At about 350 MB a
-    # day, 10 GB holds roughly three weeks, so this is the limit that applies, not the 30 days.
-    # Growing the volume later (it can never shrink) means raising this with it, by hand.
-    retentionSize: 8GB
+    # Deletes the oldest data before the volume fills, whatever the age. 8 GB held 12 days
+    # (2026-10-17), so 7 GB holds about 10 - this is the limit that applies, not the 30 days.
+    # Prometheus counts GB as GiB, and the volume's filesystem holds 9.75 GiB: 8 was 82 % of it,
+    # past the 80 % alert again and again (2026-10-13/14); 7 is 72 %, and the daily peaks
+    # (compaction writes a merged block beside the old ones) stay 1-2 % above that. Growing
+    # the volume later (it can never shrink) means raising this with it, by hand.
+    retentionSize: 7GB
     storageSpec:
       volumeClaimTemplate:
         spec:

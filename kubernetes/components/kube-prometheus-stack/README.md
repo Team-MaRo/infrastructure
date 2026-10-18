@@ -18,8 +18,11 @@ port-forwards stay the break-glass way in. The status page and alerting heartbea
 
 ## Storage and retention
 
-- **Prometheus keeps what fits in 8 GB** of its 10 GB volume (`retentionSize`, oldest first),
-  roughly three weeks at ~350 MB a day, capped at 30 days. It started on 30 GB and was
+- **Prometheus keeps what fits in 7 GiB** of its 10 GiB volume (`retentionSize: 7GB` -
+  Prometheus counts GB as GiB; oldest first), about 10 days (8 GiB held 12, 2026-10-17), capped
+  at 30 days. The filesystem holds 9.75 GiB: 8 GiB was 82 % of it and kept the volume alert
+  (80 %) firing (2026-10-13/14); 7 GiB is 72 %, and compaction (a merged block written beside
+  the old ones) adds only 1-2 % at its peak. It started on 30 GB and was
   recreated at 10 GB: a volume can grow but never shrink, so the smaller start is the
   cheaper mistake. Alertmanager and Grafana have no volume: silences and anything
   changed in Grafana's UI are lost on restart - dashboards and datasources come from the chart

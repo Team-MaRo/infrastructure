@@ -30,10 +30,13 @@ spec:
         # metrics), not from k3s's upload counter: after a restart the counter reappears only
         # with the next upload, already at 1, which increase() cannot tell from no upload at
         # all (a false alarm after the failover test, 2026-09-29). The second part covers a
-        # server with no snapshot in S3, once it has existed for 13 hours.
+        # server with no snapshot in S3, once it has existed for 13 hours. The first part counts
+        # only the servers: while k3s prunes old snapshots in S3, it keeps a record with
+        # node="s3" for about a minute, which once fired as "s3 has not uploaded" (2026-10-13).
         - alert: EtcdSnapshotUploadMissing
           expr: >-
-            time() - max by (node) (kube_customresource_etcd_snapshot_created{bucket!=""}) > 13 * 3600
+            (time() - max by (node) (kube_customresource_etcd_snapshot_created{bucket!=""}) > 13 * 3600
+              and on (node) kube_node_role{role="etcd"})
             or
             (time() - max by (node) (kube_node_created and on (node) kube_node_role{role="etcd"}) > 13 * 3600
               unless on (node) kube_customresource_etcd_snapshot_created{bucket!=""})
