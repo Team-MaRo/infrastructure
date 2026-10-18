@@ -39,6 +39,21 @@ ran under Docker Compose. How the cluster's manifests fit together is in
 - **Media at the bucket's root** (`S3_STORAGE_PREFIX` empty): the bucket is the app's own. On
   DigitalOcean they were under `prod/wedding-manuele-robine` in a shared bucket. The app signs for
   region `eu-west-1` (hard-coded), which Hetzner accepts.
+- **php-fpm's pool figures in Prometheus** (job `wedding-manuele-robine/php-fpm`,
+  `pod-monitor.yaml`; alerts and the dashboard "php-fpm" are kube-prometheus-stack's), without
+  touching the image: two files from the ConfigMap `api-config` go into the image's own include
+  folders. `config/php-fpm-metrics.conf` becomes `/etc/php/8.3/fpm/pool.d/zz-metrics.conf` - a
+  status pool of its own (`pm.status_listen`), which answers while every worker is busy, and a
+  slow log (requests over 2 s write their PHP backtrace into the container log);
+  `pm.status_path` is already in the image's `www.conf`. `config/nginx-metrics.conf` is copied
+  by the init container `nginx-config` into `/etc/nginx/conf.d/php-fpm-metrics.conf` (an
+  emptyDir; the image's conf.d is otherwise empty) - not mounted, because the image's start
+  script runs envsubst on every file under `/etc/nginx` and writes it back, and a ConfigMap mount
+  is read-only (mounted, the API did not start, 2026-10-18). It is a server on port 9253 that
+  passes php-fpm's own Prometheus output (`openmetrics`) on as `/metrics` - the same block as
+  in the WordPress sites, see [`../robines-portfolio/README.md`](../robines-portfolio/README.md).
+  **The pool path carries the image's PHP version (8.3)**: on a new PHP version the file is no
+  longer read and `PhpFpmStatusDown` fires - then change the version in `api.yaml`.
 - Dropped from prod-old: the app's own MariaDB (now the shared one, backed up by the operator),
   phpMyAdmin (the shared one at `phpmyadmin.d3strukt0r.dev`) and tiredofit/db-backup.
 

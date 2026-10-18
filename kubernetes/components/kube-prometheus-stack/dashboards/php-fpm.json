@@ -144,10 +144,10 @@
       "id": 9,
       "type": "logs",
       "title": "php-fpm log (slow requests, starts, errors)",
-      "description": "php-fpm's own lines, without the access log: requests over 2 s with PHP's backtrace (the first line under script_filename is where PHP was waiting), starts and stops, warnings.",
+      "description": "php-fpm's own lines, recognised by their shape ([18-Oct-2026 ...], backtrace lines), whichever container they come from and without any access log: requests over 2 s with PHP's backtrace (the first line under script_filename is where PHP was waiting), starts and stops, warnings.",
       "gridPos": { "x": 0, "y": 20, "w": 24, "h": 12 },
       "datasource": { "type": "loki", "uid": "loki" },
-      "targets": [{ "refId": "A", "expr": "{namespace=\"$namespace\", container=\"php-fpm\"} !~ \"^127\\\\.0\\\\.0\\\\.1 \" !~ \"(stopped for|about to|finished) trac\"" }],
+      "targets": [{ "refId": "A", "expr": "{namespace=\"$namespace\"} |~ \"^\\\\[[0-9]{2}-[A-Z][a-z]{2}-[0-9]{4} |^\\\\[0x|^script_filename\" !~ \"(stopped for|about to|finished) trac\"" }],
       "options": { "showTime": true, "wrapLogMessage": true, "sortOrder": "Descending" }
     }
   ]

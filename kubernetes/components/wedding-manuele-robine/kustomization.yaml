@@ -11,3 +11,11 @@ resources:
   - api.yaml
   - pwa.yaml
   - ingresses.yaml
+  - pod-monitor.yaml
+
+# A hash in the name, so a change to any of these files rolls the API.
+configMapGenerator:
+  - name: api-config
+    files:
+      - config/php-fpm-metrics.conf
+      - config/nginx-metrics.conf

@@ -26,6 +26,22 @@ spec:
       labels:
         app.kubernetes.io/name: api
     spec:
+      # nginx's metrics server (config/nginx-metrics.conf) is copied into a writable conf.d
+      # instead of mounted: the image's start script runs envsubst on every file under
+      # /etc/nginx and writes it back in place, and a ConfigMap mount is read-only - mounted,
+      # the script failed and the API never started (2026-10-18). The same image, so nothing
+      # extra is pulled.
+      initContainers:
+        - name: nginx-config
+          image: d3strukt0r/wedding-manuele-robine:api-latest
+          imagePullPolicy: Always
+          command: [cp, /config/nginx-metrics.conf, /etc/nginx/conf.d/php-fpm-metrics.conf]
+          volumeMounts:
+            - name: config
+              mountPath: /config
+              readOnly: true
+            - name: nginx-conf-d
+              mountPath: /etc/nginx/conf.d
       containers:
         - name: api
           # Without docker.io/: Keel writes the short form back (kubernetes/components/keel).
@@ -59,6 +75,9 @@ spec:
           ports:
             - name: http
               containerPort: 80
+            # php-fpm's pool figures (config/nginx-metrics.conf, pod-monitor.yaml).
+            - name: metrics
+              containerPort: 9253
           resources:
             requests:
               memory: 256Mi
@@ -86,12 +105,25 @@ spec:
             - name: jwt
               mountPath: /usr/local/src/app/config/jwt
               readOnly: true
+            # Drop-ins into the image's own include folders: php-fpm's pool and nginx's conf.d.
+            - name: config
+              mountPath: /etc/php/8.3/fpm/pool.d/zz-metrics.conf
+              subPath: php-fpm-metrics.conf
+              readOnly: true
+            - name: nginx-conf-d
+              mountPath: /etc/nginx/conf.d
       volumes:
         - name: sessions
           emptyDir: {}
         - name: jwt
           secret:
             secretName: jwt
+        - name: config
+          configMap:
+            name: api-config
+        - name: nginx-conf-d
+          emptyDir:
+            sizeLimit: 1Mi
 ---
 # Also the PWA's server-side address of the API (API_URL http://api).
 apiVersion: v1

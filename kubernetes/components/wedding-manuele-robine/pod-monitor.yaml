@@ -1,0 +1,18 @@
+---
+# php-fpm's pool figures of the API - busy and idle workers, queued requests, slow requests -
+# served by its nginx on the port metrics (config/nginx-metrics.conf). The job is
+# wedding-manuele-robine/php-fpm; alerts and the dashboard are kube-prometheus-stack's
+# (php-fpm.yaml).
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: php-fpm
+  annotations:
+    # The CRD comes with kube-prometheus-stack, another Application.
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: api
+  podMetricsEndpoints:
+    - port: metrics
