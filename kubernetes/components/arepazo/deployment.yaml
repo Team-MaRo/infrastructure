@@ -246,11 +246,13 @@ spec:
             periodSeconds: 30
             timeoutSeconds: 10
             failureThreshold: 3
+          # Liveness asks nginx alone, at the defaults: restarting nginx cannot help a slow PHP, and
+          # through WordPress it turned a slow shop into a dead one (arepazo's nginx restarted 19
+          # times in 2.5 hours, 2026-10-11).
           livenessProbe:
-            httpGet: *robots
-            periodSeconds: 60
-            timeoutSeconds: 10
-            failureThreshold: 5
+            httpGet:
+              path: /healthz
+              port: http
           volumeMounts:
             - name: html
               mountPath: /var/www/html

@@ -48,10 +48,17 @@ requests (`config/php-fpm.conf`), restricted Pod Security. What differs:
   the limit would count as one, and a pod keeps its largest init container's request booked on
   the node for its whole life.
 - **Slow requests, patient probes.** Every page takes about 3 s, on prod-old as here (WooCommerce,
-  Jetpack, Yoast and some thirty more plugins, no page cache). The probes still go through
-  WordPress (`/robots.txt`), but wait 10 s and run every 30 s (readiness) and 60 s (liveness);
-  the 1 s default left nginx not ready. A page cache would be the real fix
-  (`litespeed-cache` is installed but works only on a LiteSpeed server).
+  Jetpack, Yoast and some thirty more plugins, no page cache). Startup and readiness still go
+  through WordPress (`/robots.txt`), but wait 10 s and run every 30 s (readiness); the 1 s
+  default left nginx not ready. A page cache would be the real fix (`litespeed-cache` is
+  installed but works only on a LiteSpeed server).
+- **Liveness asks nginx alone** (`/healthz`, answered by nginx with 204, at Kubernetes' default
+  timing). On 2026-10-11 from 03:30 to 06:00 every request took 6-9 s while the pod, the node
+  and MariaDB were idle; the liveness probe, then through WordPress, restarted nginx 19 times
+  and turned a slow shop into a dead one (503), until PHP recovered by itself. The cause is
+  unknown, so php-fpm now keeps a **slow log**: a request running longer than 2 s writes its PHP
+  backtrace into php-fpm's log (`request_slowlog_timeout`, `config/php-fpm.conf`) -
+  `{namespace="arepazo", container="php-fpm"} |= "slow"` in Grafana's Explore.
 - **Three languages.** wp-admin runs in `de_CH`, the shop in German, English and Spanish
   (Polylang); the init container installs `de_CH`, `de_DE` and `es_ES` for core, plugins and
   themes.
