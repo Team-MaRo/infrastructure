@@ -1,8 +1,8 @@
 ---
-# Alerts on the WordPress sites' php-fpm pools (job <namespace>/php-fpm, each site's
-# pod-monitor.yaml). Each pool has five workers; a slow spell like arepazo's on 2026-10-11 (every
-# request 6-9 s for 2.5 hours) shows here as workers all taken and requests queuing. What the
-# workers wait on is in the site's slow log (php-fpm's log, "too slow").
+# Alerts on the PHP apps' php-fpm pools (job <namespace>/php-fpm, each app's pod-monitor.yaml).
+# They need no pool size - php-fpm does not report it: a slow spell like arepazo's on 2026-10-11
+# (every request 6-9 s for 2.5 hours) shows here as no idle worker and requests queuing. What the
+# workers wait on is in the app's slow log (php-fpm's log, "too slow").
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:

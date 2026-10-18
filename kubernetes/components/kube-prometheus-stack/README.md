@@ -96,19 +96,20 @@ port-forwards stay the break-glass way in. The status page and alerting heartbea
   Alertmanager config let a higher level silence the lower ones for the same PVC. They replace
   the chart's `KubePersistentVolumeFillingUp` (disabled), which only warned at 15 % free when
   a trend predicted it full within four days.
-- **php-fpm of the WordPress sites** (`php-fpm.yaml`; the metrics come from each site's
+- **php-fpm of the PHP apps** (`php-fpm.yaml`; the metrics come from each app's
   `pod-monitor.yaml`, job `<namespace>/php-fpm`): `PhpFpmRequestsQueued` (requests waiting for a
-  worker), `PhpFpmNoIdleWorker` (all five busy) and `PhpFpmStatusDown` (php-fpm's status pool,
+  worker), `PhpFpmNoIdleWorker` (all busy) and `PhpFpmStatusDown` (php-fpm's status pool,
   which answers even while every worker is busy, does not answer), each after 5 minutes. A slow
   spell like arepazo's (2026-10-11, every request 6-9 s for 2.5 hours) shows up as the first
-  two; what the workers wait on is in the site's slow log. The dashboard "php-fpm" (below)
-  shows both.
+  two; what the workers wait on is in the app's slow log. php-fpm does not report its pool
+  size (`pm.max_children`), so neither alerts nor dashboard assume one: "no idle worker" is
+  "at the limit", whatever the limit. The dashboard "php-fpm" (below) shows both.
 
 ## Grafana
 
 - **Dashboards of our own** are JSON files in `dashboards/`, turned into ConfigMaps labelled
   `grafana_dashboard: "1"` by the `configMapGenerator` in `kustomization.yaml`; Grafana's
-  sidecar loads them from every namespace. Today one: "php-fpm" - per site the workers, queued
+  sidecar loads them from every namespace. Today one: "php-fpm" - per app the workers, queued
   requests, requests per second, slow requests and php-fpm's own log with the slow-log
   backtraces. A dashboard changed in Grafana's UI is lost on restart: change the JSON instead
   (Grafana's "Export" gives it).

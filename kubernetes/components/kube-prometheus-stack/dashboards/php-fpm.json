@@ -1,8 +1,8 @@
 {
   "title": "php-fpm",
   "uid": "php-fpm",
-  "description": "The WordPress sites' php-fpm pools: workers, queue, requests, slow requests (each site's pod-monitor.yaml).",
-  "tags": ["php-fpm", "wordpress"],
+  "description": "The PHP apps' php-fpm pools: workers, queue, requests, slow requests (each app's pod-monitor.yaml).",
+  "tags": ["php-fpm", "php"],
   "timezone": "browser",
   "refresh": "1m",
   "schemaVersion": 39,
@@ -11,7 +11,7 @@
     "list": [
       {
         "name": "namespace",
-        "label": "Site",
+        "label": "App",
         "type": "query",
         "datasource": { "type": "prometheus", "uid": "prometheus" },
         "query": { "query": "label_values(phpfpm_up, namespace)", "refId": "namespace" },
@@ -40,16 +40,15 @@
     {
       "id": 2,
       "type": "stat",
-      "title": "Workers busy",
-      "description": "Busy workers out of the five.",
+      "title": "Idle workers",
+      "description": "Workers free for the next request. None idle means every worker is taken (PhpFpmNoIdleWorker after 5 minutes) - whatever the pool's size, which php-fpm does not report.",
       "gridPos": { "x": 6, "y": 0, "w": 6, "h": 4 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "targets": [{ "refId": "A", "expr": "sum(phpfpm_active_processes{namespace=\"$namespace\"})" }],
+      "targets": [{ "refId": "A", "expr": "sum(phpfpm_idle_processes{namespace=\"$namespace\"})" }],
       "fieldConfig": {
         "defaults": {
           "min": 0,
-          "max": 5,
-          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "orange", "value": 4 }, { "color": "red", "value": 5 }] }
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 1 }] }
         }
       },
       "options": { "colorMode": "value", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"] } }
@@ -73,7 +72,7 @@
       "id": 4,
       "type": "stat",
       "title": "All workers taken (in range)",
-      "description": "How often php-fpm wanted to start a sixth worker and could not, within the selected time range.",
+      "description": "How often php-fpm wanted to start another worker but was at its limit (pm.max_children), within the selected time range.",
       "gridPos": { "x": 18, "y": 0, "w": 6, "h": 4 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [{ "refId": "A", "expr": "sum(increase(phpfpm_max_children_reached{namespace=\"$namespace\"}[$__range]))" }],
@@ -89,7 +88,7 @@
       "id": 5,
       "type": "timeseries",
       "title": "Workers",
-      "description": "Busy and idle workers; the pool holds at most five (pm.max_children).",
+      "description": "Busy and idle workers, stacked: the top is the number of workers running. php-fpm does not report its limit (pm.max_children); when it was reached shows in 'Slow requests and all workers taken'.",
       "gridPos": { "x": 0, "y": 4, "w": 12, "h": 8 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
@@ -99,8 +98,7 @@
       "fieldConfig": {
         "defaults": {
           "min": 0,
-          "custom": { "stacking": { "mode": "normal" }, "fillOpacity": 30, "thresholdsStyle": { "mode": "line" } },
-          "thresholds": { "mode": "absolute", "steps": [{ "color": "transparent", "value": null }, { "color": "red", "value": 5 }] }
+          "custom": { "stacking": { "mode": "normal" }, "fillOpacity": 30 }
         },
         "overrides": [
           { "matcher": { "id": "byName", "options": "busy" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "orange" } }] },
