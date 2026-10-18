@@ -123,6 +123,13 @@ port-forwards stay the break-glass way in. The status page and alerting heartbea
   Alertmanager config let a higher level silence the lower ones for the same PVC. They replace
   the chart's `KubePersistentVolumeFillingUp` (disabled), which only warned at 15 % free when
   a trend predicted it full within four days.
+- **Container memory** (`rules.yaml`, 2026-10-18; the chart has neither): `ContainerMemoryNearLimit`
+  when a container's working set stays above 90 % of its memory limit for 5 minutes, and
+  `ContainerOOMKilled` for a restart that an OOM kill caused. A single kill only restarts the
+  container - no crash loop, so nothing else would tell - but every request it was serving
+  fails with it (arepazo's php-fpm, twice on 2026-10-04, noticed only by chance). Both cover
+  every container with a limit; the fix is in its component's README (a higher limit, fewer
+  php-fpm workers, a lower `memory_limit`). In the week before, no container went above 86 %.
 - **php-fpm of the PHP apps** (`php-fpm.yaml`; the metrics come from each app's
   `pod-monitor.yaml`, job `<namespace>/php-fpm`): `PhpFpmRequestsQueued` (requests waiting for a
   worker), `PhpFpmNoIdleWorker` (all busy) and `PhpFpmStatusDown` (php-fpm's status pool,

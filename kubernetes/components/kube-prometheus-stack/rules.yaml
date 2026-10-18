@@ -101,3 +101,37 @@ spec:
             description: >-
               Over 95 %: what writes to it will fail when it is full. Grow it now (a bigger
               storage request on its PVC).
+
+        # A container at its memory limit is killed by the kernel, and every request it was
+        # serving fails with it. Working set, as the kubelet counts it for the limit; only
+        # containers with a limit. In a week before these alerts, none went above 86 %.
+        - alert: ContainerMemoryNearLimit
+          expr: >-
+            max by (namespace, pod, container) (container_memory_working_set_bytes{container!=""})
+            / on (namespace, pod, container)
+            max by (namespace, pod, container) (kube_pod_container_resource_limits{resource="memory"})
+            > 0.90
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "{{ $labels.namespace }}/{{ $labels.container }} uses {{ $value | humanizePercentage }} of its memory limit."
+            description: >-
+              Raise its memory limit, or lower what it may use (php-fpm workers, PHP's
+              memory_limit, a cache size) - see the component's README.
+        # A single kill only restarts the container, so nothing else would tell: it is no crash
+        # loop unless it repeats. Fires for the restart that an OOM kill caused, in the last
+        # 10 minutes.
+        - alert: ContainerOOMKilled
+          expr: >-
+            (kube_pod_container_status_restarts_total - kube_pod_container_status_restarts_total offset 10m >= 1)
+            and ignoring (reason)
+            min_over_time(kube_pod_container_status_last_terminated_reason{reason="OOMKilled"}[10m]) == 1
+          labels:
+            severity: warning
+          annotations:
+            summary: "{{ $labels.namespace }}/{{ $labels.container }} was killed for exceeding its memory limit."
+            description: >-
+              Every request it served at that moment failed. Check its memory in Grafana and its
+              log before the kill, then raise the limit or lower what it may use - see the
+              component's README.
