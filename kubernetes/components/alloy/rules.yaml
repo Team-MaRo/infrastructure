@@ -1,0 +1,66 @@
+---
+# Alerts for Alloy: a node whose logs and traces no longer arrive, a pipeline component that
+# stopped working, and log lines or spans lost on the way.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: alloy
+  annotations:
+    # The CRD comes with kube-prometheus-stack, another Application.
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  groups:
+    - name: alloy
+      rules:
+        # A pod that does not answer collects nothing either. A pod that does not exist at all
+        # is kube-prometheus-stack's KubeDaemonSet* alerts.
+        - alert: AlloyDown
+          expr: up{job="kube-system/alloy"} == 0
+          for: 10m
+          labels:
+            severity: warning
+            namespace: kube-system
+          annotations:
+            summary: "Alloy on {{ $labels.node }} does not answer."
+            description: >-
+              Logs and traces from this node are not arriving. Check the pod
+              (kubectl -n kube-system get pods -l app.kubernetes.io/name=alloy -o wide) and its log.
+        # Every block of the configuration is a component; one that is not healthy - a bad
+        # setting after a change, a source or a sender that failed - does its job no more.
+        - alert: AlloyComponentUnhealthy
+          expr: sum by (node, health_type) (alloy_component_controller_running_components{health_type!="healthy"}) > 0
+          for: 15m
+          labels:
+            severity: warning
+            namespace: kube-system
+          annotations:
+            summary: "Alloy on {{ $labels.node }} has {{ $value }} {{ $labels.health_type }} component(s)."
+            description: >-
+              Find the component in Alloy's log (kubectl -n kube-system logs <pod> -c alloy | grep
+              -i error) or its UI (port-forward the pod's 12345).
+        # Alloy retries Loki; these lines are given up - queue full, rate limits, Loki's errors.
+        - alert: AlloyLogsDropped
+          expr: sum by (node, reason) (increase(loki_write_dropped_entries_total[15m])) > 0
+          labels:
+            severity: warning
+            namespace: kube-system
+          annotations:
+            summary: "Alloy on {{ $labels.node }} dropped log lines ({{ $labels.reason }})."
+            description: >-
+              These lines are missing in Loki. Check Loki (kubectl -n loki get pods) and Alloy's
+              log for loki.write errors.
+        # Spans refused from a sender, or given up after the exporter's retries or with its queue
+        # full - missing in Tempo.
+        - alert: AlloySpansDropped
+          expr: >-
+            sum by (node) (increase(otelcol_receiver_refused_spans_total[15m])) > 0
+            or sum by (node) (increase(otelcol_exporter_send_failed_spans_total[15m])) > 0
+            or sum by (node) (increase(otelcol_exporter_enqueue_failed_spans_total[15m])) > 0
+          labels:
+            severity: warning
+            namespace: kube-system
+          annotations:
+            summary: "Alloy on {{ $labels.node }} lost spans."
+            description: >-
+              Check Tempo (kubectl -n tempo get pods, logs statefulset/tempo) and Alloy's log for
+              otelcol errors.

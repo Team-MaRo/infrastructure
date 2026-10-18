@@ -10,6 +10,10 @@ metadata:
   # Removing this file removes everything it deployed (kube-system itself stays).
   finalizers:
     - resources-finalizer.argocd.argoproj.io
+  annotations:
+    # Compare on the server: the PodMonitor's CRD fills in defaults (a relabeling's action:
+    # replace) that would otherwise look like drift.
+    argocd.argoproj.io/compare-options: ServerSideDiff=true
 spec:
   project: default
   sources:

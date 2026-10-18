@@ -46,3 +46,18 @@ forwards them to Tempo ([`../tempo/README.md`](../tempo/README.md)).
   `unit`, `node` for the journal; `job="loki.source.kubernetes_events"` for events. Anything
   else is searched in the line, not labelled - Loki stays fast with few labels.
 - Alloy sends no usage statistics (`enableReporting: false`).
+
+## Alerts
+
+`pod-monitor.yaml` has Prometheus scrape every Alloy pod (job `kube-system/alloy`, label `node`);
+`rules.yaml` alerts, all warnings:
+
+- **`AlloyDown`**: a pod that has not answered for 10 minutes - that node's logs and traces are
+  not arriving. A pod missing altogether is kube-prometheus-stack's `KubeDaemonSet*` alerts.
+- **`AlloyComponentUnhealthy`**: a block of the configuration not healthy for 15 minutes - a bad
+  setting after a change, or a source or sender that failed. The log or Alloy's UI (port-forward
+  a pod's 12345) names it.
+- **`AlloyLogsDropped`**: log lines Alloy gave up on after retrying Loki (queue full, rate
+  limits, Loki's errors), with the reason as a label - they are missing in Loki.
+- **`AlloySpansDropped`**: spans refused from a sender, or given up after the exporter's retries
+  or with its queue full - they are missing in Tempo.

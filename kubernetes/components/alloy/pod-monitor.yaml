@@ -1,0 +1,21 @@
+---
+# Alloy's own figures - its components' health, log lines sent to and dropped by Loki, spans
+# received and forwarded - from every pod, labelled with its node. Here rather than through the
+# chart, whose ServiceMonitor cannot carry the sync option below. A PodMonitor, since the chart's
+# two Services (alloy, alloy-cluster) would list every pod twice.
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: alloy
+  annotations:
+    # The CRD comes with kube-prometheus-stack, another Application.
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: alloy
+  podMetricsEndpoints:
+    - port: http-metrics
+      relabelings:
+        - sourceLabels: [__meta_kubernetes_pod_node_name]
+          targetLabel: node
