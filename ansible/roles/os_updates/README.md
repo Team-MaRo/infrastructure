@@ -9,7 +9,14 @@ up to 15 minutes), after the k3s upgrade window and before kured's reboot window
 night's maintenance order" in [`AGENTS.md`](../../../AGENTS.md). systemd evaluates the time
 zone in `OnCalendar` itself.
 
-- `apt-daily.timer`, which refreshes the package lists twice a day, is left alone.
+- **The package lists are fetched at 03:00** (plus up to 5 minutes), once a day:
+  `apt-daily.timer`, with a drop-in of the same shape. unattended-upgrades installs only what
+  the last fetch found, and Debian fetches twice a day at random times (06:00 and 18:00 plus
+  up to 12 hours). So each node installed from lists of a different age: kernel 6.12.113
+  reached prod-03 a night before the others (2026-10-17). Fetched within the same few
+  minutes, the lists bring every node to the same state each night, and kured reboots all
+  that need it in the same window. The fetch also downloads the packages, so the 03:30 run
+  only installs; it changes nothing on the node, so it may overlap the k3s upgrades.
 - Debian's `Automatic-Reboot` stays off: it would reboot every node at the same time.
   Reboots are kured's.
 
@@ -20,5 +27,5 @@ Tagged `os_updates`:
 ```shell
 cd ansible
 ansible-playbook prod.yml --tags os_updates
-ssh prod-01 systemctl list-timers apt-daily-upgrade.timer   # next run, in UTC
+ansible prod -m command -a 'systemctl list-timers apt-daily.timer apt-daily-upgrade.timer --no-pager'   # next runs, in UTC
 ```

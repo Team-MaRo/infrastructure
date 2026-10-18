@@ -263,6 +263,7 @@ etcd members at once. All times are Europe/Zurich; the nodes' clocks stay on UTC
 |---|---|
 | 02:00 (01:00 in winter) | etcd snapshot (00:00 UTC, k3s's schedule) |
 | 02:30-03:30 | k3s upgrades (system-upgrade-controller Plan window) |
+| 03:00 + up to 5 min | package lists fetched (changes nothing on the node) |
 | 03:30 + up to 15 min | OS updates (unattended-upgrades) |
 | 04:30-06:00 | reboots by kured, only where a kernel update asks for one |
 

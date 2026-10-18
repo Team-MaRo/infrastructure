@@ -39,8 +39,8 @@ ansible/
     ├── hostname/
     │   └── tasks/main.yml    # pins the hostname to the inventory name, for cloud-init
     ├── os_updates/
-    │   ├── defaults/main.yml # when unattended-upgrades installs
-    │   └── tasks/main.yml    # a drop-in for apt-daily-upgrade.timer
+    │   ├── defaults/main.yml # when the package lists are fetched and unattended-upgrades installs
+    │   └── tasks/main.yml    # drop-ins for apt-daily.timer and apt-daily-upgrade.timer
     ├── k3s/
     │   ├── defaults/main.yml # version and server flags
     │   └── tasks/

@@ -5,6 +5,14 @@
 # systemd honours the time zone in the spec, so the nodes themselves stay on UTC.
 os_updates_on_calendar: "*-*-* 03:30 Europe/Zurich"
 
-# Spread over a few minutes so the three nodes do not hit the mirrors at the same second,
-# yet all finish well before kured's window.
+# Spread over a few minutes so the nodes do not hit the mirrors at the same second, yet all
+# finish well before kured's window.
 os_updates_randomized_delay: 15m
+
+# When the package lists are fetched (apt-daily.timer), once a day before the install. Debian
+# fetches twice a day at random times (6:00 and 18:00 plus up to 12 hours), so each node
+# installed from lists of a different age and a kernel update reached the nodes on different
+# nights (2026-10-17). Lists fetched within the same few minutes bring every node to the same
+# state each night. Fetching changes nothing on the node, so it may overlap the k3s upgrades.
+os_updates_refresh_on_calendar: "*-*-* 03:00 Europe/Zurich"
+os_updates_refresh_randomized_delay: 5m
