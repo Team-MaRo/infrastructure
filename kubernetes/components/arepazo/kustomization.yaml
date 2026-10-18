@@ -13,6 +13,7 @@ resources:
   - service.yaml
   - certificate.yaml
   - ingress.yaml
+  - pod-monitor.yaml
 
 # A hash in the name, so a change to any of these files rolls the pod.
 configMapGenerator:

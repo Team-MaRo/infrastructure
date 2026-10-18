@@ -228,6 +228,9 @@ spec:
           ports:
             - name: http
               containerPort: 8081
+            # php-fpm's pool figures (config/default.conf, pod-monitor.yaml).
+            - name: metrics
+              containerPort: 9253
           # robots.txt is answered by WordPress, so this exercises nginx, php-fpm and the database.
           # The shop takes about 3 s per request (as on prod-old), so the probes wait 10 s and run
           # rarely - each one costs a full WordPress request.

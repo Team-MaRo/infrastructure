@@ -205,6 +205,9 @@ spec:
           ports:
             - name: http
               containerPort: 8081
+            # php-fpm's pool figures (config/default.conf, pod-monitor.yaml).
+            - name: metrics
+              containerPort: 9253
           # robots.txt is answered by WordPress, so this exercises nginx, php-fpm and the database.
           # PHP sometimes takes over a second under load, and three slow answers in a row at the 1 s
           # default take the pod out of its Service (seen on another WordPress site, 2026-10-05), so

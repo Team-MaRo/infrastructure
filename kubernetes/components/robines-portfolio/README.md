@@ -15,7 +15,7 @@ One pod (`deployment.yaml`) and a CronJob (`cronjob.yaml`):
 | init `core` | `wordpress:7-php8.4-fpm` | writes the CA bundle, copies WordPress core and writes `wp-config.php` into `html`, a directory it creates itself in the emptyDir - the image's `tar` exits 2 when it cannot set the target's permissions, as in the root-owned volume; the other containers mount `html` as a `subPath` |
 | init `plugins` | `wordpress:cli-2-php8.4` | installs `config/plugins.txt` and S3-Uploads; once the database holds the site, `wp core update-db` and the `de_CH` language packs |
 | `php-fpm` | `wordpress:7-php8.4-fpm` | runs WordPress |
-| `nginx` | `nginxinc/nginx-unprivileged:stable` | serves it on 8081 (`config/default.conf`) |
+| `nginx` | `nginxinc/nginx-unprivileged:stable` | serves it on 8081 (`config/default.conf`), and php-fpm's pool figures on 9253 for Prometheus |
 | `uploads-proxy` | `ghcr.io/nginxinc/nginx-s3-gateway/nginx-oss-s3-gateway:unprivileged-oss` | serves `/wp-content/uploads/` from the private bucket |
 | CronJob `wp-cron` | `curlimages/curl` | calls `http://web/wp-cron.php` every five minutes |
 
@@ -79,6 +79,16 @@ the bucket `d3strukt0r-prod-robines-portfolio` (`tofu/objectstorage`).
 - **A slow log.** A request running longer than 2 s writes its PHP backtrace into php-fpm's log
   (`request_slowlog_timeout`, `config/php-fpm.conf`), so a slow spell shows what WordPress waits
   on: `{namespace="robines-portfolio", container="php-fpm"} |= "slow"` in Grafana's Explore.
+- **php-fpm's pool figures in Prometheus** (job `robines-portfolio/php-fpm`,
+  `pod-monitor.yaml`): busy and idle workers, queued requests, slow requests, how often all
+  workers were taken. php-fpm writes
+  them itself in Prometheus' format (`?openmetrics`, PHP 8.1+), so no exporter runs; nginx serves
+  them on port 9253 (`/metrics`), which neither the Service nor the Ingress knows. They come from
+  a status pool of their own (`pm.status_listen`, `config/php-fpm.conf`), which answers while all
+  five workers are busy (tested: 5 busy, 2 queued, answer in 2 ms); a hung php-fpm gives a 504
+  within 2 s. nginx fixes the query, so the per-request detail with request URLs (`?full`) never
+  leaves the pod. Not hipages/php-fpm_exporter: last release 2022, and it hangs when php-fpm does
+  not answer (its issue #253). Alerts and the dashboard "php-fpm" are kube-prometheus-stack's.
 - **A drain before stopping.** Every container of the pod waits 10 s (`preStop` `sleep`) before
   it stops: all of them get the stop signal at once, while Traefik still routes to the pod for a
   moment (measured: 8 s after the signal). php-fpm then lets running requests finish for up to

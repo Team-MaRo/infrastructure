@@ -15,7 +15,7 @@ One pod (`deployment.yaml`) and a CronJob (`cronjob.yaml`):
 | init `core` | `wordpress:7-php8.4-fpm` | writes the CA bundle, copies WordPress core and writes `wp-config.php` into `html`, a directory it creates itself in the emptyDir - the image's `tar` exits 2 when it cannot set the target's permissions, as in the root-owned volume; the other containers mount `html` as a `subPath` |
 | init `plugins` | `wordpress:cli-2-php8.4` | installs `config/plugins.txt` and S3-Uploads; once the database holds the site, `wp core update-db` and the language packs |
 | `php-fpm` | `wordpress:7-php8.4-fpm` | runs WordPress |
-| `nginx` | `nginxinc/nginx-unprivileged:stable` | serves it on 8081 (`config/default.conf`) |
+| `nginx` | `nginxinc/nginx-unprivileged:stable` | serves it on 8081 (`config/default.conf`), and php-fpm's pool figures on 9253 for Prometheus |
 | `uploads-proxy` | `ghcr.io/nginxinc/nginx-s3-gateway/nginx-oss-s3-gateway:unprivileged-oss` | serves `/wp-content/uploads/` from the private bucket |
 | CronJob `wp-cron` | `curlimages/curl` | calls `http://web/wp-cron.php` every five minutes (WooCommerce's Action Scheduler runs on it) |
 
