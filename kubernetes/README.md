@@ -38,6 +38,7 @@ kubernetes/
 │       ├── gatus.yaml             # the public status page and the alerting heartbeat
 │       ├── kube-prometheus-stack.yaml  # metrics and alerts: chart pinned here, values in components/
 │       ├── loki.yaml              # log storage: chart pinned here, values in components/
+│       ├── tempo.yaml             # trace storage: chart pinned here, values in components/
 │       ├── alloy.yaml             # log collection on every node: chart pinned here
 │       ├── mariadb-operator-crds.yaml  # the operator's CRDs - never pruned
 │       ├── mariadb-operator.yaml  # the operator running the app database
@@ -111,6 +112,11 @@ kubernetes/
     ├── loki/
     │   ├── values.yaml            # Helm values: one instance, S3, 30 days
     │   ├── kustomization.yaml
+    │   └── external-secret.yaml   # its S3 key from OpenBao
+    ├── tempo/
+    │   ├── values.yaml            # Helm values: one instance, S3, 30 days, metrics generator
+    │   ├── kustomization.yaml
+    │   ├── namespace.yaml
     │   └── external-secret.yaml   # its S3 key from OpenBao
     ├── mariadb-operator/
     │   └── values.yaml            # Helm values: securityContexts, cert-manager, images
@@ -243,6 +249,7 @@ kubernetes/
 | [`gatus`](components/gatus/README.md) | The public status page and the alerting heartbeat |
 | [`kube-prometheus-stack`](components/kube-prometheus-stack/README.md) | Prometheus, Alertmanager, Grafana; the cluster's own alerts |
 | [`loki`](components/loki/README.md) | Log storage in Object Storage, 30 days |
+| [`tempo`](components/tempo/README.md) | Trace storage in Object Storage, 30 days; metrics from traces into Prometheus |
 | [`alloy`](components/alloy/README.md) | Log collection on every node |
 | [`mariadb-operator`](components/mariadb-operator/README.md) | The operator running the app database |
 | [`mariadb`](components/mariadb/README.md) | The shared MariaDB: failover, backups, restore runbooks |

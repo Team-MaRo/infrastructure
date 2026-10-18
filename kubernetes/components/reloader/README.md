@@ -62,6 +62,7 @@ themselves (Gatus' config, Alertmanager's ntfy secret, Alloy, Argo CD's webhook 
 | `oauth2-proxy` | Secret `oauth2-proxy` | environment variables |
 | Grafana | Secret `grafana-admin` | environment variables |
 | Loki | Secret `loki-s3` | environment variables |
+| Tempo | Secret `tempo-s3` | environment variables |
 | `argocd-server` | ConfigMap `argocd-cmd-params-cm` | `server.insecure` |
 | `argocd-repo-server`, `argocd-application-controller` | ConfigMap `argocd-cm` | the polling interval |
 

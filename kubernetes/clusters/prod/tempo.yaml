@@ -1,0 +1,40 @@
+---
+# Trace storage for this cluster: the Tempo Helm chart (single binary) with values from
+# kubernetes/components/tempo/values.yaml, plus that directory's manifests. Needs
+# secret/tempo-s3 in OpenBao and the bucket d3strukt0r-prod-tempo (tofu/objectstorage).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: tempo
+  namespace: argocd
+  # Removing this file removes everything it deployed, namespace included; the traces stay in
+  # the bucket until Tempo's retention would have deleted them - nothing deletes them then.
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  sources:
+    # Pinned: bumping the version is the upgrade. The chart moved from grafana/helm-charts to
+    # grafana-community; 3.2.0 deploys Tempo 3.1.0.
+    - repoURL: https://grafana-community.github.io/helm-charts
+      chart: tempo
+      targetRevision: 3.2.0
+      helm:
+        valueFiles:
+          - $repo/kubernetes/components/tempo/values.yaml
+    - repoURL: https://github.com/Team-MaRo/infrastructure.git
+      targetRevision: master
+      ref: repo
+    - repoURL: https://github.com/Team-MaRo/infrastructure.git
+      targetRevision: master
+      path: kubernetes/components/tempo
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: tempo
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      # Not required here (no large CRDs); used for consistency.
+      - ServerSideApply=true

@@ -23,6 +23,7 @@ reloader:
     - pgadmin
     - phpmyadmin
     - robines-portfolio
+    - tempo
     - wedding-manuele-robine
     - zitadel
   # A changed Secret would otherwise start a CronJob's Job at once and recreate Jobs.

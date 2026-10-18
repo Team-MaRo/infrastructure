@@ -1,0 +1,86 @@
+# Helm values for Tempo (single binary); the chart version is pinned in the cluster's
+# Application. One Tempo in monolithic mode, traces in Object Storage, 30 days.
+tempo:
+  reportingEnabled: false
+  # Like Loki's logs, so a log line's trace link stays valid as long as the line itself.
+  retention: 720h
+  storage:
+    trace:
+      backend: s3
+      s3:
+        bucket: d3strukt0r-prod-tempo
+        endpoint: nbg1.your-objectstorage.com
+        region: nbg1
+        # Expanded from the environment (-config.expand-env below), filled from the Secret
+        # tempo-s3.
+        access_key: ${TEMPO_S3_ACCESS_KEY}
+        secret_key: ${TEMPO_S3_SECRET_KEY}
+      wal:
+        path: /var/tempo/wal
+  # The chart's default receivers stay: OTLP (gRPC 4317, HTTP 4318), which Alloy sends to
+  # (components/alloy), and Jaeger's, which the chart's Service template needs - it fails to
+  # render without them. Nothing sends Jaeger, and the ports are reachable inside the cluster
+  # only.
+  # Request rates, errors and durations per service and the service graph, computed from the
+  # spans and pushed into Prometheus, which accepts remote write for it
+  # (components/kube-prometheus-stack).
+  metricsGenerator:
+    enabled: true
+    remoteWriteUrl: http://kube-prometheus-stack-prometheus.monitoring.svc:9090/api/v1/write
+  overrides:
+    defaults:
+      metrics_generator:
+        processors:
+          - service-graphs
+          - span-metrics
+  extraArgs:
+    config.expand-env: "true"
+  extraEnvFrom:
+    - secretRef:
+        name: tempo-s3
+  # Spans arrive in memory and as WAL on an emptyDir until a block goes to S3: a deleted pod
+  # loses at most the last seconds, which tracing can afford - and no volume means none of the
+  # live-store's PVC bugs (grafana/tempo#8004).
+  extraVolumeMounts:
+    - name: data
+      mountPath: /var/tempo
+  # A first guess for a few spans a second; measure after a day.
+  resources:
+    requests:
+      memory: 256Mi
+    limits:
+      memory: 1Gi
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+    readOnlyRootFilesystem: true
+
+securityContext:
+  runAsUser: 10001
+  runAsGroup: 10001
+  fsGroup: 10001
+  runAsNonRoot: true
+  seccompProfile:
+    type: RuntimeDefault
+
+# The WAL and the blocks not yet in S3 - a few MB at our traffic, cleared once uploaded. The cap
+# matches Kyverno's ephemeral-storage limit (1Gi per container), which counts this emptyDir and
+# would evict the pod at 1Gi anyway; it guards the node's disk, which holds etcd too, if blocks
+# pile up while S3 is unreachable.
+extraVolumes:
+  - name: data
+    emptyDir:
+      sizeLimit: 1Gi
+
+# Restarted by Reloader when the S3 key changes in OpenBao (read as environment variables at
+# start).
+annotations:
+  secret.reloader.stakater.com/reload: tempo-s3
+
+serviceMonitor:
+  enabled: true
+  annotations:
+    # The CRD comes with kube-prometheus-stack, another Application.
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
