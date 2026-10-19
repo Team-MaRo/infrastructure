@@ -53,7 +53,7 @@ kubernetes/
 │       ├── trust-manager.yaml     # the databases' CAs in the apps' namespaces: chart pinned here
 │       ├── keel.yaml              # rolls out new images under floating tags: chart pinned here
 │       ├── wedding-manuele-robine.yaml  # the wedding website
-│       ├── robines-portfolio.yaml  # the old WordPress portfolio at old.robines.space
+│       ├── robines-portfolio.yaml  # the old WordPress portfolio: the WordPress chart at a pinned SHA
 │       ├── arepazo.yaml       # the WooCommerce shop at www.arepazo.ch
 │       ├── kubeelasti.yaml        # scale to zero: chart pinned here, values in components/
 │       ├── cluster-rbac.yaml      # cluster-wide rights for kubectl logins through Zitadel
@@ -224,17 +224,8 @@ kubernetes/
     │   ├── pwa.yaml               # the website and its Service
     │   └── ingresses.yaml         # certificates and Ingresses for the four names
     ├── robines-portfolio/
-    │   ├── kustomization.yaml
-    │   ├── namespace.yaml
-    │   ├── database.yaml          # its database and user, in the mariadb namespace
-    │   ├── external-secrets.yaml  # keys and salts, database password, the two S3 keys
-    │   ├── deployment.yaml        # WordPress from stock images, plugins at start, uploads proxy
-    │   ├── cronjob.yaml           # WP-Cron every five minutes
-    │   ├── service.yaml
-    │   ├── certificate.yaml
-    │   ├── ingress.yaml           # old.robines.space
-    │   └── config/                # plugin list, nginx, php.ini, the S3-Uploads loader
-    └── arepazo/                   # the same files as robines-portfolio, for the shop
+    │   └── values.yaml            # the WordPress chart's values: old.robines.space, its plugins
+    └── arepazo/                   # the shop, still as plain manifests (deployment, config/, ...)
 ```
 
 | Component | What it is |
@@ -266,7 +257,7 @@ kubernetes/
 | [`trust-manager`](components/trust-manager/README.md) | The databases' CA certificates as ConfigMaps in the namespaces that ask for them |
 | [`keel`](components/keel/README.md) | Rolls out new images under floating tags without a commit |
 | [`wedding-manuele-robine`](components/wedding-manuele-robine/README.md) | The wedding website (moved from prod-old) |
-| [`robines-portfolio`](components/robines-portfolio/README.md) | The old WordPress portfolio at old.robines.space (moved from prod-old) |
+| [`robines-portfolio`](components/robines-portfolio/README.md) | The old WordPress portfolio at old.robines.space (moved from prod-old), from the WordPress chart |
 | [`arepazo`](components/arepazo/README.md) | The WooCommerce shop at www.arepazo.ch (moved from prod-old) |
 | [`kubeelasti`](components/kubeelasti/README.md) | Scale to zero; letting an app sleep |
 | [`cluster-rbac`](components/cluster-rbac/README.md) | Cluster-wide rights for kubectl logins through Zitadel |

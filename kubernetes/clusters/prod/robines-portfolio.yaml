@@ -1,5 +1,6 @@
 ---
-# The old WordPress portfolio at old.robines.space, from kubernetes/components/robines-portfolio.
+# The old WordPress portfolio at old.robines.space: the chart kubernetes/charts/wordpress with the
+# values in kubernetes/components/robines-portfolio.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -11,10 +12,18 @@ metadata:
     - resources-finalizer.argocd.argoproj.io
 spec:
   project: default
-  source:
-    repoURL: https://github.com/Team-MaRo/infrastructure.git
-    targetRevision: master
-    path: kubernetes/components/robines-portfolio
+  sources:
+    # The chart at a commit of its own: a chart change reaches this site when this SHA moves,
+    # first of all the sites (charts/wordpress/README.md, "Rolling out a chart change").
+    - repoURL: https://github.com/Team-MaRo/infrastructure.git
+      targetRevision: 19f57ded111f6835f75d12e1d35285a026435c31
+      path: kubernetes/charts/wordpress
+      helm:
+        valueFiles:
+          - $values/kubernetes/components/robines-portfolio/values.yaml
+    - repoURL: https://github.com/Team-MaRo/infrastructure.git
+      targetRevision: master
+      ref: values
   destination:
     server: https://kubernetes.default.svc
     namespace: robines-portfolio

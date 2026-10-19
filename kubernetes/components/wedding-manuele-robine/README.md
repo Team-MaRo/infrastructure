@@ -53,7 +53,7 @@ ran under Docker Compose. How the cluster's manifests fit together is in
   script runs envsubst on every file under `/etc/nginx` and writes it back, and a ConfigMap mount
   is read-only (mounted, the API did not start, 2026-10-18). It is a server on port 9253 that
   passes php-fpm's own Prometheus output (`openmetrics`) on as `/metrics` - the same block as
-  in the WordPress sites, see [`../robines-portfolio/README.md`](../robines-portfolio/README.md).
+  in the WordPress sites, see [`../../charts/wordpress/README.md`](../../charts/wordpress/README.md).
   **The pool path carries the image's PHP version (8.3)**: on a new PHP version the file is no
   longer read and `PhpFpmStatusDown` fires - then change the version in `api.yaml`.
 - Dropped from prod-old: the app's own MariaDB (now the shared one, backed up by the operator),

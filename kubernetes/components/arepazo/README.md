@@ -24,8 +24,9 @@ The database is `arepazo` in the shared MariaDB (`database.yaml`), the uploads a
 
 ## Design
 
-The same design as [`../robines-portfolio/README.md`](../robines-portfolio/README.md) - stock
-images assembled at every start, plugins from `config/plugins.txt` (latest release each start,
+The same design as the WordPress chart's
+([`../../charts/wordpress/README.md`](../../charts/wordpress/README.md)) - stock images assembled
+at every start, plugins from `config/plugins.txt` (latest release each start,
 `DISALLOW_FILE_MODS`), uploads in a private bucket behind a signing proxy (`S3_STYLE=virtual`),
 TLS to MariaDB verified (`MYSQLI_CLIENT_SSL_VERIFY_SERVER_CERT` plus the CA bundle), WP-Cron from
 a CronJob, `absolute_redirect off`, a 10 s drain before stopping and php-fpm finishing running

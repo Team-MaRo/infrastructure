@@ -352,7 +352,7 @@ component); update it in the same change.
 | [`kubernetes/components/keel/README.md`](kubernetes/components/keel/README.md) | Rolling out new images under floating tags, opting an app in |
 | [`kubernetes/components/wedding-manuele-robine/README.md`](kubernetes/components/wedding-manuele-robine/README.md) | The wedding website; its two TODOs; moving it from prod-old |
 | [`kubernetes/charts/wordpress/README.md`](kubernetes/charts/wordpress/README.md) | The WordPress chart every site uses: values, design, rolling out a chart change, adding a site |
-| [`kubernetes/components/robines-portfolio/README.md`](kubernetes/components/robines-portfolio/README.md) | The old WordPress portfolio: stock images, plugins at start, uploads behind a signing proxy, WP-Cron |
+| [`kubernetes/components/robines-portfolio/README.md`](kubernetes/components/robines-portfolio/README.md) | The old WordPress portfolio: its values for the WordPress chart, the first site a chart change reaches |
 | [`kubernetes/components/arepazo/README.md`](kubernetes/components/arepazo/README.md) | The WooCommerce shop: what differs from robines-portfolio (private files, memory, languages) |
 | [`kubernetes/components/kubeelasti/README.md`](kubernetes/components/kubeelasti/README.md) | Scale to zero, letting an app sleep |
 | [`kubernetes/clusters/prod/etcd-snapshots/README.md`](kubernetes/clusters/prod/etcd-snapshots/README.md) | etcd snapshots to Object Storage, restoring one |
