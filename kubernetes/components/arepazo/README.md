@@ -1,36 +1,17 @@
 # arepazo
 
 The WooCommerce shop at `https://www.arepazo.ch` (`arepazo.ch` redirects there;
-`kubernetes/clusters/prod/arepazo.yaml`, plain manifests here, namespace `arepazo`). Moved from
-prod-old, where it ran under Docker Compose from images of its own (`d3strukt0r/arepazo`, 2024),
-with every later WordPress and plugin update living only in the container. Its shop data -
-orders, customers, invoices - is personal data.
+`kubernetes/clusters/prod/arepazo.yaml`, namespace `arepazo`). Moved from prod-old, where it ran
+under Docker Compose from images of its own (`d3strukt0r/arepazo`, 2024), with every later
+WordPress and plugin update living only in the container. Its shop data - orders, customers,
+invoices - is personal data.
 
-## What runs
+It is the WordPress chart ([`../../charts/wordpress/README.md`](../../charts/wordpress/README.md):
+what runs, the design, the runbooks) with the values in `values.yaml`. The database is `arepazo`
+in the shared MariaDB, the uploads are in the bucket `d3strukt0r-prod-arepazo`
+(`tofu/objectstorage`); WP-Cron runs WooCommerce's Action Scheduler.
 
-One pod (`deployment.yaml`) and a CronJob (`cronjob.yaml`):
-
-| Container | Image | Does |
-|---|---|---|
-| init `core` | `wordpress:7-php8.4-fpm` | writes the CA bundle, copies WordPress core and writes `wp-config.php` into `html`, a directory it creates itself in the emptyDir - the image's `tar` exits 2 when it cannot set the target's permissions, as in the root-owned volume; the other containers mount `html` as a `subPath` |
-| init `plugins` | `wordpress:cli-2-php8.4` | installs `config/plugins.txt` and S3-Uploads; once the database holds the site, `wp core update-db` and the language packs |
-| `php-fpm` | `wordpress:7-php8.4-fpm` | runs WordPress |
-| `nginx` | `nginxinc/nginx-unprivileged:stable` | serves it on 8081 (`config/default.conf`), and php-fpm's pool figures on 9253 for Prometheus |
-| `uploads-proxy` | `ghcr.io/nginxinc/nginx-s3-gateway/nginx-oss-s3-gateway:unprivileged-oss` | serves `/wp-content/uploads/` from the private bucket |
-| CronJob `wp-cron` | `curlimages/curl` | calls `http://web/wp-cron.php` every five minutes (WooCommerce's Action Scheduler runs on it) |
-
-The database is `arepazo` in the shared MariaDB (`database.yaml`), the uploads are in the bucket
-`d3strukt0r-prod-arepazo` (`tofu/objectstorage`).
-
-## Design
-
-The same design as the WordPress chart's
-([`../../charts/wordpress/README.md`](../../charts/wordpress/README.md)) - stock images assembled
-at every start, plugins from `config/plugins.txt` (latest release each start,
-`DISALLOW_FILE_MODS`), uploads in a private bucket behind a signing proxy (`S3_STYLE=virtual`),
-TLS to MariaDB verified (`MYSQLI_CLIENT_SSL_VERIFY_SERVER_CERT` plus the CA bundle), WP-Cron from
-a CronJob, `absolute_redirect off`, a 10 s drain before stopping and php-fpm finishing running
-requests (`config/php-fpm.conf`), restricted Pod Security. What differs:
+## What is particular to it
 
 - **Private files never reach the proxy.** WooCommerce and its plugins keep files under uploads
   that must not be public: the invoice PDFs (`wpo_wcpdf_*`), protected downloads
@@ -39,7 +20,7 @@ requests (`config/php-fpm.conf`), restricted Pod Security. What differs:
   cache (`wpforms/cache`) and a removed file manager's leftovers. Their `.htaccess` files work
   only under Apache - prod-old's nginx ignored them; here nginx refuses them (403) before the
   proxy sees the request. WordPress reads them itself through S3-Uploads. A plugin that adds
-  such a directory needs it added to the list in `config/default.conf`.
+  such a directory needs it added to `nginx.deniedUploadPaths` in `values.yaml`.
 - **More memory.** prod-old's php-fpm was OOM-killed at 280M: PHP gets `memory_limit 256M`, the
   php-fpm container a 1Gi limit (384Mi requested; it idles at 250-300Mi). Under real traffic all
   workers (`pm.max_children`) run at once - 512Mi was OOM-killed twice with five right after the
@@ -48,7 +29,7 @@ requests (`config/php-fpm.conf`), restricted Pod Security. What differs:
   container that exits once the site is assembled. It requests only 256Mi: without a request
   the limit would count as one, and a pod keeps its largest init container's request booked on
   the node for its whole life.
-- **Six workers, sized from the memory limit** (`config/php-fpm.conf`): `(limit - opcache -
+- **Six workers, sized from the memory limit** (`phpFpm` in `values.yaml`): `(limit - opcache -
   master - headroom) / memory per worker` = (1024 - 128 - 40 - ~200) / 90 MB = 7, one fewer so a
   heavy request (an export, up to `memory_limit` 256M) still fits beside five normal ones: ~160
   fixed + 5 x 90 + 256 = ~870 MiB; two at once would not. The memory per
@@ -72,7 +53,7 @@ requests (`config/php-fpm.conf`), restricted Pod Security. What differs:
   and MariaDB were idle; the liveness probe, then through WordPress, restarted nginx 19 times
   and turned a slow shop into a dead one (503), until PHP recovered by itself. The cause is
   unknown, so php-fpm now keeps a **slow log**: a request running longer than 2 s writes its PHP
-  backtrace into php-fpm's log (`request_slowlog_timeout`, `config/php-fpm.conf`) -
+  backtrace into php-fpm's log (`request_slowlog_timeout`, the chart's `files/php-fpm.conf`) -
   `{namespace="arepazo", container="php-fpm"} |= "slow"` in Grafana's Explore.
 - **Three languages.** wp-admin runs in `de_CH`, the shop in German, English and Spanish
   (Polylang); the init container installs `de_CH`, `de_DE` and `es_ES` for core, plugins and
@@ -116,20 +97,10 @@ A changed value reaches the pod through External Secrets (within five minutes, o
 `kubectl --context d3strukt0r-prod-admin -n arepazo annotate externalsecret --all force-sync=$(date +%s) --overwrite`),
 and Reloader then restarts it (`components/reloader`).
 
-## Runbooks
-
-- **Adding or removing a plugin or theme**: a line in `config/plugins.txt`, push; the pod
-  restarts with it. Activate a new one in wp-admin afterwards.
-- **A plugin release breaks the site** (a 500 with its path in the php-fpm log): pin the last good
-  version as a third column in `config/plugins.txt` (`plugin <slug> <version>`).
-- **A new WordPress major version** comes with the image tag (`7-php8.4-fpm`, both places in
-  `deployment.yaml`); the init container runs the database update.
-- **The pod hangs in an init container**: its log says which download failed
-  (`kubectl --context d3strukt0r-prod-admin -n arepazo logs deploy/web -c plugins`).
-
 ## Checking it
 
 ```shell
+helm template arepazo kubernetes/charts/wordpress -n arepazo -f kubernetes/components/arepazo/values.yaml
 kubectl --context d3strukt0r-prod-admin -n arepazo get pods,cronjobs,jobs,externalsecrets,certificates,ingress
 kubectl --context d3strukt0r-prod-admin -n mariadb get databases.k8s.mariadb.com,users.k8s.mariadb.com,grants.k8s.mariadb.com arepazo
 kubectl --context d3strukt0r-prod-admin -n arepazo logs deploy/web -c plugins

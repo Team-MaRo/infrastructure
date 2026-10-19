@@ -54,7 +54,7 @@ kubernetes/
 │       ├── keel.yaml              # rolls out new images under floating tags: chart pinned here
 │       ├── wedding-manuele-robine.yaml  # the wedding website
 │       ├── robines-portfolio.yaml  # the old WordPress portfolio: the WordPress chart and its values
-│       ├── arepazo.yaml       # the WooCommerce shop at www.arepazo.ch
+│       ├── arepazo.yaml       # the WooCommerce shop: the WordPress chart and its values
 │       ├── kubeelasti.yaml        # scale to zero: chart pinned here, values in components/
 │       ├── cluster-rbac.yaml      # cluster-wide rights for kubectl logins through Zitadel
 │       ├── priority-classes.yaml  # the cluster's PriorityClasses - no finalizer
@@ -225,7 +225,8 @@ kubernetes/
     │   └── ingresses.yaml         # certificates and Ingresses for the four names
     ├── robines-portfolio/
     │   └── values.yaml            # the WordPress chart's values: old.robines.space, its plugins
-    └── arepazo/                   # the shop, still as plain manifests (deployment, config/, ...)
+    └── arepazo/
+        └── values.yaml            # the WordPress chart's values: www.arepazo.ch, the shop's plugins
 ```
 
 | Component | What it is |
@@ -258,7 +259,7 @@ kubernetes/
 | [`keel`](components/keel/README.md) | Rolls out new images under floating tags without a commit |
 | [`wedding-manuele-robine`](components/wedding-manuele-robine/README.md) | The wedding website (moved from prod-old) |
 | [`robines-portfolio`](components/robines-portfolio/README.md) | The old WordPress portfolio at old.robines.space (moved from prod-old), from the WordPress chart |
-| [`arepazo`](components/arepazo/README.md) | The WooCommerce shop at www.arepazo.ch (moved from prod-old) |
+| [`arepazo`](components/arepazo/README.md) | The WooCommerce shop at www.arepazo.ch (moved from prod-old), from the WordPress chart |
 | [`kubeelasti`](components/kubeelasti/README.md) | Scale to zero; letting an app sleep |
 | [`cluster-rbac`](components/cluster-rbac/README.md) | Cluster-wide rights for kubectl logins through Zitadel |
 | [`priority-classes`](components/priority-classes/README.md) | `stateful-core`: the shared databases and OpenBao, evicted last under memory pressure |

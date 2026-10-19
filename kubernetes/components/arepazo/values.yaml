@@ -1,0 +1,118 @@
+---
+# arepazo, the WooCommerce shop at www.arepazo.ch, from the chart kubernetes/charts/wordpress
+# (README). Only what differs from the chart's defaults.
+#
+# The OpenBao values the chart reads (secret/arepazo, …), and their 1Password items:
+# 1Password "Arepazo CMS | Prod | App" (keys and salts, prod-old's)
+#   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=m5jimwowtt7z3zzkbldyzwpxsi&h=my.1password.com
+# 1Password "MariaDB | Prod | arepazo"
+#   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=373ezgwhdppj4dsxghr3aqcxpa&h=my.1password.com
+# 1Password "Hetzner | S3 | prod arepazo"
+#   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=t6onf7inzynbh6oqvdggcrdzoy&h=my.1password.com
+# 1Password "Hetzner | S3 | prod arepazo uploads-proxy"
+#   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=gs5mn5w3sfbqsljokq3ukhjtjy&h=my.1password.com
+# 1Password "Mailomat | Prod | arepazo" (the website's SMTP login at mailomat)
+#   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=6ietzpx5jygsojtd5fiflvdlee&h=my.1password.com
+
+# arepazo.ch redirects to www.arepazo.ch (WordPress does that). The certificate comes from the
+# arepazo Cloudflare account: the ClusterIssuer's arepazo solver answers for the zone.
+hosts:
+  - www.arepazo.ch
+  - arepazo.ch
+
+# Everything prod-old had, active or not.
+plugins:
+  - block-options
+  - bulk-delete
+  - cloudflare
+  - disqus-comment-system
+  - duplicator
+  - fancybox-for-wordpress
+  - google-analytics-for-wordpress
+  - google-listings-and-ads
+  - homepage-control
+  - jetpack
+  - jetpack-boost
+  - jetpack-protect
+  - litespeed-cache
+  - loginizer
+  - polylang
+  - press-tab-to-search
+  # 1.23.4 ships without vendor/symfony/polyfill-ctype/bootstrap80.php and takes the whole site
+  # down with a fatal error; Timber 1.x is no longer maintained, so no fixed release will come.
+  - timber-library 1.23.1
+  - tinymce-advanced
+  - woo-gutenberg-products-block
+  - woocommerce
+  - woocommerce-coupon-shortcodes
+  - woocommerce-customizer
+  - woocommerce-eu-vat-compliance
+  - woocommerce-gateway-paypal-powered-by-braintree
+  - woocommerce-google-analytics-integration
+  - woocommerce-paypal-payments
+  - woocommerce-pdf-invoices-packing-slips
+  - wordpress-seo
+  - wp-mail-smtp
+  - wpforms-lite
+  - wpzoom-portfolio
+  - yith-essential-kit-for-woocommerce-1
+  - yith-woocommerce-advanced-reviews
+  - yith-woocommerce-order-tracking
+  - yith-woocommerce-request-a-quote
+themes:
+  - inspiro-blocks
+  - twentytwentyfive
+
+# wp-admin in de_CH, the shop in German, English and Spanish (Polylang; en_US needs no pack).
+languages:
+  - de_CH
+  - de_DE
+  - es_ES
+
+phpFpm:
+  # Pool size from the container's memory limit (2026-10-18): (1024 MiB limit - 128 opcache,
+  # shared by all workers - 40 master - ~200 headroom) / 90 MB per worker (php-fpm's memory peak;
+  # RssAnon 73-80 MB) = 7, one fewer for a heavy request (an export may use memory_limit's 256M):
+  # ~160 fixed + 5 x 90 + 256 = ~870 MiB. The image's 5 were taken by one /wp-admin/ load (~17
+  # parallel requests of 1.5-9 s, mostly waiting on wordpress.com and the database - 5 busy
+  # workers used 1.65 cores). Spare workers stay dynamic, so the idle panel and
+  # PhpFpmNoIdleWorker keep their meaning.
+  pool:
+    max_children: 6
+    start_servers: 2
+    min_spare_servers: 2
+    max_spare_servers: 4
+  # Six workers run at once under load, about 90 MB each plus the shared opcache; 512Mi was
+  # OOM-killed twice right after the switch. It idles at 250-300Mi.
+  resources:
+    requests:
+      memory: 384Mi
+    limits:
+      memory: 1Gi
+
+# wp-cli loads WooCommerce and its admin code, which needs far more than 256M (measured on
+# prod-old: 128M crashed). The request is set, or it would default to the limit and stay booked
+# on the node for the pod's whole life.
+wpCli:
+  memoryLimit: 1024M
+  resources:
+    requests:
+      memory: 256Mi
+    limits:
+      memory: 1280Mi
+
+nginx:
+  # No Content-Security-Policy: checkout embeds the payment providers' frames (Braintree, PayPal),
+  # and a frame-src list would have to follow theirs.
+  #
+  # Private files WooCommerce and its plugins keep under uploads: invoice PDFs with customer data,
+  # protected downloads, logs, a removed file manager's leftovers, Facebook's product catalog
+  # exports, Contact Form 7's temporary uploads and WPForms' cache.
+  deniedUploadPaths:
+    - wpo_wcpdf_[^/]*
+    - woocommerce_uploads
+    - wc-logs
+    - wp-file-manager-pro
+    - facebook_for_woocommerce
+    - wpcf7_uploads
+    - wpforms/cache

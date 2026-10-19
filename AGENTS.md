@@ -353,6 +353,6 @@ component); update it in the same change.
 | [`kubernetes/components/wedding-manuele-robine/README.md`](kubernetes/components/wedding-manuele-robine/README.md) | The wedding website; its two TODOs; moving it from prod-old |
 | [`kubernetes/charts/wordpress/README.md`](kubernetes/charts/wordpress/README.md) | The WordPress chart every site uses: values, design, rolling out a chart change, adding a site |
 | [`kubernetes/components/robines-portfolio/README.md`](kubernetes/components/robines-portfolio/README.md) | The old WordPress portfolio: its values for the WordPress chart and what is particular to it |
-| [`kubernetes/components/arepazo/README.md`](kubernetes/components/arepazo/README.md) | The WooCommerce shop: what differs from robines-portfolio (private files, memory, languages) |
+| [`kubernetes/components/arepazo/README.md`](kubernetes/components/arepazo/README.md) | The WooCommerce shop: its values for the WordPress chart (private files, memory, languages) |
 | [`kubernetes/components/kubeelasti/README.md`](kubernetes/components/kubeelasti/README.md) | Scale to zero, letting an app sleep |
 | [`kubernetes/clusters/prod/etcd-snapshots/README.md`](kubernetes/clusters/prod/etcd-snapshots/README.md) | etcd snapshots to Object Storage, restoring one |

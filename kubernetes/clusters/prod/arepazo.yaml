@@ -1,5 +1,6 @@
 ---
-# The WooCommerce shop at www.arepazo.ch, from kubernetes/components/arepazo.
+# The WooCommerce shop at www.arepazo.ch: the chart kubernetes/charts/wordpress with the values in
+# kubernetes/components/arepazo.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -11,10 +12,19 @@ metadata:
     - resources-finalizer.argocd.argoproj.io
 spec:
   project: default
-  source:
-    repoURL: https://github.com/Team-MaRo/infrastructure.git
-    targetRevision: master
-    path: kubernetes/components/arepazo
+  sources:
+    # The chart from master, like the values: Argo CD refuses a $values source at another revision
+    # of the same repository, so a chart change reaches every site at once
+    # (charts/wordpress/README.md, "Rolling out a chart change").
+    - repoURL: https://github.com/Team-MaRo/infrastructure.git
+      targetRevision: master
+      path: kubernetes/charts/wordpress
+      helm:
+        valueFiles:
+          - $values/kubernetes/components/arepazo/values.yaml
+    - repoURL: https://github.com/Team-MaRo/infrastructure.git
+      targetRevision: master
+      ref: values
   destination:
     server: https://kubernetes.default.svc
     namespace: arepazo
