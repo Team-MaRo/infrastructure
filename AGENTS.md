@@ -165,7 +165,11 @@ rule, 2026-10-02). Where a name cannot hold a hyphen, the hyphens become undersc
   overlay in its own directory, not a copy of the component. Components are Kustomize over a
   pinned upstream manifest; a Helm-only upstream gets its chart pinned in the cluster's
   Application and its values from `components/<app>/` as a second source (a third for extra
-  manifests).
+  manifests). **An app type with several instances gets a chart of our own** in
+  `kubernetes/charts/<name>/` (today `wordpress`): Argo CD renders it from git, each instance's
+  Application pins it by commit SHA (no tags, no chart registry) and reads its values from
+  `components/<app>/values.yaml`, so a chart change reaches one instance at a time
+  ([`kubernetes/charts/wordpress/README.md`](kubernetes/charts/wordpress/README.md)).
 - **The Application finalizer** `resources-finalizer.argocd.argoproj.io` decides whether
   deleting a file from `clusters/<name>/` deletes what the Application deployed; without it
   only the Application goes and its resources keep running, untracked.
@@ -347,6 +351,7 @@ component); update it in the same change.
 | [`kubernetes/components/trust-manager/README.md`](kubernetes/components/trust-manager/README.md) | The databases' CA certificates in the apps' namespaces |
 | [`kubernetes/components/keel/README.md`](kubernetes/components/keel/README.md) | Rolling out new images under floating tags, opting an app in |
 | [`kubernetes/components/wedding-manuele-robine/README.md`](kubernetes/components/wedding-manuele-robine/README.md) | The wedding website; its two TODOs; moving it from prod-old |
+| [`kubernetes/charts/wordpress/README.md`](kubernetes/charts/wordpress/README.md) | The WordPress chart every site uses: values, design, rolling out a chart change, adding a site |
 | [`kubernetes/components/robines-portfolio/README.md`](kubernetes/components/robines-portfolio/README.md) | The old WordPress portfolio: stock images, plugins at start, uploads behind a signing proxy, WP-Cron |
 | [`kubernetes/components/arepazo/README.md`](kubernetes/components/arepazo/README.md) | The WooCommerce shop: what differs from robines-portfolio (private files, memory, languages) |
 | [`kubernetes/components/kubeelasti/README.md`](kubernetes/components/kubeelasti/README.md) | Scale to zero, letting an app sleep |

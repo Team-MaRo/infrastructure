@@ -1,6 +1,7 @@
 ---
 paths:
   - "kubernetes/components/**"
+  - "kubernetes/charts/**"
 ---
 
 # Kubernetes components

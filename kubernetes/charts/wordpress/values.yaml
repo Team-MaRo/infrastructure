@@ -1,0 +1,46 @@
+---
+# The site's names. The first is WordPress's own address (WP_HOME, the uploads' URLs, the Host of
+# probes and WP-Cron); the others only redirect to it. All of them go into the certificate.
+hosts: []
+
+# What the init container `plugins` installs from wordpress.org at every start, as `<slug>` or
+# `<slug> <version>`: the latest release, or the version given.
+plugins: []
+themes: []
+
+# Language packs installed at every start, for core, plugins and themes. Empty: English only.
+languages: []
+
+# Restarts the pod when one of its Secrets changes (components/reloader). Needs the namespace in
+# Reloader's list.
+reloader: true
+
+phpFpm:
+  # pm.* settings beside the image's (pm dynamic, 5 workers), e.g. max_children: 6. Sized from the
+  # container's memory limit (README, "Sizing the pool").
+  pool: {}
+  resources:
+    requests:
+      memory: 128Mi
+    # One request may use memory_limit's 256M (files/php.ini) beside the opcache and the idle
+    # workers; 384Mi could not hold it.
+    limits:
+      memory: 512Mi
+
+wpCli:
+  # PHP's memory_limit for wp-cli in the init container `plugins`, e.g. 1024M; empty: php.ini's.
+  memoryLimit: ""
+  resources:
+    limits:
+      memory: 256Mi
+
+nginx:
+  # Sent as Content-Security-Policy; empty: no such header.
+  contentSecurityPolicy: ""
+  # Directories under uploads that are never served (regular expressions, joined into one rule):
+  # private files plugins keep there.
+  deniedUploadPaths: []
+
+ingress:
+  # Traefik middlewares for the router, by the names Traefik gives them (`...@kubernetescrd`).
+  middlewares: []

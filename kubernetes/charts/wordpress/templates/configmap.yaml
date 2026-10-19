@@ -1,0 +1,26 @@
+---
+# The pod's configuration files. deployment.yaml carries their checksum, so a change rolls the pod.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: web-config
+data:
+  # What the init container `plugins` installs into wp-content at every start, as
+  # `<kind> <slug> [<version>]` (values plugins and themes). WordPress cannot install anything
+  # itself (DISALLOW_FILE_MODS), so this list is the site's plugins and themes; whether a plugin is
+  # active stays in the database. S3-Uploads is installed beside these (deployment.yaml).
+  plugins.txt: |
+    {{- range .Values.plugins }}
+    plugin {{ . }}
+    {{- end }}
+    {{- range .Values.themes }}
+    theme {{ . }}
+    {{- end }}
+  default.conf: |
+    {{- tpl (.Files.Get "files/default.conf") . | nindent 4 }}
+  php.ini: |
+    {{- .Files.Get "files/php.ini" | nindent 4 }}
+  php-fpm.conf: |
+    {{- tpl (.Files.Get "files/php-fpm.conf") . | nindent 4 }}
+  s3-uploads-hetzner.php: |
+    {{- .Files.Get "files/s3-uploads-hetzner.php" | nindent 4 }}

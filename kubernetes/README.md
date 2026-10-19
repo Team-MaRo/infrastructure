@@ -60,6 +60,8 @@ kubernetes/
 │       ├── priority-classes.yaml  # the cluster's PriorityClasses - no finalizer
 │       ├── etcd-snapshots.yaml    # syncs the subdirectory below
 │       └── etcd-snapshots/        # prod-only: the S3 settings k3s uploads snapshots with
+├── charts/                    # charts of our own, pinned by commit SHA in each Application
+│   └── wordpress/             # every WordPress site; the sites' values are in components/
 └── components/                # how each component is deployed, shared by clusters
     ├── argocd/                # pinned upstream install.yaml plus patches
     │   ├── kustomization.yaml
@@ -274,6 +276,9 @@ kubernetes/
 Components are Kustomize over a pinned upstream manifest where upstream publishes one.
 Where upstream ships only a Helm chart (OpenBao), the cluster's Application pins the chart
 and reads its values from `components/<app>/values.yaml` through a second source.
+An app type with several instances gets a chart of our own under `charts/`, which each
+instance's Application pins by commit SHA, with its values from `components/<app>/values.yaml`
+the same way ([`charts/wordpress/README.md`](charts/wordpress/README.md)).
 
 The split is **what** against **how**. `clusters/<name>/` decides which components a
 cluster runs; `components/<app>/` holds the manifests, written once and shared. Each

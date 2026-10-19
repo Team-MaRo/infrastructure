@@ -1,0 +1,72 @@
+---
+# The site's database in the shared MariaDB. mariadb-operator requires a User, its password Secret,
+# a Grant and a Database to be in the MariaDB's namespace, so these objects live in mariadb
+# although this chart deploys them. The password comes from OpenBao
+# secret/mariadb-apps/{{ .Release.Name }} (its 1Password item is named in the site's values.yaml);
+# WordPress reads the same value in its own namespace.
+#
+# cleanupPolicy Skip on all three: the operator's default (Delete) would drop the database and the
+# user when the site is removed.
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: {{ .Release.Name }}-db
+  namespace: mariadb
+spec:
+  refreshInterval: 5m
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: openbao
+  data:
+    - secretKey: password
+      remoteRef:
+        key: mariadb-apps/{{ .Release.Name }}
+        property: password
+---
+# The collation the sites had on prod-old, so their dumps imported unchanged.
+apiVersion: k8s.mariadb.com/v1alpha1
+kind: Database
+metadata:
+  name: {{ .Release.Name }}
+  namespace: mariadb
+spec:
+  mariaDbRef:
+    name: mariadb
+  name: {{ include "wordpress.database" . }}
+  characterSet: utf8mb4
+  collate: utf8mb4_unicode_ci
+  cleanupPolicy: Skip
+---
+apiVersion: k8s.mariadb.com/v1alpha1
+kind: User
+metadata:
+  name: {{ .Release.Name }}
+  namespace: mariadb
+spec:
+  mariaDbRef:
+    name: mariadb
+  name: {{ include "wordpress.database" . }}
+  host: "%"
+  passwordSecretKeyRef:
+    name: {{ .Release.Name }}-db
+    key: password
+  # Refused without TLS, so the password never crosses the network in the clear.
+  require:
+    ssl: true
+  cleanupPolicy: Skip
+---
+apiVersion: k8s.mariadb.com/v1alpha1
+kind: Grant
+metadata:
+  name: {{ .Release.Name }}
+  namespace: mariadb
+spec:
+  mariaDbRef:
+    name: mariadb
+  username: {{ include "wordpress.database" . }}
+  host: "%"
+  database: {{ include "wordpress.database" . }}
+  table: "*"
+  privileges:
+    - ALL PRIVILEGES
+  cleanupPolicy: Skip

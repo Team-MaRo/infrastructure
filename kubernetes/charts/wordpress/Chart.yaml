@@ -1,0 +1,9 @@
+---
+# A WordPress site from the stock images, its database in the shared MariaDB and its uploads in a
+# private bucket (README). Sites pin the chart by commit SHA, so `version` is never what rolls it
+# out; it is bumped so a change can still be named.
+apiVersion: v2
+name: wordpress
+description: A WordPress site on the prod cluster
+type: application
+version: 0.1.0

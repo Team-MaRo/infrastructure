@@ -1,0 +1,287 @@
+---
+# WordPress from the stock images, without a build: the init containers assemble the site into an
+# emptyDir at every start (core from the image, plugins and themes from wordpress.org per the
+# values), php-fpm runs it, nginx serves it, and the uploads proxy serves the uploads from the
+# private bucket. Nothing on the pod's disk needs to survive a restart.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+  annotations:
+    # A new image under the same tag rolls it out (components/keel).
+    keel.sh/policy: force
+    keel.sh/matchTag: "true"
+    keel.sh/trigger: poll
+    {{- if .Values.reloader }}
+    # Read as environment variables at start (components/reloader).
+    secret.reloader.stakater.com/reload: web,uploads-proxy
+    {{- end }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: web
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: web
+      annotations:
+        # A changed configuration file rolls the pod (configmap.yaml).
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+    spec:
+      # The preStop pause (10 s) plus php-fpm finishing running requests (up to 20 s,
+      # files/php-fpm.conf), with room to spare over the default 30 s.
+      terminationGracePeriodSeconds: 40
+      securityContext:
+        # www-data in the Debian WordPress image. The Alpine cli image's www-data is 82, so it
+        # runs as 33 too; the nginx images keep their own user (101), with 33 as their group.
+        runAsUser: 33
+        runAsGroup: 33
+        fsGroup: 33
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        # The CA bundle PHP verifies MariaDB against (files/php.ini), then WordPress core and
+        # wp-config.php into the empty html volume - the image's own entrypoint, which exits after
+        # installing when called as docker-ensure-installed.sh.
+        - name: core
+          image: wordpress:7-php8.4-fpm
+          imagePullPolicy: Always
+          # Not under /var/www/html: the image declares that a VOLUME, so the runtime would put an
+          # empty volume of its own there and the copy would never reach the pod's.
+          workingDir: /wordpress
+          command:
+            - sh
+            - -ec
+            - |
+              cat /etc/ssl/certs/ca-certificates.crt /etc/mariadb-ca/ca.crt > /tls/ca-bundle.crt
+              # The image's tar sets the permissions of the directory it copies into, which
+              # only the owner may: into the root-owned volume it copies every file and then
+              # exits 2. So 33 creates html itself; the other containers mount it (subPath).
+              mkdir -p html
+              cd html
+              exec docker-ensure-installed.sh true
+          env:
+            {{- include "wordpress.env" . | nindent 12 }}
+          envFrom: &wordpress-secrets
+            - secretRef:
+                name: web
+          securityContext: &restricted
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: html
+              mountPath: /wordpress
+            - name: tls
+              mountPath: /tls
+            - name: mariadb-ca
+              mountPath: /etc/mariadb-ca
+              readOnly: true
+        # Plugins, themes and S3-Uploads, then - once the database holds the site - a database
+        # update if a new WordPress needs one and the language packs (values languages), which
+        # WordPress cannot fetch itself (DISALLOW_FILE_MODS). A failed language pack only leaves
+        # English text, so it does not stop the start.
+        - name: plugins
+          image: wordpress:cli-2-php8.4
+          imagePullPolicy: Always
+          command:
+            - sh
+            - -ec
+            - |
+              cd /var/www/html/wp-content
+              fetch() {
+                curl -fsSL --retry 3 -o /tmp/download.zip "$1"
+                unzip -qo /tmp/download.zip -d "$2"
+                rm /tmp/download.zip
+              }
+              grep -v '^#' /config/plugins.txt | while read -r kind slug version; do
+                [ -n "$kind" ] || continue
+                fetch "https://downloads.wordpress.org/$kind/$slug${version:+.$version}.zip" "${kind}s"
+              done
+              # Not on wordpress.org; the release zip has its files at the root.
+              mkdir -p plugins/s3-uploads mu-plugins
+              fetch https://github.com/humanmade/S3-Uploads/releases/download/3.0.10/manual-install.zip plugins/s3-uploads
+              cp /config/s3-uploads-hetzner.php mu-plugins/
+              if wp core is-installed; then
+                wp core update-db
+                {{- with .Values.languages }}
+                for l in {{ join " " . }}; do
+                  wp language core install "$l" || echo "warning: $l for core not installed"
+                  wp language plugin install --all "$l" || echo "warning: $l for plugins not installed"
+                  wp language theme install --all "$l" || echo "warning: $l for themes not installed"
+                done
+                {{- end }}
+              fi
+          env:
+            {{- with .Values.wpCli.memoryLimit }}
+            # Only this short-lived container gets more memory for wp-cli (values
+            # wpCli.memoryLimit).
+            - name: WP_CLI_PHP_ARGS
+              value: -d memory_limit={{ . }}
+            {{- end }}
+            {{- include "wordpress.env" . | nindent 12 }}
+          envFrom: *wordpress-secrets
+          securityContext: *restricted
+          # Without a request it defaults to the limit: a pod counts as requesting its largest
+          # init container's request for its whole life, so set one when the limit is large.
+          resources:
+            {{- toYaml .Values.wpCli.resources | nindent 12 }}
+          volumeMounts:
+            - name: html
+              mountPath: /var/www/html
+              subPath: html
+            - name: tls
+              mountPath: /tls
+              readOnly: true
+            - name: config
+              mountPath: /config
+              readOnly: true
+            - name: config
+              mountPath: /usr/local/etc/php/conf.d/zz-{{ .Release.Name }}.ini
+              subPath: php.ini
+              readOnly: true
+      containers:
+        - name: php-fpm
+          image: wordpress:7-php8.4-fpm
+          imagePullPolicy: Always
+          # All containers get the stop signal at once, while Traefik still sends requests to the
+          # pod for a moment; each keeps serving 10 s more, so the pod leaves the endpoints first.
+          lifecycle: &drain
+            preStop:
+              sleep:
+                seconds: 10
+          env:
+            {{- include "wordpress.env" . | nindent 12 }}
+          envFrom: *wordpress-secrets
+          securityContext: *restricted
+          # Sized with the pool (values phpFpm, README "Sizing the pool").
+          resources:
+            {{- toYaml .Values.phpFpm.resources | nindent 12 }}
+          volumeMounts:
+            - name: html
+              mountPath: /var/www/html
+              subPath: html
+            - name: tls
+              mountPath: /tls
+              readOnly: true
+            - name: config
+              mountPath: /usr/local/etc/php/conf.d/zz-{{ .Release.Name }}.ini
+              subPath: php.ini
+              readOnly: true
+            - name: config
+              mountPath: /usr/local/etc/php-fpm.d/zz-{{ .Release.Name }}.conf
+              subPath: php-fpm.conf
+              readOnly: true
+        - name: nginx
+          # Without docker.io/: Keel writes the short form back (components/keel).
+          image: nginxinc/nginx-unprivileged:stable
+          imagePullPolicy: Always
+          lifecycle: *drain
+          securityContext:
+            runAsUser: 101
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          ports:
+            - name: http
+              containerPort: 8081
+            # php-fpm's pool figures (files/default.conf, pod-monitor.yaml).
+            - name: metrics
+              containerPort: 9253
+          # robots.txt is answered by WordPress, so this exercises nginx, php-fpm and the database.
+          # PHP sometimes takes over a second under load, and three slow answers in a row at the 1 s
+          # default take the pod out of its Service (2026-10-05: a site failed it 60 times in a day
+          # and left a wp-cron run without an endpoint), so the probes wait 10 s and run rarely;
+          # each one is a full WordPress request.
+          startupProbe:
+            httpGet: &robots
+              path: /robots.txt
+              port: http
+              httpHeaders:
+                - name: Host
+                  value: {{ include "wordpress.host" . }}
+            periodSeconds: 10
+            timeoutSeconds: 10
+            failureThreshold: 12
+          readinessProbe:
+            httpGet: *robots
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+          # Liveness asks nginx alone, at the defaults: restarting nginx cannot help a slow PHP, and
+          # through WordPress it turned a slow shop into a dead one (nginx restarted 19 times in 2.5
+          # hours, 2026-10-11).
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+          volumeMounts:
+            - name: html
+              mountPath: /var/www/html
+              subPath: html
+              readOnly: true
+            - name: config
+              mountPath: /etc/nginx/conf.d/default.conf
+              subPath: default.conf
+              readOnly: true
+        # Signs nginx's requests for /wp-content/uploads/ with the read-only key and streams the
+        # files from the private bucket (nginx/nginx-s3-gateway). GET and HEAD only.
+        - name: uploads-proxy
+          image: ghcr.io/nginxinc/nginx-s3-gateway/nginx-oss-s3-gateway:unprivileged-oss
+          imagePullPolicy: Always
+          lifecycle: *drain
+          envFrom:
+            - secretRef:
+                name: uploads-proxy
+          env:
+            - name: S3_BUCKET_NAME
+              value: {{ include "wordpress.bucket" . }}
+            - name: S3_SERVER
+              value: nbg1.your-objectstorage.com
+            - name: S3_SERVER_PORT
+              value: "443"
+            - name: S3_SERVER_PROTO
+              value: https
+            - name: S3_REGION
+              value: nbg1
+            # Not `path`: the gateway then signs `Host: <server>:443`, and Hetzner rejects that
+            # signature (SignatureDoesNotMatch, tested 2026-10-03). Virtual-host style sends the
+            # bucket's own host name without a port.
+            - name: S3_STYLE
+              value: virtual
+            - name: AWS_SIGS_VERSION
+              value: "4"
+            - name: ALLOW_DIRECTORY_LIST
+              value: "false"
+            # The default (10g) would outgrow the pod's ephemeral storage and get it evicted.
+            - name: PROXY_CACHE_MAX_SIZE
+              value: 256m
+          securityContext:
+            runAsUser: 101
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: proxy-cache
+              mountPath: /var/cache/nginx/s3_proxy
+      volumes:
+        - name: html
+          emptyDir:
+            sizeLimit: 1Gi
+        - name: tls
+          emptyDir:
+            sizeLimit: 1Mi
+        - name: proxy-cache
+          emptyDir:
+            sizeLimit: 300Mi
+        - name: config
+          configMap:
+            name: web-config
+        - name: mariadb-ca
+          configMap:
+            name: mariadb-ca
