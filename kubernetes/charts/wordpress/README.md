@@ -5,9 +5,12 @@ private bucket, nothing on a volume. Every WordPress site on the cluster is this
 own values; what is particular to a site (its history, its plugins, its measurements) is in
 `kubernetes/components/<site>/README.md` and `values.yaml`.
 
-The chart is never packaged or published: Argo CD renders it straight from git, and each site's
-Application pins it by **commit SHA**. A chart change therefore reaches one site at a time, in
-the order the SHAs are moved (see "Rolling out a chart change").
+The chart is never packaged or published: Argo CD renders it straight from git on `master`, so
+**a chart change reaches every site at once** with the push - render and diff all of them first
+(see "Rolling out a chart change"). Not pinned per site by commit SHA: Argo CD refuses a `$values`
+source that reads the same repository at another revision than the chart ("cannot reference a
+different revision of the same repository", tried 2026-10-19), so a pinned chart would need the
+values written into each Application. A staged rollout needs the chart in a registry instead.
 
 ## What runs
 
@@ -161,16 +164,20 @@ kubectl --context d3strukt0r-prod-admin -n <site> exec deploy/web -c php-fpm -- 
 
 ### Rolling out a chart change
 
-1. Change the chart, bump `version` in `Chart.yaml`, commit and push. Nothing changes yet: every
-   site still pins the old SHA.
-2. Move robines-portfolio first: its Application's chart source `targetRevision` to the new
-   commit SHA (`git log -1 --format=%H -- kubernetes/charts/wordpress`, once it is on `master` on
-   GitHub). Push, then check the site (`Checking it`).
-3. Then the other sites, one at a time.
+1. Change the chart and bump `version` in `Chart.yaml`.
+2. Render it for every site and compare with what runs - a template error shows here, not on
+   the cluster:
+   ```shell
+   helm lint kubernetes/charts/wordpress -f kubernetes/components/<site>/values.yaml
+   helm template <site> kubernetes/charts/wordpress -n <site> -f kubernetes/components/<site>/values.yaml > /tmp/<site>.yaml
+   ```
+   and a server-side dry run against the cluster, per namespace (the MariaDB objects are in
+   `mariadb`): `kubectl --context d3strukt0r-prod-admin diff --server-side -n <site> -f <file>`.
+   The site in the other repository is rendered with its values there.
+3. Commit and push: every site rolls out together. Check each one (`Checking it`).
 
-A site's values come from `master`, the chart from its SHA. A new value is harmless before the
-SHA moves (the old chart ignores it); a renamed or removed one must change in the same commit
-as that site's SHA.
+A chart that fails to render changes nothing: Argo CD shows the error on the Application and the
+running pods stay. A renamed or removed value changes in the same commit as every site's values.
 
 ### Adding a site
 
@@ -190,7 +197,7 @@ as that site's SHA.
 - **A plugin release breaks the site** (a 500 with its path in the php-fpm log): pin the last good
   version (`<slug> <version>`). Every start installs the latest release otherwise.
 - **A new WordPress major version** comes with the image tag (`7-php8.4-fpm`, two places in
-  `templates/deployment.yaml`) - a chart change, rolled out site by site. The init container
+  `templates/deployment.yaml`) - a chart change, for every site at once. The init container
   `plugins` runs the database update.
 - **The pod hangs in an init container**: its log says which download failed
   (`kubectl --context d3strukt0r-prod-admin -n <site> logs deploy/web -c plugins`).

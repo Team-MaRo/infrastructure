@@ -53,14 +53,14 @@ kubernetes/
 │       ├── trust-manager.yaml     # the databases' CAs in the apps' namespaces: chart pinned here
 │       ├── keel.yaml              # rolls out new images under floating tags: chart pinned here
 │       ├── wedding-manuele-robine.yaml  # the wedding website
-│       ├── robines-portfolio.yaml  # the old WordPress portfolio: the WordPress chart at a pinned SHA
+│       ├── robines-portfolio.yaml  # the old WordPress portfolio: the WordPress chart and its values
 │       ├── arepazo.yaml       # the WooCommerce shop at www.arepazo.ch
 │       ├── kubeelasti.yaml        # scale to zero: chart pinned here, values in components/
 │       ├── cluster-rbac.yaml      # cluster-wide rights for kubectl logins through Zitadel
 │       ├── priority-classes.yaml  # the cluster's PriorityClasses - no finalizer
 │       ├── etcd-snapshots.yaml    # syncs the subdirectory below
 │       └── etcd-snapshots/        # prod-only: the S3 settings k3s uploads snapshots with
-├── charts/                    # charts of our own, pinned by commit SHA in each Application
+├── charts/                    # charts of our own, rendered from master
 │   └── wordpress/             # every WordPress site; the sites' values are in components/
 └── components/                # how each component is deployed, shared by clusters
     ├── argocd/                # pinned upstream install.yaml plus patches
@@ -267,8 +267,8 @@ kubernetes/
 Components are Kustomize over a pinned upstream manifest where upstream publishes one.
 Where upstream ships only a Helm chart (OpenBao), the cluster's Application pins the chart
 and reads its values from `components/<app>/values.yaml` through a second source.
-An app type with several instances gets a chart of our own under `charts/`, which each
-instance's Application pins by commit SHA, with its values from `components/<app>/values.yaml`
+An app type with several instances gets a chart of our own under `charts/`, rendered from
+`master` for each instance's Application, with its values from `components/<app>/values.yaml`
 the same way ([`charts/wordpress/README.md`](charts/wordpress/README.md)).
 
 The split is **what** against **how**. `clusters/<name>/` decides which components a

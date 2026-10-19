@@ -7,8 +7,7 @@ this. Moved from prod-old, where it ran under Docker Compose with the whole web 
 mount and plugins installed through wp-admin.
 
 It is the WordPress chart ([`../../charts/wordpress/README.md`](../../charts/wordpress/README.md):
-what runs, the design, the runbooks) with the values in `values.yaml`. It is the first site every
-chart change reaches: its Application pins the chart's commit SHA, moved here before the others.
+what runs, the design, the runbooks) with the values in `values.yaml`.
 
 The database is `robines_portfolio` in the shared MariaDB, the uploads are in the bucket
 `d3strukt0r-prod-robines-portfolio` (`tofu/objectstorage`).

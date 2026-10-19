@@ -18,8 +18,9 @@ paths:
   "Pruning and the finalizer" in `kubernetes/components/argocd/README.md`.
 - Pin every chart and manifest version. A Helm-only upstream: chart pinned in the Application,
   values from `components/<app>/` as a second source, its manifests as a third. A chart of our
-  own (`kubernetes/charts/`) is pinned by commit SHA, never a tag; a chart change moves the SHA
-  one Application at a time, robines-portfolio first (`kubernetes/charts/wordpress/README.md`).
+  own (`kubernetes/charts/`) comes from `master`, like its values (Argo CD refuses a `$values`
+  source at another revision of the same repository); a chart change reaches every site at once
+  (`kubernetes/charts/wordpress/README.md`).
 - `ServerSideApply=true` where CRDs are large; `ServerSideDiff=true` where an operator
   defaults fields in its objects (otherwise the app stays OutOfSync).
 - Prefer the Application's own `namespace.yaml` in the component over `CreateNamespace` for
