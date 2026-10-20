@@ -60,8 +60,29 @@ past the renewal time cert-manager set - independent of the lifetime) and
 ## Requesting a certificate
 
 cert-manager gets certificates from Let's Encrypt, proving each name through a temporary
-DNS record in Cloudflare - no DNS preparation, and the name need not be reachable. A
-certificate is requested with a `Certificate` next to the workload:
+DNS record in Cloudflare - no DNS preparation, and the name need not be reachable.
+
+**For an Ingress, one annotation** - cert-manager's ingress-shim (on by default) then creates
+and renews the Certificate itself, named after `secretName`, for the names in `spec.tls`, and
+owned by the Ingress, so it goes with it:
+
+```yaml
+metadata:
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt
+spec:
+  tls:
+    - hosts: [example.d3strukt0r.dev]
+      secretName: example-tls
+```
+
+A Helm chart's Ingress gets the annotation through its values. The host list is then written
+once, not in a Certificate and the Ingress both.
+
+**A `Certificate` of its own** where there is no Ingress, or where the shim would not fit: an
+IngressRoute (Traefik's dashboard), two Ingresses sharing one Secret (Zitadel's `auth-tls` -
+each would create its own Certificate for it), or a certificate that is not a website's
+(Zitadel's login key):
 
 ```yaml
 apiVersion: cert-manager.io/v1
@@ -81,6 +102,15 @@ spec:
 kubectl --context d3strukt0r-prod-admin get certificate -A
 kubectl --context d3strukt0r-prod-admin describe challenge -A   # while one hangs
 ```
+
+**Moving an explicit Certificate to the annotation takes two pushes.** ingress-shim does not
+take over a Certificate it did not create (it logs that it refuses to update a non-owned one),
+and Argo CD deletes the old one only at the end of the sync that adds the annotation - after
+which the shim would not look again for hours. So: first remove the Certificate file (its
+Secret stays - cert-manager runs without `--enable-certificate-owner-ref`, and TLS keeps
+working), then add the annotation; the shim finds the valid Secret and issues nothing new.
+Check before that the certificate is not due for renewal in between
+(`kubectl --context d3strukt0r-prod-admin get certificate -A -o custom-columns=NAME:.metadata.name,RENEW:.status.renewalTime`).
 
 ## Creating or replacing the Cloudflare tokens
 
