@@ -11,6 +11,11 @@ themes: []
 # Language packs installed at every start, for core, plugins and themes. Empty: English only.
 languages: []
 
+# WordPress's object cache in valkey-cache (components/valkey-cache): the site's database number
+# there, which no other app may hold (its README lists them). 0: no object cache.
+objectCache:
+  database: 0
+
 # Restarts the pod when one of its Secrets changes (components/reloader). Needs the namespace in
 # Reloader's list.
 reloader: true

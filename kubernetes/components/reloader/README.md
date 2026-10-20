@@ -39,9 +39,13 @@ themselves (Gatus' config, Alertmanager's ntfy secret, Alloy, Argo CD's webhook 
 - **New Secrets count too** (`reloadOnCreate: true`): a Secret created after its workload
   restarts it as well, not only a changed one. valkey-cache needs that - it loads an app's user,
   the Secret `db-<n>` the app brings, only at start, and the first one appears when the app
-  switches the cache on. Only events after Reloader's own start count (`syncAfterRestart` off),
-  so restarting Reloader restarts nothing. Deleted Secrets stay ignored (`reloadOnDelete` off): a
-  restart would only make the pod fail on the missing Secret.
+  switches the cache on. **The cost: a Reloader restart can restart some apps.** It is meant to
+  ignore the Secrets it finds at its own start (`syncAfterRestart` off), but apparently it starts
+  watching one namespace after another, and those it watches late report their Secrets as new:
+  its restart with this setting (2026-10-20) restarted wedding-manuele-robine's `api` (twice)
+  and `pwa`, and no other app. Accepted (user decision): Reloader restarts only with its own
+  upgrades, and a restarted app comes back by itself. Deleted Secrets stay ignored
+  (`reloadOnDelete` off): a restart would only make the pod fail on the missing Secret.
 - **Search mode** for a workload that mounts Secrets it cannot name in advance:
   `reloader.stakater.com/search: "true"` on the workload restarts it for every Secret it mounts
   that carries `reloader.stakater.com/match: "true"` - projected volumes included (valkey-cache).

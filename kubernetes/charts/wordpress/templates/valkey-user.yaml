@@ -1,0 +1,33 @@
+{{- with .Values.objectCache.database }}
+---
+# The site's user in valkey-cache, brought there like its MariaDB objects into mariadb: one
+# Valkey config line, restricted to the site's database, with its password as a SHA-256 hash.
+# Named after the database, so valkey-cache mounts it without knowing the site, and a second app
+# claiming the same number would conflict on it (components/valkey-cache). Rights: everything but
+# @dangerous, plus FLUSHDB (its own database only - WordPress's "Flush cache") and INFO, which
+# Redis Object Cache sends on every connect.
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: db-{{ . }}
+  namespace: valkey-cache
+spec:
+  refreshInterval: 5m
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: openbao
+  target:
+    template:
+      metadata:
+        annotations:
+          # A new or changed user restarts Valkey, which reads its users only at start.
+          reloader.stakater.com/match: "true"
+      data:
+        users.conf: |
+          user {{ $.Release.Name }} on #{{ "{{" }} .password | sha256sum {{ "}}" }} resetdbs db={{ . }} resetchannels ~* +@all -@dangerous +flushdb +info
+  data:
+    - secretKey: password
+      remoteRef:
+        key: valkey-apps/{{ $.Release.Name }}
+        property: password
+{{- end }}

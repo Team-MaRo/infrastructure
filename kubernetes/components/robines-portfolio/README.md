@@ -19,6 +19,8 @@ The database is `robines_portfolio` in the shared MariaDB, the uploads are in th
 - **Plugins**: everything prod-old had, active or not, except the premium theme `mintraro-pro`,
   which is inactive and not on wordpress.org.
 - **`de_CH`**: the site runs in Swiss German; its language packs are installed at every start.
+- **Object cache in valkey-cache, database 1** (since 2026-10-20; the chart's "An object cache in
+  valkey-cache").
 - **A permissive Content-Security-Policy** like prod-old's, with the frames the site embeds
   (YouTube, Twitter).
 - **The chart's pool** (image's five workers, 512Mi): its calculation is in `values.yaml`; the
@@ -50,6 +52,7 @@ The database is `robines_portfolio` in the shared MariaDB, the uploads are in th
 | `secret/mariadb-apps/robines-portfolio` | `password` (20 characters) | 1Password [`MariaDB | Prod | robines-portfolio`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=swneckmu7nc3tkxv5c2njudv2q&h=my.1password.com) |
 | `secret/robines-portfolio-s3` | `access-key`, `secret-key` (read and write) | 1Password [`Hetzner | S3 | prod robines-portfolio`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=j3phtimnb5zbwonzf655meqrb4&h=my.1password.com) |
 | `secret/robines-portfolio-uploads-proxy-s3` | `access-key`, `secret-key` (read only) | 1Password [`Hetzner | S3 | prod robines-portfolio uploads-proxy`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=3icb7ypn2ub7bk7x2yzbwhkrfm&h=my.1password.com) |
+| `secret/valkey-apps/robines-portfolio` | `password` (20 characters; its user in valkey-cache) | 1Password [`Valkey | Prod | robines-portfolio`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=27cbbdterppy35hbjvjoivmmn4&h=my.1password.com) |
 | `secret/robines-portfolio-mailomat` | `username`, `password` (the SMTP user at mailomat) | 1Password [`Mailomat | Prod | robines-portfolio`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=u747dsojova7eol3x2ikl3qxm4&h=my.1password.com) (an E-Mail item, SMTP section) |
 
 A changed value in OpenBao reaches the pod through External Secrets (within five minutes, or at once

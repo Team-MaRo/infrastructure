@@ -11,8 +11,8 @@ reloader:
   reloadStrategy: annotations
   # A Secret created after the workload restarts it too, not only a changed one: valkey-cache
   # loads an app's user (its Secret db-<n>) only at start, and the first one appears when the app
-  # switches the cache on. Only events after Reloader's own start count (syncAfterRestart stays
-  # off), so a Reloader restart restarts nothing. Deletions stay ignored: a restart would only make
+  # switches the cache on. The cost: a Reloader restart can restart some apps too - their
+  # existing Secrets look new to it (README). Deletions stay ignored: a restart would only make
   # the pod fail on the missing Secret.
   reloadOnCreate: true
   # Only these namespaces, each with a Role of its own - no ClusterRole that reads every Secret.

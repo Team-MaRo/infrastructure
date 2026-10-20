@@ -9,3 +9,7 @@ metadata:
     # trust-manager puts the shared MariaDB's CA here as ConfigMap mariadb-ca
     # (components/trust-manager).
     trust.d3strukt0r.dev/mariadb-ca: "true"
+    {{- if .Values.objectCache.database }}
+    # valkey-cache lets in only labelled namespaces (components/valkey-cache).
+    valkey.d3strukt0r.dev/cache: "true"
+    {{- end }}

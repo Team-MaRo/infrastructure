@@ -39,7 +39,8 @@ so the values never repeat it:
 |---|---|
 | Database and its user | the name with `_` for `-` (`robines_portfolio`) |
 | Bucket | `d3strukt0r-prod-<site>` (`tofu/objectstorage`) |
-| OpenBao | `secret/<site>` (keys and salts), `secret/mariadb-apps/<site>`, `secret/<site>-s3`, `secret/<site>-uploads-proxy-s3`, `secret/<site>-mailomat` |
+| OpenBao | `secret/<site>` (keys and salts), `secret/mariadb-apps/<site>`, `secret/<site>-s3`, `secret/<site>-uploads-proxy-s3`, `secret/<site>-mailomat`; with the object cache `secret/valkey-apps/<site>` |
+| Valkey user | the site's name, in its database `objectCache.database` |
 | PHP's configuration | `zz-<site>.ini`, `zz-<site>.conf` |
 
 ## Values
@@ -51,6 +52,7 @@ Only what differs between sites; `values.yaml` holds the defaults and says what 
 | `hosts` | (required) | the site's names; the first is WordPress's address (`WP_HOME`, the probes' and WP-Cron's `Host`), the others redirect to it |
 | `plugins`, `themes` | `[]` | wordpress.org slugs, `<slug>` or `<slug> <version>` |
 | `languages` | `[]` | language packs for core, plugins and themes |
+| `objectCache.database` | `0` | the site's database in valkey-cache, which turns on the object cache; 0: off |
 | `reloader` | `true` | the Reloader annotation; needs the namespace in Reloader's list |
 | `phpFpm.pool` | `{}` | `pm.*` settings, e.g. `max_children: 6`; empty: the image's five workers |
 | `phpFpm.resources` | 128Mi / 512Mi | the php-fpm container's memory |
@@ -137,6 +139,20 @@ A site's `values.yaml` also names, in comments, the 1Password item behind every 
   shows the connection greyed out; the sender stays wp-admin's. Signing and DMARC are in
   [`../../../tofu/cloudflare/README.md`](../../../tofu/cloudflare/README.md) ("Sending through
   mailomat").
+- **An object cache in valkey-cache** (`objectCache.database`, `components/valkey-cache`):
+  WordPress keeps its query results in Valkey instead of asking MariaDB again on the next
+  request - for admin and visitors alike. Redis Object Cache's drop-in, through Predis (the image
+  has no phpredis), logged in as a user named after the site and restricted to its own database.
+  The chart brings everything: the plugin (added to `plugins.txt`), the drop-in (copied by the
+  init container `plugins` - the plugin's admin button is hidden under `DISALLOW_FILE_MODS`, and
+  the drop-in works without the plugin activated), the `WP_REDIS_*` constants, the password in
+  `web`, the namespace label valkey-cache's NetworkPolicy asks for, and the site's Valkey user as
+  the ExternalSecret `db-<n>` in `valkey-cache` (`templates/valkey-user.yaml`). Graceful
+  (`WP_REDIS_GRACEFUL`): while Valkey cannot be reached the site runs from its database, slower,
+  instead of showing an error page; what changes in that time misses the cache
+  ([`../../components/valkey-cache/README.md`](../../components/valkey-cache/README.md), "After a
+  cache outage"). Activating the plugin in wp-admin is optional (its status page); deactivating
+  it deletes the drop-in until the next start.
 - **The chart creates its namespace** (`templates/namespace.yaml`), against Helm's convention of
   `--create-namespace`: the sites' Applications carry the finalizer, and Argo CD never deletes a
   namespace it created through `CreateNamespace=true` - only one among the Application's own
@@ -199,6 +215,12 @@ running pods stay. A renamed or removed value changes in the same commit as ever
 - **A new WordPress major version** comes with the image tag (`7-php8.4-fpm`, two places in
   `templates/deployment.yaml`) - a chart change, for every site at once. The init container
   `plugins` runs the database update.
+- **Flushing the object cache** (stale data after a change made outside WordPress, e.g. in
+  phpMyAdmin) - FLUSHDB, on the site's own database only:
+  `kubectl --context d3strukt0r-prod-admin -n <site> exec deploy/web -c php-fpm -- php -r 'require "/var/www/html/wp-load.php"; var_dump(wp_cache_flush());'`
+- **Switching the object cache on**: its password (`components/valkey-cache`, "Adding an app"),
+  a free number in its database table, `objectCache.database` in the site's values. valkey-cache
+  restarts by itself when the site's user appears (Reloader).
 - **The pod hangs in an init container**: its log says which download failed
   (`kubectl --context d3strukt0r-prod-admin -n <site> logs deploy/web -c plugins`).
 

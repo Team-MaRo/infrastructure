@@ -14,6 +14,8 @@
 #   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=3icb7ypn2ub7bk7x2yzbwhkrfm&h=my.1password.com
 # 1Password "Mailomat | Prod | robines-portfolio" (the website's SMTP login at mailomat)
 #   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=u747dsojova7eol3x2ikl3qxm4&h=my.1password.com
+# 1Password "Valkey | Prod | robines-portfolio" (its user in valkey-cache)
+#   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=27cbbdterppy35hbjvjoivmmn4&h=my.1password.com
 #
 # The pool keeps the chart's defaults (2026-10-18): (512 MiB limit - ~140 opcache and master - ~100
 # headroom) / ~30 MB per worker (php-fpm's memory peak 22.5 MB) = 9, so the image's five fit; they
@@ -54,6 +56,10 @@ themes:
 
 languages:
   - de_CH
+
+# Database 1 in valkey-cache (components/valkey-cache).
+objectCache:
+  database: 1
 
 nginx:
   # Permissive like prod-old's, with the frames the site embeds (YouTube, Twitter).

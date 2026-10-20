@@ -59,4 +59,17 @@ variable at runtime, so each one carries the same set.
     define( 'WPMS_SMTP_AUTH', true );
     define( 'WPMS_SMTP_USER', getenv( 'SMTP_USERNAME' ) );
     define( 'WPMS_SMTP_PASS', getenv( 'SMTP_PASSWORD' ) );
+    {{- with .Values.objectCache.database }}
+    // The object cache in valkey-cache, the site's own database there (values objectCache),
+    // through Predis - the image has no phpredis. Graceful: while Valkey cannot be reached the
+    // site runs from its database, slower, instead of showing an error page; what changes in
+    // that time misses the cache (components/valkey-cache, "After a cache outage"). The init
+    // container installs the drop-in, so the plugin must not replace it.
+    define( 'WP_REDIS_CLIENT', 'predis' );
+    define( 'WP_REDIS_HOST', 'valkey-cache.valkey-cache.svc' );
+    define( 'WP_REDIS_PASSWORD', [ '{{ $.Release.Name }}', getenv( 'VALKEY_PASSWORD' ) ] );
+    define( 'WP_REDIS_DATABASE', {{ . }} );
+    define( 'WP_REDIS_GRACEFUL', true );
+    define( 'WP_REDIS_DISABLE_DROPIN_AUTOUPDATE', true );
+    {{- end }}
 {{- end -}}

@@ -13,6 +13,9 @@ data:
     {{- range .Values.plugins }}
     plugin {{ . }}
     {{- end }}
+    {{- if .Values.objectCache.database }}
+    plugin redis-cache
+    {{- end }}
     {{- range .Values.themes }}
     theme {{ . }}
     {{- end }}

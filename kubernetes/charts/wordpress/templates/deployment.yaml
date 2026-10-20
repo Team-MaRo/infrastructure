@@ -105,6 +105,11 @@ spec:
               mkdir -p plugins/s3-uploads mu-plugins
               fetch https://github.com/humanmade/S3-Uploads/releases/download/3.0.10/manual-install.zip plugins/s3-uploads
               cp /config/s3-uploads-hetzner.php mu-plugins/
+              {{- if .Values.objectCache.database }}
+              # Redis Object Cache's drop-in, which its admin button would install - hidden under
+              # DISALLOW_FILE_MODS. It works without the plugin activated.
+              cp plugins/redis-cache/includes/object-cache.php .
+              {{- end }}
               if wp core is-installed; then
                 wp core update-db
                 {{- with .Values.languages }}
