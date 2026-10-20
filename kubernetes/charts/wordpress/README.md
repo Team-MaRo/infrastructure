@@ -148,6 +148,16 @@ variable, stops the rendering with a message naming it.
   no dotfiles, nothing executable under uploads; security headers on every answer, a CSP only
   where the values give one. `absolute_redirect off` keeps nginx's own redirects on the site's
   address instead of `http://…:8081`.
+- **WordPress sees the visitor's address**: nginx takes it from Cloudflare's `CF-Connecting-IP`
+  (`real_ip_header`) and hands it to PHP as `REMOTE_ADDR` and as `X-Real-IP`, replacing
+  Traefik's, which is Cloudflare's own - Jetpack reads that one and locked arepazo's login page
+  for a Cloudflare node every visitor there shared (2026-10-21); WooCommerce records it with an
+  order. nginx's access log shows it too. Port 443 is open to everyone, so a client that skips
+  Cloudflare can set the header itself and choose the address plugins see; restricting 443 to
+  Cloudflare's ranges would close that.
+- **32k for the headers of a PHP response** (`fastcgi_buffer_size`; default 4k): logging out
+  through Zitadel redirects with the whole ID token in the URL and deletes a cookie per plugin,
+  which on arepazo ended in a 502 (`upstream sent too big header`).
 - **Patient probes.** Startup and readiness go through WordPress (`/robots.txt`), but wait 10 s
   and run every 30 s (readiness): under load PHP sometimes needs more than the 1 s default, and
   three slow answers in a row take the pod out of its Service - then wp-cron and visitors get no
