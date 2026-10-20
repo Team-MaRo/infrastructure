@@ -57,6 +57,37 @@ add_filter(
 add_action( 'openid-connect-generic-user-create', 'zitadel_apply_roles', 10, 2 );
 add_action( 'openid-connect-generic-update-user-using-current-claim', 'zitadel_apply_roles', 10, 2 );
 
+// The profile too: email (only a verified one) and names from Zitadel at every login - the plugin
+// sets them only when it creates the account, so a linked one would keep its old values.
+// WooCommerce's billing and shipping data stays the customer's own.
+function zitadel_apply_profile( $user, $user_claim ) {
+	$wanted = array(
+		'user_email'   => ! empty( $user_claim['email_verified'] ) ? (string) ( $user_claim['email'] ?? '' ) : '',
+		'first_name'   => (string) ( $user_claim['given_name'] ?? '' ),
+		'last_name'    => (string) ( $user_claim['family_name'] ?? '' ),
+		'display_name' => (string) ( $user_claim['name'] ?? '' ),
+	);
+	$changes = array();
+	foreach ( $wanted as $field => $value ) {
+		if ( '' !== $value && $value !== (string) $user->get( $field ) ) {
+			$changes[ $field ] = $value;
+		}
+	}
+	if ( array() === $changes ) {
+		return;
+	}
+	// No "your email was changed" mail to the old address at every sync, from the shared quota.
+	add_filter( 'send_email_change_email', '__return_false' );
+	$result = wp_update_user( array( 'ID' => $user->ID ) + $changes );
+	remove_filter( 'send_email_change_email', '__return_false' );
+	if ( is_wp_error( $result ) ) {
+		// Most likely the address belongs to another account; the login goes on with the old one.
+		error_log( sprintf( 'zitadel: profile of %s not updated: %s', $user->user_login, $result->get_error_message() ) );
+	}
+}
+add_action( 'openid-connect-generic-user-create', 'zitadel_apply_profile', 10, 2 );
+add_action( 'openid-connect-generic-update-user-using-current-claim', 'zitadel_apply_profile', 10, 2 );
+
 // Accounts come from Zitadel only: WordPress's and WooCommerce's own registration would create
 // them with a role Zitadel never gave.
 add_filter( 'pre_option_users_can_register', '__return_zero' );
