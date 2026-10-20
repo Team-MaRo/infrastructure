@@ -13,6 +13,8 @@
 #   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=gs5mn5w3sfbqsljokq3ukhjtjy&h=my.1password.com
 # 1Password "Mailomat | Prod | arepazo" (the website's SMTP login at mailomat)
 #   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=6ietzpx5jygsojtd5fiflvdlee&h=my.1password.com
+# 1Password "Valkey | Prod | arepazo" (its user in valkey-cache)
+#   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=liu2kovgpq7s6kuyhkpfrytnhm&h=my.1password.com
 
 # arepazo.ch redirects to www.arepazo.ch (WordPress does that). The certificate comes from the
 # arepazo Cloudflare account: the ClusterIssuer's arepazo solver answers for the zone.
@@ -68,6 +70,11 @@ languages:
   - de_CH
   - de_DE
   - es_ES
+
+# Database 2 in valkey-cache (components/valkey-cache). Without it, loading WordPress alone took
+# 834 database queries and every page 1.5-2 s (2026-10-20).
+objectCache:
+  database: 2
 
 phpFpm:
   # Pool size from the container's memory limit (2026-10-18): (1024 MiB limit - 128 opcache,

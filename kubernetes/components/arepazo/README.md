@@ -55,6 +55,9 @@ in the shared MariaDB, the uploads are in the bucket `d3strukt0r-prod-arepazo`
   unknown, so php-fpm now keeps a **slow log**: a request running longer than 2 s writes its PHP
   backtrace into php-fpm's log (`request_slowlog_timeout`, the chart's `files/php-fpm.conf`) -
   `{namespace="arepazo", container="php-fpm"} |= "slow"` in Grafana's Explore.
+- **Object cache in valkey-cache, database 2** (since 2026-10-20; the chart's "An object cache in
+  valkey-cache"): before it, loading WordPress alone took 834 database queries, and every page
+  1.5-2 s.
 - **Three languages.** wp-admin runs in `de_CH`, the shop in German, English and Spanish
   (Polylang); the init container installs `de_CH`, `de_DE` and `es_ES` for core, plugins and
   themes.
@@ -91,6 +94,7 @@ in the shared MariaDB, the uploads are in the bucket `d3strukt0r-prod-arepazo`
 | `secret/mariadb-apps/arepazo` | `password` (20 characters) | 1Password [`MariaDB | Prod | arepazo`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=373ezgwhdppj4dsxghr3aqcxpa&h=my.1password.com) |
 | `secret/arepazo-s3` | `access-key`, `secret-key` (read and write) | 1Password [`Hetzner | S3 | prod arepazo`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=t6onf7inzynbh6oqvdggcrdzoy&h=my.1password.com) |
 | `secret/arepazo-uploads-proxy-s3` | `access-key`, `secret-key` (read only) | 1Password [`Hetzner | S3 | prod arepazo uploads-proxy`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=gs5mn5w3sfbqsljokq3ukhjtjy&h=my.1password.com) |
+| `secret/valkey-apps/arepazo` | `password` (20 characters; its user in valkey-cache) | 1Password [`Valkey | Prod | arepazo`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=liu2kovgpq7s6kuyhkpfrytnhm&h=my.1password.com) |
 | `secret/arepazo-mailomat` | `username`, `password` (the SMTP user at mailomat) | 1Password [`Mailomat | Prod | arepazo`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=6ietzpx5jygsojtd5fiflvdlee&h=my.1password.com) (an E-Mail item, SMTP section) |
 
 A changed value reaches the pod through External Secrets (within five minutes, or at once with
