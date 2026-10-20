@@ -3,7 +3,8 @@
 What is inside Zitadel - everything the Helm values in `kubernetes/components/zitadel/` do not
 cover: the instance's default login and domain policies, token lifetimes and the organisation
 `D3strukt0r`'s domains, adopted in `imports.tf`; the groups webhook's action; and the project
-`Infrastructure` with its role and the apps of every admin UI and of kubectl. It reaches Zitadel at
+`Infrastructure` with its role and the apps of every admin UI and of kubectl; and a project
+per WordPress site ("WordPress sites"). It reaches Zitadel at
 `https://auth.d3strukt0r.dev` directly, no port-forward. How Zitadel itself runs on the cluster is
 in [`kubernetes/components/zitadel/README.md`](../../kubernetes/components/zitadel/README.md).
 
@@ -62,6 +63,46 @@ Shared rules, credentials and the state backend are in [`../README.md`](../READM
   "Eigenes Passwort setzen" in mailomat with a new 1Password value, the new line into the tfvars
   (the command in `terraform.tfvars.example`, which escapes what HCL reads specially), apply.
   The mailomat plan's 200 mails a month are shared with the websites.
+
+## WordPress sites
+
+Each WordPress site is a project of its own (`project_<site>.tf`), so who may log in to it is
+decided per site; the site logs in through the WordPress chart's OIDC support
+([`../../kubernetes/charts/wordpress/README.md`](../../kubernetes/charts/wordpress/README.md),
+"Login through Zitadel").
+
+- **Role check and project check on**: Zitadel refuses anyone without a role in the project, or
+  whose organisation neither owns nor was granted it, before WordPress is reached. Role
+  assertion puts the roles into userinfo, where WordPress reads them.
+- **A role per WordPress role**, `<site>:<wordpress-role>` (`robines-portfolio:administrator`,
+  `robines-portfolio:editor`): the site sets that role at every login and creates the WordPress
+  user at the first. Changing someone's role is changing their grant here (or in the console
+  for people of another organisation); it applies at their next login.
+- **A confidential app** (`OIDC_AUTH_METHOD_TYPE_BASIC`): the plugin has no PKCE. Its secret is
+  regenerated after creation and kept in 1Password and OpenBao only, like oauth2-proxy's.
+- The personal user gets `<site>:administrator`; other people of the organisation get a grant
+  by username once their user exists (human users are created in the console).
+
+### Adding a WordPress site
+
+1. `project_<site>.tf` after `project_robines_portfolio.tf`: project, roles, app (redirect URI
+   `https://<host>/wp-admin/admin-ajax.php?action=openid-connect-authorize`, post-logout URI the
+   site), grants. Plan, apply.
+2. Regenerate the app's secret - the one from creation is in the tofu state: console → Projects
+   → `<site>` → the app → Regenerate Secret. It is shown once.
+3. Into 1Password, then OpenBao (logged in with `bao login -method=oidc -no-print` against
+   `BAO_ADDR=https://openbao.d3strukt0r.dev`):
+
+   ```shell
+   op item create --account my.1password.com --vault Private --category password \
+     --title 'Zitadel | Prod | <site>' "password=<the regenerated client secret>" \
+     "client-id[text]=$(tofu output -raw <site>_client_id)" >/dev/null
+   jq -n --arg c "$(op item get 'Zitadel | Prod | <site>' --account my.1password.com --vault Private --fields password --reveal)" \
+     'if ($c|length)==0 then error("empty value - 1Password lookup failed") else {"client-secret":$c} end' \
+   | bao kv put secret/<site>-oidc -
+   ```
+4. The site's values: `oidc.clientId` and the `secrets` block for `OIDC_CLIENT_SECRET` (chart
+   README).
 
 ## Running it
 
