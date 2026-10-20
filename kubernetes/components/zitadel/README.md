@@ -75,10 +75,14 @@ is down, the UIs stay reachable by port-forward. Measured idle after the first s
     `registration`'s token and assigns the roles named in the metadata `registration-roles` of
     the user's organisation (`{"project": ..., "roles": [...]}`, written by `tofu/zitadel` next
     to its login policy) - to everyone created there, staff included. An organisation without
-    that entry gets nothing.
-    The call is asynchronous and retried, so the webhook being down blocks nobody's creation;
-    until it is back a new customer's first login to a site that checks roles is refused
-    (alert `ZitadelRegistrationWebhookDown`, `rules.yaml`). Its log has a line per user.
+    that entry gets nothing. The call is asynchronous, so the webhook being down blocks nobody's
+    creation - but Zitadel calls a target once and drops the event if that fails
+    (`internal/execution/worker.go`, v4.19.2). So the webhook also catches up at start and every
+    10 minutes: every human user of the organisations its token sees (only its own) who has no
+    role in the project gets the roles. Until then a new customer's first login to a site that
+    checks roles is refused (alert `ZitadelRegistrationWebhookDown`, `rules.yaml`). Its log has a
+    line per user, `caught up:` for the catch-up's. A user of another organisation is "not in an
+    organisation of ours" - the token cannot see them.
   - **A confirmed address**: `EMAIL_VERIFICATION=true` on the login page (`login.env`), whose
     default creates self-registered users unconfirmed and sends nothing. The mail goes through
     the instance's SMTP, from the shared mailomat quota.

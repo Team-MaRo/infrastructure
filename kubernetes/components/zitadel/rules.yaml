@@ -1,7 +1,7 @@
 ---
 # Alerts for the registration webhook (registration-webhook.yaml). While it is down, people who
-# register get no role, and a site that checks roles refuses their first login; Zitadel retries
-# the events, so they get it once the webhook is back.
+# register get no role, and a site that checks roles refuses their first login; Zitadel drops
+# the events, and the webhook's catch-up gives the roles within 10 minutes once it is back.
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
