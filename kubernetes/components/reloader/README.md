@@ -36,6 +36,15 @@ themselves (Gatus' config, Alertmanager's ntfy secret, Alloy, Argo CD's webhook 
   (`resource.customizations.ignoreDifferences.all` in
   [`../argocd/patches/argocd-cm.yaml`](../argocd/patches/argocd-cm.yaml)), so a restart is not
   drift.
+- **New Secrets count too** (`reloadOnCreate: true`): a Secret created after its workload
+  restarts it as well, not only a changed one. valkey-cache needs that - it loads an app's user,
+  the Secret `db-<n>` the app brings, only at start, and the first one appears when the app
+  switches the cache on. Only events after Reloader's own start count (`syncAfterRestart` off),
+  so restarting Reloader restarts nothing. Deleted Secrets stay ignored (`reloadOnDelete` off): a
+  restart would only make the pod fail on the missing Secret.
+- **Search mode** for a workload that mounts Secrets it cannot name in advance:
+  `reloader.stakater.com/search: "true"` on the workload restarts it for every Secret it mounts
+  that carries `reloader.stakater.com/match: "true"` - projected volumes included (valkey-cache).
 - **No restart without a real change**: Reloader compares a hash of the data, so External
   Secrets' refresh every five minutes with unchanged values restarts nothing.
 - **Jobs and CronJobs are ignored**: a changed Secret would otherwise start a CronJob's Job at once

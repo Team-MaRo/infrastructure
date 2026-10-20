@@ -9,6 +9,12 @@ reloader:
   # ignores that annotation (resource.customizations in components/argocd/patches/argocd-cm.yaml),
   # while an added variable would be reverted by self-heal and restart the app again.
   reloadStrategy: annotations
+  # A Secret created after the workload restarts it too, not only a changed one: valkey-cache
+  # loads an app's user (its Secret db-<n>) only at start, and the first one appears when the app
+  # switches the cache on. Only events after Reloader's own start count (syncAfterRestart stays
+  # off), so a Reloader restart restarts nothing. Deletions stay ignored: a restart would only make
+  # the pod fail on the missing Secret.
+  reloadOnCreate: true
   # Only these namespaces, each with a Role of its own - no ClusterRole that reads every Secret.
   # An app that wants its restarts adds its namespace here and the annotation on its workload
   # (README).
@@ -24,6 +30,7 @@ reloader:
     - phpmyadmin
     - robines-portfolio
     - tempo
+    - valkey-cache
     - wedding-manuele-robine
     - zitadel
   # A changed Secret would otherwise start a CronJob's Job at once and recreate Jobs.

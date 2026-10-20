@@ -1,0 +1,28 @@
+---
+# The cluster's shared cache, from kubernetes/components/valkey-cache: Valkey without a volume, a
+# database per app.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: valkey-cache
+  namespace: argocd
+  # Removing this file removes everything it deployed, namespace included; a cache holds nothing
+  # that must survive.
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Team-MaRo/infrastructure.git
+    targetRevision: master
+    path: kubernetes/components/valkey-cache
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: valkey-cache
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      # Not required here (no large CRDs); used for consistency.
+      - ServerSideApply=true

@@ -176,7 +176,7 @@ rule, 2026-10-02). Where a name cannot hold a hyphen, the hyphens become undersc
   - It is on apps whose data lives elsewhere or does not matter: `gatus`, `zitadel`,
     `oauth2-proxy`, `phpmyadmin`, `pgadmin`, `reloader`, `keel`, `wedding-manuele-robine`,
     `robines-portfolio`, `arepazo`, `kured`, `alloy`, `etcd-snapshots`, `cluster-rbac`, `tempo`,
-    `argocd-integrations`. A Postgres app's database and role stay when it goes
+    `argocd-integrations`, `valkey-cache`. A Postgres app's database and role stay when it goes
     (CloudNativePG's reclaim policies default to `retain`); a MariaDB app's objects set
     `cleanupPolicy: Skip`, since mariadb-operator's default is `Delete`.
   - **Never on an app that brings CRDs** (deleting a CRD deletes every object of its kind):
@@ -349,6 +349,7 @@ component); update it in the same change.
 | [`kubernetes/components/pgadmin/README.md`](kubernetes/components/pgadmin/README.md) | The shared PostgreSQL's web UI, its Zitadel login and configuration database |
 | [`kubernetes/components/reloader/README.md`](kubernetes/components/reloader/README.md) | Restarting apps when a Secret or ConfigMap they read at start changes |
 | [`kubernetes/components/trust-manager/README.md`](kubernetes/components/trust-manager/README.md) | The databases' CA certificates in the apps' namespaces |
+| [`kubernetes/components/valkey-cache/README.md`](kubernetes/components/valkey-cache/README.md) | The shared cache: a database per app, its users, adding an app |
 | [`kubernetes/components/keel/README.md`](kubernetes/components/keel/README.md) | Rolling out new images under floating tags, opting an app in |
 | [`kubernetes/components/wedding-manuele-robine/README.md`](kubernetes/components/wedding-manuele-robine/README.md) | The wedding website; its two TODOs; moving it from prod-old |
 | [`kubernetes/charts/wordpress/README.md`](kubernetes/charts/wordpress/README.md) | The WordPress chart every site uses: values, design, rolling out a chart change, adding a site |

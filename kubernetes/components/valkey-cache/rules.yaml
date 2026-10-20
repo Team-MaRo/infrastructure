@@ -1,0 +1,41 @@
+---
+# Alerts for valkey-cache. While it is down the WordPress sites keep running without it, only
+# slower (WP_REDIS_GRACEFUL, charts/wordpress). No alert on a full memory: a cache that evicts
+# its least used keys sits at maxmemory by design; the container's own memory is
+# kube-prometheus-stack's ContainerMemoryNearLimit.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: valkey-cache
+  annotations:
+    # The CRD comes with kube-prometheus-stack, another Application.
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  groups:
+    - name: valkey-cache
+      rules:
+        # The exporter answers but cannot reach Valkey, or the pod is not scraped at all.
+        - alert: ValkeyCacheDown
+          expr: redis_up{job="valkey-cache/valkey-cache"} == 0 or absent(up{job="valkey-cache/valkey-cache"} == 1)
+          for: 5m
+          labels:
+            severity: warning
+            namespace: valkey-cache
+          annotations:
+            summary: "valkey-cache does not answer."
+            description: >-
+              The WordPress sites run without their object cache, slower. Check the pod
+              (kubectl -n valkey-cache get pods) and its log (README, "Checking it"). If it
+              comes back without having restarted, restart it to empty it (README, "After a
+              cache outage").
+        # Connections refused because maxclients is reached.
+        - alert: ValkeyCacheRejectedConnections
+          expr: increase(redis_rejected_connections_total{job="valkey-cache/valkey-cache"}[5m]) > 0
+          labels:
+            severity: warning
+            namespace: valkey-cache
+          annotations:
+            summary: "valkey-cache refused {{ $value | humanize }} connections in 5 minutes."
+            description: >-
+              Valkey reached maxclients (10000 by default) - an app opening connections without
+              closing them. CLIENT LIST as the user exporter shows which one (README).

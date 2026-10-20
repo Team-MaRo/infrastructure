@@ -35,7 +35,7 @@ component is deleted.
 - **The finalizer is on apps whose data lives elsewhere or does not matter**: `gatus`,
   `zitadel`, `oauth2-proxy`, `phpmyadmin`, `pgadmin`, `reloader`, `keel`,
   `wedding-manuele-robine`, `robines-portfolio`, `arepazo`, `kured`, `alloy`,
-  `etcd-snapshots`, `cluster-rbac`, `argocd-integrations`, `tempo` (its traces are in S3). A Postgres app's database and role stay when it goes -
+  `etcd-snapshots`, `cluster-rbac`, `argocd-integrations`, `tempo` (its traces are in S3), `valkey-cache` (a cache). A Postgres app's database and role stay when it goes -
   CloudNativePG's `databaseReclaimPolicy` and `databaseRoleReclaimPolicy` default to `retain`;
   a MariaDB app's stay because its objects set `cleanupPolicy: Skip` (the operator's default is
   `Delete`).

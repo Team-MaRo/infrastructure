@@ -52,6 +52,7 @@ kubernetes/
 │       ├── reloader.yaml          # restarts apps on changed Secrets: chart pinned here, values in components/
 │       ├── trust-manager.yaml     # the databases' CAs in the apps' namespaces: chart pinned here
 │       ├── keel.yaml              # rolls out new images under floating tags: chart pinned here
+│       ├── valkey-cache.yaml      # the shared cache, a database per app
 │       ├── wedding-manuele-robine.yaml  # the wedding website
 │       ├── robines-portfolio.yaml  # the old WordPress portfolio: the WordPress chart and its values
 │       ├── arepazo.yaml       # the WooCommerce shop: the WordPress chart and its values
@@ -215,6 +216,16 @@ kubernetes/
     │   ├── namespace.yaml
     │   ├── external-secrets.yaml  # the ntfy URL for its notifications
     │   └── service-monitor.yaml
+    ├── valkey-cache/
+    │   ├── kustomization.yaml     # valkey.conf becomes the ConfigMap valkey-cache
+    │   ├── valkey.conf            # 192 MB, least recently used keys go, nothing on disk
+    │   ├── namespace.yaml
+    │   ├── external-secrets.yaml  # the users: default off, the exporter, one per app and database
+    │   ├── deployment.yaml        # one replica, pinned image, read-only, the exporter beside it
+    │   ├── service.yaml
+    │   ├── network-policy.yaml    # only labelled namespaces, metrics only from Prometheus
+    │   ├── pod-monitor.yaml
+    │   └── rules.yaml             # alerts: down, refused connections
     ├── wedding-manuele-robine/
     │   ├── kustomization.yaml
     │   ├── namespace.yaml         # exempt from restricted Pod Security (root images, TODO)
@@ -257,6 +268,7 @@ kubernetes/
 | [`reloader`](components/reloader/README.md) | Restarts apps when a Secret or ConfigMap they read at start changes |
 | [`trust-manager`](components/trust-manager/README.md) | The databases' CA certificates as ConfigMaps in the namespaces that ask for them |
 | [`keel`](components/keel/README.md) | Rolls out new images under floating tags without a commit |
+| [`valkey-cache`](components/valkey-cache/README.md) | The shared cache (Valkey): a database per app, the WordPress object cache |
 | [`wedding-manuele-robine`](components/wedding-manuele-robine/README.md) | The wedding website (moved from prod-old) |
 | [`robines-portfolio`](components/robines-portfolio/README.md) | The old WordPress portfolio at old.robines.space (moved from prod-old), from the WordPress chart |
 | [`arepazo`](components/arepazo/README.md) | The WooCommerce shop at www.arepazo.ch (moved from prod-old), from the WordPress chart |

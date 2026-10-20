@@ -1,0 +1,13 @@
+---
+# valkey-cache.valkey-cache.svc:6379 for the apps.
+apiVersion: v1
+kind: Service
+metadata:
+  name: valkey-cache
+spec:
+  selector:
+    app.kubernetes.io/name: valkey-cache
+  ports:
+    - name: valkey
+      port: 6379
+      targetPort: valkey

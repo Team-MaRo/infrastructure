@@ -1,0 +1,16 @@
+---
+# Valkey's figures from the exporter beside it (deployment.yaml): up, memory, clients, hits and
+# misses, evictions, keys per database. The job is valkey-cache/valkey-cache.
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: valkey-cache
+  annotations:
+    # The CRD comes with kube-prometheus-stack, another Application.
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: valkey-cache
+  podMetricsEndpoints:
+    - port: metrics

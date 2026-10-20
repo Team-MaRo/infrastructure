@@ -1,0 +1,28 @@
+---
+# Valkey only for the apps that use it: port 6379 from namespaces labelled
+# valkey.d3strukt0r.dev/cache (the WordPress chart sets it with the object cache), the exporter's
+# port from Prometheus. The ACLs would refuse everyone else anyway; this keeps them from even
+# trying. kube-router admits a node's own traffic regardless (components/kube-prometheus-stack).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: valkey-cache
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: valkey-cache
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              valkey.d3strukt0r.dev/cache: "true"
+      ports:
+        - port: valkey
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+      ports:
+        - port: metrics
