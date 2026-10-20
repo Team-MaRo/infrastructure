@@ -1,0 +1,41 @@
+---
+# A tighter limit for the registration page than Traefik's per-visitor one (20 a second, on every
+# route): Zitadel has no captcha, and every registration sends a confirmation mail from the
+# shared mail quota. 10 requests a minute per visitor, bursts of 20 - one registration takes a
+# handful (the page, its form submissions); grouped by CF-Connecting-IP like the global limit.
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: registration-rate-limit
+spec:
+  rateLimit:
+    average: 10
+    period: 1m
+    burst: 20
+    sourceCriterion:
+      requestHeaderName: CF-Connecting-IP
+---
+# The registration page alone, beside the chart's Ingress for the whole login page; Traefik
+# prefers the longer path.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: zitadel-login-register
+  annotations:
+    traefik.ingress.kubernetes.io/router.middlewares: zitadel_registration-rate-limit@kubernetescrd
+spec:
+  tls:
+    - hosts:
+        - auth.d3strukt0r.dev
+      secretName: auth-tls
+  rules:
+    - host: auth.d3strukt0r.dev
+      http:
+        paths:
+          - path: /ui/v2/login/register
+            pathType: Prefix
+            backend:
+              service:
+                name: zitadel-login
+                port:
+                  number: 3000

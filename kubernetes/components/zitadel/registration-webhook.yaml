@@ -1,0 +1,189 @@
+---
+# Gives people who register themselves their first role. Zitadel has no default role, and a site
+# whose project checks roles (tofu/zitadel, "WordPress sites") refuses a user without one. Zitadel
+# calls this webhook through an Actions v2 event execution (tofu/zitadel) whenever a user is
+# created; it reads the user back and assigns the roles their organisation's metadata
+# `registration-roles` names - so everyone created in such an organisation gets them, staff
+# included. tofu/zitadel writes that entry next to the organisation's login policy; an
+# organisation without one gets nothing.
+#
+# Asynchronous: Zitadel queues the event and retries a call that fails, so while the webhook is
+# down nobody is kept from being created; a new customer's first login is refused until the role
+# arrives. The answer of the API decides, not the call's content, so Zitadel's request signature
+# is not checked: a forged call can at most give a real member of such an organisation its roles.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: zitadel-registration
+data:
+  registration.py: |
+    import base64
+    import json
+    import urllib.error
+    import urllib.request
+    from http.server import BaseHTTPRequestHandler, HTTPServer
+
+    # Zitadel's API inside the cluster; it picks the instance by the host name.
+    API = "http://zitadel.zitadel.svc:8080"
+    HOST = "auth.d3strukt0r.dev"
+    # {"project": "<project ID>", "roles": ["<role key>", ...]}; the organisation owns the
+    # project or holds a grant for it with these roles.
+    METADATA_KEY = "registration-roles"
+
+
+    def call(method, body):
+        # Read at every call: the Secret is mounted, so a new token applies without a restart.
+        with open("/token/token") as f:
+            token = f.read().strip()
+        request = urllib.request.Request(
+            f"{API}/{method}",
+            data=json.dumps(body).encode(),
+            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json", "Host": HOST},
+        )
+        with urllib.request.urlopen(request, timeout=5) as response:
+            return json.load(response)
+
+
+    def assign(user_id):
+        user = call("zitadel.user.v2.UserService/GetUserByID", {"userId": user_id})["user"]
+        org = user["details"]["resourceOwner"]
+        metadata = call("zitadel.org.v2.OrganizationService/ListOrganizationMetadata", {"organizationId": org})
+        entry = next((m for m in metadata.get("metadata", []) if m["key"] == METADATA_KEY), None)
+        if entry is None:
+            return f"{user_id}: organisation {org} gives no roles"
+        grant = json.loads(base64.b64decode(entry["value"]))
+        try:
+            call(
+                "zitadel.authorization.v2.AuthorizationService/CreateAuthorization",
+                {"userId": user_id, "projectId": grant["project"], "organizationId": org, "roleKeys": grant["roles"]},
+            )
+        except urllib.error.HTTPError as e:
+            # Connect answers 409 when the user already has an authorization for the project.
+            if e.code != 409:
+                raise
+            return f"{user_id}: already has a role in {grant['project']}"
+        return f"{user_id}: {', '.join(grant['roles'])}"
+
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_POST(self):
+            length = int(self.headers.get("Content-Length", 0))
+            event = json.loads(self.rfile.read(length) or b"{}")
+            try:
+                print(assign(event["aggregateID"]), flush=True)
+                self.send_response(200)
+            except Exception as e:
+                # Any status from 400 on makes Zitadel retry the event later.
+                print(f"{event.get('aggregateID')}: failed: {e!r}", flush=True)
+                self.send_response(502)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+
+        def do_GET(self):
+            self.send_response(200)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+
+
+    HTTPServer(("", 8080), Handler).serve_forever()
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zitadel-registration
+  annotations:
+    # Python loads the script once; Reloader restarts the pod when the ConfigMap changes.
+    configmap.reloader.stakater.com/reload: zitadel-registration
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: zitadel-registration
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: zitadel-registration
+    spec:
+      securityContext:
+        # The image runs as root by default; nobody is enough for a script without files.
+        runAsUser: 65534
+        runAsGroup: 65534
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: zitadel-registration
+          # Pinned; only the standard library is used, so any Python 3 works.
+          image: docker.io/library/python:3.14.7-alpine3.24
+          command: ["python", "/app/registration.py"]
+          env:
+            # The root filesystem is read-only.
+            - name: PYTHONDONTWRITEBYTECODE
+              value: "1"
+            - name: PYTHONUNBUFFERED
+              value: "1"
+          ports:
+            - name: http
+              containerPort: 8080
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+          volumeMounts:
+            - name: script
+              mountPath: /app
+            - name: token
+              mountPath: /token
+              readOnly: true
+      volumes:
+        - name: script
+          configMap:
+            name: zitadel-registration
+        # The machine user's personal access token (external-secrets.yaml, once the machine user
+        # exists). Optional, so the pod runs without it; calls fail until it is there, and
+        # Zitadel retries them.
+        - name: token
+          secret:
+            secretName: zitadel-registration
+            optional: true
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: zitadel-registration
+spec:
+  # A fixed address next to the groups webhook's, left out of Zitadel's deny list
+  # (ZITADEL_HTTPCLIENT_DENYLIST in values.yaml) the same way; immutable once created.
+  clusterIP: 10.43.255.251
+  selector:
+    app.kubernetes.io/name: zitadel-registration
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+# Only Zitadel itself may call it.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: zitadel-registration
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: zitadel-registration
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: zitadel
+              app.kubernetes.io/component: start
+      ports:
+        - port: http

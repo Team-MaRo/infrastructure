@@ -16,7 +16,12 @@ resources:
   - external-secrets.yaml
   - certificates.yaml
   - groups-webhook.yaml
+  - registration-webhook.yaml
+  - registration-rate-limit.yaml
+  - rules.yaml
 
-# refreshInterval and the openbao store for every ExternalSecret here (shared/).
+# refreshInterval and the openbao store for every ExternalSecret here, the sync option for the
+# PrometheusRule (shared/).
 components:
   - ../../shared/external-secret-defaults
+  - ../../shared/monitoring-sync-options

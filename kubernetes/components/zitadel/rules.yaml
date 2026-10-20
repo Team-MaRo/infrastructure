@@ -1,0 +1,24 @@
+---
+# Alerts for the registration webhook (registration-webhook.yaml). While it is down, people who
+# register get no role, and a site that checks roles refuses their first login; Zitadel retries
+# the events, so they get it once the webhook is back.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: zitadel
+spec:
+  groups:
+    - name: zitadel
+      rules:
+        - alert: ZitadelRegistrationWebhookDown
+          expr: kube_deployment_status_replicas_available{namespace="zitadel", deployment="zitadel-registration"} == 0
+          for: 10m
+          labels:
+            severity: warning
+            namespace: zitadel
+          annotations:
+            summary: "Zitadel's registration webhook has no running pod."
+            description: >-
+              People who register now get no role until it is back (README, "Registration").
+              Check the pod: kubectl --context d3strukt0r-prod-admin -n zitadel get pods
+              -l app.kubernetes.io/name=zitadel-registration.

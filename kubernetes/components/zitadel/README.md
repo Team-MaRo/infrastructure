@@ -63,10 +63,27 @@ is down, the UIs stay reachable by port-forward. Measured idle after the first s
   [`tofu/zitadel/README.md`](../../../tofu/zitadel/README.md).
 - **Zitadel refuses to call private addresses** (`HTTPClient.DenyList`, for actions, identity
   providers and SMTP alike), which includes every Service. `ZITADEL_HTTPCLIENT_DENYLIST` in the
-  values replaces that list with the default entries and `10.0.0.0/8` split into 24 ranges that
-  leave out exactly `10.43.255.250`, the webhook Service's fixed `clusterIP` - the Kubernetes
-  API and every other Service stay unreachable from Zitadel. The target is checked against the
-  list when it is created, so the webhook is deployed before `tofu/zitadel` creates the target.
+  values replaces that list with the default entries and `10.0.0.0/8` split into 23 ranges that
+  leave out exactly `10.43.255.250` and `10.43.255.251`, the two webhook Services' fixed
+  `clusterIP`s - the Kubernetes API and every other Service stay unreachable from Zitadel. A
+  target is checked against the list when it is created, so a webhook is deployed before
+  `tofu/zitadel` creates its target.
+- **Registration**: an organisation that lets people register themselves (a shop's customers;
+  its own login policy in `tofu/zitadel`) needs three things Zitadel does not do on its own:
+  - **A first role**, from `registration-webhook.yaml`: Zitadel calls it through an Actions v2
+    event execution whenever a user is created. It reads the user back with the machine user
+    `registration`'s token and assigns the roles named in the metadata `registration-roles` of
+    the user's organisation (`{"project": ..., "roles": [...]}`, written by `tofu/zitadel` next
+    to its login policy) - to everyone created there, staff included. An organisation without
+    that entry gets nothing.
+    The call is asynchronous and retried, so the webhook being down blocks nobody's creation;
+    until it is back a new customer's first login to a site that checks roles is refused
+    (alert `ZitadelRegistrationWebhookDown`, `rules.yaml`). Its log has a line per user.
+  - **A confirmed address**: `EMAIL_VERIFICATION=true` on the login page (`login.env`), whose
+    default creates self-registered users unconfirmed and sends nothing. The mail goes through
+    the instance's SMTP, from the shared mailomat quota.
+  - **A tighter rate limit** on `/ui/v2/login/register` (`registration-rate-limit.yaml`: its own
+    Ingress with 10 requests a minute per visitor, bursts of 20), since Zitadel has no captcha.
 - The license is AGPL-3.0; running it unmodified puts no obligation on the apps that log in
   through it.
 - **Traces** (`Instrumentation.Trace.Exporter` in `configmapConfig`): every request, as OTLP gRPC
