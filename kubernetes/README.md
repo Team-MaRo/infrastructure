@@ -179,8 +179,7 @@ kubernetes/
     │   ├── database.yaml          # its role and database, in the postgres namespace
     │   ├── external-secrets.yaml  # ntfy, the heartbeat token, the database password
     │   ├── service.yaml
-    │   ├── certificate.yaml       # status.d3strukt0r.dev
-    │   └── ingress.yaml           # public, no login
+    │   └── ingress.yaml           # status.d3strukt0r.dev, public, no login
     ├── phpmyadmin/
     │   ├── kustomization.yaml
     │   ├── namespace.yaml
