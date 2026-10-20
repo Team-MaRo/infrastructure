@@ -22,8 +22,9 @@ paths:
 - An app whose Application carries the finalizer brings its own `namespace.yaml` (never in
   `kube-system`); one that brings CRDs or volumes gets no finalizer - see "Pruning and the
   finalizer" in `kubernetes/components/argocd/README.md`.
-- A ServiceMonitor, PodMonitor or PrometheusRule outside kube-prometheus-stack carries the
-  sync option `SkipDryRunOnMissingResource=true`.
+- A ServiceMonitor, PodMonitor, PrometheusRule or ScrapeConfig carries the sync option
+  `SkipDryRunOnMissingResource=true` - from the Component
+  `kubernetes/shared/monitoring-sync-options` under `components:`, not in the object itself.
 - Secret values never go into git: they live in OpenBao (`bao kv put`) and arrive through an
   ExternalSecret against the `ClusterSecretStore` `openbao`, with `refreshInterval: 5m` - both
   from the Component `kubernetes/shared/external-secret-defaults` under `components:` in the

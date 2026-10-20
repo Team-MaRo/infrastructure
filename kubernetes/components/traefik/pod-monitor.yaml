@@ -6,9 +6,6 @@ apiVersion: monitoring.coreos.com/v1
 kind: PodMonitor
 metadata:
   name: traefik
-  annotations:
-    # The CRD comes with kube-prometheus-stack, another Application.
-    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 spec:
   selector:
     matchLabels:

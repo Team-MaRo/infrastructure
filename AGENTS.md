@@ -195,8 +195,9 @@ rule, 2026-10-02). Where a name cannot hold a hyphen, the hyphens become undersc
   templates actually read.
 - **Large CRDs need `ServerSideApply=true`** on the Application; operators that default fields
   in their objects need `ServerSideDiff=true`, or the app stays OutOfSync. A ServiceMonitor,
-  PodMonitor or PrometheusRule outside kube-prometheus-stack carries
-  `SkipDryRunOnMissingResource=true`, since its CRD belongs to another Application.
+  PodMonitor, PrometheusRule or ScrapeConfig carries `SkipDryRunOnMissingResource=true`, since
+  its CRD belongs to another Application: in a Kustomize directory through the shared Component
+  `kubernetes/shared/monitoring-sync-options` (under `components:`), in a Helm template itself.
 - **Every namespace runs the restricted Pod Security Standard** (see "Pod Security" below).
 - **Default resources come from Kyverno's LimitRange** (requests 50m CPU, 64Mi memory, 50Mi
   ephemeral storage; limits 128Mi memory, 1Gi ephemeral storage). **No CPU limits**, anywhere:
@@ -355,6 +356,7 @@ component); update it in the same change.
 | [`kubernetes/components/keel/README.md`](kubernetes/components/keel/README.md) | Rolling out new images under floating tags, opting an app in |
 | [`kubernetes/components/wedding-manuele-robine/README.md`](kubernetes/components/wedding-manuele-robine/README.md) | The wedding website; its two TODOs; moving it from prod-old |
 | [`kubernetes/shared/external-secret-defaults/README.md`](kubernetes/shared/external-secret-defaults/README.md) | The Kustomize Component giving every ExternalSecret its store and refresh interval |
+| [`kubernetes/shared/monitoring-sync-options/README.md`](kubernetes/shared/monitoring-sync-options/README.md) | The Kustomize Component giving every monitor and rule its Argo CD sync option |
 | [`kubernetes/charts/wordpress/README.md`](kubernetes/charts/wordpress/README.md) | The WordPress chart every site uses: values, design, rolling out a chart change, adding a site |
 | [`kubernetes/components/robines-portfolio/README.md`](kubernetes/components/robines-portfolio/README.md) | The old WordPress portfolio: its values for the WordPress chart and what is particular to it |
 | [`kubernetes/components/arepazo/README.md`](kubernetes/components/arepazo/README.md) | The WooCommerce shop: its values for the WordPress chart (private files, memory, languages) |

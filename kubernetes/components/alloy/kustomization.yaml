@@ -8,3 +8,7 @@ resources:
   - clusterrole.yaml
   - pod-monitor.yaml
   - rules.yaml
+
+# The sync option for every monitor and rule here (shared/).
+components:
+  - ../../shared/monitoring-sync-options

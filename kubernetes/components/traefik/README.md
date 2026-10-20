@@ -38,8 +38,9 @@ rebuild) the complete one.
   443. Its other entrypoints, metrics `:9100` and `:8080`, also open on the host but are closed by
   the Hetzner firewall. (node-exporter therefore listens on 9101, not its default 9100.)
 - **Its metrics** are scraped through a PodMonitor (`components/traefik/pod-monitor.yaml`, port
-  `metrics` 9100 on the host network), which carries `SkipDryRunOnMissingResource=true`, since
-  the CRD belongs to another Application.
+  `metrics` 9100 on the host network), which gets `SkipDryRunOnMissingResource=true` from the
+  shared Component `shared/monitoring-sync-options`, since the CRD belongs to another
+  Application.
 - **The access log records only failed and slow requests** (`accessLog` in
   `helmchartconfig.yaml`, user decision 2026-10-06): status 400-599 or over 2 s, as JSON on
   stdout, so Alloy ships it to Loki (30 days). Headers are dropped except `CF-Connecting-IP` (the

@@ -52,8 +52,8 @@ The databases' CA certificates are distributed by trust-manager, from the same p
 ## Metrics and alerts
 
 cert-manager's controller is scraped through a ServiceMonitor (`http-metrics` 9402); the
-monitor and the rules carry `SkipDryRunOnMissingResource=true`, since the CRD belongs to
-another Application. Alerts: `CertificateNotReady` (1 h), `CertificateRenewalOverdue` (2 days
+monitor and the rules get `SkipDryRunOnMissingResource=true` from the shared Component
+`shared/monitoring-sync-options`, since the CRD belongs to another Application. Alerts: `CertificateNotReady` (1 h), `CertificateRenewalOverdue` (2 days
 past the renewal time cert-manager set - independent of the lifetime) and
 `CertificateExpiringSoon` (under 7 days, critical).
 

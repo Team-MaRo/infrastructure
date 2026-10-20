@@ -1,0 +1,19 @@
+---
+# The Prometheus Operator's objects - ServiceMonitor, PodMonitor, PrometheusRule, ScrapeConfig -
+# have their CRDs from kube-prometheus-stack, another Application (or the same sync, for its own).
+# Without this sync option Argo CD's dry run fails while the CRD does not exist yet, at a
+# bootstrap, and the whole sync with it. A kustomization lists this under components:, and its
+# objects leave the annotation out (README).
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+patches:
+  - target:
+      kind: ServiceMonitor|PodMonitor|PrometheusRule|ScrapeConfig
+    patch: |-
+      apiVersion: monitoring.coreos.com/v1
+      kind: any
+      metadata:
+        name: any
+        annotations:
+          argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true

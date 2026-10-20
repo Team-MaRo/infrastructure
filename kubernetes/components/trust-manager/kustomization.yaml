@@ -10,3 +10,7 @@ resources:
   - ca-copies.yaml
   - bundles.yaml
   - service-monitor.yaml
+
+# The sync option for every monitor and rule here (shared/).
+components:
+  - ../../shared/monitoring-sync-options

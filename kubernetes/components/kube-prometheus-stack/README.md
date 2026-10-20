@@ -110,9 +110,9 @@ port-forwards stay the break-glass way in. The status page and alerting heartbea
   ServiceMonitor in `components/argocd-integrations/` (every Argo CD metrics Service has the
   `part-of: argocd` label and a `metrics` port), Kyverno through its chart's
   `serviceMonitor.enabled` per controller. Prometheus takes monitors from every namespace
-  without a release label (`*SelectorNilUsesHelmValues: false`). Each monitor or rule outside
-  kube-prometheus-stack carries `SkipDryRunOnMissingResource=true`, since the CRD belongs to
-  another Application. Alerts: `CertificateNotReady` (1 h), `CertificateRenewalOverdue` (2 days
+  without a release label (`*SelectorNilUsesHelmValues: false`). Each monitor or rule gets
+  `SkipDryRunOnMissingResource=true` from the shared Component `shared/monitoring-sync-options`,
+  since the CRD belongs to another Application (or, here, arrives in the same sync). Alerts: `CertificateNotReady` (1 h), `CertificateRenewalOverdue` (2 days
   past its renewal time), `CertificateExpiringSoon` (under 7 days, critical),
   `ArgoCDApplicationOutOfSync` and `ArgoCDApplicationUnhealthy` (30 min). Their dashboards come
   from grafana.com by revision (`grafana.dashboards` in the values, at the top level next to the

@@ -7,9 +7,6 @@ apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
   name: php-fpm
-  annotations:
-    # The CRD arrives with the chart in the same sync.
-    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 spec:
   groups:
     - name: php-fpm

@@ -50,5 +50,5 @@ certificate sat in `components/argocd/` until 2026-09-30, which would have broke
 - `rules.yaml` - the alerts `ArgoCDApplicationOutOfSync` and `ArgoCDApplicationUnhealthy`
   (30 min).
 
-Each monitor or rule outside kube-prometheus-stack carries
-`SkipDryRunOnMissingResource=true`, since the CRD belongs to another Application.
+Each monitor and rule gets `SkipDryRunOnMissingResource=true` from the shared Component
+`shared/monitoring-sync-options`, since the CRD belongs to another Application.

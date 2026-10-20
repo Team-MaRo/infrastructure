@@ -3,9 +3,6 @@ apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
   name: cert-manager
-  annotations:
-    # The CRD comes with kube-prometheus-stack, another Application.
-    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 spec:
   groups:
     - name: cert-manager

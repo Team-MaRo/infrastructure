@@ -29,6 +29,8 @@ patches:
           limits:
             memory: 256Mi
 
-# refreshInterval and the openbao store for every ExternalSecret here (shared/).
+# Shared settings (shared/): the openbao store and refresh for every ExternalSecret, the
+# sync option for every monitor and rule.
 components:
   - ../../shared/external-secret-defaults
+  - ../../shared/monitoring-sync-options

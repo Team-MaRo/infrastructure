@@ -64,7 +64,8 @@ kubernetes/
 ├── charts/                    # charts of our own, rendered from master
 │   └── wordpress/             # every WordPress site; the sites' values are in components/
 ├── shared/                    # Kustomize Components a component lists under components:
-│   └── external-secret-defaults/  # the openbao store and the 5m refresh for every ExternalSecret
+│   ├── external-secret-defaults/  # the openbao store and the 5m refresh for every ExternalSecret
+│   └── monitoring-sync-options/   # SkipDryRunOnMissingResource for every monitor and rule
 └── components/                # how each component is deployed, shared by clusters
     ├── argocd/                # pinned upstream install.yaml plus patches
     │   ├── kustomization.yaml

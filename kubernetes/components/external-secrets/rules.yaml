@@ -6,9 +6,6 @@ apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
   name: external-secrets
-  annotations:
-    # The CRD belongs to kube-prometheus-stack, another Application.
-    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 spec:
   groups:
     - name: external-secrets
