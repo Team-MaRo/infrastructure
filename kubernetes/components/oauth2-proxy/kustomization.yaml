@@ -9,7 +9,6 @@ kind: Kustomization
 resources:
   - namespace.yaml
   - external-secrets.yaml
-  - certificates.yaml
 
 # refreshInterval and the openbao store for every ExternalSecret here (shared/).
 components:

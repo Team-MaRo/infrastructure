@@ -11,14 +11,15 @@ namespace. Argo CD itself is [`../argocd/`](../argocd/README.md).
 
 **Nothing in `components/argocd/` may need another component's CRDs**: the bootstrap applies
 it to a fresh cluster before cert-manager, External Secrets or the Prometheus operator exist.
-Argo CD's certificate, its webhook secret and its ServiceMonitors are therefore
-`components/argocd-integrations/`, an Application of their own (with the finalizer). The
-certificate sat in `components/argocd/` until 2026-09-30, which would have broken a rebuild.
+Argo CD's webhook secret and its ServiceMonitors are therefore
+`components/argocd-integrations/`, an Application of their own (with the finalizer). Its
+certificate used to be here too (a `Certificate` needs cert-manager's CRD); since 2026-10-20
+cert-manager creates it from the annotation on Argo CD's own Ingress
+(`components/argocd/ingress.yaml`) - an annotation needs no CRD, so a fresh cluster applies it
+before cert-manager exists, and the certificate follows once cert-manager runs.
 
 ## What it holds
 
-- `certificate.yaml` - the certificate `argocd-tls` for `argocd.d3strukt0r.dev`, from the
-  ClusterIssuer `letsencrypt`.
 - `external-secrets.yaml` - the GitHub webhook secret, from OpenBao `secret/argocd-webhook`
   (1Password [`GitHub | infrastructure | Argo CD webhook`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=gknq7z4job2lgkcpzszvucaxay&h=my.1password.com)).
   `argocd-secret` carries only the reference `$argocd-webhook:github-secret`, and the Secret it

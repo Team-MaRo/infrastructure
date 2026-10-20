@@ -7,9 +7,8 @@ The secret store: one replica, Raft, a static seal from 1Password.
 0.29.6 = OpenBao 2.6.3) with values from `kubernetes/components/openbao/values.yaml` - a
 two-source Application, because OpenBao publishes only a chart. The pattern for Helm-only
 upstreams: chart pinned in the cluster's Application, values in `components/`. Besides the
-values, this directory holds the certificate for `openbao.d3strukt0r.dev`
-(`certificates.yaml`), the snapshot agent's S3 key (`external-secrets.yaml`) and its alert
-(`rules.yaml`).
+values, this directory holds the snapshot agent's S3 key (`external-secrets.yaml`) and its
+alert (`rules.yaml`).
 
 **Its configuration is `tofu/openbao`** - the `secret/` engine, Kubernetes auth, the External
 Secrets policy and role and the Zitadel login for admins; see
@@ -37,7 +36,8 @@ Secrets policy and role and the Zitadel login for admins; see
   short of memory ([`../priority-classes/README.md`](../priority-classes/README.md)).
 - The injector is off; secrets reach workloads through External Secrets.
 - **The UI and API are public at `https://openbao.d3strukt0r.dev`** (user decision; the chart's
-  Ingress, certificate from `components/openbao/certificates.yaml`, TLS ending at Traefik).
+  Ingress, its certificate created by cert-manager from the Ingress annotation in `values.yaml`,
+  TLS ending at Traefik).
   Every call still needs a token, but the login endpoints face the internet - the accepted
   trade-off for convenience.
 

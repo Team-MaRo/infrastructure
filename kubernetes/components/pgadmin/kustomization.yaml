@@ -11,7 +11,6 @@ resources:
   - external-secrets.yaml
   - deployment.yaml
   - service.yaml
-  - certificate.yaml
   - ingress.yaml
 
 # Hashed name: pgAdmin reads its config only at start, so a change must roll the pod.

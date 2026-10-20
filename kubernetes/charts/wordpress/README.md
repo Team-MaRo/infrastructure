@@ -26,7 +26,8 @@ named after the site:
 | `uploads-proxy` | `ghcr.io/nginxinc/nginx-s3-gateway/nginx-oss-s3-gateway:unprivileged-oss` | serves `/wp-content/uploads/` from the private bucket |
 | CronJob `wp-cron` | `curlimages/curl` | calls `http://web/wp-cron.php` every five minutes |
 
-Beside them: the Service and Ingress `web`, the Certificate `web-tls`, the ExternalSecrets `web`
+Beside them: the Service and Ingress `web` (cert-manager creates the Certificate `web-tls` from
+its annotation), the ExternalSecrets `web`
 and `uploads-proxy`, the PodMonitor `php-fpm`, and in the namespace `mariadb` the site's
 `Database`, `User`, `Grant` and the ExternalSecret `<site>-db` (`templates/database.yaml`).
 

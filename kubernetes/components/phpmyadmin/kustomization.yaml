@@ -11,7 +11,6 @@ resources:
   - external-secrets.yaml
   - deployment.yaml
   - service.yaml
-  - certificate.yaml
   - middleware-oauth2-proxy.yaml
   - ingress.yaml
 

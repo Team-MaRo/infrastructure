@@ -26,7 +26,7 @@ kubernetes/
 │       ├── root.yaml          # syncs this directory - itself and every sibling
 │       ├── private.yaml       # syncs Team-MaRo/infrastructure-private, what must not be public
 │       ├── argocd.yaml        # Argo CD managing its own installation
-│       ├── argocd-integrations.yaml  # its certificate, webhook secret, private repository access, monitors
+│       ├── argocd-integrations.yaml  # its webhook secret, private repository access, monitors
 │       ├── hcloud-csi.yaml    # persistent volumes
 │       ├── openbao.yaml       # the secret store: Helm chart pinned here, values in components/
 │       ├── external-secrets.yaml  # delivers OpenBao values as Kubernetes Secrets
@@ -74,15 +74,13 @@ kubernetes/
     │   └── patches/           # argocd-cm (Zitadel login), RBAC, plain HTTP, Dex removed, memory, webhook secret
     ├── argocd-integrations/   # what Argo CD needs from other components' CRDs
     │   ├── kustomization.yaml
-    │   ├── certificate.yaml   # argocd.d3strukt0r.dev
     │   └── external-secrets.yaml  # the GitHub webhook secret
     ├── hcloud-csi/            # Hetzner's CSI driver, pinned
     │   ├── kustomization.yaml
     │   └── patches/           # reclaimPolicy Retain, memory per container
     ├── openbao/
     │   ├── values.yaml        # Helm values: one replica, Raft storage, static seal, Ingress
-    │   ├── kustomization.yaml
-    │   └── certificates.yaml  # openbao.d3strukt0r.dev
+    │   └── kustomization.yaml
     ├── external-secrets/
     │   ├── values.yaml            # Helm values: memory
     │   ├── kustomization.yaml
@@ -113,7 +111,6 @@ kubernetes/
     │   ├── external-secrets.yaml  # ntfy URLs and token, Grafana's admin, from OpenBao
     │   ├── scrape-etcd.yaml       # etcd's metrics on the servers' private IPs
     │   ├── rules.yaml             # this cluster's own alerts
-    │   ├── certificates.yaml      # grafana., prometheus., alertmanager.d3strukt0r.dev
     │   └── middleware-oauth2-proxy.yaml  # the Zitadel gate for Prometheus and Alertmanager
     ├── loki/
     │   ├── values.yaml            # Helm values: one instance, S3, 30 days
@@ -157,8 +154,7 @@ kubernetes/
     ├── oauth2-proxy/
     │   ├── values.yaml            # Helm values: Zitadel, allowed group, cookie domain
     │   ├── kustomization.yaml
-    │   ├── external-secrets.yaml  # client and cookie secret from OpenBao
-    │   └── certificates.yaml      # oauth2-proxy.d3strukt0r.dev
+    │   └── external-secrets.yaml  # client and cookie secret from OpenBao
     ├── kubeelasti/
     │   └── values.yaml            # Helm values: Prometheus address, queue, timeout
     ├── cluster-rbac/
@@ -187,7 +183,6 @@ kubernetes/
     │   ├── external-secrets.yaml  # the control user's password
     │   ├── deployment.yaml        # one replica, pinned image, as www-data
     │   ├── service.yaml
-    │   ├── certificate.yaml       # phpmyadmin.d3strukt0r.dev
     │   ├── middleware-oauth2-proxy.yaml  # the Zitadel gate
     │   └── ingress.yaml
     ├── pgadmin/
@@ -199,7 +194,6 @@ kubernetes/
     │   ├── external-secrets.yaml  # the configuration database's URI, the internal user's password
     │   ├── deployment.yaml        # one replica, pinned image, no volume
     │   ├── service.yaml
-    │   ├── certificate.yaml       # pgadmin.d3strukt0r.dev
     │   └── ingress.yaml           # no gate: pgAdmin logs in through Zitadel itself
     ├── reloader/
     │   ├── values.yaml            # Helm values: annotations strategy, watched namespaces, securityContext
@@ -235,7 +229,7 @@ kubernetes/
     │   ├── external-secrets.yaml  # app secrets, database URL, S3 key, JWT keys, Maps key
     │   ├── api.yaml               # the Symfony API and its Service
     │   ├── pwa.yaml               # the website and its Service
-    │   └── ingresses.yaml         # certificates and Ingresses for the four names
+    │   └── ingresses.yaml         # Ingresses for the four names
     ├── robines-portfolio/
     │   └── values.yaml            # the WordPress chart's values: old.robines.space, its plugins
     └── arepazo/
@@ -245,7 +239,7 @@ kubernetes/
 | Component | What it is |
 |---|---|
 | [`argocd`](components/argocd/README.md) | Argo CD managing its own installation; pruning, bootstrap, upgrades, its UI |
-| [`argocd-integrations`](components/argocd-integrations/README.md) | Argo CD's certificate, webhook secret and metrics monitors |
+| [`argocd-integrations`](components/argocd-integrations/README.md) | Argo CD's webhook secret and metrics monitors |
 | [`hcloud-csi`](components/hcloud-csi/README.md) | Persistent volumes on Hetzner Volumes; released volumes |
 | [`openbao`](components/openbao/README.md) | The secret store: seal, recovery keys, snapshots, restore |
 | [`external-secrets`](components/external-secrets/README.md) | Delivers OpenBao values as Kubernetes Secrets |
