@@ -88,6 +88,16 @@ is down, the UIs stay reachable by port-forward. Measured idle after the first s
     the instance's SMTP, from the shared mailomat quota.
   - **A tighter rate limit** on `/ui/v2/login/register` (`registration-rate-limit.yaml`: its own
     Ingress with 10 requests a minute per visitor, bursts of 20), since Zitadel has no captcha.
+  - **The token is as strong as a shop admin's password**: `ORG_USER_MANAGER` may give any
+    role the project grant offers, `arepazo:administrator` included, and a token has no scope
+    of its own (accepted 2026-10-21: it sits only where whoever reads it already holds
+    Zitadel's masterkey and the shop's database - 1Password, OpenBao, the Secret here). No
+    expiry, since an expired token would silently stop the roles. **If it may have leaked**:
+    console → Organization `Arepazo` → Users → Service Users → `registration` → Personal
+    Access Tokens, delete it (ID in 1Password's `token-id` field), make a new one and put it in
+    with `tofu/zitadel` README "Adding a WordPress site", step 5 (with `op item edit` instead of
+    `op item create`); the webhook reads it at the next call. Then check Arepazo's role
+    assignments for roles nobody gave.
 - The license is AGPL-3.0; running it unmodified puts no obligation on the apps that log in
   through it.
 - **Traces** (`Instrumentation.Trace.Exporter` in `configmapConfig`): every request, as OTLP gRPC

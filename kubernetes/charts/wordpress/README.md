@@ -256,19 +256,30 @@ normal form. The site's project and app are in `tofu/zitadel` (`project_<site>.t
   Zitadel, its password only in 1Password, for when Zitadel is down. It logs in with the form.
 - **A linked account logs in through Zitadel only** (`files/oidc.php`): the password form refuses
   it with a hint to the button, it gets no password reset (not even through a link sent
-  before; WordPress's and WooCommerce's reset forms answer that it lives in Zitadel, under
-  "Forgot password" behind the login button), and its profile offers no new password - "Lost
+  before; WordPress's and WooCommerce's reset forms answer that it lives behind the login
+  button, under its login page's "Reset Password"), and its profile offers no new password - "Lost
   your password?" would otherwise let whoever reads its mailbox set one and get past Zitadel and
   its second factor. Its password is a random one nobody knows (the plugin sets
   one for new accounts; an account linked by hand gets one too, "Linking an existing account").
   Unlinked accounts - the break-glass administrator - keep the form and the reset. Jetpack's
   "Log in with WordPress.com" (its SSO module) is a way in of its own that none of this covers;
   whether a site offers it is its admin's choice.
-- **Who is linked shows in wp-admin**, read only: the profile page has a row "Zitadel user ID",
-  the user list a column "Zitadel" (also `files/oidc.php`) - an account without one logs in with
-  the form only. The plugin itself keeps the ID out of sight.
+- **Who is linked shows in wp-admin**, read only: the profile page has a row "OpenID Connect user
+  ID", the user list a column "OpenID Connect" (also `files/oidc.php`) - an account without one
+  logs in with the form only. The plugin itself keeps the ID out of sight.
 - **WooCommerce's login form** (My account, checkout) shows the button too and leads back to the
   page it was on.
+- **No text people see names Zitadel** (user decision, 2026-10-21) - buttons, messages, the
+  wp-admin row and column and the Must-Use plugin's name say "OpenID Connect". **They are
+  translated** into German and Spanish: `files/zitadel-login-de.l10n.php` and `-es.l10n.php`,
+  WordPress's PHP translation format (since 6.5, read like a `.mo`, plain text in git), one per
+  language whatever the country (`de` for `de_CH`/`de_DE`, `es` for arepazo's Polylang `es_VE`),
+  loaded from `mu-plugins/zitadel-login-languages/` - not `mu-plugins/` itself, where every
+  `.php` runs as a plugin. They are loaded at `init` and again at every `change_locale`: Polylang
+  holds translations back until it knows a page's language, then empties them and announces the
+  locale - loading only at `init` left shop pages in English. The plugin's own button text has
+  no translation upstream, so the mu-plugin translates it. A new text gets its entry in every
+  file; a new language is one file and its ConfigMap key (`templates/configmap.yaml`).
 
 ### Registration in Zitadel
 

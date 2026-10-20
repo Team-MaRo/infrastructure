@@ -1,10 +1,32 @@
 <?php
 /**
- * Plugin Name: Login through Zitadel
- * Description: What the plugin OpenID Connect Generic Client does not do itself: the WordPress role
- * from the Zitadel role, refusing unverified email addresses, and PKCE. Its settings are
- * constants in WORDPRESS_CONFIG_EXTRA (charts/wordpress, README "Login through Zitadel").
+ * Plugin Name: Login through OpenID Connect
+ * Description: Roles and profile from the identity provider, verified addresses only, PKCE.
  */
+
+// What the plugin OpenID Connect Generic Client does not do itself, for the login through Zitadel.
+// Its settings are constants in WORDPRESS_CONFIG_EXTRA (charts/wordpress, README "Login through
+// Zitadel"). No text people see names Zitadel - only "OpenID Connect" (user decision,
+// 2026-10-21); the translations are in zitadel-login-languages/ (files/zitadel-login-*.l10n.php).
+// One file per language, whatever the country: Polylang's Spanish is es_VE, the site's German
+// de_CH. Loaded again at every locale change: Polylang blocks loading until it knows a page's
+// language, then empties all translations and announces the new locale.
+function zitadel_load_texts( $locale = null ) {
+	$language = substr( $locale ? $locale : determine_locale(), 0, 2 );
+	unload_textdomain( 'zitadel-login' );
+	load_textdomain( 'zitadel-login', WPMU_PLUGIN_DIR . "/zitadel-login-languages/zitadel-login-$language.mo" );
+}
+add_action( 'init', 'zitadel_load_texts' );
+add_action( 'change_locale', 'zitadel_load_texts' );
+
+// The plugin's button keeps its English text, in our translations; a button that brings its own
+// text (Create an account) passes through the same filter unchanged.
+add_filter(
+	'openid-connect-generic-login-button-text',
+	function ( $text ) {
+		return 'Login with OpenID Connect' === $text ? __( 'Login with OpenID Connect', 'zitadel-login' ) : $text;
+	}
+);
 
 // The roles are Zitadel's alone: every role of this site's project, `<site>:<wordpress-role>`,
 // whose WordPress role exists here - whatever WordPress or a plugin brings, no list to keep.
@@ -105,7 +127,7 @@ function zitadel_button( $text, $scope = OIDC_CLIENT_SCOPE ) {
 add_action(
 	'woocommerce_login_form_end',
 	function () {
-		echo zitadel_button( __( 'Login with OpenID Connect', 'daggerhart-openid-connect-generic' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- the plugin's own markup.
+		echo zitadel_button( __( 'Login with OpenID Connect', 'zitadel-login' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- the plugin's own markup.
 	}
 );
 {{- with .Values.oidc.registerOrganisation }}
@@ -202,10 +224,10 @@ function zitadel_linked_id( $user_id ) {
 function zitadel_profile_row( $user ) {
 	$id = zitadel_linked_id( $user->ID );
 	?>
-	<h2><?php esc_html_e( 'Zitadel', 'zitadel-login' ); ?></h2>
+	<h2><?php esc_html_e( 'OpenID Connect', 'zitadel-login' ); ?></h2>
 	<table class="form-table" role="presentation">
 		<tr>
-			<th><?php esc_html_e( 'Zitadel user ID', 'zitadel-login' ); ?></th>
+			<th><?php esc_html_e( 'OpenID Connect user ID', 'zitadel-login' ); ?></th>
 			<td><?php echo $id ? '<code>' . esc_html( $id ) . '</code>' : esc_html__( 'Not linked - logs in with the password form only.', 'zitadel-login' ); ?></td>
 		</tr>
 	</table>
@@ -217,7 +239,7 @@ add_action( 'edit_user_profile', 'zitadel_profile_row' );
 add_filter(
 	'manage_users_columns',
 	function ( $columns ) {
-		$columns['zitadel'] = __( 'Zitadel', 'zitadel-login' );
+		$columns['zitadel'] = __( 'OpenID Connect', 'zitadel-login' );
 		return $columns;
 	}
 );
@@ -258,7 +280,7 @@ add_filter(
 	'wp_authenticate_user',
 	function ( $user ) {
 		if ( $user instanceof WP_User && zitadel_linked_id( $user->ID ) ) {
-			return new WP_Error( 'zitadel_only', __( 'This account logs in with Zitadel - use the button above.', 'zitadel-login' ) );
+			return new WP_Error( 'zitadel_only', __( 'This account logs in with OpenID Connect - use "Login with OpenID Connect".', 'zitadel-login' ) );
 		}
 		return $user;
 	}
@@ -266,7 +288,7 @@ add_filter(
 // The password lives in Zitadel, so its reset does too; the message says where, instead of
 // WordPress's bare "not allowed" (WordPress and WooCommerce show the error's text).
 function zitadel_reset_error() {
-	return new WP_Error( 'zitadel_only', __( 'This account logs in with Zitadel - use "Login with OpenID Connect" and choose "Forgot password" there.', 'zitadel-login' ) );
+	return new WP_Error( 'zitadel_only', __( 'This account logs in with OpenID Connect - use "Login with OpenID Connect" and choose "Reset Password" there.', 'zitadel-login' ) );
 }
 add_filter(
 	'allow_password_reset',

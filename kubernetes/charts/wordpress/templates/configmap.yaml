@@ -33,4 +33,8 @@ data:
   {{- if .Values.oidc.clientId }}
   oidc.php: |
     {{- tpl (.Files.Get "files/oidc.php") . | nindent 4 }}
+  zitadel-login-de.l10n.php: |
+    {{- .Files.Get "files/zitadel-login-de.l10n.php" | nindent 4 }}
+  zitadel-login-es.l10n.php: |
+    {{- .Files.Get "files/zitadel-login-es.l10n.php" | nindent 4 }}
   {{- end }}

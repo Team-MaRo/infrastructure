@@ -107,6 +107,10 @@ spec:
               cp /config/s3-uploads-hetzner.php mu-plugins/
               {{- if .Values.oidc.clientId }}
               cp /config/oidc.php mu-plugins/
+              # Its translations, one per language, in a directory of their own: every .php
+              # directly in mu-plugins/ would run as a plugin.
+              mkdir -p mu-plugins/zitadel-login-languages
+              cp /config/zitadel-login-*.l10n.php mu-plugins/zitadel-login-languages/
               {{- end }}
               {{- if .Values.objectCache.database }}
               # Redis Object Cache's drop-in, which its admin button would install - hidden under
