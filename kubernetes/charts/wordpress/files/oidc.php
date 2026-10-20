@@ -263,10 +263,15 @@ add_filter(
 		return $user;
 	}
 );
+// The password lives in Zitadel, so its reset does too; the message says where, instead of
+// WordPress's bare "not allowed" (WordPress and WooCommerce show the error's text).
+function zitadel_reset_error() {
+	return new WP_Error( 'zitadel_only', __( 'This account logs in with Zitadel - use "Login with OpenID Connect" and choose "Forgot password" there.', 'zitadel-login' ) );
+}
 add_filter(
 	'allow_password_reset',
 	function ( $allowed, $user_id ) {
-		return zitadel_linked_id( $user_id ) ? false : $allowed;
+		return zitadel_linked_id( $user_id ) ? zitadel_reset_error() : $allowed;
 	},
 	10,
 	2
@@ -277,7 +282,7 @@ add_action(
 	'validate_password_reset',
 	function ( $errors, $user ) {
 		if ( $user instanceof WP_User && zitadel_linked_id( $user->ID ) ) {
-			$errors->add( 'zitadel_only', __( 'This account logs in with Zitadel - use the button above.', 'zitadel-login' ) );
+			$errors->add( 'zitadel_only', zitadel_reset_error()->get_error_message() );
 		}
 	},
 	10,

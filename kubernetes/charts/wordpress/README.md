@@ -256,9 +256,10 @@ normal form. The site's project and app are in `tofu/zitadel` (`project_<site>.t
   Zitadel, its password only in 1Password, for when Zitadel is down. It logs in with the form.
 - **A linked account logs in through Zitadel only** (`files/oidc.php`): the password form refuses
   it with a hint to the button, it gets no password reset (not even through a link sent
-  before), and its profile offers no new
-  password - "Lost your password?" would otherwise let whoever reads its mailbox set one and get
-  past Zitadel and its second factor. Its password is a random one nobody knows (the plugin sets
+  before; WordPress's and WooCommerce's reset forms answer that it lives in Zitadel, under
+  "Forgot password" behind the login button), and its profile offers no new password - "Lost
+  your password?" would otherwise let whoever reads its mailbox set one and get past Zitadel and
+  its second factor. Its password is a random one nobody knows (the plugin sets
   one for new accounts; an account linked by hand gets one too, "Linking an existing account").
   Unlinked accounts - the break-glass administrator - keep the form and the reset. Jetpack's
   "Log in with WordPress.com" (its SSO module) is a way in of its own that none of this covers;
