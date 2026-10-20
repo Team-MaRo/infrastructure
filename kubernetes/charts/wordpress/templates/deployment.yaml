@@ -46,7 +46,7 @@ spec:
         # wp-config.php into the empty html volume - the image's own entrypoint, which exits after
         # installing when called as docker-ensure-installed.sh.
         - name: core
-          image: wordpress:7-php8.4-fpm
+          image: wordpress:7-php8.5-fpm
           imagePullPolicy: Always
           # Not under /var/www/html: the image declares that a VOLUME, so the runtime would put an
           # empty volume of its own there and the copy would never reach the pod's.
@@ -85,7 +85,7 @@ spec:
         # WordPress cannot fetch itself (DISALLOW_FILE_MODS). A failed language pack only leaves
         # English text, so it does not stop the start.
         - name: plugins
-          image: wordpress:cli-2-php8.4
+          image: wordpress:cli-2-php8.5
           imagePullPolicy: Always
           command:
             - sh
@@ -169,7 +169,7 @@ spec:
               readOnly: true
       containers:
         - name: php-fpm
-          image: wordpress:7-php8.4-fpm
+          image: wordpress:7-php8.5-fpm
           imagePullPolicy: Always
           # All containers get the stop signal at once, while Traefik still sends requests to the
           # pod for a moment; each keeps serving 10 s more, so the pod leaves the endpoints first.

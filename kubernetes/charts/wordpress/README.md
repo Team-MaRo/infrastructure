@@ -19,9 +19,9 @@ named after the site:
 
 | Container | Image | Does |
 |---|---|---|
-| init `core` | `wordpress:7-php8.4-fpm` | writes the CA bundle, copies WordPress core and writes `wp-config.php` into `html`, a directory it creates itself in the emptyDir - the image's `tar` exits 2 when it cannot set the target's permissions, as in the root-owned volume; the other containers mount `html` as a `subPath` |
-| init `plugins` | `wordpress:cli-2-php8.4` | installs the plugins and themes of the values and S3-Uploads; once the database holds the site, `wp core update-db` and the language packs |
-| `php-fpm` | `wordpress:7-php8.4-fpm` | runs WordPress |
+| init `core` | `wordpress:7-php8.5-fpm` | writes the CA bundle, copies WordPress core and writes `wp-config.php` into `html`, a directory it creates itself in the emptyDir - the image's `tar` exits 2 when it cannot set the target's permissions, as in the root-owned volume; the other containers mount `html` as a `subPath` |
+| init `plugins` | `wordpress:cli-2-php8.5` | installs the plugins and themes of the values and S3-Uploads; once the database holds the site, `wp core update-db` and the language packs |
+| `php-fpm` | `wordpress:7-php8.5-fpm` | runs WordPress |
 | `nginx` | `nginxinc/nginx-unprivileged:stable` | serves it on 8081 (`files/default.conf`), and php-fpm's pool figures on 9253 for Prometheus |
 | `uploads-proxy` | `ghcr.io/nginxinc/nginx-s3-gateway/nginx-oss-s3-gateway:unprivileged-oss` | serves `/wp-content/uploads/` from the private bucket |
 | CronJob `wp-cron` | `curlimages/curl` | calls `http://web/wp-cron.php` every five minutes |
@@ -388,9 +388,21 @@ running pods stay. A renamed or removed value changes in the same commit as ever
   in the database.
 - **A plugin release breaks the site** (a 500 with its path in the php-fpm log): pin the last good
   version (`<slug> <version>`). Every start installs the latest release otherwise.
-- **A new WordPress major version** comes with the image tag (`7-php8.4-fpm`, two places in
-  `templates/deployment.yaml`) - a chart change, for every site at once. The init container
-  `plugins` runs the database update.
+- **A new WordPress major or PHP version** comes with the image tags (`7-php8.5-fpm` twice and
+  `cli-2-php8.5` in `templates/deployment.yaml`) - a chart change, for every site at once. The
+  init container `plugins` runs the database update. Dump the sites' databases first (from the
+  replica; `kubectl --context d3strukt0r-prod-admin -n mariadb get mariadb mariadb -o
+  jsonpath='{.status.currentPrimary}'` names the primary), then watch every site's php-fpm log
+  for fatal errors - a plugin that breaks gets pinned or the tags go back:
+
+  ```shell
+  for db in $(kubectl --context d3strukt0r-prod-admin -n mariadb get databases.k8s.mariadb.com -o jsonpath='{.items[*].spec.name}'); do
+    kubectl --context d3strukt0r-prod-admin -n mariadb exec mariadb-0 -c mariadb -- sh -c "mariadb-dump -uroot -p\"\$MARIADB_ROOT_PASSWORD\" --single-transaction --routines --triggers --events --hex-blob $db" | gzip > "$db.sql.gz"
+  done
+  ```
+
+  PHP 8.5 since 2026-10-21 (WordPress calls 8.4 and 8.5 "beta support" until 10% of sites run
+  them; WooCommerce states 8.4).
 - **Flushing the object cache** (stale data after a change made outside WordPress, e.g. in
   phpMyAdmin) - FLUSHDB, on the site's own database only:
   `kubectl --context d3strukt0r-prod-admin -n <site> exec deploy/web -c php-fpm -- php -r 'require "/var/www/html/wp-load.php"; var_dump(wp_cache_flush());'`
