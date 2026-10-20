@@ -234,6 +234,13 @@ normal form. The site's project and app are in `tofu/zitadel` (`project_<site>.t
   normal form keeps working.
 - **A break-glass administrator** per site: a local account whose address belongs to nobody in
   Zitadel, its password only in 1Password, for when Zitadel is down. It logs in with the form.
+- **A linked account logs in through Zitadel only** (`files/oidc.php`): the password form refuses
+  it with a hint to the button, it gets no password reset (not even through a link sent
+  before), and its profile offers no new
+  password - "Lost your password?" would otherwise let whoever reads its mailbox set one and get
+  past Zitadel and its second factor. Its password is a random one nobody knows (the plugin sets
+  one for new accounts; an account linked by hand gets one too, "Linking an existing account").
+  Unlinked accounts - the break-glass administrator - keep the form and the reset.
 - **Who is linked shows in wp-admin**, read only: the profile page has a row "Zitadel user ID",
   the user list a column "Zitadel" (also `files/oidc.php`) - an account without one logs in with
   the form only. The plugin itself keeps the ID out of sight.
@@ -274,7 +281,13 @@ kubectl --context d3strukt0r-prod-admin -n "$SITE" exec deploy/web -c php-fpm --
 ```
 
 A number (the new row, first link) or `bool(true)` (changed) means linked; `bool(false)` means
-the value was already there. Someone without an account from before needs nothing: their first
+the value was already there. Then replace its old password with a random one nobody knows (the
+plugin does the same for new accounts) - it can no longer be used anyway, and so it is not left
+in a password manager either:
+
+```shell
+kubectl --context d3strukt0r-prod-admin -n "$SITE" exec deploy/web -c php-fpm -- php -r 'require "/var/www/html/wp-load.php"; $u = get_user_by("login", $argv[1]); wp_set_password(wp_generate_password(32, true, true), $u->ID); echo "ok\n";' "$LOGIN"
+``` Someone without an account from before needs nothing: their first
 login creates one.
 
 ## Sizing the pool

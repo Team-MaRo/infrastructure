@@ -164,3 +164,46 @@ add_filter(
 	},
 	98
 );
+
+// A linked account logs in through Zitadel only: the password form refuses it, it gets no
+// password reset ("Lost your password?" would otherwise let whoever reads its mailbox set one and
+// get past Zitadel and its second factor), and its profile offers no new password. Unlinked
+// accounts - the break-glass administrator - keep both. The login through Zitadel sets the session
+// itself and never passes these checks; application passwords are a mechanism of their own.
+add_filter(
+	'wp_authenticate_user',
+	function ( $user ) {
+		if ( $user instanceof WP_User && zitadel_linked_id( $user->ID ) ) {
+			return new WP_Error( 'zitadel_only', __( 'This account logs in with Zitadel - use the button above.', 'zitadel-login' ) );
+		}
+		return $user;
+	}
+);
+add_filter(
+	'allow_password_reset',
+	function ( $allowed, $user_id ) {
+		return zitadel_linked_id( $user_id ) ? false : $allowed;
+	},
+	10,
+	2
+);
+// WordPress checks allow_password_reset only when it creates a reset link; a link sent before (or
+// by another way) is refused here, when it is used.
+add_action(
+	'validate_password_reset',
+	function ( $errors, $user ) {
+		if ( $user instanceof WP_User && zitadel_linked_id( $user->ID ) ) {
+			$errors->add( 'zitadel_only', __( 'This account logs in with Zitadel - use the button above.', 'zitadel-login' ) );
+		}
+	},
+	10,
+	2
+);
+add_filter(
+	'show_password_fields',
+	function ( $show, $user ) {
+		return zitadel_linked_id( $user->ID ) ? false : $show;
+	},
+	10,
+	2
+);
