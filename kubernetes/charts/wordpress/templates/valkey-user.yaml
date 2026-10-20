@@ -28,6 +28,5 @@ spec:
   data:
     - secretKey: password
       remoteRef:
-        key: valkey-apps/{{ $.Release.Name }}
-        property: password
+        {{- include "wordpress.secretRef" (dict "secrets" $.Values.secrets "name" "VALKEY_PASSWORD") | nindent 8 }}
 {{- end }}

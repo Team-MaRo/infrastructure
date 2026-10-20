@@ -8,6 +8,40 @@
 {{- .Release.Name | replace "-" "_" -}}
 {{- end -}}
 
+{{/*
+An ExternalSecret's data from a list of blocks {key, env: {VARIABLE: property}} (values secrets).
+*/}}
+{{- define "wordpress.secretData" -}}
+{{- range . }}
+{{- $key := required "every secrets block needs a key" .key }}
+{{- range $name, $property := required (printf "the secrets block %s needs env" $key) .env }}
+- secretKey: {{ $name }}
+  remoteRef:
+    key: {{ $key }}
+    property: {{ $property }}
+{{- end }}
+{{- end }}
+{{- end -}}
+
+{{/*
+The remoteRef of one variable from values secrets, for the objects that need the same password
+outside the pod (the MariaDB user, the Valkey user). Fails when no block provides it.
+*/}}
+{{- define "wordpress.secretRef" -}}
+{{- $name := .name }}
+{{- $ref := dict }}
+{{- range .secrets }}
+{{- if hasKey (default dict .env) $name }}
+{{- $ref = dict "key" .key "property" (index .env $name) }}
+{{- end }}
+{{- end }}
+{{- if not $ref }}
+{{- fail (printf "no secrets block provides %s" $name) }}
+{{- end -}}
+key: {{ $ref.key }}
+property: {{ $ref.property }}
+{{- end -}}
+
 {{- define "wordpress.bucket" -}}
 d3strukt0r-prod-{{ .Release.Name }}
 {{- end -}}

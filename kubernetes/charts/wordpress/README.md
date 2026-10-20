@@ -32,14 +32,13 @@ and `uploads-proxy`, the PodMonitor `php-fpm`, and in the namespace `mariadb` th
 
 ## Names from the release
 
-The Application's name is the release name and the namespace; everything else follows from it,
-so the values never repeat it:
+The Application's name is the release name and the namespace; these follow from it, so the
+values never repeat them (the secrets do not - see "Secrets"):
 
 | What | Name |
 |---|---|
 | Database and its user | the name with `_` for `-` (`robines_portfolio`) |
 | Bucket | `d3strukt0r-prod-<site>` (`tofu/objectstorage`) |
-| OpenBao | `secret/<site>` (keys and salts), `secret/mariadb-apps/<site>`, `secret/<site>-s3`, `secret/<site>-uploads-proxy-s3`, `secret/<site>-mailomat`; with the object cache `secret/valkey-apps/<site>` |
 | Valkey user | the site's name, in its database `objectCache.database` |
 | PHP's configuration | `zz-<site>.ini`, `zz-<site>.conf` |
 
@@ -52,6 +51,8 @@ Only what differs between sites; `values.yaml` holds the defaults and says what 
 | `hosts` | (required) | the site's names; the first is WordPress's address (`WP_HOME`, the probes' and WP-Cron's `Host`), the others redirect to it |
 | `plugins`, `themes` | `[]` | wordpress.org slugs, `<slug>` or `<slug> <version>` |
 | `languages` | `[]` | language packs for core, plugins and themes |
+| `secrets` | `[]` | every secret of the WordPress containers: blocks of `key` and `env` ("Secrets") |
+| `uploadsProxy.secrets` | `[]` | the uploads proxy's key, the same way |
 | `objectCache.database` | `0` | the site's database in valkey-cache, which turns on the object cache; 0: off |
 | `reloader` | `true` | the Reloader annotation; needs the namespace in Reloader's list |
 | `phpFpm.pool` | `{}` | `pm.*` settings, e.g. `max_children: 6`; empty: the image's five workers |
@@ -62,8 +63,41 @@ Only what differs between sites; `values.yaml` holds the defaults and says what 
 | `nginx.deniedUploadPaths` | `[]` | directories under uploads nginx refuses (regular expressions) |
 | `ingress.middlewares` | `[]` | Traefik middlewares on the site's router |
 
-A site's `values.yaml` also names, in comments, the 1Password item behind every OpenBao value
-(title and link).
+## Secrets
+
+A site's values list every secret it reads, so the values show where each environment variable
+comes from - the chart derives none of them. One block per entry in the secret store, with the
+1Password item it comes from in a comment above it:
+
+```yaml
+secrets:
+  # 1Password "MariaDB | Prod | <site>"
+  #   https://start.1password.com/open/i?...
+  - key: mariadb-apps/<site>          # the entry (secret/mariadb-apps/<site> in OpenBao)
+    env:
+      WORDPRESS_DB_PASSWORD: password # environment variable: field
+```
+
+`key` and `property` are External Secrets' own words (`remoteRef`), the same for any store. A
+variable from an entry of its own is a block of one; several fields of one entry share a block.
+The blocks become the Secret `web`, which the containers `core`, `plugins` and `php-fpm` read as
+environment variables; `uploadsProxy.secrets` becomes the Secret `uploads-proxy` the same way.
+A new variable is one line in the site's values, no chart change.
+
+The chart itself relies on these names:
+
+| Variable | Read by |
+|---|---|
+| `WORDPRESS_DB_PASSWORD`, `WORDPRESS_AUTH_KEY` … `WORDPRESS_NONCE_SALT` | the WordPress image's `wp-config.php` |
+| `WORDPRESS_DB_PASSWORD` | also the MariaDB user's password (`templates/database.yaml`) - required |
+| `S3_KEY`, `S3_SECRET` | S3-Uploads (`getenv` in `WORDPRESS_CONFIG_EXTRA`) |
+| `SMTP_USERNAME`, `SMTP_PASSWORD` | WP Mail SMTP (`getenv` in `WORDPRESS_CONFIG_EXTRA`) |
+| `VALKEY_PASSWORD` | the object cache, and the Valkey user's password (`templates/valkey-user.yaml`) - required with `objectCache.database` |
+| `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` (`uploadsProxy.secrets`) | the uploads proxy |
+
+The MariaDB and Valkey users take their password from whichever block names that variable, so
+both sides always read the same value. A block without `key` or `env`, or a missing required
+variable, stops the rendering with a message naming it.
 
 ## Design
 
@@ -198,9 +232,9 @@ running pods stay. A renamed or removed value changes in the same commit as ever
 ### Adding a site
 
 1. Bucket and its two keys in `tofu/objectstorage`, the DNS records in `tofu/cloudflare`.
-2. OpenBao: the five entries from "Names from the release", each from a 1Password item.
-3. `kubernetes/components/<site>/values.yaml` (hosts, plugins, the 1Password references) and a
-   `README.md` with what is particular to it.
+2. Its secrets in OpenBao, each from a 1Password item.
+3. `kubernetes/components/<site>/values.yaml` (hosts, plugins, the secrets with their 1Password
+   items - "Secrets") and a `README.md` with what is particular to it.
 4. `kubernetes/clusters/prod/<site>.yaml`: an Application named after the site, copied from
    robines-portfolio's, with the finalizer. Its namespace into Reloader's list
    (`components/reloader`) unless `reloader: false`.

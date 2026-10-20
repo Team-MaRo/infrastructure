@@ -3,20 +3,6 @@
 # Cloudflare Worker), from the chart kubernetes/charts/wordpress (README). Only what differs from
 # the chart's defaults.
 #
-# The OpenBao values the chart reads (secret/robines-portfolio, …), and their 1Password items:
-# 1Password "Robines Portfolio CMS | Prod | App" (keys and salts, prod-old's)
-#   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=fkyq7sgplhkvasmf3aiwh2acge&h=my.1password.com
-# 1Password "MariaDB | Prod | robines-portfolio"
-#   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=swneckmu7nc3tkxv5c2njudv2q&h=my.1password.com
-# 1Password "Hetzner | S3 | prod robines-portfolio"
-#   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=j3phtimnb5zbwonzf655meqrb4&h=my.1password.com
-# 1Password "Hetzner | S3 | prod robines-portfolio uploads-proxy"
-#   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=3icb7ypn2ub7bk7x2yzbwhkrfm&h=my.1password.com
-# 1Password "Mailomat | Prod | robines-portfolio" (the website's SMTP login at mailomat)
-#   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=u747dsojova7eol3x2ikl3qxm4&h=my.1password.com
-# 1Password "Valkey | Prod | robines-portfolio" (its user in valkey-cache)
-#   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=27cbbdterppy35hbjvjoivmmn4&h=my.1password.com
-#
 # The pool keeps the chart's defaults (2026-10-18): (512 MiB limit - ~140 opcache and master - ~100
 # headroom) / ~30 MB per worker (php-fpm's memory peak 22.5 MB) = 9, so the image's five fit; they
 # have never all been busy. The limit leaves room for one request up to memory_limit's 256M beside
@@ -64,3 +50,52 @@ objectCache:
 nginx:
   # Permissive like prod-old's, with the frames the site embeds (YouTube, Twitter).
   contentSecurityPolicy: "default-src * data: 'unsafe-eval' 'unsafe-inline'; frame-src blob: 'self' https://platform.twitter.com https://www.youtube.com/ https://www.youtube-nocookie.com/; worker-src blob:"
+
+# Every secret the site reads: per entry in the secret store (key), which of its fields become
+# which environment variable (env), with the 1Password item the entry comes from. They reach the
+# WordPress containers through the Secret web (charts/wordpress, README "Secrets").
+secrets:
+  # 1Password "MariaDB | Prod | robines-portfolio"
+  #   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=swneckmu7nc3tkxv5c2njudv2q&h=my.1password.com
+  - key: mariadb-apps/robines-portfolio
+    env:
+      WORDPRESS_DB_PASSWORD: password
+  # 1Password "Robines Portfolio CMS | Prod | App" (keys and salts, prod-old's)
+  #   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=fkyq7sgplhkvasmf3aiwh2acge&h=my.1password.com
+  - key: robines-portfolio
+    env:
+      WORDPRESS_AUTH_KEY: auth-key
+      WORDPRESS_SECURE_AUTH_KEY: secure-auth-key
+      WORDPRESS_LOGGED_IN_KEY: logged-in-key
+      WORDPRESS_NONCE_KEY: nonce-key
+      WORDPRESS_AUTH_SALT: auth-salt
+      WORDPRESS_SECURE_AUTH_SALT: secure-auth-salt
+      WORDPRESS_LOGGED_IN_SALT: logged-in-salt
+      WORDPRESS_NONCE_SALT: nonce-salt
+  # 1Password "Hetzner | S3 | prod robines-portfolio" (writes the uploads)
+  #   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=j3phtimnb5zbwonzf655meqrb4&h=my.1password.com
+  - key: robines-portfolio-s3
+    env:
+      S3_KEY: access-key
+      S3_SECRET: secret-key
+  # 1Password "Mailomat | Prod | robines-portfolio" (the website's SMTP login at mailomat)
+  #   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=u747dsojova7eol3x2ikl3qxm4&h=my.1password.com
+  - key: robines-portfolio-mailomat
+    env:
+      SMTP_USERNAME: username
+      SMTP_PASSWORD: password
+  # 1Password "Valkey | Prod | robines-portfolio" (its user in valkey-cache)
+  #   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=27cbbdterppy35hbjvjoivmmn4&h=my.1password.com
+  - key: valkey-apps/robines-portfolio
+    env:
+      VALKEY_PASSWORD: password
+
+uploadsProxy:
+  # The uploads proxy's read-only key (Secret uploads-proxy).
+  secrets:
+    # 1Password "Hetzner | S3 | prod robines-portfolio uploads-proxy"
+    #   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=3icb7ypn2ub7bk7x2yzbwhkrfm&h=my.1password.com
+    - key: robines-portfolio-uploads-proxy-s3
+      env:
+        AWS_ACCESS_KEY_ID: access-key
+        AWS_SECRET_ACCESS_KEY: secret-key

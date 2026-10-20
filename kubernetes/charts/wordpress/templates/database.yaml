@@ -1,9 +1,8 @@
 ---
 # The site's database in the shared MariaDB. mariadb-operator requires a User, its password Secret,
 # a Grant and a Database to be in the MariaDB's namespace, so these objects live in mariadb
-# although this chart deploys them. The password comes from OpenBao
-# secret/mariadb-apps/{{ .Release.Name }} (its 1Password item is named in the site's values.yaml);
-# WordPress reads the same value in its own namespace.
+# although this chart deploys them. The password is the one WordPress reads as
+# WORDPRESS_DB_PASSWORD, from the entry the site's values name for it (secrets).
 #
 # cleanupPolicy Skip on all three: the operator's default (Delete) would drop the database and the
 # user when the site is removed.
@@ -20,8 +19,7 @@ spec:
   data:
     - secretKey: password
       remoteRef:
-        key: mariadb-apps/{{ .Release.Name }}
-        property: password
+        {{- include "wordpress.secretRef" (dict "secrets" .Values.secrets "name" "WORDPRESS_DB_PASSWORD") | nindent 8 }}
 ---
 # The collation the sites had on prod-old, so their dumps imported unchanged.
 apiVersion: k8s.mariadb.com/v1alpha1

@@ -11,6 +11,16 @@ themes: []
 # Language packs installed at every start, for core, plugins and themes. Empty: English only.
 languages: []
 
+# Every secret the WordPress containers read, as blocks: an entry in the secret store (key) and
+# which of its fields become which environment variable (env, VARIABLE: field). They become the
+# Secret web, read by core, plugins and php-fpm. Names the chart itself relies on (README
+# "Secrets"): WORDPRESS_DB_PASSWORD (also the MariaDB user's password), VALKEY_PASSWORD with the
+# object cache (also the Valkey user's), and what WORDPRESS_CONFIG_EXTRA reads with getenv.
+#   - key: mariadb-apps/<site>
+#     env:
+#       WORDPRESS_DB_PASSWORD: password
+secrets: []
+
 # WordPress's object cache in valkey-cache (components/valkey-cache): the site's database number
 # there, which no other app may hold (its README lists them). 0: no object cache.
 objectCache:
@@ -38,6 +48,11 @@ wpCli:
   resources:
     limits:
       memory: 256Mi
+
+uploadsProxy:
+  # The uploads proxy's key, the same way (the Secret uploads-proxy): AWS_ACCESS_KEY_ID and
+  # AWS_SECRET_ACCESS_KEY.
+  secrets: []
 
 nginx:
   # Sent as Content-Security-Policy; empty: no such header.

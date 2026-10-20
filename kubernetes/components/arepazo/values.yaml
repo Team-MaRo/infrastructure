@@ -1,20 +1,6 @@
 ---
 # arepazo, the WooCommerce shop at www.arepazo.ch, from the chart kubernetes/charts/wordpress
 # (README). Only what differs from the chart's defaults.
-#
-# The OpenBao values the chart reads (secret/arepazo, …), and their 1Password items:
-# 1Password "Arepazo CMS | Prod | App" (keys and salts, prod-old's)
-#   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=m5jimwowtt7z3zzkbldyzwpxsi&h=my.1password.com
-# 1Password "MariaDB | Prod | arepazo"
-#   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=373ezgwhdppj4dsxghr3aqcxpa&h=my.1password.com
-# 1Password "Hetzner | S3 | prod arepazo"
-#   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=t6onf7inzynbh6oqvdggcrdzoy&h=my.1password.com
-# 1Password "Hetzner | S3 | prod arepazo uploads-proxy"
-#   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=gs5mn5w3sfbqsljokq3ukhjtjy&h=my.1password.com
-# 1Password "Mailomat | Prod | arepazo" (the website's SMTP login at mailomat)
-#   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=6ietzpx5jygsojtd5fiflvdlee&h=my.1password.com
-# 1Password "Valkey | Prod | arepazo" (its user in valkey-cache)
-#   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=liu2kovgpq7s6kuyhkpfrytnhm&h=my.1password.com
 
 # arepazo.ch redirects to www.arepazo.ch (WordPress does that). The certificate comes from the
 # arepazo Cloudflare account: the ClusterIssuer's arepazo solver answers for the zone.
@@ -123,3 +109,52 @@ nginx:
     - facebook_for_woocommerce
     - wpcf7_uploads
     - wpforms/cache
+
+# Every secret the site reads: per entry in the secret store (key), which of its fields become
+# which environment variable (env), with the 1Password item the entry comes from. They reach the
+# WordPress containers through the Secret web (charts/wordpress, README "Secrets").
+secrets:
+  # 1Password "MariaDB | Prod | arepazo"
+  #   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=373ezgwhdppj4dsxghr3aqcxpa&h=my.1password.com
+  - key: mariadb-apps/arepazo
+    env:
+      WORDPRESS_DB_PASSWORD: password
+  # 1Password "Arepazo CMS | Prod | App" (keys and salts, prod-old's)
+  #   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=m5jimwowtt7z3zzkbldyzwpxsi&h=my.1password.com
+  - key: arepazo
+    env:
+      WORDPRESS_AUTH_KEY: auth-key
+      WORDPRESS_SECURE_AUTH_KEY: secure-auth-key
+      WORDPRESS_LOGGED_IN_KEY: logged-in-key
+      WORDPRESS_NONCE_KEY: nonce-key
+      WORDPRESS_AUTH_SALT: auth-salt
+      WORDPRESS_SECURE_AUTH_SALT: secure-auth-salt
+      WORDPRESS_LOGGED_IN_SALT: logged-in-salt
+      WORDPRESS_NONCE_SALT: nonce-salt
+  # 1Password "Hetzner | S3 | prod arepazo" (writes the uploads)
+  #   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=t6onf7inzynbh6oqvdggcrdzoy&h=my.1password.com
+  - key: arepazo-s3
+    env:
+      S3_KEY: access-key
+      S3_SECRET: secret-key
+  # 1Password "Mailomat | Prod | arepazo" (the website's SMTP login at mailomat)
+  #   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=6ietzpx5jygsojtd5fiflvdlee&h=my.1password.com
+  - key: arepazo-mailomat
+    env:
+      SMTP_USERNAME: username
+      SMTP_PASSWORD: password
+  # 1Password "Valkey | Prod | arepazo" (its user in valkey-cache)
+  #   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=liu2kovgpq7s6kuyhkpfrytnhm&h=my.1password.com
+  - key: valkey-apps/arepazo
+    env:
+      VALKEY_PASSWORD: password
+
+uploadsProxy:
+  # The uploads proxy's read-only key (Secret uploads-proxy).
+  secrets:
+    # 1Password "Hetzner | S3 | prod arepazo uploads-proxy"
+    #   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=gs5mn5w3sfbqsljokq3ukhjtjy&h=my.1password.com
+    - key: arepazo-uploads-proxy-s3
+      env:
+        AWS_ACCESS_KEY_ID: access-key
+        AWS_SECRET_ACCESS_KEY: secret-key
