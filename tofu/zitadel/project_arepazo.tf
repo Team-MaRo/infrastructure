@@ -85,8 +85,14 @@ resource "zitadel_application_oidc" "arepazo" {
   grant_types      = ["OIDC_GRANT_TYPE_AUTHORIZATION_CODE"]
   response_types   = ["OIDC_RESPONSE_TYPE_CODE"]
 
-  redirect_uris             = ["https://www.arepazo.ch/wp-admin/admin-ajax.php?action=openid-connect-authorize"]
-  post_logout_redirect_uris = ["https://www.arepazo.ch/wp-login.php?loggedout=true"]
+  redirect_uris = ["https://www.arepazo.ch/wp-admin/admin-ajax.php?action=openid-connect-authorize"]
+  # Where WordPress sends people after logging out: the login page from wp-admin, My account from
+  # WooCommerce's own logout. Zitadel takes only these exact addresses, so a translation of My
+  # account (Polylang) is one more entry.
+  post_logout_redirect_uris = [
+    "https://www.arepazo.ch/wp-login.php?loggedout=true",
+    "https://www.arepazo.ch/mein-konto/",
+  ]
 }
 
 output "arepazo_client_id" {

@@ -65,7 +65,10 @@ in the shared MariaDB, the uploads are in the bucket `d3strukt0r-prod-arepazo`
   `arepazo:shop_manager`), and the customers. **Customers register in Zitadel** ("Create an
   account" on the login page and on My account; WooCommerce's own registration is off) and get
   `arepazo:customer` from the registration webhook (`components/zitadel` README
-  "Registration"); their first login creates their WordPress account. The user's own account
+  "Registration"); their first login creates their WordPress account. Logging out returns to
+  the login page (from wp-admin) or to My account, `/mein-konto/` (WooCommerce's logout); the
+  app lists both, since Zitadel refuses any other address - a translated My account page needs
+  its address added in `project_arepazo.tf`. The user's own account
   `D3strukt0r` is linked to his Zitadel user by hand. **Break-glass: the local `admin`**
   (`info@arepazo.ch`, an address no Zitadel user has), its password in 1Password
   [`Arepazo CMS | Prod | Admin`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=5aankgyeyucb7h6wrqk4qegxoa&h=my.1password.com).
