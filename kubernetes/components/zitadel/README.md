@@ -175,6 +175,23 @@ such loops open upstream.
 Losing the admin's second factor is recovered with the `iam-admin` key, which holds the same
 instance rights and can remove the factor through the API.
 
+**"Unknown error occurred" after choosing an account** usually means the user has no role in
+the app's project - the role check refused them. The login page shows the generic message
+because Zitadel sends `Errors.User.GrantRequired` without a text for it (its log:
+`missing translation ... Errors.User.GrantRequired`; open upstream as
+[zitadel/zitadel#11101](https://github.com/zitadel/zitadel/issues/11101), v4.19.2 still).
+Zitadel's log names it:
+
+```shell
+kubectl --context d3strukt0r-prod-admin -n zitadel logs deploy/zitadel --since=15m | grep GrantRequired
+```
+
+Seen first with an Arepazo customer trying Argo CD (2026-10-21) - refused as intended.
+
+**"Sitzung für Benutzer konnte nicht erstellt werden"** ("could not create session for user")
+after entering a password is usually just a wrong password: Zitadel's log says
+`Password is invalid (COMMAND-3M0fs)` for it.
+
 ```shell
 kubectl --context d3strukt0r-prod-admin -n zitadel get pods,jobs,certificates,externalsecrets
 ```
