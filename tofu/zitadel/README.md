@@ -27,6 +27,10 @@ Shared rules, credentials and the state backend are in [`../README.md`](../READM
   2029-01-01). Human users stay in the console - their passwords and second factors are theirs.
   Kubernetes runs one `components/zitadel` however many organisations or instances exist; they
   are data in Zitadel, so per-tenant files belong in `tofu/zitadel`.
+- **Every project with an app sets `project_role_check = true`.** Since Arepazo lets strangers
+  register, a Zitadel account no longer means someone known; the role check is what keeps them
+  out of every app but the shop - Zitadel refuses the login before the app sees a token. An app
+  in a project without it admits every account of the instance.
 - **The `groups` claim comes from a webhook** (`components/zitadel/groups-webhook.yaml`, targets
   and executions in `tofu/zitadel/groups_claim.tf`). Zitadel sends roles only as a nested map,
   `urn:zitadel:iam:org:project:roles`, which Argo CD, OpenBao and oauth2-proxy cannot read; an
@@ -82,6 +86,20 @@ decided per site; the site logs in through the WordPress chart's OIDC support
   regenerated after creation and kept in 1Password and OpenBao only, like oauth2-proxy's.
 - The personal user gets `<site>:administrator`; other people of the organisation get a grant
   by username once their user exists (human users are created in the console).
+- **A site with its own people** (`project_arepazo.tf`): the shop arepazo's staff and customers
+  are in the organisation `Arepazo`, which its owner Eduardo runs. The project stays in ours and
+  is granted to Arepazo with all its roles (`zitadel_project_grant`), so Arepazo's owner gives
+  his people roles in the console (Granted projects) and none of them needs anything here.
+  - **Customers register themselves**: Arepazo's own login policy allows it - and requires no
+    second factor and never prompts for one, so a shopper needs no authenticator app. A policy
+    applies to the whole organisation, so staff are not forced either and should set one up
+    themselves. The site's "Create an account" button sends the shopper there (charts/wordpress
+    README "Registration in Zitadel").
+  - **Their first role**: the organisation's metadata `registration-roles`
+    (`{"project": ..., "roles": ["arepazo:customer"]}`) tells the registration webhook what every
+    new member gets; `registration.tf` has Zitadel call it when a user is created. Its machine
+    user `registration` is an `ORG_USER_MANAGER` of Arepazo and nothing else; its token is made
+    in the console ("Adding a WordPress site", step 5), never here.
 
 ### Adding a WordPress site
 
@@ -89,13 +107,14 @@ decided per site; the site logs in through the WordPress chart's OIDC support
    `https://<host>/wp-admin/admin-ajax.php?action=openid-connect-authorize`, post-logout URI
    `https://<host>/wp-login.php?loggedout=true`), grants. Plan, apply.
 2. Regenerate the app's secret - the one from creation is in the tofu state: console → Projects
-   → `<site>` → the app → Regenerate Secret. It is shown once.
+   → `<site>` → the app → Regenerate Secret. It is shown once; copy it and run step 3 straight
+   away, which takes it from the clipboard.
 3. Into 1Password, then OpenBao (logged in with `bao login -method=oidc -no-print` against
    `BAO_ADDR=https://openbao.d3strukt0r.dev`):
 
    ```shell
    op item create --account my.1password.com --vault Private --category password \
-     --title 'Zitadel | Prod | <site>' "password=<the regenerated client secret>" \
+     --title 'Zitadel | Prod | <site>' "password=$(pbpaste)" \
      "client-id[text]=$(cd ~/Projects/infrastructure/tofu/zitadel && tofu output -raw <site>_client_id)" >/dev/null
    jq -n --arg c "$(op item get 'Zitadel | Prod | <site>' --account my.1password.com --vault Private --fields password --reveal)" \
      'if ($c|length)==0 then error("empty value - 1Password lookup failed") else {"client-secret":$c} end' \
@@ -103,6 +122,24 @@ decided per site; the site logs in through the WordPress chart's OIDC support
    ```
 4. The site's values: `oidc.clientId` and the `secrets` block for `OIDC_CLIENT_SECRET` (chart
    README).
+5. Only for a site whose people register themselves, as arepazo: its organisation, login
+   policy, `registration-roles` and machine user as in `project_arepazo.tf`, and the site's
+   `oidc.registerOrganisation` (`tofu output -raw <site>_org_id`). The registration webhook has
+   one token, of the machine user in Arepazo; a second such organisation gives that user
+   `ORG_USER_MANAGER` there too (`zitadel_org_member`) instead of a user of its own. The token
+   was made once - console → Organization (`Arepazo`) → Users → Service Users → `registration`
+   → Personal Access Tokens → New, no expiry; shown once, copied, then from the clipboard:
+
+   ```shell
+   op item create --account my.1password.com --vault Private --category password \
+     --title 'Zitadel | Prod | registration token' "password=$(pbpaste)" >/dev/null
+   jq -n --arg t "$(op item get 'Zitadel | Prod | registration token' --account my.1password.com --vault Private --fields password --reveal)" \
+     'if ($t|length)==0 then error("empty value - 1Password lookup failed") else {"token":$t} end' \
+   | bao kv put secret/zitadel-registration -
+   ```
+
+   The ExternalSecret `zitadel-registration` (kubernetes/components/zitadel) brings it to the
+   webhook, which reads it at every call.
 
 ## Running it
 
