@@ -54,6 +54,7 @@ Only what differs between sites; `values.yaml` holds the defaults and says what 
 | `languages` | `[]` | language packs for core, plugins and themes |
 | `secrets` | `[]` | every secret of the WordPress containers: blocks of `key` and `env` ("Secrets") |
 | `uploadsProxy.secrets` | `[]` | the uploads proxy's key, the same way |
+| `oidc.clientId` | empty | the site's app in Zitadel, which turns on the login through Zitadel; empty: off |
 | `objectCache.database` | `0` | the site's database in valkey-cache, which turns on the object cache; 0: off |
 | `reloader` | `true` | the Reloader annotation; needs the namespace in Reloader's list |
 | `phpFpm.pool` | `{}` | `pm.*` settings, e.g. `max_children: 6`; empty: the image's five workers |
@@ -93,6 +94,7 @@ The chart itself relies on these names:
 | `WORDPRESS_DB_PASSWORD` | also the MariaDB user's password (`templates/database.yaml`) - required |
 | `S3_KEY`, `S3_SECRET` | S3-Uploads (`getenv` in `WORDPRESS_CONFIG_EXTRA`) |
 | `SMTP_USERNAME`, `SMTP_PASSWORD` | WP Mail SMTP (`getenv` in `WORDPRESS_CONFIG_EXTRA`) |
+| `OIDC_CLIENT_SECRET` | the login through Zitadel - required with `oidc.clientId` |
 | `VALKEY_PASSWORD` | the object cache, and the Valkey user's password (`templates/valkey-user.yaml`) - required with `objectCache.database` |
 | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` (`uploadsProxy.secrets`) | the uploads proxy |
 
@@ -186,8 +188,9 @@ variable, stops the rendering with a message naming it.
   (`WP_REDIS_GRACEFUL`): while Valkey cannot be reached the site runs from its database, slower,
   instead of showing an error page; what changes in that time misses the cache
   ([`../../components/valkey-cache/README.md`](../../components/valkey-cache/README.md), "After a
-  cache outage"). Activating the plugin in wp-admin is optional (its status page); deactivating
-  it deletes the drop-in until the next start.
+  cache outage"). The init container activates the plugin at every start (its status page under
+  Settings → Redis); deactivating it in wp-admin deletes the drop-in, and the next start puts
+  both back.
 - **The chart creates its namespace** (`templates/namespace.yaml`), against Helm's convention of
   `--create-namespace`: the sites' Applications carry the finalizer, and Argo CD never deletes a
   namespace it created through `CreateNamespace=true` - only one among the Application's own
@@ -196,6 +199,74 @@ variable, stops the rendering with a message naming it.
   failing on, or taking over, an existing namespace) does not apply.
 - **The ConfigMap keeps its name** (`web-config`); the pod template carries its checksum, so a
   changed file still rolls the pod.
+
+## Login through Zitadel
+
+With `oidc.clientId` set, wp-login.php offers a button to log in through Zitadel beside the
+normal form. The site's project and app are in `tofu/zitadel` (`project_<site>.tf`; README
+"WordPress sites"): Zitadel lets in only people with a role for the site.
+
+- **The plugin** OpenID Connect Generic Client (`daggerhart-openid-connect-generic`, added to
+  `plugins.txt` and activated by the init container at every start), configured entirely by `OIDC_*` constants in `WORDPRESS_CONFIG_EXTRA` - its
+  settings page shows them locked. The ID token's signature is checked against Zitadel's keys
+  (`OIDC_ENDPOINT_JWKS_URL`; without it the plugin would not check). Logging out of WordPress
+  ends the Zitadel session too.
+- **The role comes from Zitadel**: `files/oidc.php`, a must-use plugin, gives the WordPress role
+  named in the user's Zitadel role `<site>:<role>` (`robines-portfolio:administrator` ->
+  administrator; with several, administrator > shop_manager > editor > author > contributor >
+  subscriber) - at the first login, when it creates the user, and at every later one. Without
+  such a role, or with an address Zitadel has not verified, it refuses the login.
+- **People are recognised by Zitadel's `sub`**, the user ID, never by their email
+  (`OIDC_LINK_EXISTING_USERS` off): an organisation's admin can give a user any address and mark
+  it verified, and email linking would hand that user someone else's account. A new person gets
+  a new WordPress user; if their address is already taken by an account, WordPress refuses to
+  create it - that account is linked once by hand (below).
+- **PKCE**, which the plugin lacks, also in `files/oidc.php`: a verifier stored with the login's
+  state, its hash as the challenge, the verifier with the code. The app is confidential too
+  (client secret, `OIDC_CLIENT_SECRET`).
+- **The login's state lives in a WordPress transient** - in Valkey when the object cache is on.
+  While Valkey cannot be reached, a login through Zitadel fails with "Invalid state"; the
+  normal form keeps working.
+- **A break-glass administrator** per site: a local account whose address belongs to nobody in
+  Zitadel, its password only in 1Password, for when Zitadel is down. It logs in with the form.
+
+### Switching a site to the login through Zitadel
+
+1. **Zitadel**: the site's project, roles and app, and its secret in 1Password and OpenBao
+   (`tofu/zitadel`, README "Adding a WordPress site").
+2. **The existing WordPress users**, with their roles and addresses:
+
+   ```shell
+   kubectl --context d3strukt0r-prod-admin -n <site> exec deploy/web -c php-fpm -- php -r 'require "/var/www/html/wp-load.php"; foreach (get_users() as $u) printf("%s <%s> %s, %d posts\n", $u->user_login, $u->user_email, implode(",", $u->roles), count_user_posts($u->ID));'
+   ```
+3. **A decision for each**:
+   - **The break-glass administrator** stays local, logging in with the form. Its address must
+     belong to no Zitadel user, and its password is in 1Password.
+   - **Someone who keeps working on the site** gets a Zitadel user (in the right organisation)
+     and a grant with their role, and their account is linked (below) - otherwise their first
+     login through Zitadel finds no account with their ID, and WordPress refuses to create a
+     second one with their address.
+   - **An account nobody uses any more** is deleted in wp-admin, its content handed to someone.
+4. **The site's values**: `oidc.clientId` and the `secrets` block for `OIDC_CLIENT_SECRET`; push.
+5. **The links** (below), once the new pod runs.
+6. **Each linked person logs in through the button once**, and the break-glass administrator
+   with the form.
+
+### Linking an existing account
+
+The plugin recognises people only by their Zitadel user ID (`sub`), which it keeps on the
+WordPress account. An account from before Zitadel has none; linking writes it there once, so
+that person's logins through Zitadel land in their existing account - with its content,
+settings and history, and the role from Zitadel. The ID is in the console (Users → the user →
+User ID).
+
+```shell
+SITE=<site> LOGIN=<wordpress login> ZITADEL_ID=<zitadel user id>
+kubectl --context d3strukt0r-prod-admin -n "$SITE" exec deploy/web -c php-fpm -- php -r 'require "/var/www/html/wp-load.php"; $u = get_user_by("login", $argv[1]); if (!$u) exit(1); var_dump(update_user_option($u->ID, "openid-connect-generic-subject-identity", $argv[2], true));' "$LOGIN" "$ZITADEL_ID"
+```
+
+`bool(true)` means linked. Someone without an account from before needs nothing: their first
+login creates one.
 
 ## Sizing the pool
 

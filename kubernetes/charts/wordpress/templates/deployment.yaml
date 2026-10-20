@@ -105,6 +105,9 @@ spec:
               mkdir -p plugins/s3-uploads mu-plugins
               fetch https://github.com/humanmade/S3-Uploads/releases/download/3.0.10/manual-install.zip plugins/s3-uploads
               cp /config/s3-uploads-hetzner.php mu-plugins/
+              {{- if .Values.oidc.clientId }}
+              cp /config/oidc.php mu-plugins/
+              {{- end }}
               {{- if .Values.objectCache.database }}
               # Redis Object Cache's drop-in, which its admin button would install - hidden under
               # DISALLOW_FILE_MODS. It works without the plugin activated.
@@ -112,6 +115,15 @@ spec:
               {{- end }}
               if wp core is-installed; then
                 wp core update-db
+                # Activated whatever wp-admin says, at every start: the login through Zitadel must
+                # not depend on a click there, and Redis Object Cache deletes its drop-in when
+                # deactivated - whoever deactivated it, the next start puts both back.
+                {{- if .Values.oidc.clientId }}
+                wp plugin activate daggerhart-openid-connect-generic
+                {{- end }}
+                {{- if .Values.objectCache.database }}
+                wp plugin activate redis-cache
+                {{- end }}
                 {{- with .Values.languages }}
                 for l in {{ join " " . }}; do
                   wp language core install "$l" || echo "warning: $l for core not installed"

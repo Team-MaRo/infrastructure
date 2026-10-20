@@ -13,6 +13,9 @@ data:
     {{- range .Values.plugins }}
     plugin {{ . }}
     {{- end }}
+    {{- if .Values.oidc.clientId }}
+    plugin daggerhart-openid-connect-generic
+    {{- end }}
     {{- if .Values.objectCache.database }}
     plugin redis-cache
     {{- end }}
@@ -27,3 +30,7 @@ data:
     {{- tpl (.Files.Get "files/php-fpm.conf") . | nindent 4 }}
   s3-uploads-hetzner.php: |
     {{- .Files.Get "files/s3-uploads-hetzner.php" | nindent 4 }}
+  {{- if .Values.oidc.clientId }}
+  oidc.php: |
+    {{- tpl (.Files.Get "files/oidc.php") . | nindent 4 }}
+  {{- end }}

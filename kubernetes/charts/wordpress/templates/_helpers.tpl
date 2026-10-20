@@ -106,4 +106,23 @@ variable at runtime, so each one carries the same set.
     define( 'WP_REDIS_GRACEFUL', true );
     define( 'WP_REDIS_DISABLE_DROPIN_AUTOUPDATE', true );
     {{- end }}
+    {{- with .Values.oidc.clientId }}
+    // Login through Zitadel (values oidc, README "Login through Zitadel"): OpenID Connect Generic
+    // Client with the button beside the normal form, which stays for the break-glass admin.
+    // Users are recognised by Zitadel's sub only, never linked by email - another
+    // organisation's admin could give a user anyone's address; an existing account is linked
+    // once by hand. Roles, the email check and PKCE are mu-plugins/oidc.php.
+    define( 'OIDC_CLIENT_ID', '{{ . }}' );
+    define( 'OIDC_CLIENT_SECRET', getenv( 'OIDC_CLIENT_SECRET' ) );
+    define( 'OIDC_CLIENT_SCOPE', 'openid profile email' );
+    define( 'OIDC_ENDPOINT_LOGIN_URL', 'https://auth.d3strukt0r.dev/oauth/v2/authorize' );
+    define( 'OIDC_ENDPOINT_TOKEN_URL', 'https://auth.d3strukt0r.dev/oauth/v2/token' );
+    define( 'OIDC_ENDPOINT_USERINFO_URL', 'https://auth.d3strukt0r.dev/oidc/v1/userinfo' );
+    define( 'OIDC_ENDPOINT_LOGOUT_URL', 'https://auth.d3strukt0r.dev/oidc/v1/end_session' );
+    // Without it the plugin does not check the ID token's signature.
+    define( 'OIDC_ENDPOINT_JWKS_URL', 'https://auth.d3strukt0r.dev/oauth/v2/keys' );
+    define( 'OIDC_LOGIN_TYPE', 'button' );
+    define( 'OIDC_LINK_EXISTING_USERS', 0 );
+    define( 'OIDC_CREATE_IF_DOES_NOT_EXIST', 1 );
+    {{- end }}
 {{- end -}}

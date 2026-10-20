@@ -26,6 +26,12 @@ secrets: []
 objectCache:
   database: 0
 
+# Login through Zitadel (README "Login through Zitadel"): the client ID of the site's app in
+# Zitadel (tofu/zitadel, project_<site>.tf); empty: the normal WordPress login only. Its secret
+# comes as OIDC_CLIENT_SECRET through secrets.
+oidc:
+  clientId: ""
+
 # Restarts the pod when one of its Secrets changes (components/reloader). Needs the namespace in
 # Reloader's list.
 reloader: true

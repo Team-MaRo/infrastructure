@@ -58,3 +58,19 @@ resource "zitadel_user_grant" "d3strukt0r_robines_portfolio" {
   user_id    = one(data.zitadel_human_users.d3strukt0r.user_ids)
   role_keys  = [zitadel_project_role.robines_portfolio_administrator.role_key]
 }
+
+# The user's wife, administrator like him: she designs the site too, and editors cannot touch
+# the theme (edit_theme_options). Her WordPress account `ruby` is linked to this user by hand
+# (charts/wordpress, README "Linking an existing account").
+data "zitadel_human_users" "ruby" {
+  org_id           = local.org_id
+  user_name        = "Ruby"
+  user_name_method = "TEXT_QUERY_METHOD_EQUALS"
+}
+
+resource "zitadel_user_grant" "ruby_robines_portfolio" {
+  org_id     = local.org_id
+  project_id = zitadel_project.robines_portfolio.id
+  user_id    = one(data.zitadel_human_users.ruby.user_ids)
+  role_keys  = [zitadel_project_role.robines_portfolio_administrator.role_key]
+}

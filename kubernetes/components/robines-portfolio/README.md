@@ -21,6 +21,12 @@ The database is `robines_portfolio` in the shared MariaDB, the uploads are in th
 - **`de_CH`**: the site runs in Swiss German; its language packs are installed at every start.
 - **Object cache in valkey-cache, database 1** (since 2026-10-20; the chart's "An object cache in
   valkey-cache").
+- **Login through Zitadel** (since 2026-10-20; the chart's "Login through Zitadel"): the project
+  `robines-portfolio` in `tofu/zitadel`, its roles `robines-portfolio:administrator` (the user and
+  his wife) and `robines-portfolio:editor`. The wife's account `ruby` is linked to her Zitadel
+  user by hand. **Break-glass: the local `admin`** (`info@robines.space`, an address no Zitadel
+  user has), its password in 1Password
+  [`Robines Portfolio CMS | Prod | Admin`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=amt2kkr67jxqe5uajaz5ine34i&h=my.1password.com).
 - **A permissive Content-Security-Policy** like prod-old's, with the frames the site embeds
   (YouTube, Twitter).
 - **The chart's pool** (image's five workers, 512Mi): its calculation is in `values.yaml`; the
@@ -53,6 +59,7 @@ The database is `robines_portfolio` in the shared MariaDB, the uploads are in th
 | `secret/robines-portfolio-s3` | `access-key`, `secret-key` (read and write) | 1Password [`Hetzner | S3 | prod robines-portfolio`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=j3phtimnb5zbwonzf655meqrb4&h=my.1password.com) |
 | `secret/robines-portfolio-uploads-proxy-s3` | `access-key`, `secret-key` (read only) | 1Password [`Hetzner | S3 | prod robines-portfolio uploads-proxy`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=3icb7ypn2ub7bk7x2yzbwhkrfm&h=my.1password.com) |
 | `secret/valkey-apps/robines-portfolio` | `password` (20 characters; its user in valkey-cache) | 1Password [`Valkey | Prod | robines-portfolio`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=27cbbdterppy35hbjvjoivmmn4&h=my.1password.com) |
+| `secret/robines-portfolio-oidc` | `client-secret` (its app in Zitadel) | 1Password [`Zitadel | Prod | robines-portfolio`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=p5zrexzctw27dvxg2y7e4czvla&h=my.1password.com) |
 | `secret/robines-portfolio-mailomat` | `username`, `password` (the SMTP user at mailomat) | 1Password [`Mailomat | Prod | robines-portfolio`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=u747dsojova7eol3x2ikl3qxm4&h=my.1password.com) (an E-Mail item, SMTP section) |
 
 A changed value in OpenBao reaches the pod through External Secrets (within five minutes, or at once

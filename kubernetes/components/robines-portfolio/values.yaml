@@ -47,6 +47,11 @@ languages:
 objectCache:
   database: 1
 
+# Login through Zitadel: the app robines-portfolio in the project of the same name
+# (tofu/zitadel, project_robines_portfolio.tf); its secret below (OIDC_CLIENT_SECRET).
+oidc:
+  clientId: "395937536142279242"
+
 nginx:
   # Permissive like prod-old's, with the frames the site embeds (YouTube, Twitter).
   contentSecurityPolicy: "default-src * data: 'unsafe-eval' 'unsafe-inline'; frame-src blob: 'self' https://platform.twitter.com https://www.youtube.com/ https://www.youtube-nocookie.com/; worker-src blob:"
@@ -89,6 +94,11 @@ secrets:
   - key: valkey-apps/robines-portfolio
     env:
       VALKEY_PASSWORD: password
+  # 1Password "Zitadel | Prod | robines-portfolio" (the app's client secret)
+  #   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=p5zrexzctw27dvxg2y7e4czvla&h=my.1password.com
+  - key: robines-portfolio-oidc
+    env:
+      OIDC_CLIENT_SECRET: client-secret
 
 uploadsProxy:
   # The uploads proxy's read-only key (Secret uploads-proxy).
