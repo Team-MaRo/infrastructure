@@ -86,8 +86,8 @@ decided per site; the site logs in through the WordPress chart's OIDC support
 ### Adding a WordPress site
 
 1. `project_<site>.tf` after `project_robines_portfolio.tf`: project, roles, app (redirect URI
-   `https://<host>/wp-admin/admin-ajax.php?action=openid-connect-authorize`, post-logout URI the
-   site), grants. Plan, apply.
+   `https://<host>/wp-admin/admin-ajax.php?action=openid-connect-authorize`, post-logout URI
+   `https://<host>/wp-login.php?loggedout=true`), grants. Plan, apply.
 2. Regenerate the app's secret - the one from creation is in the tofu state: console → Projects
    → `<site>` → the app → Regenerate Secret. It is shown once.
 3. Into 1Password, then OpenBao (logged in with `bao login -method=oidc -no-print` against

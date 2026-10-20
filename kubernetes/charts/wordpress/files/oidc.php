@@ -149,3 +149,18 @@ add_filter(
 	10,
 	3
 );
+
+// After logging out the plugin sends people to Zitadel's end_session with WordPress's own target,
+// wp-login.php?loggedout=true&wp_lang=<their language>. Zitadel accepts only post-logout addresses
+// it knows exactly, and the language varies, so the target loses wp_lang before the plugin (99)
+// builds the URL; the page still shows in their language. The app in Zitadel lists this address.
+add_filter(
+	'logout_redirect',
+	function ( $redirect_to ) {
+		if ( false !== strpos( $redirect_to, 'wp-login.php?loggedout=true' ) ) {
+			return site_url( 'wp-login.php?loggedout=true' );
+		}
+		return $redirect_to;
+	},
+	98
+);

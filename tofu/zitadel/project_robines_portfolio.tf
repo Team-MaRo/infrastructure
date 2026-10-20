@@ -43,8 +43,10 @@ resource "zitadel_application_oidc" "robines_portfolio" {
   grant_types      = ["OIDC_GRANT_TYPE_AUTHORIZATION_CODE"]
   response_types   = ["OIDC_RESPONSE_TYPE_CODE"]
 
-  redirect_uris             = ["https://old.robines.space/wp-admin/admin-ajax.php?action=openid-connect-authorize"]
-  post_logout_redirect_uris = ["https://old.robines.space/"]
+  redirect_uris = ["https://old.robines.space/wp-admin/admin-ajax.php?action=openid-connect-authorize"]
+  # Where WordPress sends people after logging out (charts/wordpress files/oidc.php trims it to
+  # exactly this).
+  post_logout_redirect_uris = ["https://old.robines.space/wp-login.php?loggedout=true"]
 }
 
 output "robines_portfolio_client_id" {

@@ -213,7 +213,9 @@ normal form. The site's project and app are in `tofu/zitadel` (`project_<site>.t
   `plugins.txt` and activated by the init container at every start), configured entirely by `OIDC_*` constants in `WORDPRESS_CONFIG_EXTRA` - its
   settings page shows them locked. The ID token's signature is checked against Zitadel's keys
   (`OIDC_ENDPOINT_JWKS_URL`; without it the plugin would not check). Logging out of WordPress
-  ends the Zitadel session too.
+  ends the Zitadel session too, and Zitadel sends people back to
+  `wp-login.php?loggedout=true` - the only post-logout address its app allows, so `files/oidc.php`
+  drops the `wp_lang` WordPress would add.
 - **The role comes from Zitadel**: `files/oidc.php`, a must-use plugin, gives the WordPress role
   named in the user's Zitadel role `<site>:<role>` (`robines-portfolio:administrator` ->
   administrator; with several, administrator > shop_manager > editor > author > contributor >
