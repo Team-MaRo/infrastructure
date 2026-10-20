@@ -96,7 +96,7 @@ decided per site; the site logs in through the WordPress chart's OIDC support
    ```shell
    op item create --account my.1password.com --vault Private --category password \
      --title 'Zitadel | Prod | <site>' "password=<the regenerated client secret>" \
-     "client-id[text]=$(tofu output -raw <site>_client_id)" >/dev/null
+     "client-id[text]=$(cd ~/Projects/infrastructure/tofu/zitadel && tofu output -raw <site>_client_id)" >/dev/null
    jq -n --arg c "$(op item get 'Zitadel | Prod | <site>' --account my.1password.com --vault Private --fields password --reveal)" \
      'if ($c|length)==0 then error("empty value - 1Password lookup failed") else {"client-secret":$c} end' \
    | bao kv put secret/<site>-oidc -

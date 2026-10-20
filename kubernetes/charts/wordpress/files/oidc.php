@@ -6,56 +6,109 @@
  * constants in WORDPRESS_CONFIG_EXTRA (charts/wordpress, README "Login through Zitadel").
  */
 
-// A Zitadel role of this site's project, `<site>:<wordpress-role>`, gives that WordPress role;
-// with several, the first of this list wins.
-const ZITADEL_ROLE_ORDER = array( 'administrator', 'shop_manager', 'editor', 'author', 'contributor', 'subscriber' );
-
-function zitadel_site_role( $user_claim ) {
-	$prefix  = '{{ .Release.Name }}:';
-	$granted = array();
+// The roles are Zitadel's alone: every role of this site's project, `<site>:<wordpress-role>`,
+// whose WordPress role exists here - whatever WordPress or a plugin brings, no list to keep.
+// Keys WordPress does not know are skipped.
+function zitadel_site_roles( $user_claim ) {
+	$prefix = '{{ .Release.Name }}:';
+	$roles  = array();
 	foreach ( array_keys( (array) ( $user_claim['urn:zitadel:iam:org:project:roles'] ?? array() ) ) as $key ) {
-		if ( str_starts_with( $key, $prefix ) ) {
-			$granted[] = substr( $key, strlen( $prefix ) );
+		$role = str_starts_with( $key, $prefix ) ? substr( $key, strlen( $prefix ) ) : '';
+		if ( '' !== $role && get_role( $role ) ) {
+			$roles[] = $role;
 		}
 	}
-	foreach ( ZITADEL_ROLE_ORDER as $role ) {
-		if ( in_array( $role, $granted, true ) && get_role( $role ) ) {
-			return $role;
-		}
-	}
-	return null;
+	return $roles;
 }
 
 // Nobody gets in, or is created, without a role for this site or with an address Zitadel has not
 // verified. Zitadel refuses a missing role itself (role check); this is the second lock.
 function zitadel_may_log_in( $allowed, $user_claim ) {
-	return $allowed && ! empty( $user_claim['email_verified'] ) && null !== zitadel_site_role( $user_claim );
+	return $allowed && ! empty( $user_claim['email_verified'] ) && array() !== zitadel_site_roles( $user_claim );
 }
 add_filter( 'openid-connect-generic-user-login-test', 'zitadel_may_log_in', 10, 2 );
 add_filter( 'openid-connect-generic-user-creation-test', 'zitadel_may_log_in', 10, 2 );
 
-// The role from Zitadel at creation and at every later login, so a change there applies at the
-// next login.
+// At creation and at every later login the account's roles become exactly Zitadel's, so a change
+// there applies at the next login and one made in wp-admin is undone by it.
+function zitadel_apply_roles( $user, $user_claim ) {
+	$roles   = zitadel_site_roles( $user_claim );
+	$current = array_values( $user->roles );
+	sort( $current );
+	$wanted = $roles;
+	sort( $wanted );
+	if ( array() === $roles || $current === $wanted ) {
+		return;
+	}
+	$user->set_role( array_shift( $roles ) );
+	foreach ( $roles as $role ) {
+		$user->add_role( $role );
+	}
+}
 add_filter(
 	'openid-connect-generic-alter-user-data',
 	function ( $user_data, $user_claim ) {
-		$user_data['role'] = zitadel_site_role( $user_claim );
+		$user_data['role'] = zitadel_site_roles( $user_claim )[0] ?? '';
 		return $user_data;
 	},
 	10,
 	2
 );
+add_action( 'openid-connect-generic-user-create', 'zitadel_apply_roles', 10, 2 );
+add_action( 'openid-connect-generic-update-user-using-current-claim', 'zitadel_apply_roles', 10, 2 );
+
+// Accounts come from Zitadel only: WordPress's and WooCommerce's own registration would create
+// them with a role Zitadel never gave.
+add_filter( 'pre_option_users_can_register', '__return_zero' );
+add_filter( 'pre_option_woocommerce_enable_myaccount_registration', fn() => 'no' );
+add_filter( 'pre_option_woocommerce_enable_signup_and_login_from_checkout', fn() => 'no' );
+
+// The plugin's button through its shortcode. On WooCommerce's own login form (My account,
+// checkout) it leads back to the same page; on wp-login.php to the plugin's default.
+function zitadel_button( $text, $scope = OIDC_CLIENT_SCOPE ) {
+	$redirect = 'wp-login.php' === ( $GLOBALS['pagenow'] ?? '' ) ? '' : sprintf( ' redirect_to="%s"', esc_attr( home_url( add_query_arg( null, null ) ) ) );
+	return do_shortcode(
+		sprintf( '[openid_connect_generic_login_button button_text="%s" scope="%s"%s]', esc_attr( $text ), esc_attr( $scope ), $redirect )
+	);
+}
 add_action(
-	'openid-connect-generic-update-user-using-current-claim',
-	function ( $user, $user_claim ) {
-		$role = zitadel_site_role( $user_claim );
-		if ( $role && ! in_array( $role, $user->roles, true ) ) {
-			$user->set_role( $role );
-		}
-	},
-	10,
-	2
+	'woocommerce_login_form_end',
+	function () {
+		echo zitadel_button( __( 'Login with OpenID Connect', 'daggerhart-openid-connect-generic' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- the plugin's own markup.
+	}
 );
+{{- with .Values.oidc.registerOrganisation }}
+
+// Registration in Zitadel (values oidc.registerOrganisation): a second button asks Zitadel's
+// registration page (prompt=create) for this organisation. Only this button names it - the scope
+// also refuses users of every other organisation, so the login button names none.
+const ZITADEL_REGISTER_SCOPE = OIDC_CLIENT_SCOPE . ' urn:zitadel:iam:org:id:{{ . }}';
+
+function zitadel_register_button() {
+	return zitadel_button( __( 'Create an account', 'zitadel-login' ), ZITADEL_REGISTER_SCOPE );
+}
+add_filter(
+	'login_message',
+	function ( $message ) {
+		return $message . zitadel_register_button();
+	},
+	100
+);
+add_action(
+	'woocommerce_login_form_end',
+	function () {
+		echo zitadel_register_button(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- the plugin's own markup.
+	},
+	11
+);
+add_filter(
+	'openid-connect-generic-auth-url',
+	function ( $url ) {
+		parse_str( (string) wp_parse_url( $url, PHP_URL_QUERY ), $query );
+		return ( $query['scope'] ?? '' ) === ZITADEL_REGISTER_SCOPE ? $url . '&prompt=create' : $url;
+	}
+);
+{{- end }}
 
 // PKCE, which the plugin lacks: a random verifier stored with the login's state, its SHA-256 as
 // the challenge in the authorize URL, the verifier itself with the code at the token endpoint.

@@ -216,11 +216,15 @@ normal form. The site's project and app are in `tofu/zitadel` (`project_<site>.t
   ends the Zitadel session too, and Zitadel sends people back to
   `wp-login.php?loggedout=true` - the only post-logout address its app allows, so `files/oidc.php`
   drops the `wp_lang` WordPress would add.
-- **The role comes from Zitadel**: `files/oidc.php`, a must-use plugin, gives the WordPress role
-  named in the user's Zitadel role `<site>:<role>` (`robines-portfolio:administrator` ->
-  administrator; with several, administrator > shop_manager > editor > author > contributor >
-  subscriber) - at the first login, when it creates the user, and at every later one. Without
-  such a role, or with an address Zitadel has not verified, it refuses the login.
+- **The roles come from Zitadel alone**: `files/oidc.php`, a must-use plugin, gives every
+  WordPress role named in the user's Zitadel roles `<site>:<role>`
+  (`robines-portfolio:administrator` -> administrator, `arepazo:shop_manager` -> shop_manager),
+  several at once if Zitadel grants several - at the first login, when it creates the user, and
+  at every later one, so a role changed in wp-admin is undone by the next login. It keeps no list:
+  any role WordPress or a plugin defines works, a key WordPress does not know is skipped. Without
+  such a role, or with an address Zitadel has not verified, it refuses the login. WordPress's and
+  WooCommerce's own registration are off for the same reason - they would hand out a role
+  Zitadel never gave.
 - **People are recognised by Zitadel's `sub`**, the user ID, never by their email
   (`OIDC_LINK_EXISTING_USERS` off): an organisation's admin can give a user any address and mark
   it verified, and email linking would hand that user someone else's account. A new person gets
@@ -240,10 +244,25 @@ normal form. The site's project and app are in `tofu/zitadel` (`project_<site>.t
   password - "Lost your password?" would otherwise let whoever reads its mailbox set one and get
   past Zitadel and its second factor. Its password is a random one nobody knows (the plugin sets
   one for new accounts; an account linked by hand gets one too, "Linking an existing account").
-  Unlinked accounts - the break-glass administrator - keep the form and the reset.
+  Unlinked accounts - the break-glass administrator - keep the form and the reset. Jetpack's
+  "Log in with WordPress.com" (its SSO module) is a way in of its own that none of this covers;
+  whether a site offers it is its admin's choice.
 - **Who is linked shows in wp-admin**, read only: the profile page has a row "Zitadel user ID",
   the user list a column "Zitadel" (also `files/oidc.php`) - an account without one logs in with
   the form only. The plugin itself keeps the ID out of sight.
+- **WooCommerce's login form** (My account, checkout) shows the button too and leads back to the
+  page it was on.
+
+### Registration in Zitadel
+
+A shop whose customers create their own accounts sets `oidc.registerOrganisation` to the ID of
+the Zitadel organisation they register into (which allows registration; `tofu/zitadel` README
+"WordPress sites"). The login page and WooCommerce's login form then get a second button,
+"Create an account", that opens Zitadel's registration page for that organisation
+(`prompt=create` and the scope `urn:zitadel:iam:org:id:<id>`). Only this button sends the scope:
+Zitadel lets only members of the named organisation log in under it, so the login button names
+none and staff of another organisation still get in. The new person's role is given by Zitadel
+at registration, not by WordPress; their first login creates the account.
 
 ### Switching a site to the login through Zitadel
 

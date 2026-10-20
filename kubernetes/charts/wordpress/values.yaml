@@ -31,6 +31,10 @@ objectCache:
 # comes as OIDC_CLIENT_SECRET through secrets.
 oidc:
   clientId: ""
+  # The ID of the Zitadel organisation new people register into; set, the login page gets a
+  # button for it and WordPress's own registration stays off (README "Registration in Zitadel").
+  # Empty: accounts come only from people an admin created in Zitadel.
+  registerOrganisation: ""
 
 # Restarts the pod when one of its Secrets changes (components/reloader). Needs the namespace in
 # Reloader's list.
