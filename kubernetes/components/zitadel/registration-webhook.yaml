@@ -148,6 +148,11 @@ data:
             self.send_header("Content-Length", "0")
             self.end_headers()
 
+        # Not the readiness probe's GET every 10 s, which would bury the lines that matter.
+        def log_request(self, code="-", size="-"):
+            if self.command != "GET":
+                super().log_request(code, size)
+
 
     threading.Thread(target=catch_up_forever, daemon=True).start()
     HTTPServer(("", 8080), Handler).serve_forever()

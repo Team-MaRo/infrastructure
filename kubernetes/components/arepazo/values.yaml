@@ -62,6 +62,12 @@ languages:
 objectCache:
   database: 2
 
+# Login through Zitadel (README): the app `arepazo` in tofu/zitadel (project_arepazo.tf), and
+# customers register into the organisation Arepazo, which gives them arepazo:customer.
+oidc:
+  clientId: "395991384143692164"
+  registerOrganisation: "395991383791370628"
+
 phpFpm:
   # Pool size from the container's memory limit (2026-10-18): (1024 MiB limit - 128 opcache,
   # shared by all workers - 40 master - ~200 headroom) / 90 MB per worker (php-fpm's memory peak;
@@ -148,6 +154,11 @@ secrets:
   - key: valkey-apps/arepazo
     env:
       VALKEY_PASSWORD: password
+  # 1Password "Zitadel | Prod | arepazo" (the app's client secret)
+  #   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=f2tzxffbdlwbr2ya5v7t45oid4&h=my.1password.com
+  - key: arepazo-oidc
+    env:
+      OIDC_CLIENT_SECRET: client-secret
 
 uploadsProxy:
   # The uploads proxy's read-only key (Secret uploads-proxy).

@@ -12,6 +12,22 @@ resource "zitadel_action_target" "registration" {
   interrupt_on_error = false
 }
 
+# The webhook's user. It lives in Arepazo, where it was first needed, but serves any organisation
+# that makes it an ORG_USER_MANAGER (zitadel_org_member, e.g. project_arepazo.tf) - Zitadel takes
+# members from any organisation. Its personal access token is made in the console, so it never
+# lands in this state (README "Adding a WordPress site", step 5).
+resource "zitadel_machine_user" "registration" {
+  org_id            = zitadel_organization.arepazo.id
+  user_name         = "registration"
+  name              = "Registration webhook"
+  access_token_type = "ACCESS_TOKEN_TYPE_BEARER"
+}
+
+moved {
+  from = zitadel_machine_user.arepazo_registration
+  to   = zitadel_machine_user.registration
+}
+
 # Users created through the v2 API - the login page's registration, the console - and the
 # older self-registration event.
 resource "zitadel_action_execution_event" "registration" {

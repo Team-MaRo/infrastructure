@@ -111,19 +111,15 @@ resource "zitadel_organization_metadata" "arepazo_registration_roles" {
   })
 }
 
-# The registration webhook's user, inside Arepazo so its rights end there: it reads the
-# organisation, its metadata and its users and gives them roles of the granted project. Its
-# personal access token is made in the console, so it never lands in this state (README
-# "Registration").
-resource "zitadel_machine_user" "arepazo_registration" {
-  org_id            = zitadel_organization.arepazo.id
-  user_name         = "registration"
-  name              = "Registration webhook"
-  access_token_type = "ACCESS_TOKEN_TYPE_BEARER"
+# The registration webhook's user (registration.tf) may read Arepazo, its metadata and its users
+# and give them roles of the granted project - and nothing outside it.
+resource "zitadel_org_member" "registration_arepazo" {
+  org_id  = zitadel_organization.arepazo.id
+  user_id = zitadel_machine_user.registration.id
+  roles   = ["ORG_USER_MANAGER"]
 }
 
-resource "zitadel_org_member" "arepazo_registration" {
-  org_id  = zitadel_organization.arepazo.id
-  user_id = zitadel_machine_user.arepazo_registration.id
-  roles   = ["ORG_USER_MANAGER"]
+moved {
+  from = zitadel_org_member.arepazo_registration
+  to   = zitadel_org_member.registration_arepazo
 }

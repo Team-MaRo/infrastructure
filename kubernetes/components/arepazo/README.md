@@ -58,6 +58,17 @@ in the shared MariaDB, the uploads are in the bucket `d3strukt0r-prod-arepazo`
 - **Object cache in valkey-cache, database 2** (since 2026-10-20; the chart's "An object cache in
   valkey-cache"): before it, loading WordPress alone took 834 database queries, and every page
   1.5-2 s.
+- **Login through Zitadel** (since 2026-10-21; the chart's "Login through Zitadel" and
+  "Registration in Zitadel"): the project `arepazo` in `tofu/zitadel`, granted to the
+  organisation `Arepazo`, where the shop's people are - Eduardo, who owns the shop and that
+  organisation and gives his staff their roles there (`arepazo:administrator`,
+  `arepazo:shop_manager`), and the customers. **Customers register in Zitadel** ("Create an
+  account" on the login page and on My account; WooCommerce's own registration is off) and get
+  `arepazo:customer` from the registration webhook (`components/zitadel` README
+  "Registration"); their first login creates their WordPress account. The user's own account
+  `D3strukt0r` is linked to his Zitadel user by hand. **Break-glass: the local `admin`**
+  (`info@arepazo.ch`, an address no Zitadel user has), its password in 1Password
+  [`Arepazo CMS | Prod | Admin`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=5aankgyeyucb7h6wrqk4qegxoa&h=my.1password.com).
 - **Three languages.** wp-admin runs in `de_CH`, the shop in German, English and Spanish
   (Polylang); the init container installs `de_CH`, `de_DE` and `es_ES` for core, plugins and
   themes.
@@ -96,6 +107,7 @@ in the shared MariaDB, the uploads are in the bucket `d3strukt0r-prod-arepazo`
 | `secret/arepazo-uploads-proxy-s3` | `access-key`, `secret-key` (read only) | 1Password [`Hetzner | S3 | prod arepazo uploads-proxy`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=gs5mn5w3sfbqsljokq3ukhjtjy&h=my.1password.com) |
 | `secret/valkey-apps/arepazo` | `password` (20 characters; its user in valkey-cache) | 1Password [`Valkey | Prod | arepazo`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=liu2kovgpq7s6kuyhkpfrytnhm&h=my.1password.com) |
 | `secret/arepazo-mailomat` | `username`, `password` (the SMTP user at mailomat) | 1Password [`Mailomat | Prod | arepazo`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=6ietzpx5jygsojtd5fiflvdlee&h=my.1password.com) (an E-Mail item, SMTP section) |
+| `secret/arepazo-oidc` | `client-secret` (the Zitadel app's) | 1Password [`Zitadel | Prod | arepazo`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=f2tzxffbdlwbr2ya5v7t45oid4&h=my.1password.com) |
 
 A changed value reaches the pod through External Secrets (within five minutes, or at once with
 `kubectl --context d3strukt0r-prod-admin -n arepazo annotate externalsecret --all force-sync=$(date +%s) --overwrite`),

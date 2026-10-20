@@ -33,6 +33,11 @@ data:
         def do_GET(self):
             self.answer({})
 
+        # Not the readiness probe's GET every 10 s, which would bury the lines that matter.
+        def log_request(self, code="-", size="-"):
+            if self.command != "GET":
+                super().log_request(code, size)
+
         def answer(self, body):
             data = json.dumps(body).encode()
             self.send_response(200)
