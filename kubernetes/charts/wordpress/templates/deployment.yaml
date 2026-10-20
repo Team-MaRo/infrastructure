@@ -117,7 +117,10 @@ spec:
                 wp core update-db
                 # Activated whatever wp-admin says, at every start: the login through Zitadel must
                 # not depend on a click there, and Redis Object Cache deletes its drop-in when
-                # deactivated - whoever deactivated it, the next start puts both back.
+                # deactivated - whoever deactivated it, the next start puts both back. S3-Uploads
+                # runs as a must-use plugin anyway (s3-uploads-hetzner.php); active, the plugin
+                # list shows it as used too - WordPress loads it with include_once, so not twice.
+                wp plugin activate s3-uploads
                 {{- if .Values.oidc.clientId }}
                 wp plugin activate daggerhart-openid-connect-generic
                 {{- end }}

@@ -124,6 +124,9 @@ variable, stops the rendering with a message naming it.
   failed (101: Network is unreachable)" is harmless: Hetzner's endpoint has an IPv6 address too,
   the pods have none, and nginx falls back to IPv4. Private files plugins keep under uploads
   (invoices, logs) go into `nginx.deniedUploadPaths`: their `.htaccess` works only under Apache.
+  The init container also activates the plugin, so the plugin list shows it as in use: WordPress
+  then loads it with `include_once` after the must-use plugin did, not a second time, and
+  deactivating it in wp-admin changes nothing.
 - **TLS to MariaDB, verified.** The site's user is refused without TLS. WordPress has no CA
   setting (wpdb only passes `MYSQL_CLIENT_FLAGS` to `mysqli_real_connect`), so PHP checks the
   certificate against `openssl.cafile` (`files/php.ini`) - but only with
@@ -229,6 +232,9 @@ normal form. The site's project and app are in `tofu/zitadel` (`project_<site>.t
   normal form keeps working.
 - **A break-glass administrator** per site: a local account whose address belongs to nobody in
   Zitadel, its password only in 1Password, for when Zitadel is down. It logs in with the form.
+- **Who is linked shows in wp-admin**, read only: the profile page has a row "Zitadel user ID",
+  the user list a column "Zitadel" (also `files/oidc.php`) - an account without one logs in with
+  the form only. The plugin itself keeps the ID out of sight.
 
 ### Switching a site to the login through Zitadel
 
@@ -265,7 +271,8 @@ SITE=<site> LOGIN=<wordpress login> ZITADEL_ID=<zitadel user id>
 kubectl --context d3strukt0r-prod-admin -n "$SITE" exec deploy/web -c php-fpm -- php -r 'require "/var/www/html/wp-load.php"; $u = get_user_by("login", $argv[1]); if (!$u) exit(1); var_dump(update_user_option($u->ID, "openid-connect-generic-subject-identity", $argv[2], true));' "$LOGIN" "$ZITADEL_ID"
 ```
 
-`bool(true)` means linked. Someone without an account from before needs nothing: their first
+A number (the new row, first link) or `bool(true)` (changed) means linked; `bool(false)` means
+the value was already there. Someone without an account from before needs nothing: their first
 login creates one.
 
 ## Sizing the pool

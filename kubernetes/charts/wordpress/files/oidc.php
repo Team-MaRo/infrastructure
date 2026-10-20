@@ -106,3 +106,46 @@ add_filter(
 	10,
 	2
 );
+
+// Which Zitadel user an account is linked to, for reading only: a row on the profile page and a
+// column in the user list. The plugin keeps the ID out of sight; linking stays a deliberate step
+// (README "Linking an existing account"). An account without one - the break-glass
+// administrator - logs in with the form only.
+function zitadel_linked_id( $user_id ) {
+	return (string) get_user_option( 'openid-connect-generic-subject-identity', $user_id );
+}
+
+function zitadel_profile_row( $user ) {
+	$id = zitadel_linked_id( $user->ID );
+	?>
+	<h2><?php esc_html_e( 'Zitadel', 'zitadel-login' ); ?></h2>
+	<table class="form-table" role="presentation">
+		<tr>
+			<th><?php esc_html_e( 'Zitadel user ID', 'zitadel-login' ); ?></th>
+			<td><?php echo $id ? '<code>' . esc_html( $id ) . '</code>' : esc_html__( 'Not linked - logs in with the password form only.', 'zitadel-login' ); ?></td>
+		</tr>
+	</table>
+	<?php
+}
+add_action( 'show_user_profile', 'zitadel_profile_row' );
+add_action( 'edit_user_profile', 'zitadel_profile_row' );
+
+add_filter(
+	'manage_users_columns',
+	function ( $columns ) {
+		$columns['zitadel'] = __( 'Zitadel', 'zitadel-login' );
+		return $columns;
+	}
+);
+add_filter(
+	'manage_users_custom_column',
+	function ( $output, $column, $user_id ) {
+		if ( 'zitadel' !== $column ) {
+			return $output;
+		}
+		$id = zitadel_linked_id( $user_id );
+		return $id ? '<code>' . esc_html( $id ) . '</code>' : '&#8212;';
+	},
+	10,
+	3
+);
