@@ -12,3 +12,7 @@ resources:
   - flush-binlogs.yaml
   - backup-after-switchover.yaml
   - rules.yaml
+
+# refreshInterval and the openbao store for every ExternalSecret here (shared/).
+components:
+  - ../../shared/external-secret-defaults

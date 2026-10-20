@@ -26,7 +26,11 @@ store (`cluster-secret-store.yaml`) and the alert (`rules.yaml`).
 ## Using it
 
 A value goes into OpenBao by hand (see `tofu/openbao/README.md` for the port-forward and
-token), and an `ExternalSecret` next to the workload pulls it in:
+token), and an `ExternalSecret` next to the workload pulls it in. The store and the refresh
+interval come from the Kustomize Component
+[`../../shared/external-secret-defaults/`](../../shared/external-secret-defaults/README.md),
+which the component's `kustomization.yaml` lists under `components:`; the ExternalSecret itself
+holds only what is its own:
 
 ```yaml
 apiVersion: external-secrets.io/v1
@@ -35,10 +39,6 @@ metadata:
   name: example
   namespace: example
 spec:
-  refreshInterval: 5m
-  secretStoreRef:
-    kind: ClusterSecretStore
-    name: openbao
   data:
     - secretKey: password    # key in the Kubernetes Secret
       remoteRef:
@@ -52,9 +52,11 @@ where the two must differ.
 **Every ExternalSecret sets `refreshInterval: 5m`** (user decision, 2026-10-06), so a value
 changed in OpenBao reaches its Secret within five minutes - and through Reloader the pods that
 read it at start. Without it the CRD's default of one hour applies; External Secrets has no
-setting for a cluster-wide default, so the field is written into each one. The cost is
-negligible: about eight reads a minute against OpenBao, and External Secrets rewrites a Secret
-only when its data changed, so an unchanged value restarts nothing. For an immediate refresh:
+setting for a cluster-wide default, so the shared Component writes it into each one when
+Kustomize renders - Helm-rendered ones (the WordPress chart, chart values) and directories
+without a kustomization (`clusters/prod/etcd-snapshots`, the private repository's) still set
+it themselves. The cost is negligible: about eight reads a minute against OpenBao, and External
+Secrets rewrites a Secret only when its data changed, so an unchanged value restarts nothing. For an immediate refresh:
 `kubectl --context d3strukt0r-prod-admin -n <namespace> annotate externalsecret --all force-sync=$(date +%s) --overwrite`.
 
 **While OpenBao is unreachable nothing breaks**: a failed refresh leaves the Kubernetes Secret

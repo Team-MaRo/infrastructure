@@ -19,3 +19,7 @@ configMapGenerator:
     files:
       - config/php-fpm-metrics.conf
       - config/nginx-metrics.conf
+
+# refreshInterval and the openbao store for every ExternalSecret here (shared/).
+components:
+  - ../../shared/external-secret-defaults

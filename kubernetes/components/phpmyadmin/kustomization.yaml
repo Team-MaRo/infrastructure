@@ -14,3 +14,7 @@ resources:
   - certificate.yaml
   - middleware-oauth2-proxy.yaml
   - ingress.yaml
+
+# refreshInterval and the openbao store for every ExternalSecret here (shared/).
+components:
+  - ../../shared/external-secret-defaults

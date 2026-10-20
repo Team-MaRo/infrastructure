@@ -209,9 +209,11 @@ rule, 2026-10-02). Where a name cannot hold a hyphen, the hyphens become undersc
   `bao kv put` (JSON on stdin) and reach workloads through an ExternalSecret against the
   `ClusterSecretStore` `openbao`
   ([`kubernetes/components/external-secrets/README.md`](kubernetes/components/external-secrets/README.md),
-  [`tofu/openbao/README.md`](tofu/openbao/README.md)). Every ExternalSecret sets
-  `refreshInterval: 5m` - the CRD's default is an hour. Only the bootstrap Secrets come from
-  1Password through `ansible/secrets.yml`.
+  [`tofu/openbao/README.md`](tofu/openbao/README.md)). Every ExternalSecret refreshes every
+  `5m` - the CRD's default is an hour: in a Kustomize directory the shared Component
+  `kubernetes/shared/external-secret-defaults` sets that and the store (listed under
+  `components:`, the ExternalSecret leaves both out); a Helm template or a plain directory sets
+  them itself. Only the bootstrap Secrets come from 1Password through `ansible/secrets.yml`.
 - **An app that reads a Secret or ConfigMap only at start opts in to Reloader**: the annotation
   `secret.reloader.stakater.com/reload: <name>` (or `configmap.`) on its workload and its
   namespace in `reloader.namespaces` - External Secrets updates Secrets in place, so nothing
@@ -352,6 +354,7 @@ component); update it in the same change.
 | [`kubernetes/components/valkey-cache/README.md`](kubernetes/components/valkey-cache/README.md) | The shared cache: a database per app, its users, adding an app |
 | [`kubernetes/components/keel/README.md`](kubernetes/components/keel/README.md) | Rolling out new images under floating tags, opting an app in |
 | [`kubernetes/components/wedding-manuele-robine/README.md`](kubernetes/components/wedding-manuele-robine/README.md) | The wedding website; its two TODOs; moving it from prod-old |
+| [`kubernetes/shared/external-secret-defaults/README.md`](kubernetes/shared/external-secret-defaults/README.md) | The Kustomize Component giving every ExternalSecret its store and refresh interval |
 | [`kubernetes/charts/wordpress/README.md`](kubernetes/charts/wordpress/README.md) | The WordPress chart every site uses: values, design, rolling out a chart change, adding a site |
 | [`kubernetes/components/robines-portfolio/README.md`](kubernetes/components/robines-portfolio/README.md) | The old WordPress portfolio: its values for the WordPress chart and what is particular to it |
 | [`kubernetes/components/arepazo/README.md`](kubernetes/components/arepazo/README.md) | The WooCommerce shop: its values for the WordPress chart (private files, memory, languages) |

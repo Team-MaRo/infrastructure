@@ -12,10 +12,6 @@ metadata:
   name: pgadmin-db
   namespace: postgres
 spec:
-  refreshInterval: 5m
-  secretStoreRef:
-    kind: ClusterSecretStore
-    name: openbao
   target:
     template:
       type: kubernetes.io/basic-auth

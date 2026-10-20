@@ -15,10 +15,6 @@ metadata:
   name: wedding-manuele-robine-db
   namespace: mariadb
 spec:
-  refreshInterval: 5m
-  secretStoreRef:
-    kind: ClusterSecretStore
-    name: openbao
   data:
     - secretKey: password
       remoteRef:

@@ -63,6 +63,8 @@ kubernetes/
 │       └── etcd-snapshots/        # prod-only: the S3 settings k3s uploads snapshots with
 ├── charts/                    # charts of our own, rendered from master
 │   └── wordpress/             # every WordPress site; the sites' values are in components/
+├── shared/                    # Kustomize Components a component lists under components:
+│   └── external-secret-defaults/  # the openbao store and the 5m refresh for every ExternalSecret
 └── components/                # how each component is deployed, shared by clusters
     ├── argocd/                # pinned upstream install.yaml plus patches
     │   ├── kustomization.yaml
@@ -283,6 +285,9 @@ and reads its values from `components/<app>/values.yaml` through a second source
 An app type with several instances gets a chart of our own under `charts/`, rendered from
 `master` for each instance's Application, with its values from `components/<app>/values.yaml`
 the same way ([`charts/wordpress/README.md`](charts/wordpress/README.md)).
+What many components repeat lives once as a Kustomize Component under `shared/`, which a
+component's `kustomization.yaml` lists under `components:`
+([`shared/external-secret-defaults/README.md`](shared/external-secret-defaults/README.md)).
 
 The split is **what** against **how**. `clusters/<name>/` decides which components a
 cluster runs; `components/<app>/` holds the manifests, written once and shared. Each

@@ -28,3 +28,7 @@ patches:
             memory: 128Mi
           limits:
             memory: 256Mi
+
+# refreshInterval and the openbao store for every ExternalSecret here (shared/).
+components:
+  - ../../shared/external-secret-defaults

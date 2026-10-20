@@ -22,3 +22,7 @@ configMapGenerator:
       - config.yaml
     options:
       disableNameSuffixHash: true
+
+# refreshInterval and the openbao store for every ExternalSecret here (shared/).
+components:
+  - ../../shared/external-secret-defaults

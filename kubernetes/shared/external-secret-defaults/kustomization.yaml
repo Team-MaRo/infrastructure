@@ -1,0 +1,21 @@
+---
+# What every ExternalSecret of this repository shares: values from OpenBao through the
+# ClusterSecretStore openbao, refreshed every five minutes - the CRD's default is an hour, so a
+# changed value would take that long to arrive. A kustomization lists this under components:, and
+# its ExternalSecrets leave both out (README).
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+patches:
+  - target:
+      kind: ExternalSecret
+    patch: |-
+      apiVersion: external-secrets.io/v1
+      kind: ExternalSecret
+      metadata:
+        name: any
+      spec:
+        refreshInterval: 5m
+        secretStoreRef:
+          kind: ClusterSecretStore
+          name: openbao
