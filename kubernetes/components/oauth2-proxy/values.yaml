@@ -31,10 +31,13 @@ extraArgs:
 deploymentAnnotations:
   secret.reloader.stakater.com/reload: oauth2-proxy
 
-# At oauth2-proxy.d3strukt0r.dev (its own record in tofu/cloudflare), certificate from
-# certificates.yaml. No className: Traefik is the cluster's default IngressClass.
+# At oauth2-proxy.d3strukt0r.dev (its own record in tofu/cloudflare), certificate from the
+# annotation below. No className: Traefik is the cluster's default IngressClass.
 ingress:
   enabled: true
+  annotations:
+    # cert-manager creates the Certificate from spec.tls (components/cert-manager).
+    cert-manager.io/cluster-issuer: letsencrypt
   hosts:
     - oauth2-proxy.d3strukt0r.dev
   tls:

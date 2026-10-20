@@ -65,11 +65,13 @@ prometheusOperator:
 
 prometheus:
   # At prometheus.d3strukt0r.dev behind the Zitadel gate (middleware-oauth2-proxy.yaml), its
-  # record in tofu/cloudflare, certificate from certificates.yaml. From host and TLS the chart
+  # record in tofu/cloudflare, certificate from the annotation below. From host and TLS the chart
   # derives Prometheus' externalUrl (https), which the alerts' Source link is built from.
   ingress:
     enabled: true
     annotations:
+      # cert-manager creates the Certificate from spec.tls (components/cert-manager).
+      cert-manager.io/cluster-issuer: letsencrypt
       traefik.ingress.kubernetes.io/router.middlewares: monitoring_oauth2-proxy@kubernetescrd
     hosts:
       - prometheus.d3strukt0r.dev
@@ -118,6 +120,8 @@ alertmanager:
   ingress:
     enabled: true
     annotations:
+      # cert-manager creates the Certificate from spec.tls (components/cert-manager).
+      cert-manager.io/cluster-issuer: letsencrypt
       traefik.ingress.kubernetes.io/router.middlewares: monitoring_oauth2-proxy@kubernetescrd
     hosts:
       - alertmanager.d3strukt0r.dev
@@ -208,10 +212,13 @@ grafana:
   # only acts on the Deployment.
   annotations:
     secret.reloader.stakater.com/reload: grafana-admin
-  # At grafana.d3strukt0r.dev (its own record in tofu/cloudflare), certificate from
-  # certificates.yaml. No className: Traefik is the cluster's default IngressClass.
+  # At grafana.d3strukt0r.dev (its own record in tofu/cloudflare), certificate from the
+  # annotation below. No className: Traefik is the cluster's default IngressClass.
   ingress:
     enabled: true
+    annotations:
+      # cert-manager creates the Certificate from spec.tls (components/cert-manager).
+      cert-manager.io/cluster-issuer: letsencrypt
     hosts:
       - grafana.d3strukt0r.dev
     tls:

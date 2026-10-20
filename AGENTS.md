@@ -210,11 +210,13 @@ rule, 2026-10-02). Where a name cannot hold a hyphen, the hyphens become undersc
   `bao kv put` (JSON on stdin) and reach workloads through an ExternalSecret against the
   `ClusterSecretStore` `openbao`
   ([`kubernetes/components/external-secrets/README.md`](kubernetes/components/external-secrets/README.md),
-  [`tofu/openbao/README.md`](tofu/openbao/README.md)). Every ExternalSecret refreshes every
-  `5m` - the CRD's default is an hour: in a Kustomize directory the shared Component
-  `kubernetes/shared/external-secret-defaults` sets that and the store (listed under
-  `components:`, the ExternalSecret leaves both out); a Helm template or a plain directory sets
-  them itself. Only the bootstrap Secrets come from 1Password through `ansible/secrets.yml`.
+  [`tofu/openbao/README.md`](tofu/openbao/README.md)), **each key listed in `data`**
+  (`secretKey` -> `key`/`property`), never `dataFrom` (user rule, 2026-10-20). Every
+  ExternalSecret refreshes every `5m` - the CRD's default is an hour: in a Kustomize directory
+  the shared Component `kubernetes/shared/external-secret-defaults` sets that and the store
+  (listed under `components:`, the ExternalSecret leaves both out); a Helm template or a plain
+  directory sets them itself. Only the bootstrap Secrets come from 1Password through
+  `ansible/secrets.yml`.
 - **An app that reads a Secret or ConfigMap only at start opts in to Reloader**: the annotation
   `secret.reloader.stakater.com/reload: <name>` (or `configmap.`) on its workload and its
   namespace in `reloader.namespaces` - External Secrets updates Secrets in place, so nothing

@@ -49,6 +49,11 @@ spec:
 The Kubernetes Secret it creates gets the ExternalSecret's name; `target.name` is set only
 where the two must differ.
 
+**Each key is listed in `data`** (`secretKey` -> `key`/`property`), never pulled in with
+`dataFrom` (user rule, 2026-10-20): git then shows every value a Secret holds and where it comes
+from, and a field added to the OpenBao entry later does not land in the Secret - and in the
+pods reading it - unnoticed.
+
 **Every ExternalSecret sets `refreshInterval: 5m`** (user decision, 2026-10-06), so a value
 changed in OpenBao reaches its Secret within five minutes - and through Reloader the pods that
 read it at start. Without it the CRD's default of one hour applies; External Secrets has no

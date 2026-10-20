@@ -6,6 +6,9 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: pwa
+  annotations:
+    # cert-manager creates the Certificate from spec.tls (components/cert-manager).
+    cert-manager.io/cluster-issuer: letsencrypt
 spec:
   tls:
     - hosts:
@@ -33,6 +36,9 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: api
+  annotations:
+    # cert-manager creates the Certificate from spec.tls (components/cert-manager).
+    cert-manager.io/cluster-issuer: letsencrypt
 spec:
   tls:
     - hosts:
