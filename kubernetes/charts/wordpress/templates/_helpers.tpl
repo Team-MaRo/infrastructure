@@ -110,6 +110,9 @@ variable at runtime, so each one carries the same set.
     // The page cache (values pageCache, README "Page cache"): Proxy Cache Purge sends its PURGE
     // to Varnish in this pod.
     define( 'VHP_VARNISH_IP', '127.0.0.1:6081' );
+    // Its "empty the whole site" as Varnish understands it (PURGE /.* with X-Purge-Method: regex);
+    // its NGINX setting would send a literal * the VCL takes for a URL, and nothing would be emptied.
+    define( 'VHP_PURGE_BACKEND', 'varnish' );
     {{- end }}
     {{- with .Values.oidc.clientId }}
     // Login through Zitadel (values oidc, README "Login through Zitadel"): OpenID Connect Generic

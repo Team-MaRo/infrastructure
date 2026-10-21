@@ -100,7 +100,9 @@ function zitadel_apply_profile( $user, $user_claim ) {
 	}
 	// No "your email was changed" mail to the old address at every sync, from the shared quota.
 	add_filter( 'send_email_change_email', '__return_false' );
-	$result = wp_update_user( array( 'ID' => $user->ID ) + $changes );
+	$GLOBALS['zitadel_syncing_profile'] = true;
+	$result                             = wp_update_user( array( 'ID' => $user->ID ) + $changes );
+	$GLOBALS['zitadel_syncing_profile'] = false;
 	remove_filter( 'send_email_change_email', '__return_false' );
 	if ( is_wp_error( $result ) ) {
 		// Most likely the address belongs to another account; the login goes on with the old one.
@@ -109,6 +111,96 @@ function zitadel_apply_profile( $user, $user_claim ) {
 }
 add_action( 'openid-connect-generic-user-create', 'zitadel_apply_profile', 10, 2 );
 add_action( 'openid-connect-generic-update-user-using-current-claim', 'zitadel_apply_profile', 10, 2 );
+
+// For a linked account those fields are Zitadel's: a change made here would last only until the
+// next login. wp-admin's profile and WooCommerce's account details show them read only with a
+// link to the account page there, and a change sent anyway is dropped - only the sync above may
+// write them.
+function zitadel_account_url() {
+	$login = wp_parse_url( OIDC_ENDPOINT_LOGIN_URL );
+	return $login['scheme'] . '://' . $login['host'] . '/ui/console/users/me';
+}
+
+function zitadel_profile_locked( $user_id ) {
+	return $user_id && zitadel_linked_id( $user_id ) && empty( $GLOBALS['zitadel_syncing_profile'] );
+}
+
+add_filter(
+	'wp_pre_insert_user_data',
+	function ( $data, $update, $user_id ) {
+		if ( $update && zitadel_profile_locked( $user_id ) ) {
+			$user                 = get_userdata( $user_id );
+			$data['user_email']   = $user->user_email;
+			$data['display_name'] = $user->display_name;
+		}
+		return $data;
+	},
+	10,
+	3
+);
+add_filter(
+	'insert_user_meta',
+	function ( $meta, $user, $update ) {
+		if ( $update && zitadel_profile_locked( $user->ID ) ) {
+			$meta['first_name'] = get_user_meta( $user->ID, 'first_name', true );
+			$meta['last_name']  = get_user_meta( $user->ID, 'last_name', true );
+		}
+		return $meta;
+	},
+	10,
+	3
+);
+// wp-admin would otherwise mail a confirmation link to a new address before saving anything.
+add_action(
+	'personal_options_update',
+	function ( $user_id ) {
+		if ( zitadel_profile_locked( $user_id ) ) {
+			remove_action( 'personal_options_update', 'send_confirmation_on_profile_email' );
+		}
+	},
+	0
+);
+
+// The fields read only, and where to change them instead.
+function zitadel_profile_fields_locked( $user_id, $fields ) {
+	if ( ! zitadel_profile_locked( $user_id ) ) {
+		return;
+	}
+	printf(
+		'<p class="zitadel-profile-note">%s <a href="%s" target="_blank" rel="noopener">%s</a></p>',
+		esc_html__( 'Name and email address come from your login account - change them there:', 'zitadel-login' ),
+		esc_url( zitadel_account_url() ),
+		esc_html__( 'Account settings', 'zitadel-login' )
+	);
+	?>
+	<script>
+		document.addEventListener( 'DOMContentLoaded', function () {
+			<?php echo wp_json_encode( $fields ); ?>.forEach( function ( id ) {
+				var field = document.getElementById( id );
+				if ( field ) {
+					field.readOnly = true;
+					field.setAttribute( 'aria-readonly', 'true' );
+					if ( field.tagName === 'SELECT' ) {
+						field.style.pointerEvents = 'none';
+					}
+				}
+			} );
+		} );
+	</script>
+	<?php
+}
+add_action(
+	'personal_options',
+	function ( $user ) {
+		zitadel_profile_fields_locked( $user->ID, array( 'first_name', 'last_name', 'display_name', 'email' ) );
+	}
+);
+add_action(
+	'woocommerce_edit_account_form_start',
+	function () {
+		zitadel_profile_fields_locked( get_current_user_id(), array( 'account_first_name', 'account_last_name', 'account_display_name', 'account_email' ) );
+	}
+);
 
 // Accounts come from Zitadel only: WordPress's and WooCommerce's own registration would create
 // them with a role Zitadel never gave.

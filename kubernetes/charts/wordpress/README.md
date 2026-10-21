@@ -244,7 +244,11 @@ normal form. The site's project and app are in `tofu/zitadel` (`project_<site>.t
   linked one would keep its old values. WordPress's "your email was changed" mail is not sent
   for it. An address that belongs to another account is skipped and logged in php-fpm's log
   (`zitadel: profile of ... not updated`); the login goes on. WooCommerce's billing and shipping
-  data stays what the customer entered.
+  data stays what the customer entered. **For a linked account those fields are read only** -
+  in wp-admin's profile and in WooCommerce's account details, with a link to the account page
+  at Zitadel (`/ui/console/users/me`) - and a change sent anyway is dropped on the server
+  (`wp_pre_insert_user_data`, `insert_user_meta`; no confirmation mail to a new address): it
+  would last only until the next login. Only the sync writes them.
 - **People are recognised by Zitadel's `sub`**, the user ID, never by their email
   (`OIDC_LINK_EXISTING_USERS` off): an organisation's admin can give a user any address and mark
   it verified, and email linking would hand that user someone else's account. A new person gets

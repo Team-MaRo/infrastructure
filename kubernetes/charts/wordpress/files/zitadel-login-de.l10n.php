@@ -13,5 +13,7 @@ return array(
 		'Not linked - logs in with the password form only.' => 'Nicht verknüpft – meldet sich nur mit dem Passwortformular an.',
 		'This account logs in with OpenID Connect - use "Login with OpenID Connect".' => 'Dieses Konto meldet sich mit OpenID Connect an – verwenden Sie «Mit OpenID Connect anmelden».',
 		'This account logs in with OpenID Connect - use "Login with OpenID Connect" and choose "Reset Password" there.' => 'Dieses Konto meldet sich mit OpenID Connect an – verwenden Sie «Mit OpenID Connect anmelden» und wählen Sie dort «Passwort zurücksetzen».',
+		'Name and email address come from your login account - change them there:' => 'Name und E-Mail-Adresse stammen aus Ihrem Login-Konto – ändern Sie sie dort:',
+		'Account settings' => 'Konto-Einstellungen',
 	),
 );

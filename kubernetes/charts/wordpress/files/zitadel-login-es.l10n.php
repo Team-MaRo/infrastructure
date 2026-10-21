@@ -13,5 +13,7 @@ return array(
 		'Not linked - logs in with the password form only.' => 'No vinculada: solo inicia sesión con el formulario de contraseña.',
 		'This account logs in with OpenID Connect - use "Login with OpenID Connect".' => 'Esta cuenta inicia sesión con OpenID Connect: use «Iniciar sesión con OpenID Connect».',
 		'This account logs in with OpenID Connect - use "Login with OpenID Connect" and choose "Reset Password" there.' => 'Esta cuenta inicia sesión con OpenID Connect: use «Iniciar sesión con OpenID Connect» y elija allí «Restablecer contraseña».',
+		'Name and email address come from your login account - change them there:' => 'El nombre y el correo electrónico provienen de su cuenta de inicio de sesión; cámbielos allí:',
+		'Account settings' => 'Ajustes de la cuenta',
 	),
 );
