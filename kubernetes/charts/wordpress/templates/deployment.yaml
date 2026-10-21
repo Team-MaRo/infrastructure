@@ -112,6 +112,9 @@ spec:
               mkdir -p mu-plugins/zitadel-login-languages
               cp /config/zitadel-login-*.l10n.php mu-plugins/zitadel-login-languages/
               {{- end }}
+              {{- if .Values.mcp.clientId }}
+              cp /config/mcp.php mu-plugins/
+              {{- end }}
               {{- if .Values.objectCache.database }}
               # Redis Object Cache's drop-in, which its admin button would install - hidden under
               # DISALLOW_FILE_MODS. It works without the plugin activated.
@@ -130,6 +133,9 @@ spec:
                 {{- end }}
                 {{- if .Values.objectCache.database }}
                 wp plugin activate redis-cache
+                {{- end }}
+                {{- if .Values.mcp.clientId }}
+                wp plugin activate mcp-adapter enable-abilities-for-mcp
                 {{- end }}
                 {{- with .Values.languages }}
                 for l in {{ join " " . }}; do

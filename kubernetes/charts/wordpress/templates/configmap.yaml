@@ -19,6 +19,12 @@ data:
     {{- if .Values.objectCache.database }}
     plugin redis-cache
     {{- end }}
+    {{- if .Values.mcp.clientId }}
+    # Pinned: plugins in this field have had access-control flaws; an update is read first
+    # (README "Content through Claude").
+    plugin mcp-adapter 0.7.1
+    plugin enable-abilities-for-mcp 2.13.7
+    {{- end }}
     {{- range .Values.themes }}
     theme {{ . }}
     {{- end }}
@@ -37,4 +43,8 @@ data:
     {{- .Files.Get "files/zitadel-login-de.l10n.php" | nindent 4 }}
   zitadel-login-es.l10n.php: |
     {{- .Files.Get "files/zitadel-login-es.l10n.php" | nindent 4 }}
+  {{- end }}
+  {{- if .Values.mcp.clientId }}
+  mcp.php: |
+    {{- tpl (.Files.Get "files/mcp.php") . | nindent 4 }}
   {{- end }}

@@ -68,6 +68,12 @@ oidc:
   clientId: "395991384143692164"
   registerOrganisation: "395991383791370628"
 
+# Content through Claude (chart README): pages, posts and products by chatting with Claude, as
+# one's own WordPress user - customers have no rights to write anything; the client ID of the app
+# arepazo-claude in tofu/zitadel.
+mcp:
+  clientId: "396201383935607172"
+
 phpFpm:
   # Pool size from the container's memory limit (2026-10-18): (1024 MiB limit - 128 opcache,
   # shared by all workers - 40 master - ~200 headroom) / 90 MB per worker (php-fpm's memory peak;

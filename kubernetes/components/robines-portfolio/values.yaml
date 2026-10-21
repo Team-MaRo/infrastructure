@@ -52,6 +52,11 @@ objectCache:
 oidc:
   clientId: "395937536142279242"
 
+# Content through Claude (chart README): the user's wife edits the site by chatting with Claude;
+# the client ID of the app robines-portfolio-claude in tofu/zitadel.
+mcp:
+  clientId: "396201383902118276"
+
 nginx:
   # Permissive like prod-old's, with the frames the site embeds (YouTube, Twitter).
   contentSecurityPolicy: "default-src * data: 'unsafe-eval' 'unsafe-inline'; frame-src blob: 'self' https://platform.twitter.com https://www.youtube.com/ https://www.youtube-nocookie.com/; worker-src blob:"

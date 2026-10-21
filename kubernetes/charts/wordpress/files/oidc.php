@@ -275,7 +275,9 @@ add_filter(
 // password reset ("Lost your password?" would otherwise let whoever reads its mailbox set one and
 // get past Zitadel and its second factor), and its profile offers no new password. Unlinked
 // accounts - the break-glass administrator - keep both. The login through Zitadel sets the session
-// itself and never passes these checks; application passwords are a mechanism of their own.
+// itself and never passes these checks. Application Passwords stay (user decision, 2026-10-21:
+// customers' apps, the WooCommerce app, may use them) - a key of WordPress's own that Zitadel never
+// sees (README "Content through Claude").
 add_filter(
 	'wp_authenticate_user',
 	function ( $user ) {

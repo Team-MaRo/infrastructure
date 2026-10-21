@@ -36,6 +36,12 @@ oidc:
   # Empty: accounts come only from people an admin created in Zitadel.
   registerOrganisation: ""
 
+# Content through Claude (README): the site as an MCP server for claude.ai, Claude Desktop and
+# Claude Code, each person as their own WordPress user. The client ID of the site's Claude app in
+# Zitadel (tofu/zitadel, project_<site>.tf); empty: off. Needs oidc.
+mcp:
+  clientId: ""
+
 # Restarts the pod when one of its Secrets changes (components/reloader). Needs the namespace in
 # Reloader's list.
 reloader: true

@@ -55,6 +55,8 @@ Only what differs between sites; `values.yaml` holds the defaults and says what 
 | `secrets` | `[]` | every secret of the WordPress containers: blocks of `key` and `env` ("Secrets") |
 | `uploadsProxy.secrets` | `[]` | the uploads proxy's key, the same way |
 | `oidc.clientId` | empty | the site's app in Zitadel, which turns on the login through Zitadel; empty: off |
+| `oidc.registerOrganisation` | empty | the Zitadel organisation people register into ("Registration in Zitadel"); empty: no registration |
+| `mcp.clientId` | empty | the site's Claude app in Zitadel, which makes the site an MCP server for Claude ("Content through Claude"); needs `oidc`; empty: off |
 | `objectCache.database` | `0` | the site's database in valkey-cache, which turns on the object cache; 0: off |
 | `reloader` | `true` | the Reloader annotation; needs the namespace in Reloader's list |
 | `phpFpm.pool` | `{}` | `pm.*` settings, e.g. `max_children: 6`; empty: the image's five workers |
@@ -337,6 +339,52 @@ kubectl --context d3strukt0r-prod-admin -n "$SITE" exec deploy/web -c php-fpm --
 ```
 
 Someone without an account from before needs nothing: their first login creates one.
+
+## Content through Claude
+
+With `mcp.clientId`, people edit the site by chatting with Claude - claude.ai, Claude Desktop or
+Claude Code - each as their own WordPress user, with that user's rights: a customer can write
+nothing, an editor only what an editor may. Who may is decided in Zitadel alone.
+
+- **Two plugins, pinned**: MCP Adapter (`mcp-adapter`, WordPress's own, experimental) serves the
+  abilities as an MCP server; Enable Abilities for MCP (`enable-abilities-for-mcp`) brings the
+  abilities for posts, pages, media, portfolio items, Polylang translations, Yoast fields and
+  WooCommerce products. Both are activated at every start. Plugins of this kind have had
+  access-control flaws (AI Engine's MCP let subscribers become admins), so a new version is read
+  in its changelog before the pin moves.
+- **Claude logs in with Zitadel** (`files/mcp.php`): the site's project has a second app,
+  `<site>-claude` (tofu/zitadel; public, PKCE), so the role check applies to Claude as to the
+  login. The MCP route answers a request without a token with 401 and the address of its
+  metadata (`/wp-json/oidc-mcp/v1/resource`, RFC 9728), which names Zitadel; Claude logs the
+  person in there and sends its token with every request. The site asks Zitadel about each token
+  (introspection, with the site's own app's credentials; cached a minute), accepts only the Claude
+  app's, and acts as the WordPress account linked to that Zitadel user - someone who never logged
+  in to the site has none and gets nothing. Deactivating someone or ending their session in
+  Zitadel ends their Claude access within a minute; a removed role at the latest when the access
+  token expires (an hour), since Zitadel then refuses to renew it. Enable Abilities' own OAuth
+  server and its site-wide Bearer token are off - each would be a key Zitadel never sees.
+- **Application Passwords stay on** (user decision, 2026-10-21): customers' and staff's apps -
+  the WooCommerce app among them - log in to self-hosted sites with them. They are WordPress's
+  own keys, which Zitadel never sees, and they open the REST API and the MCP route with that
+  person's rights too. So **when someone leaves, delete their Application Passwords** as well
+  (wp-admin → Users → the user → Application Passwords): deactivating them in Zitadel does not
+  end those. On 2026-10-21 no site had any.
+- **Connecting** - the URL is `https://<host>/wp-json/mcp/mcp-adapter-default-server` and the
+  OAuth client ID the site's Claude app's (`tofu output -raw <site>_claude_client_id`, no
+  secret): claude.ai/Claude Desktop: Settings → Connectors → Add custom connector, the client ID
+  under "Use your own OAuth client" (a Team plan's members cannot add one - its owner does, or a
+  Pro/Max account). Claude Code:
+  `claude mcp add --transport http --client-id <id> --callback-port 33418 <site> <url>`, then
+  `/mcp` to log in (the app allows exactly that callback).
+- **What Claude may do** is fixed in `files/mcp.php`, not in the plugin's settings page
+  (`pre_option_*`, so a click in wp-admin changes nothing): read and write content - posts,
+  pages, media, categories and tags, portfolio items, translations, Yoast fields, products -
+  never delete it, and nothing about people: no users, comments, orders or customers (personal
+  data would flow to Claude), no search and replace across the database, no code. The plugin
+  itself would allow nearly all of that. WooCommerce's own product abilities are made public
+  there too (list, create, edit); deleting products and its order abilities stay private.
+- **Prompt injection**: Claude reads what others wrote (posts, imported text) and acts with the
+  person's rights. In Claude, leave writing tools on "ask before use", never "always allow".
 
 ## Sizing the pool
 
