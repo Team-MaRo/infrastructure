@@ -192,15 +192,19 @@ then `http://localhost:3000` (break-glass: user `admin`, password in 1Password [
 
 ## kube-state-metrics and operator objects
 
-- **kube-state-metrics also reads operator objects** (`customResourceState` in the values):
-  the status conditions of `MariaDB` and `PhysicalBackup` become
+- **kube-state-metrics also reads operator objects** (`customResourceState` in the values): the
+  status conditions of `MariaDB` and `PhysicalBackup` become
   `kube_customresource_condition{customresource_kind, name, type, status, reason}`, valued with
-  the condition's `lastTransitionTime`, for the MariaDB alerts. The mariadb-operator reports
-  archiving and backups nowhere else. k3s's `ETCDSnapshotFile` records become
-  `kube_customresource_etcd_snapshot_created{node, name, bucket}` (creation time; `bucket` only
-  on the S3 copies), for the snapshot alert. Another kind is one more entry there plus its
-  `list`, `watch` in `rbac.extraRules`; the config can be tried locally by running the
-  kube-state-metrics image with `--custom-resource-state-only` against the admin kubeconfig.
+  the condition's `lastTransitionTime`, for the MariaDB alerts; a `PointInTimeRecovery`'s
+  `lastRecoverableTime` becomes `kube_customresource_last_recoverable_time{name}` (unix seconds,
+  kube-state-metrics parses the RFC 3339 string), and `kube_customresource_pitr_ref{pitr}` (an
+  info metric, value 1) names the one the MariaDB archives into, so the alert can ignore older,
+  frozen ones. The mariadb-operator reports archiving and backups nowhere else. k3s's
+  `ETCDSnapshotFile` records become `kube_customresource_etcd_snapshot_created{node, name,
+  bucket}` (creation time; `bucket` only on the S3 copies), for the snapshot alert. Another kind
+  is one more entry there plus its `list`, `watch` in `rbac.extraRules`; the config can be tried
+  locally by running the kube-state-metrics image with `--custom-resource-state-only` against the
+  admin kubeconfig.
 
 ## Before the first sync
 

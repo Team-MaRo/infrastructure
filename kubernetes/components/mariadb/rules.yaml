@@ -58,6 +58,52 @@ spec:
               Point-in-time recovery cannot go past the last archived file. The MariaDB's
               status message names the file; follow the runbook in
               kubernetes/components/mariadb/README.md ("Binary log archiving stuck").
+        # The archive can stop filling while the agent still reports success - after a replica
+        # recovery its new files are skipped as already uploaded (README "After a replica
+        # recovery") - so this watches the result: how far back the PointInTimeRecovery the
+        # MariaDB archives into can restore. Only that one; older ones are frozen on purpose.
+        # Writes and the flush CronJob move it every ten minutes; a switch of the primary holds it
+        # back until the after-switchover backup and the next upload, well under an hour. Absent
+        # when the object has no lastRecoverableTime at all.
+        - alert: MariaDBPointInTimeRecoveryBehind
+          expr: |-
+            time() - (
+              kube_customresource_last_recoverable_time{namespace="mariadb", customresource_kind="PointInTimeRecovery"}
+              * on (namespace, name)
+              label_replace(kube_customresource_pitr_ref{namespace="mariadb", customresource_kind="MariaDB"}, "name", "$1", "pitr", "(.+)")
+            ) > 2 * 3600
+            or
+            absent(
+              kube_customresource_last_recoverable_time{namespace="mariadb", customresource_kind="PointInTimeRecovery"}
+              * on (namespace, name)
+              label_replace(kube_customresource_pitr_ref{namespace="mariadb", customresource_kind="MariaDB"}, "name", "$1", "pitr", "(.+)")
+            )
+          for: 30m
+          labels:
+            severity: warning
+            namespace: mariadb
+          annotations:
+            summary: "MariaDB can only be restored up to more than two hours ago."
+            description: >-
+              The binary logs since then are not in the archive, so a restore to a moment after
+              that is impossible. Check the agent's log on the primary for "Uploading binary log"
+              and the bucket; if the files are skipped as already there, follow the runbook in
+              kubernetes/components/mariadb/README.md ("After a replica recovery"), otherwise
+              "Binary log archiving stuck".
+        # A rebuilt replica restarts its binary log numbering; once it is primary again its files
+        # would collide with its old ones in the archive. Fires for a day after every replica
+        # recovery, so the archive gets a fresh prefix before that.
+        - alert: MariaDBReplicaRecovered
+          expr: time() - kube_customresource_condition{customresource_kind="MariaDB", namespace="mariadb", type="ReplicaRecovered", status="True"} < 24 * 3600
+          labels:
+            severity: warning
+            namespace: mariadb
+          annotations:
+            summary: "MariaDB rebuilt a replica - its binary logs need a fresh archive prefix."
+            description: >-
+              Follow the runbook in kubernetes/components/mariadb/README.md ("After a replica
+              recovery") within seven days, while the server still has every binary log. The
+              alert clears by itself a day after the recovery.
         # Either the last backup did not complete (a failed Job leaves Complete=False, and the
         # True series then disappears), or none has completed for 26 hours - the nightly one
         # plus slack. Also catches a failed backup of the after-switchover CronJob, which does

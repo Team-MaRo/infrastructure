@@ -87,7 +87,11 @@ fit together is in [`kubernetes/README.md`](../../README.md).
     `PrimarySwitched` condition's time with the backup's `lastScheduleTime`; its Role may only
     read that MariaDB and patch that PhysicalBackup. Image `docker.io/alpine/kubectl`, pinned
     like the others - kubectl alone has no shell for the comparison.
-  - Alerts: `MariaDBBinlogArchivingFailing` (`BinlogsArchived` not True for 30 minutes) and
+  - Alerts: `MariaDBBinlogArchivingFailing` (`BinlogsArchived` not True for 30 minutes),
+    `MariaDBPointInTimeRecoveryBehind` (the archive the MariaDB names can only restore up to more
+    than two hours ago, or has no `LAST RECOVERABLE TIME` - also when the agent believes it
+    archived), `MariaDBReplicaRecovered` (for a day after a replica recovery, the cue for the
+    runbook "After a replica recovery") and
     `MariaDBBackupFailed` (`mariadb-daily`'s last run did not complete, or none has for 26
     hours - also a failed after-switchover backup, which the CronJob does not retry), from
     kube-state-metrics' custom resource metrics (see
@@ -114,8 +118,8 @@ fit together is in [`kubernetes/README.md`](../../README.md).
   follows the server the backup came from - so `LAST RECOVERABLE TIME` stays at the old
   primary's last upload. No data is lost, only restorability past that point. Seen in the
   failover test, 2026-09-28; closed within about 15 minutes by the after-switchover backup.
-  `LAST RECOVERABLE TIME` only moves once something writes after that backup, so its age
-  alone says nothing on a quiet database - which is why no alert watches it.
+  `LAST RECOVERABLE TIME` only moves once something writes after that backup; the apps and the
+  flush CronJob do every ten minutes, so `MariaDBPointInTimeRecoveryBehind` allows two hours.
 - **A replica recovery restarts that server's binary log numbering** (its data directory is
   rebuilt from a backup), and the archive holds its old files under the same names in
   `server-<id>/`. Once that server is primary again, the agent finds each name already there,
@@ -320,9 +324,12 @@ switch, while the server still has the unarchived files:
 3. Watch the uploads (`kubectl --context d3strukt0r-prod-admin -n mariadb logs <primary-pod> -c agent -f`).
    Many files can take longer than the hour one cycle may run; `BinlogsArchived` then turns False
    for a while and the next cycle carries on.
-4. Take a physical backup at once (command under "Failover hangs").
-5. `kubectl --context d3strukt0r-prod-admin -n mariadb get pitr` shows the new object's
-   `LAST RECOVERABLE TIME` minutes old.
+4. `kubectl --context d3strukt0r-prod-admin -n mariadb get pitr` shows the new object's
+   `LAST RECOVERABLE TIME` minutes old once the uploads are through: the last backup's position
+   is in the new archive. If it stays empty for two cycles, the backup is older than the oldest
+   binary log the server still has - take one at once (command under "Failover hangs"); its
+   position is then always in the archive. On 2026-10-22 the last backup's position was already
+   in the new archive (`mariadb-bin.000630`); the backup taken afterwards was not needed.
 
 ## Restore to a point in time
 

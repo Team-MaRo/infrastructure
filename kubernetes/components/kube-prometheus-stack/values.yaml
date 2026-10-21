@@ -356,7 +356,9 @@ kube-state-metrics:
       memory: 256Mi
   # Metrics from objects that report their state nowhere else. The mariadb-operator's status
   # conditions become kube_customresource_condition{customresource_kind, name, type, status},
-  # valued with the condition's lastTransitionTime (alerts in kubernetes/components/mariadb).
+  # valued with the condition's lastTransitionTime; a PointInTimeRecovery's lastRecoverableTime
+  # becomes kube_customresource_last_recoverable_time, and the MariaDB names the one it archives
+  # into in kube_customresource_pitr_ref{pitr} (alerts in kubernetes/components/mariadb).
   # k3s records every etcd snapshot as an ETCDSnapshotFile; each becomes
   # kube_customresource_etcd_snapshot_created{node, name, bucket}, bucket set only for the copy
   # in S3 (alerts in rules.yaml).
@@ -373,8 +375,9 @@ kube-state-metrics:
             labelsFromPath: &objectLabels
               namespace: [metadata, namespace]
               name: [metadata, name]
-            metrics: &conditionMetrics
-              - name: condition
+            metrics:
+              - &conditionMetric
+                name: condition
                 help: Time of the object's last transition into each status condition.
                 each:
                   type: Gauge
@@ -385,12 +388,32 @@ kube-state-metrics:
                       status: [status]
                       reason: [reason]
                     valueFrom: [lastTransitionTime]
+              - name: pitr_ref
+                help: The PointInTimeRecovery the MariaDB archives its binary logs into.
+                each:
+                  type: Info
+                  info:
+                    labelsFromPath:
+                      pitr: [spec, pointInTimeRecoveryRef, name]
           - groupVersionKind:
               group: k8s.mariadb.com
               version: v1alpha1
               kind: PhysicalBackup
             labelsFromPath: *objectLabels
-            metrics: *conditionMetrics
+            metrics:
+              - *conditionMetric
+          - groupVersionKind:
+              group: k8s.mariadb.com
+              version: v1alpha1
+              kind: PointInTimeRecovery
+            labelsFromPath: *objectLabels
+            metrics:
+              - name: last_recoverable_time
+                help: The latest moment a restore can reach (lastRecoverableTime, unix seconds).
+                each:
+                  type: Gauge
+                  gauge:
+                    path: [status, lastRecoverableTime]
           - groupVersionKind:
               group: k3s.cattle.io
               version: v1
@@ -409,7 +432,7 @@ kube-state-metrics:
   rbac:
     extraRules:
       - apiGroups: [k8s.mariadb.com]
-        resources: [mariadbs, physicalbackups]
+        resources: [mariadbs, physicalbackups, pointintimerecoveries]
         verbs: [list, watch]
       - apiGroups: [k3s.cattle.io]
         resources: [etcdsnapshotfiles]
