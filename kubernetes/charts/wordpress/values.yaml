@@ -91,6 +91,18 @@ nginx:
   # Directories under uploads that are never served (regular expressions, joined into one rule):
   # private files plugins keep there.
   deniedUploadPaths: []
+  # Who may reach xmlrpc.php; everyone else gets 403. WordPress.com's addresses for Jetpack's
+  # connection (https://jetpack.com/ips-v4.txt, 2026-10-22; "subject to change" - IPv4 only).
+  # Empty: nobody.
+  xmlrpcAllow:
+    - 122.248.245.244/32
+    - 54.217.201.243/32
+    - 54.232.116.4/32
+    - 192.0.80.0/20
+    - 192.0.96.0/20
+    - 192.0.112.0/20
+    - 195.234.108.0/22
+    - 192.0.64.0/18
 
 ingress:
   # Traefik middlewares for the router, by the names Traefik gives them (`...@kubernetescrd`).

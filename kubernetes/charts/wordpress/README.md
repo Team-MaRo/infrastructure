@@ -156,7 +156,7 @@ variable, stops the rendering with a message naming it.
   and clears itself; the run's output stays in Loki: `{namespace="<site>", container="wp-cron"}`.
 - **nginx** (`files/default.conf`) takes its rules in an order where they take effect (nginx uses
   the first matching regex location, so the denies come before the PHP rule): no PHP under
-  `wp-content`/`wp-includes` except TinyMCE's loader, no xmlrpc, `wp-config*`, readme or licence,
+  `wp-content`/`wp-includes` except TinyMCE's loader, no `wp-config*`, readme or licence,
   no dotfiles, nothing executable under uploads; security headers on every answer, a CSP only
   where the values give one. `absolute_redirect off` keeps nginx's own redirects on the site's
   address instead of `http://…:8081`.
@@ -168,6 +168,13 @@ variable, stops the rendering with a message naming it.
   with every style change or, better, give `filemtime()` of the file as `ver` - one that gives no
   version gets WordPress' own, and returning visitors would keep its old CSS and JS until the next
   WordPress update. Purging Cloudflare or Varnish does not help: the copy is in the browser.
+- **XML-RPC only for WordPress.com** (`nginx.xmlrpcAllow`, Jetpack's published addresses,
+  https://jetpack.com/ips-v4.txt): Jetpack's connection reaches the site through `xmlrpc.php`,
+  which for everyone else is a door for guessing passwords. Its connection test failed with 403
+  while it was blocked for all (Site Health, 2026-10-22). A site behind basic auth needs the path
+  exempted there too. The list may change: compare it with Jetpack's
+  when its connection test (Site Health) fails again. The address nginx checks is Cloudflare's
+  `CF-Connecting-IP`, with the caveat of the next bullet.
 - **The opcache holds every site's code** (`files/php.ini`): 256 MB (its interned strings
   included, measured), 32 MB of strings, 32,531 files, and no timestamp checks - the files never
   change while the pod runs. The image's 128 MB, 8 MB and 4,000 files were full on every site
