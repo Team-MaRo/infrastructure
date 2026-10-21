@@ -19,6 +19,9 @@ data:
     {{- if .Values.objectCache.database }}
     plugin redis-cache
     {{- end }}
+    {{- if .Values.pageCache.enabled }}
+    plugin varnish-http-purge 5.12.3
+    {{- end }}
     {{- if .Values.mcp.clientId }}
     # Pinned: plugins in this field have had access-control flaws; an update is read first
     # (README "Content through Claude").
@@ -43,6 +46,12 @@ data:
     {{- .Files.Get "files/zitadel-login-de.l10n.php" | nindent 4 }}
   zitadel-login-es.l10n.php: |
     {{- .Files.Get "files/zitadel-login-es.l10n.php" | nindent 4 }}
+  {{- end }}
+  {{- if .Values.pageCache.enabled }}
+  default.vcl: |
+    {{- .Files.Get "files/default.vcl" | nindent 4 }}
+  page-cache.php: |
+    {{- .Files.Get "files/page-cache.php" | nindent 4 }}
   {{- end }}
   {{- if .Values.mcp.clientId }}
   mcp.php: |

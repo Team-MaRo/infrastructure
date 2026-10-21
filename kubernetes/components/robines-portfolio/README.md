@@ -39,8 +39,8 @@ The database is `robines_portfolio` in the shared MariaDB, the uploads are in th
   (YouTube, Twitter).
 - **The chart's pool** (image's five workers, 512Mi): its calculation is in `values.yaml`; the
   five have never all been busy. To recompute, see "Sizing the pool" in the chart's README.
-- **Watched by Gatus** ("Robines Portfolio (old)" on the status page, `components/gatus`): the home
-  page every five minutes.
+- **Watched by Gatus** ("Robines Portfolio (old)" on the status page, `components/gatus`): the
+  login page every five minutes - the page cache never keeps it, so a dead PHP shows at once.
 - **Not for search engines.** The live site is the Worker at robines.space; this archive tells
   search engines `noindex, nofollow` (wp-admin → Settings → Reading → "Discourage search engines",
   set 2026-10-04 - in the database, not in git). Before the move its pages named robines.space as

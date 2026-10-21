@@ -115,6 +115,9 @@ spec:
               {{- if .Values.mcp.clientId }}
               cp /config/mcp.php mu-plugins/
               {{- end }}
+              {{- if .Values.pageCache.enabled }}
+              cp /config/page-cache.php mu-plugins/
+              {{- end }}
               {{- if .Values.objectCache.database }}
               # Redis Object Cache's drop-in, which its admin button would install - hidden under
               # DISALLOW_FILE_MODS. It works without the plugin activated.
@@ -136,6 +139,9 @@ spec:
                 {{- end }}
                 {{- if .Values.mcp.clientId }}
                 wp plugin activate mcp-adapter enable-abilities-for-mcp
+                {{- end }}
+                {{- if .Values.pageCache.enabled }}
+                wp plugin activate varnish-http-purge
                 {{- end }}
                 {{- with .Values.languages }}
                 for l in {{ join " " . }}; do
@@ -205,6 +211,52 @@ spec:
               mountPath: /usr/local/etc/php-fpm.d/zz-{{ .Release.Name }}.conf
               subPath: php-fpm.conf
               readOnly: true
+        {{- if .Values.pageCache.enabled }}
+        # The page cache in front of nginx (files/default.vcl, README "Page cache"); the Service
+        # sends every request here, it passes what is not for the cache to nginx on localhost.
+        - name: varnish
+          image: varnish:9.1
+          imagePullPolicy: Always
+          lifecycle: *drain
+          # The image's entrypoint builds varnishd's command line from these and adds the args.
+          env:
+            - name: VARNISH_HTTP_PORT
+              value: "8080"
+            - name: VARNISH_SIZE
+              value: {{ .Values.pageCache.size }}
+          # Passed responses (everything not cached) flow through Transient memory, limited so a burst
+          # cannot take the container's; transit_buffer lets Varnish read only 1M ahead of the
+          # visitor instead of holding a whole file - without it a 200 MB download broke off at 33 MB
+          # once Transient was full (tested 2026-10-22). Fewer idle threads than the default 100.
+          args: ["-s", "Transient=malloc,64M", "-p", "transit_buffer=1M", "-p", "thread_pool_min=20"]
+          securityContext:
+            runAsUser: 1000
+            runAsGroup: 1000
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          ports:
+            - name: cache
+              containerPort: 8080
+          readinessProbe:
+            tcpSocket:
+              port: cache
+          livenessProbe:
+            tcpSocket:
+              port: cache
+          resources:
+            {{- toYaml .Values.pageCache.resources | nindent 12 }}
+          volumeMounts:
+            # Its working directory: the compiled VCL (executed from here) and its statistics.
+            - name: varnish
+              mountPath: /var/lib/varnish
+            - name: config
+              mountPath: /etc/varnish/default.vcl
+              subPath: default.vcl
+              readOnly: true
+        {{- end }}
         - name: nginx
           # Without docker.io/: Keel writes the short form back (components/keel).
           image: nginxinc/nginx-unprivileged:stable
@@ -315,3 +367,8 @@ spec:
         - name: mariadb-ca
           configMap:
             name: mariadb-ca
+        {{- if .Values.pageCache.enabled }}
+        - name: varnish
+          emptyDir:
+            sizeLimit: 200Mi
+        {{- end }}

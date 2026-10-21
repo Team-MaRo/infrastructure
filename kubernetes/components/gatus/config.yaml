@@ -55,7 +55,9 @@ endpoints:
 
   - name: Robines Portfolio (old)
     group: Apps
-    url: https://old.robines.space/
+    # The login page, which the page cache never keeps: the home page would come from Varnish's
+    # grace for hours while PHP is down (charts/wordpress README "Page cache").
+    url: https://old.robines.space/wp-login.php
     interval: 5m
     conditions:
       - "[STATUS] == 200"
@@ -64,7 +66,9 @@ endpoints:
 
   - name: Arepazo
     group: Apps
-    url: https://www.arepazo.ch/
+    # The login page, which the page cache never keeps: the home page would come from Varnish's
+    # grace for hours while PHP is down (charts/wordpress README "Page cache").
+    url: https://www.arepazo.ch/wp-login.php
     interval: 5m
     conditions:
       - "[STATUS] == 200"

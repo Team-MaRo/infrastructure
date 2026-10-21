@@ -9,4 +9,5 @@ spec:
   ports:
     - name: http
       port: 80
-      targetPort: http
+      # Varnish when the page cache is on (values pageCache), nginx otherwise.
+      targetPort: {{ if .Values.pageCache.enabled }}cache{{ else }}http{{ end }}

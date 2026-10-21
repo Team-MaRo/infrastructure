@@ -106,6 +106,11 @@ variable at runtime, so each one carries the same set.
     define( 'WP_REDIS_GRACEFUL', true );
     define( 'WP_REDIS_DISABLE_DROPIN_AUTOUPDATE', true );
     {{- end }}
+    {{- if .Values.pageCache.enabled }}
+    // The page cache (values pageCache, README "Page cache"): Proxy Cache Purge sends its PURGE
+    // to Varnish in this pod.
+    define( 'VHP_VARNISH_IP', '127.0.0.1:8080' );
+    {{- end }}
     {{- with .Values.oidc.clientId }}
     // Login through Zitadel (values oidc, README "Login through Zitadel"): OpenID Connect Generic
     // Client with the button beside the normal form, which stays for the break-glass admin.

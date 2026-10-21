@@ -62,6 +62,17 @@ languages:
 objectCache:
   database: 2
 
+# Varnish in front (chart README "Page cache"): a shop has more pages - products, categories,
+# three languages - so twice the chart's memory for them.
+pageCache:
+  enabled: true
+  size: 128M
+  resources:
+    requests:
+      memory: 384Mi
+    limits:
+      memory: 384Mi
+
 # Login through Zitadel (README): the app `arepazo` in tofu/zitadel (project_arepazo.tf), and
 # customers register into the organisation Arepazo, which gives them arepazo:customer.
 oidc:

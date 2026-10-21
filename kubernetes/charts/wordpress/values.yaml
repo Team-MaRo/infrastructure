@@ -26,6 +26,19 @@ secrets: []
 objectCache:
   database: 0
 
+# The page cache (README "Page cache"): Varnish in front of nginx, for anonymous visitors.
+# size: Varnish's memory for pages (-s malloc); its container's memory below has room for that
+# plus Varnish itself and its 64M for passed responses. A page is a few dozen kB, so 64M holds
+# thousands - enough for a small site; the nodes' memory is tight (README "Page cache").
+pageCache:
+  enabled: false
+  size: 64M
+  resources:
+    requests:
+      memory: 256Mi
+    limits:
+      memory: 256Mi
+
 # Login through Zitadel (README "Login through Zitadel"): the client ID of the site's app in
 # Zitadel (tofu/zitadel, project_<site>.tf); empty: the normal WordPress login only. Its secret
 # comes as OIDC_CLIENT_SECRET through secrets.

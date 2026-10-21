@@ -22,6 +22,7 @@ named after the site:
 | init `core` | `wordpress:7-php8.5-fpm` | writes the CA bundle, copies WordPress core and writes `wp-config.php` into `html`, a directory it creates itself in the emptyDir - the image's `tar` exits 2 when it cannot set the target's permissions, as in the root-owned volume; the other containers mount `html` as a `subPath` |
 | init `plugins` | `wordpress:cli-2-php8.5` | installs the plugins and themes of the values and S3-Uploads; once the database holds the site, `wp core update-db` and the language packs |
 | `php-fpm` | `wordpress:7-php8.5-fpm` | runs WordPress |
+| `varnish` (with `pageCache`) | `varnish:9.1` | the page cache on 8080, in front of nginx (`files/default.vcl`, "Page cache") |
 | `nginx` | `nginxinc/nginx-unprivileged:stable` | serves it on 8081 (`files/default.conf`), and php-fpm's pool figures on 9253 for Prometheus |
 | `uploads-proxy` | `ghcr.io/nginxinc/nginx-s3-gateway/nginx-oss-s3-gateway:unprivileged-oss` | serves `/wp-content/uploads/` from the private bucket |
 | CronJob `wp-cron` | `curlimages/curl` | calls `http://web/wp-cron.php` every five minutes |
@@ -57,6 +58,7 @@ Only what differs between sites; `values.yaml` holds the defaults and says what 
 | `oidc.clientId` | empty | the site's app in Zitadel, which turns on the login through Zitadel; empty: off |
 | `oidc.registerOrganisation` | empty | the Zitadel organisation people register into ("Registration in Zitadel"); empty: no registration |
 | `mcp.clientId` | empty | the site's Claude app in Zitadel, which makes the site an MCP server for Claude ("Content through Claude"); needs `oidc`; empty: off |
+| `pageCache.enabled`, `.size`, `.resources` | `false`, `64M`, 256Mi | Varnish in front of nginx ("Page cache"), its memory for pages and its container's |
 | `objectCache.database` | `0` | the site's database in valkey-cache, which turns on the object cache; 0: off |
 | `reloader` | `true` | the Reloader annotation; needs the namespace in Reloader's list |
 | `phpFpm.pool` | `{}` | `pm.*` settings, e.g. `max_children: 6`; empty: the image's five workers |
@@ -396,6 +398,62 @@ nothing, an editor only what an editor may. Who may is decided in Zitadel alone.
   creating exists only there); deleting products and its order abilities are not.
 - **Prompt injection**: Claude reads what others wrote (posts, imported text) and acts with the
   person's rights. In Claude, leave writing tools on "ask before use", never "always allow".
+
+## Page cache
+
+With `pageCache.enabled`, Varnish (`varnish:9.1`, Varnish Software's build of Vinyl Cache) sits in
+the pod in front of nginx: the Service sends every request to it on 8080, and it hands what is
+not for the cache to nginx on `127.0.0.1:8081`. It keeps what an anonymous visitor sees; PHP then
+serves only what is personal. Rules in `files/default.vcl`:
+
+- **Passed through, never kept**: anything but GET/HEAD; wp-admin, wp-login, wp-cron, xmlrpc,
+  comments, the REST API (Claude's MCP included), `wc-api`, add-to-cart, `wc-ajax`, previews,
+  searches; cart, checkout and my account (also German, `warenkorb`/`kasse`/`mein-konto`);
+  anyone logged in or with a cart, a WooCommerce session, a comment-author or protected-post
+  cookie; a Bearer token; static files (nginx serves them, Cloudflare caches them).
+- **One copy per page**: other cookies (analytics, Polylang's language - the language is in the
+  URL) are dropped; tracking parameters (`utm_*`, `gclid`, `fbclid` ...) are removed and the
+  query sorted; a browser's `Accept` becomes `text/html`, since WordPress answers every page with
+  `Vary: accept, content-type` and would otherwise get a copy per browser. A basic-auth header
+  (a site behind Traefik's basic auth) is removed too - Traefik checked it already - so its
+  visitors share the pages.
+- **Never cached**: an answer with a cookie, `private`/`no-store`/`no-cache`, or a status other
+  than 200, 301 and 404. On a page fetched for the cache, Polylang's `pll_language` and
+  WooCommerce's empty guest session (`wp_woocommerce_session_*`, set on the shop page) are
+  dropped first - without that no page of arepazo's could be cached; a real session starts with
+  the first cart action, which is never cached.
+- **Six hours, then up to twelve more** while a fresh copy is fetched in the background (grace),
+  and a failed refresh keeps the old copy; sitemaps and feeds an hour, 404s five minutes. Twelve
+  plus six stays well under WPForms' 48-hour form token.
+- **Emptied by WordPress**: Proxy Cache Purge (`varnish-http-purge`, pinned) sends a PURGE to
+  `127.0.0.1:8080` (`VHP_VARNISH_IP`) whenever a post, page or product is saved - in wp-admin or
+  by Claude - for the page, the home page and its archives; `files/page-cache.php` adds
+  WooCommerce's stock changes (an order taking the last one), which save nothing: the product's
+  page (a variation's parent), the shop page and its categories with their parent categories.
+  PURGE comes only from inside the pod; from outside it answers 405.
+- **Memory**: `pageCache.size` for pages (`-s malloc`), 64M for passed answers while they flow
+  through (`-s Transient`; with `transit_buffer=1M` Varnish reads only 1M ahead of the visitor, so a
+  file of any size passes - without it a 200 MB download broke off at 33 MB, 2026-10-22), plus
+  Varnish itself - the container's limit leaves room for all three
+  (arepazo: 128M in 384Mi; a page is a few dozen kB, so that holds thousands). Kept small on
+  purpose: with all three sites the nodes would carry a failed one at about 94% of their memory
+  at twice these sizes (2026-10-22). Its working directory is an emptyDir; the root filesystem is
+  read-only.
+- **Gatus checks the login page**, not the home page: grace would serve the home page for hours
+  while PHP is down.
+- **Not yet**: Prometheus metrics - the usual exporter needs an image of its own (roadmap).
+  `varnishstat` in the container shows the figures meanwhile.
+- Tested 2026-10-22 against a stand-in backend: hits across browsers, cookies dropped on the shop
+  page, passes for login/cart/REST/Bearer, basic auth shared, PURGE 405 from outside, 200 from
+  inside, regex purge. nginx's `/healthz` answers 204, which the backend probe must expect - it
+  counts only 200 otherwise and marks nginx sick.
+
+Seeing it work: the answer carries `X-Cache: HIT` or `MISS` and `Age` -
+`curl -s -D - -o /dev/null https://<host>/ | grep -i -E 'x-cache|age'` twice. Emptying it by hand,
+the whole site:
+`kubectl --context d3strukt0r-prod-admin -n <site> exec deploy/web -c varnish -- varnishadm "ban req.url ~ ."`;
+its figures:
+`kubectl --context d3strukt0r-prod-admin -n <site> exec deploy/web -c varnish -- varnishstat -1 -f MAIN.cache_hit -f MAIN.cache_miss -f MAIN.n_object`.
 
 ## Sizing the pool
 

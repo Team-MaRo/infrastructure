@@ -47,6 +47,10 @@ languages:
 objectCache:
   database: 1
 
+# Varnish in front (chart README "Page cache"), the chart's size.
+pageCache:
+  enabled: true
+
 # Login through Zitadel: the app robines-portfolio in the project of the same name
 # (tofu/zitadel, project_robines_portfolio.tf); its secret below (OIDC_CLIENT_SECRET).
 oidc:
