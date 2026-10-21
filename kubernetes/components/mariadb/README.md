@@ -66,8 +66,9 @@ fit together is in [`kubernetes/README.md`](../../README.md).
 - **Backups** (`backups.yaml`), to `d3strukt0r-prod-mariadb-backups`:
   - `PhysicalBackup` `mariadb-daily` at 23:30 UTC from the replica, kept 30 days. Staged on
     the node's disk before the upload, so it sets an ephemeral-storage limit of its own.
-  - `PointInTimeRecovery` `pitr`: the agent next to the primary archives **closed** binary logs
-    every ten minutes (hardcoded, counted from the agent's start, not the clock). The operator
+  - `PointInTimeRecovery` `pitr-2026-10-22` (the one `mariadb.yaml` names; a new dated one after
+    every replica recovery, see below): the agent next to the primary archives **closed**
+    binary logs every ten minutes (hardcoded, counted from the agent's start, not the clock). The operator
     rotates only by size, so at low traffic the active file would stay unarchived for weeks; the CronJob `mariadb-flush-binlogs` runs
     `FLUSH BINARY LOGS` on the primary every ten minutes, so a restore loses at most about
     twenty. The bucket expires archived logs after 35 days; the server itself deletes its local
@@ -115,6 +116,15 @@ fit together is in [`kubernetes/README.md`](../../README.md).
   failover test, 2026-09-28; closed within about 15 minutes by the after-switchover backup.
   `LAST RECOVERABLE TIME` only moves once something writes after that backup, so its age
   alone says nothing on a quiet database - which is why no alert watches it.
+- **A replica recovery restarts that server's binary log numbering** (its data directory is
+  rebuilt from a backup), and the archive holds its old files under the same names in
+  `server-<id>/`. Once that server is primary again, the agent finds each name already there,
+  skips the upload and still logs "archived"; the index matches by name too, and
+  `BinlogsArchived` stays True - nothing reaches the bucket, and `LAST RECOVERABLE TIME` stops at
+  the switch (mariadb-operator#1815, open in 26.10.1). Happened 2026-10-18 to 2026-10-22: recovery
+  of `mariadb-1` on 2026-10-06, primary again after a reboot on 2026-10-18. The way out is a fresh
+  prefix after every replica recovery (runbook "After a replica recovery"); the old
+  `PointInTimeRecovery` stays for restores up to the switch.
 - **PITR works only in this replication topology**, not with Galera or a standalone instance.
 
 ## Passwords and Argo CD
@@ -288,15 +298,41 @@ Writes are not affected, only point-in-time recovery.
 4. Within ten minutes the agent archives the remaining files; `kubectl get pitr` shows a
    `LAST RECOVERABLE TIME` again and the MariaDB turns Ready.
 
+## After a replica recovery
+
+The recovered server's binary logs start again at `mariadb-bin.000001`, under names its old
+files already have in the archive; once it is primary again nothing would be archived (see
+"Backups and restore"). So after every replica recovery (`kubectl --context d3strukt0r-prod-admin -n mariadb get mariadb mariadb -o jsonpath='{.status.conditions}' | jq`
+shows `ReplicaRecovered` with a new time), move the archive to a fresh prefix - before that
+server is primary again if possible, otherwise at once, and in any case within seven days of the
+switch, while the server still has the unarchived files:
+
+1. In `components/mariadb/`, one commit: in `backups.yaml` a copy of the current
+   `PointInTimeRecovery` named `pitr-<date>` with prefix `pitr-<date>`; keep the old one (it
+   restores up to its last upload) and say in its comment until when. In `mariadb.yaml` point
+   `pointInTimeRecoveryRef` at the new one. The MariaDB pods do not restart for it. Push.
+2. Once Argo CD has applied it, clear the agent's record of what it archived, so it starts over
+   in the empty prefix with every binary log the primary still has - only ever on a new, empty
+   prefix (on a used one archival stops with "must start from a clean state"):
+   ```shell
+   kubectl --context d3strukt0r-prod-admin -n mariadb patch mariadb mariadb --subresource=status --type=merge -p '{"status":{"pointInTimeRecovery":null}}'
+   ```
+3. Watch the uploads (`kubectl --context d3strukt0r-prod-admin -n mariadb logs <primary-pod> -c agent -f`).
+   Many files can take longer than the hour one cycle may run; `BinlogsArchived` then turns False
+   for a while and the next cycle carries on.
+4. Take a physical backup at once (command under "Failover hangs").
+5. `kubectl --context d3strukt0r-prod-admin -n mariadb get pitr` shows the new object's
+   `LAST RECOVERABLE TIME` minutes old.
+
 ## Restore to a point in time
 
 A restore creates a **new** MariaDB from the backups; the running one is not touched.
 
 1. Pick the target time (UTC). `strictMode` refuses any time the archive cannot reach, and
    an operator bug also refuses one that falls inside the newest archived binary log:
-   - **As late as possible**: copy `LAST RECOVERABLE TIME` from `kubectl get pitr`
-     exactly - the end of the newest file is accepted. Leaving the time out means "now",
-     which is always refused.
+   - **As late as possible**: copy `LAST RECOVERABLE TIME` from `kubectl get pitr` (the one
+     `mariadb.yaml` names) exactly - the end of the newest file is accepted. Leaving the time
+     out means "now", which is always refused.
    - **A moment before an accident**: if it is refused as "timeline did not reach target
      time" although it lies before `LAST RECOVERABLE TIME`, it is inside the newest file;
      wait for the next upload (at most twenty minutes) and retry.
@@ -307,9 +343,11 @@ A restore creates a **new** MariaDB from the backups; the running one is not tou
    ```yaml
    bootstrapFrom:
      pointInTimeRecoveryRef:
-       name: pitr
+       name: pitr-2026-10-22
      targetRecoveryTime: 2026-10-01T18:00:00Z
    ```
+   The `PointInTimeRecovery` whose history holds the target time: the current one, or an older
+   one for a time before it took over (`pitr` up to 2026-10-18 02:30 UTC).
    Keep `replicas: 2` - the webhook refuses replication with one.
 3. Wait for it to be ready, and **check the condition `BinlogsReplayed`**:
    `kubectl --context d3strukt0r-prod-admin -n mariadb get mariadb mariadb-restore -o jsonpath='{.status.conditions}' | jq`.
@@ -337,12 +375,12 @@ deleted, so the restore goes through git:
 
 1. Pick the target time as above.
 2. In `components/mariadb/`, in one commit:
-   - `mariadb.yaml`: add `bootstrapFrom` (`pointInTimeRecoveryRef: pitr`, `targetRecoveryTime`)
-     and point `pointInTimeRecoveryRef` at a new `PointInTimeRecovery`;
-   - `backups.yaml`: that new object, a copy of `pitr` named e.g. `pitr-<date>` with prefix
+   - `mariadb.yaml`: add `bootstrapFrom` (`pointInTimeRecoveryRef` the current one,
+     `targetRecoveryTime`) and point `pointInTimeRecoveryRef` at a new `PointInTimeRecovery`;
+   - `backups.yaml`: that new object, a copy of the current one named `pitr-<date>` with prefix
      `pitr-<date>`. The restored servers get the same server ids as the old ones, and their
-     binary logs must not mix with the old history in `pitr`, which stays readable (for older
-     restore points) until the bucket expires it after 35 days.
+     binary logs must not mix with the old history, which stays readable (for older restore
+     points) until the bucket expires it after 35 days.
 
    Push. Argo CD may fail to apply `bootstrapFrom` to the broken instance; that is expected.
 3. Delete the broken MariaDB and its PVCs (`storage-mariadb-0`/`-1`) plus their PVs and Hetzner

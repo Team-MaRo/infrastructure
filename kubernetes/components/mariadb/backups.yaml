@@ -108,10 +108,10 @@ spec:
       drop:
         - ALL
 ---
-# Archives the primary's binary logs to Object Storage (done by the agent next to MariaDB,
-# every ten minutes), so a restore can replay up to a chosen moment after a daily backup.
-# The prefix must hold nothing else. Nothing prunes the archived logs; the bucket's lifecycle
-# rule expires them after 35 days (tofu/objectstorage/mariadb-backups.tf).
+# The archive until 2026-10-18 02:30 UTC, kept for restores up to then. A replica recovery had
+# restarted mariadb-1's binary log numbering, and after it became primary again its new files
+# collided with its old names here and were never uploaded (README "After a replica recovery").
+# Nothing archives into it any more; the bucket's lifecycle rule removes it after 35 days.
 apiVersion: k8s.mariadb.com/v1alpha1
 kind: PointInTimeRecovery
 metadata:
@@ -126,6 +126,39 @@ spec:
     s3:
       bucket: d3strukt0r-prod-mariadb-backups
       prefix: pitr
+      endpoint: nbg1.your-objectstorage.com
+      region: nbg1
+      accessKeyIdSecretKeyRef:
+        name: mariadb-backups-s3
+        key: access-key-id
+      secretAccessKeySecretKeyRef:
+        name: mariadb-backups-s3
+        key: secret-access-key
+      tls:
+        enabled: true
+        caSecretKeyRef:
+          name: s3-ca
+          key: ca.crt
+---
+# Archives the primary's binary logs to Object Storage (done by the agent next to MariaDB,
+# every ten minutes), so a restore can replay up to a chosen moment after a daily backup.
+# The prefix must hold nothing else, and it is new after every replica recovery (dated name,
+# README "After a replica recovery"). Nothing prunes the archived logs; the bucket's lifecycle
+# rule expires them after 35 days (tofu/objectstorage/mariadb-backups.tf).
+apiVersion: k8s.mariadb.com/v1alpha1
+kind: PointInTimeRecovery
+metadata:
+  name: pitr-2026-10-22
+spec:
+  physicalBackupRef:
+    name: mariadb-daily
+  compression: gzip
+  # Refuses a restore target it cannot fully reach, instead of stopping at the last log it has.
+  strictMode: true
+  storage:
+    s3:
+      bucket: d3strukt0r-prod-mariadb-backups
+      prefix: pitr-2026-10-22
       endpoint: nbg1.your-objectstorage.com
       region: nbg1
       accessKeyIdSecretKeyRef:
