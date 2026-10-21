@@ -111,6 +111,10 @@ variable, stops the rendering with a message naming it.
 - **No image of its own, no build, no volume.** The stock images, and the site assembled at every
   start: core from the WordPress image, plugins and themes from wordpress.org (the latest release
   of each unless the values pin a version), S3-Uploads from its GitHub release (pinned, 3.0.10).
+  The release is the version wordpress.org's API names: the unversioned download is the
+  development version (trunk), which ran Jetpack and Yoast pre-releases until 2026-10-22. A
+  plugin closed on wordpress.org has no release, and the start stops with its name - remove or
+  pin it.
   `DISALLOW_FILE_MODS` keeps WordPress from installing or updating anything itself, so the list
   in git is what runs; which plugins are active stays in the database. A start needs
   wordpress.org and GitHub; the running site does not. Keel rolls out new images of the floating
