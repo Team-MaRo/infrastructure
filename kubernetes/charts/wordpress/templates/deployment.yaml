@@ -104,13 +104,21 @@ spec:
                 [ -n "$kind" ] || continue
                 # Without a version, downloads.wordpress.org serves the development version (trunk),
                 # not the release - Jetpack and Yoast ran pre-releases that way (2026-10-22). The API
-                # names the release; a closed plugin has none, and the start stops naming it.
+                # names the release. A plugin wordpress.org closed has none (404); it keeps running
+                # from trunk with a warning rather than keeping the site from starting. Any other
+                # failure of the API stops the start, or an outage would put every site on trunk.
                 if [ -z "$version" ]; then
-                  version=$(curl -fsSL --retry 3 "https://api.wordpress.org/${kind}s/info/1.2/?action=${kind}_information&request%5Bslug%5D=$slug" \
-                    | php -r '$i = json_decode(stream_get_contents(STDIN)); if (empty($i->version)) exit(1); echo $i->version;') \
-                    || { echo "no release of $kind $slug on wordpress.org"; exit 1; }
+                  code=$(curl -sSL --retry 3 -o /tmp/info.json -w '%{http_code}' "https://api.wordpress.org/${kind}s/info/1.2/?action=${kind}_information&request%5Bslug%5D=$slug")
+                  if [ "$code" = 200 ]; then
+                    version=$(php -r '$i = json_decode(file_get_contents("/tmp/info.json")); if (empty($i->version)) exit(1); echo $i->version;') \
+                      || { echo "wordpress.org names no version for $kind $slug"; exit 1; }
+                  elif [ "$code" = 404 ]; then
+                    echo "WARNING: $kind $slug has no release on wordpress.org (closed?) - installing its development version; replace or remove it"
+                  else
+                    echo "wordpress.org's API answered $code for $kind $slug"; exit 1
+                  fi
                 fi
-                fetch "https://downloads.wordpress.org/$kind/$slug.$version.zip" "${kind}s"
+                fetch "https://downloads.wordpress.org/$kind/$slug${version:+.$version}.zip" "${kind}s"
               done
               # Not on wordpress.org; the release zip has its files at the root.
               mkdir -p plugins/s3-uploads mu-plugins

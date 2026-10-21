@@ -113,8 +113,11 @@ variable, stops the rendering with a message naming it.
   of each unless the values pin a version), S3-Uploads from its GitHub release (pinned, 3.0.10).
   The release is the version wordpress.org's API names: the unversioned download is the
   development version (trunk), which ran Jetpack and Yoast pre-releases until 2026-10-22. A
-  plugin closed on wordpress.org has no release, and the start stops with its name - remove or
-  pin it. The two plugins the image brings, Akismet and Hello Dolly, are deleted first, so only
+  plugin wordpress.org has closed has no release (its API answers 404): the site still starts,
+  with that plugin's development version and a `WARNING: … has no release` line in the init
+  container `plugins`'s log - replace or remove it. Pinning does not help, wordpress.org removes
+  a closed plugin's versioned downloads too. Any other failure of the API stops the start, so an
+  outage there never puts every plugin on trunk. The two plugins the image brings, Akismet and Hello Dolly, are deleted first, so only
   the values decide; a site that wants Akismet lists it there.
   `DISALLOW_FILE_MODS` keeps WordPress from installing or updating anything itself, so the list
   in git is what runs; which plugins are active stays in the database. A start needs
