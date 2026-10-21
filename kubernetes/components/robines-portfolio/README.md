@@ -27,6 +27,14 @@ The database is `robines_portfolio` in the shared MariaDB, the uploads are in th
   user by hand. **Break-glass: the local `admin`** (`info@robines.space`, an address no Zitadel
   user has), its password in 1Password
   [`Robines Portfolio CMS | Prod | Admin`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=amt2kkr67jxqe5uajaz5ine34i&h=my.1password.com).
+- **Content through Claude** (since 2026-10-22; the chart's "Content through Claude"): the app
+  `robines-portfolio-claude` in `tofu/zitadel`. claude.ai / Claude Desktop: Add custom connector,
+  URL `https://old.robines.space/wp-json/mcp/mcp-adapter-default-server`, "Use your own OAuth
+  client" with client ID `396201383902118276`, no secret. Claude Code:
+
+  ```shell
+  claude mcp add --transport http --scope user --client-id 396201383902118276 --callback-port 33418 robines-portfolio https://old.robines.space/wp-json/mcp/mcp-adapter-default-server
+  ```
 - **A permissive Content-Security-Policy** like prod-old's, with the frames the site embeds
   (YouTube, Twitter).
 - **The chart's pool** (image's five workers, 512Mi): its calculation is in `values.yaml`; the

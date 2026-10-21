@@ -72,6 +72,15 @@ in the shared MariaDB, the uploads are in the bucket `d3strukt0r-prod-arepazo`
   `D3strukt0r` is linked to his Zitadel user by hand. **Break-glass: the local `admin`**
   (`info@arepazo.ch`, an address no Zitadel user has), its password in 1Password
   [`Arepazo CMS | Prod | Admin`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=5aankgyeyucb7h6wrqk4qegxoa&h=my.1password.com).
+- **Content through Claude** (since 2026-10-22; the chart's "Content through Claude"): pages,
+  posts and products, as one's own WordPress user - a customer can write nothing. The app
+  `arepazo-claude` in `tofu/zitadel`. claude.ai / Claude Desktop: Add custom connector, URL
+  `https://www.arepazo.ch/wp-json/mcp/mcp-adapter-default-server`, "Use your own OAuth client"
+  with client ID `396201383935607172`, no secret. Claude Code:
+
+  ```shell
+  claude mcp add --transport http --scope user --client-id 396201383935607172 --callback-port 33418 arepazo https://www.arepazo.ch/wp-json/mcp/mcp-adapter-default-server
+  ```
 - **Three languages.** wp-admin runs in `de_CH`, the shop in German, English and Spanish
   (Polylang); the init container installs `de_CH`, `de_DE` and `es_ES` for core, plugins and
   themes.

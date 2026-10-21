@@ -361,7 +361,10 @@ nothing, an editor only what an editor may. Who may is decided in Zitadel alone.
   app's, and acts as the WordPress account linked to that Zitadel user - someone who never logged
   in to the site has none and gets nothing. Deactivating someone or ending their session in
   Zitadel ends their Claude access within a minute; a removed role at the latest when the access
-  token expires (an hour), since Zitadel then refuses to renew it. Enable Abilities' own OAuth
+  token expires (an hour), since Zitadel then refuses to renew it. Tested 2026-10-22: a user
+  deactivated in Zitadel was refused on the first call after it - the site answered 401 and
+  Zitadel refused to renew the token (`Errors.User.NotActive`); reactivated, a new login through
+  `/mcp` worked again. Enable Abilities' own OAuth
   server and its site-wide Bearer token are off - each would be a key Zitadel never sees.
 - **Application Passwords stay on** (user decision, 2026-10-21): customers' and staff's apps -
   the WooCommerce app among them - log in to self-hosted sites with them. They are WordPress's
@@ -374,8 +377,12 @@ nothing, an editor only what an editor may. Who may is decided in Zitadel alone.
   secret): claude.ai/Claude Desktop: Settings → Connectors → Add custom connector, the client ID
   under "Use your own OAuth client" (a Team plan's members cannot add one - its owner does, or a
   Pro/Max account). Claude Code:
-  `claude mcp add --transport http --client-id <id> --callback-port 33418 <site> <url>`, then
-  `/mcp` to log in (the app allows exactly that callback).
+  `claude mcp add --transport http --scope user --client-id <id> --callback-port 33418 <site>
+  <url>` (`--scope user`: in every project; the default `local` sets it up for the current
+  directory only), then `/mcp` to log in (the app allows exactly that callback). Each site's
+  README has its finished command and connector values. Claude Code is tested on all three sites
+  (2026-10-22); claude.ai and Claude Desktop are not yet - no account at hand that may add a
+  custom connector - so a first connection there may still meet a surprise.
 - **What Claude may do** is fixed in `files/mcp.php`, not in the plugin's settings page
   (`pre_option_*`, so a click in wp-admin changes nothing): read and write content - posts,
   pages, media, categories and tags, portfolio items, translations, Yoast fields, products -
