@@ -67,8 +67,11 @@ const MCP_ABILITIES = array(
 );
 add_filter( 'pre_option_ewpa_enabled_abilities', fn() => MCP_ABILITIES );
 
-// WooCommerce registers abilities of its own, private to MCP by default. Products may be listed,
-// created and edited through them too; deleting products and anything about orders stays private.
+// The list decides for every plugin, not only for Enable Abilities: WooCommerce, Yoast, WPForms,
+// WP Mail SMTP and core mark abilities of their own public for MCP - orders, mail logs, site-wide
+// SEO settings - and a plugin added later could do the same. Whatever is not listed is made
+// private here; WooCommerce's product abilities are listed (creating a product exists only there)
+// and made public, its order and delete abilities are not. Last, after every plugin's own filter.
 const MCP_WOOCOMMERCE_ABILITIES = array(
 	'woocommerce/products-query',
 	'woocommerce/product-create',
@@ -79,10 +82,12 @@ add_filter(
 	function ( $args, $name ) {
 		if ( in_array( $name, MCP_WOOCOMMERCE_ABILITIES, true ) ) {
 			$args['meta']['mcp']['public'] = true;
+		} elseif ( ! in_array( $name, MCP_ABILITIES, true ) ) {
+			$args['meta']['mcp']['public'] = false;
 		}
 		return $args;
 	},
-	10,
+	PHP_INT_MAX,
 	2
 );
 

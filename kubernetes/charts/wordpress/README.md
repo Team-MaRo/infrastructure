@@ -381,8 +381,12 @@ nothing, an editor only what an editor may. Who may is decided in Zitadel alone.
   pages, media, categories and tags, portfolio items, translations, Yoast fields, products -
   never delete it, and nothing about people: no users, comments, orders or customers (personal
   data would flow to Claude), no search and replace across the database, no code. The plugin
-  itself would allow nearly all of that. WooCommerce's own product abilities are made public
-  there too (list, create, edit); deleting products and its order abilities stay private.
+  itself would allow nearly all of that. **The list decides for every plugin**: WooCommerce,
+  Yoast, WPForms, WP Mail SMTP and core mark abilities of their own public for MCP (orders, mail
+  logs, site-wide SEO settings), so whatever is not listed is made private there, last after
+  every plugin's filter - a plugin added later included (2026-10-22: 21 such abilities on
+  arepazo before this). WooCommerce's own product abilities are listed (list, create, edit -
+  creating exists only there); deleting products and its order abilities are not.
 - **Prompt injection**: Claude reads what others wrote (posts, imported text) and acts with the
   person's rights. In Claude, leave writing tools on "ask before use", never "always allow".
 
