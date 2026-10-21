@@ -79,9 +79,11 @@ add_filter(
 add_action( 'openid-connect-generic-user-create', 'zitadel_apply_roles', 10, 2 );
 add_action( 'openid-connect-generic-update-user-using-current-claim', 'zitadel_apply_roles', 10, 2 );
 
-// The profile too: email (only a verified one) and names from Zitadel at every login - the plugin
-// sets them only when it creates the account, so a linked one would keep its old values.
-// WooCommerce's billing and shipping data stays the customer's own.
+// The profile too: email (only a verified one), first and last name and the public name (Zitadel's
+// free display name; WordPress's dropdown only suggests combinations and lists the current value
+// anyway) from Zitadel at every login - the plugin sets them only when it creates the account, so
+// a linked one would keep its old values. WooCommerce's billing and shipping data stays the
+// customer's own.
 function zitadel_apply_profile( $user, $user_claim ) {
 	$wanted = array(
 		'user_email'   => ! empty( $user_claim['email_verified'] ) ? (string) ( $user_claim['email'] ?? '' ) : '',
@@ -161,7 +163,8 @@ add_action(
 	0
 );
 
-// The fields read only, and where to change them instead.
+// The fields read only, and right before them where to change them instead; wp-admin's hint that a
+// new address gets a confirmation mail goes, since there is none to give.
 function zitadel_profile_fields_locked( $user_id, $fields ) {
 	if ( ! zitadel_profile_locked( $user_id ) ) {
 		return;
@@ -177,14 +180,33 @@ function zitadel_profile_fields_locked( $user_id, $fields ) {
 		document.addEventListener( 'DOMContentLoaded', function () {
 			<?php echo wp_json_encode( $fields ); ?>.forEach( function ( id ) {
 				var field = document.getElementById( id );
-				if ( field ) {
+				if ( field && field.tagName === 'SELECT' ) {
+					// A dropdown has no read-only state; disabled, it is greyed out and not sent at all.
+					field.disabled = true;
+				} else if ( field ) {
 					field.readOnly = true;
 					field.setAttribute( 'aria-readonly', 'true' );
-					if ( field.tagName === 'SELECT' ) {
-						field.style.pointerEvents = 'none';
-					}
 				}
 			} );
+			var first = document.getElementById( <?php echo wp_json_encode( $fields[0] ); ?> );
+			var note  = document.querySelector( '.zitadel-profile-note' );
+			var row   = first && first.closest( 'tr, .form-row' );
+			if ( row && note ) {
+				if ( row.tagName === 'TR' ) {
+					var cell     = document.createElement( 'td' );
+					var noteRow  = document.createElement( 'tr' );
+					cell.colSpan = 2;
+					cell.appendChild( note );
+					noteRow.appendChild( cell );
+					row.parentNode.insertBefore( noteRow, row );
+				} else {
+					row.parentNode.insertBefore( note, row );
+				}
+			}
+			var hint = document.getElementById( 'email-description' );
+			if ( hint ) {
+				hint.remove();
+			}
 		} );
 	</script>
 	<?php
