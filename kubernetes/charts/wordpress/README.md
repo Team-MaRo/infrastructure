@@ -22,7 +22,7 @@ named after the site:
 | init `core` | `wordpress:7-php8.5-fpm` | writes the CA bundle, copies WordPress core and writes `wp-config.php` into `html`, a directory it creates itself in the emptyDir - the image's `tar` exits 2 when it cannot set the target's permissions, as in the root-owned volume; the other containers mount `html` as a `subPath` |
 | init `plugins` | `wordpress:cli-2-php8.5` | installs the plugins and themes of the values and S3-Uploads; once the database holds the site, `wp core update-db` and the language packs |
 | `php-fpm` | `wordpress:7-php8.5-fpm` | runs WordPress |
-| `varnish` (with `pageCache`) | `varnish:9.1` | the page cache on 8080, in front of nginx (`files/default.vcl`, "Page cache") |
+| `varnish` (with `pageCache`) | `varnish:9.1` | the page cache on 6081, in front of nginx (`files/default.vcl`, "Page cache") |
 | `nginx` | `nginxinc/nginx-unprivileged:stable` | serves it on 8081 (`files/default.conf`), and php-fpm's pool figures on 9253 for Prometheus |
 | `uploads-proxy` | `ghcr.io/nginxinc/nginx-s3-gateway/nginx-oss-s3-gateway:unprivileged-oss` | serves `/wp-content/uploads/` from the private bucket |
 | CronJob `wp-cron` | `curlimages/curl` | calls `http://web/wp-cron.php` every five minutes |
@@ -402,7 +402,7 @@ nothing, an editor only what an editor may. Who may is decided in Zitadel alone.
 ## Page cache
 
 With `pageCache.enabled`, Varnish (`varnish:9.1`, Varnish Software's build of Vinyl Cache) sits in
-the pod in front of nginx: the Service sends every request to it on 8080, and it hands what is
+the pod in front of nginx: the Service sends every request to it on 6081, and it hands what is
 not for the cache to nginx on `127.0.0.1:8081`. It keeps what an anonymous visitor sees; PHP then
 serves only what is personal. Rules in `files/default.vcl`:
 
@@ -426,7 +426,7 @@ serves only what is personal. Rules in `files/default.vcl`:
   and a failed refresh keeps the old copy; sitemaps and feeds an hour, 404s five minutes. Twelve
   plus six stays well under WPForms' 48-hour form token.
 - **Emptied by WordPress**: Proxy Cache Purge (`varnish-http-purge`, pinned) sends a PURGE to
-  `127.0.0.1:8080` (`VHP_VARNISH_IP`) whenever a post, page or product is saved - in wp-admin or
+  `127.0.0.1:6081` (`VHP_VARNISH_IP`) whenever a post, page or product is saved - in wp-admin or
   by Claude - for the page, the home page and its archives; `files/page-cache.php` adds
   WooCommerce's stock changes (an order taking the last one), which save nothing: the product's
   page (a variation's parent), the shop page and its categories with their parent categories.

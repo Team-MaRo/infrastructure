@@ -2,7 +2,7 @@ vcl 4.1;
 # The page cache in front of nginx, in the same pod (README "Page cache"). It keeps what an
 # anonymous visitor sees; everything personal - logged in, a cart, wp-admin, checkout, the REST
 # API with MCP - goes straight through (pass). WordPress empties it on every save through Proxy
-# Cache Purge, which sends PURGE to 127.0.0.1:8080 (files/page-cache.php).
+# Cache Purge, which sends PURGE to 127.0.0.1:6081 (files/page-cache.php).
 
 import std;
 import header;
