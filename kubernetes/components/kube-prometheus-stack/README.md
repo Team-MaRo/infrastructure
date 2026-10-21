@@ -138,6 +138,13 @@ port-forwards stay the break-glass way in. The status page and alerting heartbea
   two; what the workers wait on is in the app's slow log. php-fpm does not report its pool
   size (`pm.max_children`), so neither alerts nor dashboard assume one: "no idle worker" is
   "at the limit", whatever the limit. The dashboard "php-fpm" (below) shows both.
+- **WordPress' vulnerability check** (`wordpress.yaml`; the metrics come from each site's daily
+  check, `kubernetes/charts/wordpress/README.md` "Vulnerability check"): `WordPressVulnerability`
+  (warning), `WordPressVulnerabilityCritical` (CVSS 9 and above or on CISA's KEV list),
+  `WordPressPluginClosed` and `WordPressVulnerabilityCheckStale`. Grouped by the affected item,
+  not the pod, so a restart opens no new alert; a warning and a critical one never fire for the
+  same finding, and they have different names so a critical one does not silence the site's other
+  warnings (the inhibit rule matches on alertname).
 
 ## Grafana
 

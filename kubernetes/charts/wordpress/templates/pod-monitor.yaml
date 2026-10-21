@@ -1,7 +1,8 @@
 ---
 # php-fpm's pool figures - busy and idle workers, queued requests, slow requests - served by nginx
-# on the port metrics (files/default.conf). The job is {{ .Release.Namespace }}/php-fpm; alerts and
-# the dashboard are kube-prometheus-stack's (php-fpm.yaml).
+# on the port metrics (files/default.conf), and the daily vulnerability check's result. The job is
+# {{ .Release.Namespace }}/php-fpm; alerts and the dashboard are kube-prometheus-stack's
+# (php-fpm.yaml, wordpress.yaml).
 apiVersion: monitoring.coreos.com/v1
 kind: PodMonitor
 metadata:
@@ -15,3 +16,9 @@ spec:
       app.kubernetes.io/name: web
   podMetricsEndpoints:
     - port: metrics
+    # The vulnerability check's result (files/vulnerability-metrics.php). It changes once a day,
+    # but a scrape interval of 5 m or more would leave gaps past Prometheus' 5 m lookback and keep
+    # resetting the alerts' `for`; reading one option every minute costs nothing.
+    - port: metrics
+      path: /wordpress
+      interval: 1m

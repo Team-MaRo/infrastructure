@@ -10,6 +10,7 @@ resources:
   - scrape-etcd.yaml
   - rules.yaml
   - php-fpm.yaml
+  - wordpress.yaml
   - middleware-oauth2-proxy.yaml
   - network-policy.yaml
 

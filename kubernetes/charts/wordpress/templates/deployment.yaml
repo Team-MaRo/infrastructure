@@ -124,6 +124,12 @@ spec:
               mkdir -p plugins/s3-uploads mu-plugins
               fetch https://github.com/humanmade/S3-Uploads/releases/download/3.0.10/manual-install.zip plugins/s3-uploads
               cp /config/s3-uploads-hetzner.php mu-plugins/
+              # The daily vulnerability check and, in a directory of its own so WordPress does not
+              # load it, the script nginx's metrics port runs to report it (README "Vulnerability
+              # check").
+              cp /config/vulnerability-check.php mu-plugins/
+              mkdir -p mu-plugins/vulnerability-check
+              cp /config/vulnerability-metrics.php mu-plugins/vulnerability-check/metrics.php
               {{- if .Values.oidc.clientId }}
               cp /config/oidc.php mu-plugins/
               # Its translations, one per language, in a directory of their own: every .php

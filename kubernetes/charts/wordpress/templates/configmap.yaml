@@ -39,6 +39,10 @@ data:
     {{- tpl (.Files.Get "files/php-fpm.conf") . | nindent 4 }}
   s3-uploads-hetzner.php: |
     {{- .Files.Get "files/s3-uploads-hetzner.php" | nindent 4 }}
+  vulnerability-check.php: |
+    {{- .Files.Get "files/vulnerability-check.php" | nindent 4 }}
+  vulnerability-metrics.php: |
+    {{- .Files.Get "files/vulnerability-metrics.php" | nindent 4 }}
   {{- if .Values.oidc.clientId }}
   oidc.php: |
     {{- tpl (.Files.Get "files/oidc.php") . | nindent 4 }}

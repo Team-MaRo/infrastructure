@@ -1,0 +1,73 @@
+---
+# Alerts from the WordPress sites' daily vulnerability check (the chart's
+# files/vulnerability-check.php, served on each pod's metrics port as /wordpress). Grouped by
+# what is affected, not by pod, so a restart does not open a new alert.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: wordpress
+spec:
+  groups:
+    - name: wordpress
+      rules:
+        # A known vulnerability in the installed version. Critical ones are the next rule; the two
+        # never fire for the same finding.
+        - alert: WordPressVulnerability
+          expr: max by (namespace, kind, slug, version, id, title, fixed_in, link) (wordpress_vulnerability{kev="false"} < 9)
+          labels:
+            severity: warning
+          annotations:
+            summary: "{{ $labels.namespace }}: {{ $labels.kind }} {{ $labels.slug }} {{ $labels.version }} is vulnerable ({{ $labels.id }}, CVSS {{ $value }}{{ if $labels.fixed_in }}, fixed in {{ $labels.fixed_in }}{{ else }}, no fixed version known{{ end }})."
+            description: >-
+              {{ $labels.title }} - {{ $labels.link }}. Update it (a pinned version in the site's
+              values), replace or remove it. CVSS 0 means the sources give no score. A false
+              positive gets an Alertmanager silence on its id. Runbook in
+              kubernetes/charts/wordpress/README.md ("Vulnerability check").
+        # CVSS 9 and above, or listed as exploited in the wild (CISA KEV): to the phone at once.
+        - alert: WordPressVulnerabilityCritical
+          expr: |-
+            max by (namespace, kind, slug, version, id, title, fixed_in, link) (wordpress_vulnerability >= 9)
+            or
+            max by (namespace, kind, slug, version, id, title, fixed_in, link) (wordpress_vulnerability{kev="true"})
+          labels:
+            severity: critical
+          annotations:
+            summary: "{{ $labels.namespace }}: {{ $labels.kind }} {{ $labels.slug }} {{ $labels.version }} has a critical vulnerability ({{ $labels.id }}, CVSS {{ $value }}{{ if $labels.fixed_in }}, fixed in {{ $labels.fixed_in }}{{ end }})."
+            description: >-
+              {{ $labels.title }} - {{ $labels.link }}. Update, replace or deactivate it now.
+              Runbook in kubernetes/charts/wordpress/README.md ("Vulnerability check").
+        # wordpress.org closed it: no fixes any more, and the chart installs it from trunk.
+        - alert: WordPressPluginClosed
+          expr: max by (namespace, kind, slug, version, closed_date, reason) (wordpress_closed)
+          labels:
+            severity: warning
+          annotations:
+            summary: "{{ $labels.namespace }}: wordpress.org closed the {{ $labels.kind }} {{ $labels.slug }} ({{ $labels.closed_date }}, {{ $labels.reason }})."
+            description: >-
+              It gets no fixes any more and the site runs its development version. Replace it or
+              remove it from the site's values (kubernetes/charts/wordpress/README.md).
+        # The check itself: no result for two days (0, never ran, counts as old), or a source has
+        # not answered at two daily checks in a row - its items then keep their old findings.
+        - alert: WordPressVulnerabilityCheckStale
+          expr: time() - max by (namespace) (wordpress_vulnerability_check_timestamp_seconds) > 2 * 86400
+          for: 1h
+          labels:
+            severity: warning
+            cause: no-result
+          annotations:
+            summary: "{{ $labels.namespace }}: the WordPress vulnerability check has had no result for two days."
+            description: >-
+              WordPress' cron has not run it - is the CronJob wp-cron failing? Run it by hand and
+              read the result: kubernetes/charts/wordpress/README.md ("Vulnerability check").
+        - alert: WordPressVulnerabilityCheckStale
+          expr: max by (namespace) (wordpress_vulnerability_check_errors) > 0
+          for: 2d
+          labels:
+            severity: warning
+            cause: source-errors
+          annotations:
+            summary: "{{ $labels.namespace }}: the WordPress vulnerability check has not reached its sources for two days."
+            description: >-
+              WPVulnerability.net or api.wordpress.org did not answer, so the affected items keep
+              older findings. Run it by hand and read the errors:
+              kubernetes/charts/wordpress/README.md ("Vulnerability check").

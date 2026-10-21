@@ -477,6 +477,50 @@ the whole site:
 its figures:
 `kubectl --context d3strukt0r-prod-admin -n <site> exec deploy/web -c varnish -- varnishstat -1 -f MAIN.cache_hit -f MAIN.cache_miss -f MAIN.n_object`.
 
+## Vulnerability check
+
+Every site checks WordPress, its plugins and its themes once a day for known vulnerabilities
+and for plugins wordpress.org has closed; Prometheus alerts like on anything else (rules in
+[`../../components/kube-prometheus-stack/wordpress.yaml`](../../components/kube-prometheus-stack/wordpress.yaml)).
+
+- **How**: the must-use plugin `files/vulnerability-check.php` schedules a daily event in
+  WordPress' own cron (run by the CronJob `wp-cron`), asks for every installed item and stores the
+  result in the option `vulnerability_check`. `files/vulnerability-metrics.php` - outside the
+  directory WordPress loads plugins from, started with `SHORTINIT` so no plugin or theme runs -
+  serves it on nginx's metrics port as `/wordpress` (cluster-internal, like `/metrics`), scraped
+  every minute through the PodMonitor (a longer interval leaves gaps past Prometheus' five-minute
+  lookback, and the alerts' `for` would keep restarting).
+- **Sources**: known vulnerabilities from [WPVulnerability.net](https://www.wpvulnerability.net/)
+  (free, no account, CC0 data; it gathers CVE/NVD, Patchstack, WPScan and Wordfence), one
+  request per item; closures from api.wordpress.org (`error: closed` with date and reason). The
+  requests identify as `vulnerability-check`, not with WordPress' default user agent, which names
+  the site's address - beside the installed versions that would be a target list. An
+  entry applies when the installed version lies within its bounds, compared with PHP's
+  `version_compare()`; "fixed in" is known only where the entry says "below". Many entries have
+  no CVSS score (no CVE behind them) - they report 0. Not used: Wordfence's feed (v2 is gone, v3
+  needs an account and a key Wordfence may revoke), WPScan (25 requests a day, non-commercial
+  only), Patchstack (paid), OSV (no WordPress).
+- **Metrics**: `wordpress_vulnerability{kind, slug, version, id, title, fixed_in, kev, link}`
+  (value: CVSS score), `wordpress_closed{kind, slug, version, closed_date, reason}`,
+  `wordpress_vulnerability_check_timestamp_seconds` (0 before the first check) and
+  `wordpress_vulnerability_check_errors`. A source that does not answer keeps that item's last
+  findings - an outage never clears an alert - and counts as an error.
+- **Alerts**: `WordPressVulnerability` (warning), `WordPressVulnerabilityCritical` (CVSS 9 and
+  above, or exploited in the wild per CISA's KEV list; to the phone), `WordPressPluginClosed`, and
+  `WordPressVulnerabilityCheckStale` (no result for two days, or a source unreachable for two).
+  Tested 2026-10-22 against WPVulnerability's answers: the Timber 1.23.1 that ran until that day
+  would have raised CVE-2024-45411 (CVSS 8.6, fixed in 1.23.3).
+
+**On an alert**: update the item (a newer release arrives at the next start; a pinned one needs
+its pin raised), replace it or remove it from the site's values; the alert clears after the next
+check. A false positive or an accepted risk gets an Alertmanager silence on its `id`. To check at
+once instead of waiting for the next day, and to read the result:
+
+```shell
+kubectl --context d3strukt0r-prod-admin -n <site> exec deploy/web -c php-fpm -- php -r '$_SERVER["HTTP_HOST"] = "localhost"; require "/var/www/html/wp-load.php"; vulnerability_check_run();'
+kubectl --context d3strukt0r-prod-admin -n <site> exec deploy/web -c nginx -- curl -s localhost:9253/wordpress
+```
+
 ## Sizing the pool
 
 `pm.max_children = (limit - opcache and master - headroom) / memory per worker`, with one worker
