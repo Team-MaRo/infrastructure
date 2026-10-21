@@ -59,7 +59,7 @@ data:
   {{- end }}
   {{- if .Values.pageCache.enabled }}
   default.vcl: |
-    {{- .Files.Get "files/default.vcl" | nindent 4 }}
+    {{- tpl (.Files.Get "files/default.vcl") . | nindent 4 }}
   page-cache.php: |
     {{- .Files.Get "files/page-cache.php" | nindent 4 }}
   {{- end }}

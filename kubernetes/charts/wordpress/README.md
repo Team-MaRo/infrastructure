@@ -59,6 +59,7 @@ Only what differs between sites; `values.yaml` holds the defaults and says what 
 | `oidc.registerOrganisation` | empty | the Zitadel organisation people register into ("Registration in Zitadel"); empty: no registration |
 | `mcp.clientId` | empty | the site's Claude app in Zitadel, which makes the site an MCP server for Claude ("Content through Claude"); needs `oidc`; empty: off |
 | `pageCache.enabled`, `.size`, `.resources` | `false`, `64M`, 256Mi | Varnish in front of nginx ("Page cache"), its memory for pages and its container's |
+| `pageCache.dropBasicAuth` | `false` | drop a basic-auth header before WordPress; only for a site behind Traefik's basic auth |
 | `objectCache.database` | `0` | the site's database in valkey-cache, which turns on the object cache; 0: off |
 | `reloader` | `true` | the Reloader annotation; needs the namespace in Reloader's list |
 | `phpFpm.pool` | `{}` | `pm.*` settings, e.g. `max_children: 6`; empty: the image's five workers |
@@ -450,9 +451,11 @@ serves only what is personal. Rules in `files/default.vcl`:
 - **One copy per page**: other cookies (analytics, Polylang's language - the language is in the
   URL) are dropped; tracking parameters (`utm_*`, `gclid`, `fbclid` ...) are removed and the
   query sorted; a browser's `Accept` becomes `text/html`, since WordPress answers every page with
-  `Vary: accept, content-type` and would otherwise get a copy per browser. A basic-auth header
-  (a site behind Traefik's basic auth) is removed too - Traefik checked it already - so its
-  visitors share the pages.
+  `Vary: accept, content-type` and would otherwise get a copy per browser. On a site behind
+  Traefik's basic auth (`pageCache.dropBasicAuth`) the basic-auth header is removed too - Traefik
+  checked it already - so its visitors share the pages. Everywhere else it reaches WordPress: there
+  it is an Application Password, and a request carrying it is never cached. Removed on every site
+  2026-10-22 for a few hours, which broke Application Passwords.
 - **Never cached**: an answer with a cookie, `private`/`no-store`/`no-cache`, or a status other
   than 200, 301 and 404. On a page fetched for the cache, Polylang's `pll_language` and
   WooCommerce's empty guest session (`wp_woocommerce_session_*`, set on the shop page) are

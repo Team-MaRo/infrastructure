@@ -47,11 +47,14 @@ sub vcl_recv {
 		return (synth(200, "Purged"));
 	}
 
-	# A site's basic auth is Traefik's and already checked; WordPress needs nothing of it, and
-	# a Bearer token (Claude's MCP) stays.
+{{- if .Values.pageCache.dropBasicAuth }}
+	# The site's basic auth is Traefik's and already checked (values pageCache.dropBasicAuth);
+	# WordPress needs nothing of it, and without it the visitors share the cached pages. A Bearer
+	# token (Claude's MCP) stays.
 	if (req.http.Authorization ~ "^Basic ") {
 		unset req.http.Authorization;
 	}
+{{- end }}
 
 	if (req.method != "GET" && req.method != "HEAD") {
 		return (pass);

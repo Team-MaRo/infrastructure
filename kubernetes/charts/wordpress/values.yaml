@@ -32,6 +32,10 @@ objectCache:
 # thousands - enough for a small site; the nodes' memory is tight (README "Page cache").
 pageCache:
   enabled: false
+  # Drop a basic-auth header before WordPress - only for a site behind Traefik's basic auth, which
+  # has checked it already; its visitors then share the cached pages. Elsewhere the header is an
+  # Application Password, which WordPress must see.
+  dropBasicAuth: false
   size: 64M
   resources:
     requests:
