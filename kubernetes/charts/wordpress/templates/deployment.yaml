@@ -97,6 +97,9 @@ spec:
                 unzip -qo /tmp/download.zip -d "$2"
                 rm /tmp/download.zip
               }
+              # The image brings Akismet and Hello Dolly into every site; a site that wants Akismet
+              # lists it in its values, and the loop puts it back.
+              rm -rf plugins/akismet plugins/hello.php
               grep -v '^#' /config/plugins.txt | while read -r kind slug version; do
                 [ -n "$kind" ] || continue
                 # Without a version, downloads.wordpress.org serves the development version (trunk),

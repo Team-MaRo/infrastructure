@@ -114,7 +114,8 @@ variable, stops the rendering with a message naming it.
   The release is the version wordpress.org's API names: the unversioned download is the
   development version (trunk), which ran Jetpack and Yoast pre-releases until 2026-10-22. A
   plugin closed on wordpress.org has no release, and the start stops with its name - remove or
-  pin it.
+  pin it. The two plugins the image brings, Akismet and Hello Dolly, are deleted first, so only
+  the values decide; a site that wants Akismet lists it there.
   `DISALLOW_FILE_MODS` keeps WordPress from installing or updating anything itself, so the list
   in git is what runs; which plugins are active stays in the database. A start needs
   wordpress.org and GitHub; the running site does not. Keel rolls out new images of the floating
