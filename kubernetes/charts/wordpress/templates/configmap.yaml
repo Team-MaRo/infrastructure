@@ -35,6 +35,12 @@ data:
     {{- tpl (.Files.Get "files/default.conf") . | nindent 4 }}
   php.ini: |
     {{- .Files.Get "files/php.ini" | nindent 4 }}
+    {{- with .Values.phpIni }}
+    ; This site's own settings (values phpIni), after the chart's so they win.
+    {{- range $name, $value := . }}
+    {{ $name }} = {{ $value }}
+    {{- end }}
+    {{- end }}
   php-fpm.conf: |
     {{- tpl (.Files.Get "files/php-fpm.conf") . | nindent 4 }}
   s3-uploads-hetzner.php: |

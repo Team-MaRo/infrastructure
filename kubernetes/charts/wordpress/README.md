@@ -62,10 +62,12 @@ Only what differs between sites; `values.yaml` holds the defaults and says what 
 | `objectCache.database` | `0` | the site's database in valkey-cache, which turns on the object cache; 0: off |
 | `reloader` | `true` | the Reloader annotation; needs the namespace in Reloader's list |
 | `phpFpm.pool` | `{}` | `pm.*` settings, e.g. `max_children: 6`; empty: the image's five workers |
-| `phpFpm.resources` | 128Mi / 512Mi | the php-fpm container's memory |
+| `phpIni` | `{}` | PHP settings of the site, after `files/php.ini` so they win (e.g. `opcache.interned_strings_buffer: 64`) |
+| `phpFpm.resources` | 256Mi / 768Mi | the php-fpm container's memory |
 | `wpCli.memoryLimit` | empty | PHP's `memory_limit` for wp-cli in the init container (`WP_CLI_PHP_ARGS`) |
 | `wpCli.resources` | limit 256Mi | the init container `plugins`' memory |
 | `nginx.contentSecurityPolicy` | empty | the CSP header; empty: none |
+| `nginx.xmlrpcAllow` | WordPress.com's ranges | who may reach `xmlrpc.php` (Jetpack); empty: nobody |
 | `nginx.deniedUploadPaths` | `[]` | directories under uploads nginx refuses (regular expressions) |
 | `ingress.middlewares` | `[]` | Traefik middlewares on the site's router |
 
@@ -541,7 +543,8 @@ beside the others. The memory per worker is its own (`RssAnon` in `/proc/<pid>/s
 `phpfpm_memory_peak` in Prometheus), not the RSS `ps` shows, which counts the opcache - shared
 once - in every worker. A worker restarts after 500 requests (`pm.max_requests`) against plugins'
 memory leaks. Raise the container's limit (`phpFpm.resources`) before the count. Each site's
-values show its calculation. To measure:
+values show its calculation; a site that raises `opcache.memory_consumption` in `phpIni` counts
+its own value instead of the 256 MB. To measure:
 
 ```shell
 kubectl --context d3strukt0r-prod-admin -n <site> exec deploy/web -c php-fpm -- sh -c 'grep RssAnon /proc/[0-9]*/status'

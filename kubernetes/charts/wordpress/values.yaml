@@ -59,6 +59,10 @@ mcp:
 # Reloader's list.
 reloader: true
 
+# PHP settings of this site, written after files/php.ini so they win, passed through as they are,
+# e.g. opcache.interned_strings_buffer: 64. The chart's php.ini holds the defaults of every site.
+phpIni: {}
+
 phpFpm:
   # pm.* settings beside the image's (pm dynamic, 5 workers), e.g. max_children: 6. Sized from the
   # container's memory limit (README, "Sizing the pool").
