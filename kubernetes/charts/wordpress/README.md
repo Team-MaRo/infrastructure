@@ -152,6 +152,14 @@ variable, stops the rendering with a message naming it.
   no dotfiles, nothing executable under uploads; security headers on every answer, a CSP only
   where the values give one. `absolute_redirect off` keeps nginx's own redirects on the site's
   address instead of `http://…:8081`.
+- **Static files a year when versioned**: CSS, JS, images and fonts whose URL carries `?ver=`
+  (WordPress adds it and changes it with every update) are `expires 1y`, the rest and uploads
+  7 days. `immutable` is left out: it needs an `add_header` in those locations, and one there
+  drops the server's security headers (`nosniff` on scripts among them). Files from
+  wordpress.org get a new `ver` with each update; a theme of our own must raise its `Version:`
+  with every style change or, better, give `filemtime()` of the file as `ver` - one that gives no
+  version gets WordPress' own, and returning visitors would keep its old CSS and JS until the next
+  WordPress update. Purging Cloudflare or Varnish does not help: the copy is in the browser.
 - **WordPress sees the visitor's address**: nginx takes it from Cloudflare's `CF-Connecting-IP`
   (`real_ip_header`) and hands it to PHP as `REMOTE_ADDR` and as `X-Real-IP`, replacing
   Traefik's, which is Cloudflare's own - Jetpack reads that one and locked arepazo's login page
