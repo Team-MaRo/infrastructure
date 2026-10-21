@@ -168,6 +168,11 @@ variable, stops the rendering with a message naming it.
   with every style change or, better, give `filemtime()` of the file as `ver` - one that gives no
   version gets WordPress' own, and returning visitors would keep its old CSS and JS until the next
   WordPress update. Purging Cloudflare or Varnish does not help: the copy is in the browser.
+- **The opcache holds every site's code** (`files/php.ini`): 256 MB (its interned strings
+  included, measured), 32 MB of strings, 32,531 files, and no timestamp checks - the files never
+  change while the pod runs. The image's 128 MB, 8 MB and 4,000 files were full on every site
+  (2026-10-22): arepazo's 20,000 PHP files kept filling the cache, which was thrown away and
+  compiled again (hit rate 88 %). The pool sizing counts the 256 MB in.
 - **WordPress sees the visitor's address**: nginx takes it from Cloudflare's `CF-Connecting-IP`
   (`real_ip_header`) and hands it to PHP as `REMOTE_ADDR` and as `X-Real-IP`, replacing
   Traefik's, which is Cloudflare's own - Jetpack reads that one and locked arepazo's login page
@@ -523,9 +528,9 @@ kubectl --context d3strukt0r-prod-admin -n <site> exec deploy/web -c nginx -- cu
 
 ## Sizing the pool
 
-`pm.max_children = (limit - opcache and master - headroom) / memory per worker`, with one worker
-fewer when a single heavy request (up to `memory_limit` 256M, `files/php.ini`) must fit beside
-the others. The memory per worker is its own (`RssAnon` in `/proc/<pid>/status`, or
+`pm.max_children = (limit - opcache (256 MB) and master - headroom) / memory per worker`, with one
+worker fewer when a single heavy request (up to `memory_limit` 256M, `files/php.ini`) must fit
+beside the others. The memory per worker is its own (`RssAnon` in `/proc/<pid>/status`, or
 `phpfpm_memory_peak` in Prometheus), not the RSS `ps` shows, which counts the opcache - shared
 once - in every worker. A worker restarts after 500 requests (`pm.max_requests`) against plugins'
 memory leaks. Raise the container's limit (`phpFpm.resources`) before the count. Each site's

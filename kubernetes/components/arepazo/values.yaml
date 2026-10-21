@@ -63,25 +63,26 @@ mcp:
   clientId: "396201383935607172"
 
 phpFpm:
-  # Pool size from the container's memory limit (2026-10-18): (1024 MiB limit - 128 opcache,
-  # shared by all workers - 40 master - ~200 headroom) / 90 MB per worker (php-fpm's memory peak;
-  # RssAnon 73-80 MB) = 7, one fewer for a heavy request (an export may use memory_limit's 256M):
-  # ~160 fixed + 5 x 90 + 256 = ~870 MiB. The image's 5 were taken by one /wp-admin/ load (~17
-  # parallel requests of 1.5-9 s, mostly waiting on wordpress.com and the database - 5 busy
-  # workers used 1.65 cores). Spare workers stay dynamic, so the idle panel and
-  # PhpFpmNoIdleWorker keep their meaning.
+  # Pool size from the container's memory limit (2026-10-18, opcache 2026-10-22): (1280 MiB limit
+  # - 256 opcache, shared by all workers - 40 master - ~200 headroom) / 90 MB per worker (php-fpm's
+  # memory peak; RssAnon 73-80 MB) = 8, one fewer for a heavy request (an export may use
+  # memory_limit's 256M), kept at 6: 296 fixed + 5 x 90 + 256 = ~1000 MiB. The image's 5 were
+  # taken by one /wp-admin/ load (~17 parallel requests of 1.5-9 s, mostly waiting on
+  # wordpress.com and the database - 5 busy workers used 1.65 cores). Spare workers stay dynamic,
+  # so the idle panel and PhpFpmNoIdleWorker keep their meaning.
   pool:
     max_children: 6
     start_servers: 2
     min_spare_servers: 2
     max_spare_servers: 4
   # Six workers run at once under load, about 90 MB each plus the shared opcache; 512Mi was
-  # OOM-killed twice right after the switch. It idles at 250-300Mi.
+  # OOM-killed twice right after the switch. It idled at 250-300Mi with a 128M opcache; the 256M
+  # one (the chart's php.ini) adds up to 128Mi, so request and limit grew by that and a margin.
   resources:
     requests:
-      memory: 384Mi
+      memory: 512Mi
     limits:
-      memory: 1Gi
+      memory: 1280Mi
 
 # wp-cli loads WooCommerce and its admin code, which needs far more than 256M (measured on
 # prod-old: 128M crashed). The request is set, or it would default to the limit and stay booked

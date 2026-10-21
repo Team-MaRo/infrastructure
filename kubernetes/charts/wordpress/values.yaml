@@ -64,12 +64,14 @@ phpFpm:
   # container's memory limit (README, "Sizing the pool").
   pool: {}
   resources:
+    # What a site of the image's five workers idles at with the opcache filled.
     requests:
-      memory: 128Mi
-    # One request may use memory_limit's 256M (files/php.ini) beside the opcache and the idle
-    # workers; 384Mi could not hold it.
+      memory: 256Mi
+    # The image's five workers: one request may use memory_limit's 256M (files/php.ini) beside the
+    # opcache (256M, files/php.ini), the master and four others at ~50 MB (the sites on these
+    # defaults, measured 2026-10-22): 256 + 40 + 4 x 50 + 256 = ~750.
     limits:
-      memory: 512Mi
+      memory: 768Mi
 
 wpCli:
   # PHP's memory_limit for wp-cli in the init container `plugins`, e.g. 1024M; empty: php.ini's.
