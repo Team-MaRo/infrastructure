@@ -8,45 +8,22 @@ hosts:
   - www.arepazo.ch
   - arepazo.ch
 
-# Everything prod-old had, active or not.
+# What the shop uses; what prod-old had beyond that was removed 2026-10-22 (README "Plugins").
 plugins:
-  - block-options
-  - bulk-delete
-  - cloudflare
-  - disqus-comment-system
-  - duplicator
   - fancybox-for-wordpress
   - google-analytics-for-wordpress
-  - google-listings-and-ads
-  - homepage-control
   - jetpack
   - jetpack-boost
   - jetpack-protect
-  - litespeed-cache
-  - loginizer
   - polylang
-  - press-tab-to-search
-  # 1.23.4 ships without vendor/symfony/polyfill-ctype/bootstrap80.php and takes the whole site
-  # down with a fatal error; Timber 1.x is no longer maintained, so no fixed release will come.
-  - timber-library 1.23.1
-  - tinymce-advanced
-  - woo-gutenberg-products-block
   - woocommerce
-  - woocommerce-coupon-shortcodes
-  - woocommerce-customizer
-  - woocommerce-eu-vat-compliance
   - woocommerce-gateway-paypal-powered-by-braintree
   - woocommerce-google-analytics-integration
-  - woocommerce-paypal-payments
   - woocommerce-pdf-invoices-packing-slips
   - wordpress-seo
   - wp-mail-smtp
   - wpforms-lite
-  - wpzoom-portfolio
-  - yith-essential-kit-for-woocommerce-1
-  - yith-woocommerce-advanced-reviews
   - yith-woocommerce-order-tracking
-  - yith-woocommerce-request-a-quote
 themes:
   - inspiro-blocks
   - twentytwentyfive

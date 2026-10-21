@@ -11,27 +11,16 @@
 hosts:
   - old.robines.space
 
-# Everything prod-old had, active or not, except the premium theme mintraro-pro (inactive, not on
-# wordpress.org).
+# What the site uses; what prod-old had beyond that was removed 2026-10-22 (README "Plugins").
 plugins:
-  - akismet
-  - all-in-one-seo-pack
   - better-youtube-embed-block
-  - block-for-mailchimp
-  - cloudflare
-  - duplicator
   - embedpress
-  - font-awesome
   - galleryberg-gallery-block
   - google-analytics-for-wordpress
-  - greenshift-animation-and-page-builder-blocks
   - jetpack
   - jetpack-boost
   - jetpack-protect
-  - phpinfo-wp
   - svg-block
-  - use-any-font
-  - userfeedback-lite
   - wordpress-seo
   - wp-mail-smtp
   - wpconsent-cookies-banner-privacy-suite
