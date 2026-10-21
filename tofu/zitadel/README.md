@@ -82,6 +82,13 @@ decided per site; the site logs in through the WordPress chart's OIDC support
   `robines-portfolio:editor`): the site sets that role at every login and creates the WordPress
   user at the first. Changing someone's role is changing their grant here (or in the console
   for people of another organisation); it applies at their next login.
+- **A second app for Claude**, `<site>-claude`, where a site lets people edit it through Claude
+  (charts/wordpress README "Content through Claude"): native, public (`NONE`, PKCE - the
+  connector holds no secret), authorization code and refresh token, callbacks claude.ai's and
+  Claude Code's fixed `http://localhost:33418/callback`. In the site's project, so the role
+  check applies; the site checks its tokens with the first app's credentials (introspection).
+  Its client ID is an output (`<site>_claude_client_id`) and goes into the site's
+  `mcp.clientId`.
 - **A confidential app** (`OIDC_AUTH_METHOD_TYPE_BASIC`): the plugin has no PKCE. Its secret is
   regenerated after creation and kept in 1Password and OpenBao only, like oauth2-proxy's.
 - The personal user gets `<site>:administrator`; other people of the organisation get a grant

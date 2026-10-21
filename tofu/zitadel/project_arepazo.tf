@@ -100,6 +100,26 @@ output "arepazo_client_id" {
   sensitive = true
 }
 
+# Claude over MCP, as for robines-portfolio (project_robines_portfolio.tf). Customers have the
+# role too, but WordPress gives a customer no right to write anything.
+resource "zitadel_application_oidc" "arepazo_claude" {
+  org_id     = local.org_id
+  project_id = zitadel_project.arepazo.id
+  name       = "arepazo-claude"
+
+  app_type         = "OIDC_APP_TYPE_NATIVE"
+  auth_method_type = "OIDC_AUTH_METHOD_TYPE_NONE"
+  grant_types      = ["OIDC_GRANT_TYPE_AUTHORIZATION_CODE", "OIDC_GRANT_TYPE_REFRESH_TOKEN"]
+  response_types   = ["OIDC_RESPONSE_TYPE_CODE"]
+
+  redirect_uris = ["https://claude.ai/api/mcp/auth_callback", "http://localhost:33418/callback"]
+}
+
+output "arepazo_claude_client_id" {
+  # A public client's ID; the provider marks every client_id sensitive.
+  value = nonsensitive(zitadel_application_oidc.arepazo_claude.client_id)
+}
+
 resource "zitadel_user_grant" "d3strukt0r_arepazo" {
   org_id     = local.org_id
   project_id = zitadel_project.arepazo.id
