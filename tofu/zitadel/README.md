@@ -148,6 +148,23 @@ decided per site; the site logs in through the WordPress chart's OIDC support
    The ExternalSecret `zitadel-registration` (kubernetes/components/zitadel) brings it to the
    webhook, which reads it at every call.
 
+## Matomo
+
+A spike (2026-10-22): can one Matomo serve every site's owner with exactly their sites, logging
+in through Zitadel? `project_matomo.tf` holds the project `matomo` and the app `matomo-spike` for
+a Matomo on the admin's machine (`http://localhost:8080`, development mode).
+
+- **A role is a right on a Matomo site**: `matomo:<siteID>:<view|write|admin>`. The groups
+  webhook turns these keys into the claim `matomo-permission-path`
+  (`/matomo/<siteID>/<access>`), which Matomo's RebelOIDC plugin ("fine-grained permissions")
+  reads at every login and makes the user's site rights exactly match - a role removed here is a
+  right gone at the next login. Role check on: without any Matomo role Zitadel refuses the login,
+  so the plugin's own role gate stays off.
+- **The access token is a JWT**: RebelOIDC reads the claims by decoding the access and ID
+  tokens it receives from the token endpoint.
+- **The client secret** is regenerated in the console after creation, like the WordPress sites'
+  (the one Zitadel returns at creation is in the state).
+
 ## Running it
 
 `zitadel/terraform.tfvars` holds `zitadel_jwt_profile`: the whole JSON of the machine user
