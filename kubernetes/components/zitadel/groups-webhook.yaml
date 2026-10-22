@@ -12,9 +12,11 @@ metadata:
 data:
   groups.py: |
     import json
+    import re
     from http.server import BaseHTTPRequestHandler, HTTPServer
 
     ROLES_CLAIM = "urn:zitadel:iam:org:project:roles"
+    MATOMO_ROLE = re.compile(r"matomo:\d+:(view|write|admin)")
 
 
     class Handler(BaseHTTPRequestHandler):
@@ -28,7 +30,13 @@ data:
                 groups.update(grant.get("roles") or [])
             # Always present, empty for a user without roles: OpenBao refuses a login whose
             # token lacks the claim altogether.
-            self.answer({"append_claims": [{"key": "groups", "value": sorted(groups)}]})
+            claims = [{"key": "groups", "value": sorted(groups)}]
+            # Matomo's RebelOIDC plugin sets a user's site rights from paths
+            # /matomo/<siteID>/<access>; the project matomo's role keys are matomo:<siteID>:<access>.
+            matomo = sorted("/" + key.replace(":", "/") for key in groups if MATOMO_ROLE.fullmatch(key))
+            if matomo:
+                claims.append({"key": "matomo-permission-path", "value": matomo})
+            self.answer({"append_claims": claims})
 
         def do_GET(self):
             self.answer({})

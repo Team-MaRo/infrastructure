@@ -60,7 +60,8 @@ is down, the UIs stay reachable by port-forward. Measured idle after the first s
   capabilities.
 - **The `groups` claim comes from a webhook**, `groups-webhook.yaml`, which Zitadel calls
   through an Actions v2 target that `tofu/zitadel` creates - why and how is in
-  [`tofu/zitadel/README.md`](../../../tofu/zitadel/README.md).
+  [`tofu/zitadel/README.md`](../../../tofu/zitadel/README.md). It also adds
+  `matomo-permission-path` for role keys `matomo:<siteID>:<access>` (README there, "Matomo").
 - **Zitadel refuses to call private addresses** (`HTTPClient.DenyList`, for actions, identity
   providers and SMTP alike), which includes every Service. `ZITADEL_HTTPCLIENT_DENYLIST` in the
   values replaces that list with the default entries and `10.0.0.0/8` split into 23 ranges that
