@@ -8,6 +8,11 @@ host = "mariadb-primary.mariadb.svc"
 username = "matomo"
 dbname = "matomo"
 tables_prefix = "matomo_"
+; What the installer chose and the tables have (database.yaml). Matomo's default is the old
+; three-byte utf8: a table it creates then cannot reference its utf8mb4 tables - RebelOIDC's
+; foreign key to the users failed with errno 150 (2026-10-23).
+charset = "utf8mb4"
+collation = "utf8mb4_uca1400_ai_ci"
 ; TLS, checked against the shared MariaDB's CA (trust-manager's ConfigMap mariadb-ca).
 enable_ssl = 1
 ssl_ca = "/etc/mariadb-ca/ca.crt"
