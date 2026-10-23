@@ -62,6 +62,12 @@ oidc:
 mcp:
   clientId: "396201383935607172"
 
+# Twice the chart's interned strings buffer: WooCommerce, Polylang and the rest fill 32 MB - 94 %
+# a day after the opcache got its 256 MB, still rising (2026-10-23). The buffer is part of those
+# 256 MB, of which the site used 183, so this takes no more memory.
+phpIni:
+  opcache.interned_strings_buffer: 64
+
 phpFpm:
   # Pool size from the container's memory limit (2026-10-18, opcache 2026-10-22): (1280 MiB limit
   # - 256 opcache, shared by all workers - 40 master - ~200 headroom) / 90 MB per worker (php-fpm's

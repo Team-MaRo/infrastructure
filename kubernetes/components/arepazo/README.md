@@ -43,6 +43,9 @@ in the shared MariaDB, the uploads are in the bucket `d3strukt0r-prod-arepazo`
   `kubectl --context d3strukt0r-prod-admin -n arepazo exec deploy/web -c php-fpm -- sh -c 'grep RssAnon /proc/[0-9]*/status'`
   and `phpfpm_memory_peak{namespace="arepazo"}` in Prometheus; raise the limit before the count.
   robines-portfolio keeps the image's five - it has never filled them.
+- **A 64 MB interned strings buffer** (`phpIni` in `values.yaml`), twice the chart's: the shop's
+  plugins filled 32 MB to 94 % within a day of the 256 MB opcache, still rising (2026-10-23). It is
+  part of the opcache's 256 MB, of which the site used 183, so the pod needs no more memory.
 - **Slow requests, patient probes.** Every page PHP renders takes about 3 s, on prod-old as here
   (WooCommerce, Jetpack, Yoast and a dozen more plugins). Startup and readiness still go
   through WordPress (`/robots.txt`), but wait 10 s and run every 30 s (readiness); the 1 s
