@@ -188,8 +188,9 @@ for "IP Geolocation by DB-IP" wherever the data is shown publicly; Matomo's repo
 The CronJob `geoip` fetches it on the 3rd of each month into the bucket
 (`geoip/DBIP-City-Lite.mmdb`); `prepare` copies it into `misc/` at every start, where Matomo
 looks for that file name. A failed run raises `KubeJobFailed`; Matomo keeps the previous
-database until then. Without the file Matomo still runs and guesses the country from the
-browser's language. To fetch it now:
+database until then. If the bucket fails at a start, `prepare` fetches the current month's file
+straight from DB-IP instead (a warning in its log); only if that fails too does Matomo run
+without it, guessing the country from the browser's language. To fill the bucket now:
 `kubectl --context d3strukt0r-prod-admin -n matomo create job --from=cronjob/geoip geoip-manual`.
 
 ## Archiving

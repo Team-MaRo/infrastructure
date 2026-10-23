@@ -55,13 +55,20 @@ sed -i 's|base64_decode($parts\[1\])|base64_decode(strtr($parts[1], "-_", "+/"))
 grep -q 'base64_decode(strtr($parts\[1\], "-_", "+/"))' plugins/RebelOIDC/Controller.php \
   || { echo "RebelOIDC $rebeloidc: the base64url patch did not apply - check upstream issue #47"; exit 1; }
 
-# The visitors' locations (README "GeoIP"), from the bucket the geoip CronJob fills. Without it
-# Matomo still runs and guesses the country from the browser's language.
+# The visitors' locations (README "GeoIP"), from the bucket the geoip CronJob fills; if the bucket
+# fails, this month's file straight from DB-IP, as the CronJob fetches it. Without either Matomo
+# still runs and guesses the country from the browser's language.
 if ! curl -fsS --retry 3 --aws-sigv4 "aws:amz:nbg1:s3" --user "$S3_ACCESS_KEY_ID:$S3_SECRET_ACCESS_KEY" \
   -H "x-amz-content-sha256: UNSIGNED-PAYLOAD" -o misc/DBIP-City-Lite.mmdb \
   https://d3strukt0r-prod-matomo.nbg1.your-objectstorage.com/geoip/DBIP-City-Lite.mmdb; then
+  echo "WARNING: no GeoIP database in the bucket - fetching it from DB-IP"
   rm -f misc/DBIP-City-Lite.mmdb
-  echo "WARNING: no GeoIP database in the bucket - Matomo runs without visitor locations"
+  if ! { curl -fsSL --retry 3 -o misc/DBIP-City-Lite.mmdb.gz \
+    "https://download.db-ip.com/free/dbip-city-lite-$(date -u +%Y-%m).mmdb.gz" \
+    && gunzip misc/DBIP-City-Lite.mmdb.gz; }; then
+    rm -f misc/DBIP-City-Lite.mmdb misc/DBIP-City-Lite.mmdb.gz
+    echo "WARNING: no GeoIP database from DB-IP either - Matomo runs without visitor locations"
+  fi
 fi
 
 # A new Matomo from the image updates its tables before it serves.
