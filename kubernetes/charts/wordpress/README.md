@@ -477,6 +477,8 @@ serves only what is personal. Rules in `files/default.vcl`:
   WooCommerce's stock changes (an order taking the last one), which save nothing: the product's
   page (a variation's parent), the shop page and its categories with their parent categories.
   PURGE comes only from inside the pod; from outside it answers 405.
+  Its ads for the paid add-on Cacheability Pro in wp-admin notices count as dismissed for every
+  user (also `files/page-cache.php`); its own settings page still shows them.
 - **Memory**: `pageCache.size` for pages (`-s malloc`), 64M for passed answers while they flow
   through (`-s Transient`; with `transit_buffer=1M` Varnish reads only 1M ahead of the visitor, so a
   file of any size passes - without it a 200 MB download broke off at 33 MB, 2026-10-22), plus

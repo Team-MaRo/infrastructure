@@ -1,7 +1,7 @@
 <?php
 /**
  * Plugin Name: Page cache
- * Description: Empties the page cache where Proxy Cache Purge does not.
+ * Description: Empties the page cache where Proxy Cache Purge does not, and hides its add-on ads.
  */
 
 // Proxy Cache Purge empties a page when it is saved, through wp-admin or Claude alike (README
@@ -37,6 +37,18 @@ add_action(
 	'woocommerce_product_set_stock_status',
 	function ( $id, $status, $product ) {
 		page_cache_purge_product( $product );
+	},
+	10,
+	3
+);
+
+// Proxy Cache Purge advertises its paid add-on in wp-admin notices until each user clicks them
+// away, per site (it keeps that in the user's meta). Every user counts as having done so; nothing
+// is stored. If a release renames the keys, the notice simply shows again.
+add_filter(
+	'get_user_metadata',
+	function ( $value, $object_id, $meta_key ) {
+		return in_array( $meta_key, array( 'vhp_dismissed_cacheability_notice', 'vhp_dismissed_woo_cache_notice' ), true ) ? true : $value;
 	},
 	10,
 	3
