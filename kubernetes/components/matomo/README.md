@@ -187,6 +187,42 @@ uses the GDPR tools. Only a superuser adds sites, manages plugins and global set
    `Matomo | Prod | <site>-tracking` and OpenBao `secret/<site>-matomo` (`token`), read by the site
    as `MATOMO_TOKEN`. Elsewhere: the tracking code from Administration → Websites → Tracking-Code.
 
+## Importing past visits from a site's logs
+
+A WordPress site's visits from before its tracking started are only in its nginx log, which
+Loki keeps 30 days (`{namespace="<site>", container="nginx"}`, every page request with the
+visitor's address and user agent; Traefik's access log has only failed and slow requests). Done
+on 2026-10-23 for Arepazo and robines-portfolio, back to the move to the cluster (2026-10-03).
+
+1. **Export** through `kubectl --context d3strukt0r-prod-admin -n loki port-forward svc/loki
+   13100:3100`: `/loki/api/v1/query_range` per UTC day, direction forward, 5,000 lines per page
+   (Loki's limit), the next page from the last timestamp; keep only access-log lines; compare each
+   day's count with `count_over_time`. The files hold visitors' addresses: keep them out of git and
+   out of folders a cloud syncs (`~/Documents`, `~/Desktop`).
+2. **Cut** each site's lines at its first tracked visit, or visits count twice, and **drop lines
+   whose address is 10.x**: nginx takes the visitor from Cloudflare's `CF-Connecting-IP`, so a
+   cluster address means the request reached port 443 past Cloudflare - scanners, not visitors
+   (on 2026-10-23 that was 1,282 of 1,440 imported visits, deleted again with the GDPR API).
+3. **Import** with Matomo's own `misc/log-analytics/import_logs.py` (copy it out of the pod, which
+   has no Python), on the admin's machine, with a temporary token of the `admin` user from the
+   clipboard (`--token-auth="$(pbpaste)"`), deleted afterwards. A dry run first (`--dry-run`
+   still needs the token). Options: `--url=https://matomo.d3strukt0r.dev --idsite=<n>
+   --log-format-name=ncsa_extended --recorders=2`, `--useragent-exclude=` for `kube-probe`,
+   `WordPress/`, `WordPress.com`, `Jetpack`, `Gatus`, `curl/`, `Go-http-client`, `python`,
+   `Scrapy` and whatever else the log shows, `--exclude-path=` for `/wp-admin*`, `/wp-json*`,
+   `/wp-login.php*`, `/wp-cron.php*`, `/xmlrpc.php*`, `/m/*`, `/wp-content/*`, `/wp-includes/*`,
+   `*/feed*`, `/robots.txt`, `/healthz`; its defaults leave out bots, static files, errors and
+   redirects. Its summary counts `/robots.txt` under "downloads" before the path filter drops it -
+   "imported successfully" is what goes in. A shop's site excludes the URL parameter `key`
+   first (the site's settings, "Ausgeschlossene Parameter"): WooCommerce's order key is in the
+   thank-you URLs of the raw log. Matomo notes the imported days and the `archive` CronJob
+   rebuilds their reports.
+4. **Clean up**: delete the token in Matomo (Persönlich → Sicherheit) and the exported files.
+
+Calls to Matomo's API from a script need a user agent of their own: Cloudflare refuses Python's
+default (`Python-urllib`, 403). Since 2026-10-22 Varnish answers cached pages before nginx, so a
+later import undercounts those.
+
 ## GeoIP
 
 Visitor locations come from DB-IP's free city database (IP to City Lite, CC BY 4.0 - DB-IP asks

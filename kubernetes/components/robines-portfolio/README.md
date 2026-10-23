@@ -71,7 +71,9 @@ The database is `robines_portfolio` in the shared MariaDB, the uploads are in th
   everyone, with cookies for whoever allows statistics in the WPConsent banner
   (`wpconsent-cookies-banner-privacy-suite` with `wp-consent-api`). It replaces Google Analytics
   (MonsterInsights), which leaves once the banner and Matomo run - its data through "Daten
-  löschen" (the chart's runbook "Plugins"). **Reports in wp-admin** come from Connect Matomo
+  löschen" (the chart's runbook "Plugins"). The visits since the move (2026-10-03) came in from
+  the nginx log (Matomo's README, "Importing past visits from a site's logs"). **Reports in
+  wp-admin** come from Connect Matomo
   (`wp-piwik`), set up in its settings (kept in the database): mode HTTP API,
   `https://matomo.d3strukt0r.dev`, site 2, the token of Matomo's user `robines-portfolio-reports`
   (**view** on site 2 only, 1Password

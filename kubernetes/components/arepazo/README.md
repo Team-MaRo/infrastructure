@@ -78,7 +78,10 @@ in the shared MariaDB, the uploads are in the bucket `d3strukt0r-prod-arepazo`
   day: MonsterInsights and Google Analytics for WooCommerce were deactivated, their options, table
   and scheduled tasks deleted by hand (their own uninstall fails outside wp-admin), and they left
   the plugin list. Matomo's orders and revenue are checked against WooCommerce's own reports; the
-  GA4 history at Google is to be imported into Matomo. **Reports in wp-admin** come from Connect
+  GA4 history at Google is to be imported into Matomo. The visits since the move (2026-10-04) came
+  in from the nginx log (Matomo's README, "Importing past visits from a site's logs"); Matomo
+  drops the URL parameter `key` here, the order key in WooCommerce's thank-you URLs.
+  **Reports in wp-admin** come from Connect
   Matomo (`wp-piwik`), set up in its settings (kept in the database): mode HTTP API,
   `https://matomo.d3strukt0r.dev`, site 1, the token of Matomo's user `arepazo-reports` (**view**
   on site 1 only, 1Password
