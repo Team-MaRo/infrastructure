@@ -130,6 +130,11 @@ spec:
               cp /config/vulnerability-check.php mu-plugins/
               mkdir -p mu-plugins/vulnerability-check
               cp /config/vulnerability-metrics.php mu-plugins/vulnerability-check/metrics.php
+              # "Delete data" for inactive plugins (README "Plugins"), its translations in a
+              # directory of their own like the login's.
+              cp /config/plugin-data.php mu-plugins/
+              mkdir -p mu-plugins/plugin-data-languages
+              cp /config/plugin-data-*.l10n.php mu-plugins/plugin-data-languages/
               {{- if .Values.oidc.clientId }}
               cp /config/oidc.php mu-plugins/
               # Its translations, one per language, in a directory of their own: every .php

@@ -124,7 +124,8 @@ variable, stops the rendering with a message naming it.
   outage there never puts every plugin on trunk. The two plugins the image brings, Akismet and Hello Dolly, are deleted first, so only
   the values decide; a site that wants Akismet lists it there.
   `DISALLOW_FILE_MODS` keeps WordPress from installing or updating anything itself, so the list
-  in git is what runs; which plugins are active stays in the database. A start needs
+  in git is what runs; which plugins are active stays in the database. A plugin's uninstall
+  routine stays reachable as "Daten löschen" (runbook "Plugins"). A start needs
   wordpress.org and GitHub; the running site does not. Keel rolls out new images of the floating
   tags (`components/keel`).
 - **Its own address.** `WP_HOME` and `WP_SITEURL` are the first host, whatever the database says.
@@ -621,8 +622,13 @@ running pods stay. A renamed or removed value changes in the same commit as ever
 ### Plugins
 
 - **Adding or removing a plugin or theme**: a line in the site's `plugins`/`themes`, push; the
-  pod restarts with it. Activate a new one in wp-admin afterwards. A removed one's settings stay
-  in the database.
+  pod restarts with it. Activate a new one in wp-admin afterwards. Before removing a plugin,
+  deactivate it and click **"Daten löschen"** in the plugin list (`files/plugin-data.php`): it
+  runs the plugin's own uninstall routine - what WordPress's "Löschen" would, hidden under
+  `DISALLOW_FILE_MODS` - and then reads "Daten gelöscht am …"; the files go with the line in the
+  values. Only plugins with such a routine get the link; one without (Google Analytics for
+  WooCommerce) leaves its options behind, and some delete little unless a setting of their own
+  says so (WooCommerce: `WC_REMOVE_ALL_DATA`). A failure shows as a notice and in php-fpm's log.
 - **A plugin release breaks the site** (a 500 with its path in the php-fpm log): pin the last good
   version (`<slug> <version>`). Every start installs the latest release otherwise.
 - **A new WordPress major or PHP version** comes with the image tags (`7-php8.5-fpm` twice and
