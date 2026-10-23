@@ -59,6 +59,12 @@ oidc:
 mcp:
   clientId: ""
 
+# Web analytics through the cluster's Matomo (README "Web analytics"): the site's ID in Matomo
+# (components/matomo, README "Adding a site"); 0: off. Orders are counted from the server with a
+# Matomo token as MATOMO_TOKEN through secrets.
+matomo:
+  siteId: 0
+
 # Restarts the pod when one of its Secrets changes (components/reloader). Needs the namespace in
 # Reloader's list.
 reloader: true

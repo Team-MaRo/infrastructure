@@ -63,6 +63,10 @@ data:
   page-cache.php: |
     {{- .Files.Get "files/page-cache.php" | nindent 4 }}
   {{- end }}
+  {{- if .Values.matomo.siteId }}
+  matomo.php: |
+    {{- tpl (.Files.Get "files/matomo.php") . | nindent 4 }}
+  {{- end }}
   {{- if .Values.mcp.clientId }}
   mcp.php: |
     {{- tpl (.Files.Get "files/mcp.php") . | nindent 4 }}

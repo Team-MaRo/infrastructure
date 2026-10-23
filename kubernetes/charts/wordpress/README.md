@@ -60,6 +60,7 @@ Only what differs between sites; `values.yaml` holds the defaults and says what 
 | `mcp.clientId` | empty | the site's Claude app in Zitadel, which makes the site an MCP server for Claude ("Content through Claude"); needs `oidc`; empty: off |
 | `pageCache.enabled`, `.size`, `.resources` | `false`, `64M`, 256Mi | Varnish in front of nginx ("Page cache"), its memory for pages and its container's |
 | `pageCache.dropBasicAuth` | `false` | drop a basic-auth header before WordPress; only for a site behind Traefik's basic auth |
+| `matomo.siteId` | `0` | the site's ID in the cluster's Matomo, which turns on its tracking ("Web analytics"); 0: off |
 | `objectCache.database` | `0` | the site's database in valkey-cache, which turns on the object cache; 0: off |
 | `reloader` | `true` | the Reloader annotation; needs the namespace in Reloader's list |
 | `phpFpm.pool` | `{}` | `pm.*` settings, e.g. `max_children: 6`; empty: the image's five workers |
@@ -493,6 +494,34 @@ the whole site:
 `kubectl --context d3strukt0r-prod-admin -n <site> exec deploy/web -c varnish -- varnishadm "ban req.url ~ ."`;
 its figures:
 `kubectl --context d3strukt0r-prod-admin -n <site> exec deploy/web -c varnish -- varnishstat -1 -f MAIN.cache_hit -f MAIN.cache_miss -f MAIN.n_object`.
+
+## Web analytics
+
+A site with `matomo.siteId` is counted in the cluster's Matomo (components/matomo), by the
+mu-plugin `files/matomo.php`, written for this chart rather than a plugin from wordpress.org:
+Connect Matomo has no WooCommerce sales, Matomo Site Kit had 30 installs, Matomo's own WooCommerce
+connector is paid, and none of them reads the WP Consent API (2026-10-23).
+
+- **From the site's own address.** The tracker loads as `/m/a.js` and reports to `/m/e`; nginx
+  (`files/default.conf`) passes both to Matomo inside the cluster (`matomo.matomo.svc`, as
+  `matomo.d3strukt0r.dev`) with the visitor's address in `CF-Connecting-IP`, and without the
+  site's cookies. Ad blockers block `/matomo.js` and `/matomo.php` on any host (EasyPrivacy), not
+  these. Resolved per request (`resolver` = kube-dns, `10.43.0.10`), so a site starts and runs
+  while Matomo is away. The page cache passes `/m/` (`files/default.vcl`).
+- **Cookieless unless the visitor agrees.** Everyone is counted without cookies
+  (`requireCookieConsent`); whoever allows "statistics" in the site's consent banner gets
+  Matomo's cookies and is recognised on later visits. The banner speaks through the WP Consent API
+  (plugin `wp-consent-api` beside e.g. WPConsent): its consent is read in the browser, since
+  pages come from the page cache. Without a banner nobody gets cookies.
+- **Shop pages.** Product and category views (`setEcommerceView`), and the whole cart after every
+  change, sent with the next page (carts change in AJAX requests).
+- **Orders from the server**, when an order becomes "processing" or "completed": straight to
+  Matomo, so an ad blocker or a closed tab cannot lose a sale. The visitor's address and browser
+  are noted when the order is placed, Matomo's visitor ID only if they agreed to cookies. Sent
+  once per order (`_matomo_tracked`); a failure is logged and retried at the next status. Needs a
+  token in `MATOMO_TOKEN` (`secrets`): a local Matomo user with **write** on this site only - with
+  it Matomo takes the visitor's address from the request instead of the shop's
+  (components/matomo, README "Adding a site").
 
 ## Vulnerability check
 

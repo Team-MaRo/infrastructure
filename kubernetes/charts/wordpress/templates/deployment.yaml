@@ -143,6 +143,9 @@ spec:
               {{- if .Values.pageCache.enabled }}
               cp /config/page-cache.php mu-plugins/
               {{- end }}
+              {{- if .Values.matomo.siteId }}
+              cp /config/matomo.php mu-plugins/
+              {{- end }}
               {{- if .Values.objectCache.database }}
               # Redis Object Cache's drop-in, which its admin button would install - hidden under
               # DISALLOW_FILE_MODS. It works without the plugin activated.

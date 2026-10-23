@@ -62,7 +62,8 @@ sub vcl_recv {
 	if (req.http.Authorization) {
 		return (pass);
 	}
-	if (req.url ~ "^/(wp-admin|wp-login\.php|wp-cron\.php|wp-comments-post\.php|xmlrpc\.php|wp-json/|wc-api/|\?rest_route=)"
+	# m/: Matomo's tracker (default.conf) - every hit must reach Matomo.
+	if (req.url ~ "^/(m/|wp-admin|wp-login\.php|wp-cron\.php|wp-comments-post\.php|xmlrpc\.php|wp-json/|wc-api/|\?rest_route=)"
 	    || req.url ~ "[?&](add-to-cart|wc-ajax|wc-api|preview|nocache|s)="
 	    || req.url ~ "^/([a-z]{2}/)?(cart|checkout|my-account|warenkorb|kasse|mein-konto)(/|\?|$)") {
 		return (pass);

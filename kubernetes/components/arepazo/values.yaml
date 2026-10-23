@@ -21,7 +21,11 @@ plugins:
   - woocommerce-google-analytics-integration
   - woocommerce-pdf-invoices-packing-slips
   - wordpress-seo
+  # The consent banner and the API Matomo's tracking reads it through (the chart's README "Web
+  # analytics").
+  - wp-consent-api
   - wp-mail-smtp
+  - wpconsent-cookies-banner-privacy-suite
   - wpforms-lite
   - yith-woocommerce-order-tracking
 themes:
@@ -61,6 +65,12 @@ oidc:
 # arepazo-claude in tofu/zitadel.
 mcp:
   clientId: "396201383935607172"
+
+# The shop is site 1 in Matomo (components/matomo). Google Analytics (MonsterInsights, Google
+# Analytics for WooCommerce, above) runs beside it until Matomo's numbers have matched
+# WooCommerce's for a while (README "Web analytics").
+matomo:
+  siteId: 1
 
 # Twice the chart's interned strings buffer: WooCommerce, Polylang and the rest fill 32 MB - 94 %
 # a day after the opcache got its 256 MB, still rising (2026-10-23). The buffer is part of those
@@ -160,6 +170,12 @@ secrets:
   - key: arepazo-oidc
     env:
       OIDC_CLIENT_SECRET: client-secret
+  # 1Password "Matomo | Prod | arepazo-tracking" (the token of the Matomo user that may only write
+  # to site 1, for the orders)
+  #   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=ft6waub64jf4u7mlxpvdegwo3q&h=my.1password.com
+  - key: arepazo-matomo
+    env:
+      MATOMO_TOKEN: token
 
 uploadsProxy:
   # The uploads proxy's read-only key (Secret uploads-proxy).

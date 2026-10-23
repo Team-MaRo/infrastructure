@@ -71,6 +71,12 @@ in the shared MariaDB, the uploads are in the bucket `d3strukt0r-prod-arepazo`
 - **Object cache in valkey-cache, database 2** (since 2026-10-20; the chart's "An object cache in
   valkey-cache"): before it, loading WordPress alone took 834 database queries, and every page
   1.5-2 s.
+- **Counted in Matomo** (site 1, since 2026-10-23; the chart's "Web analytics"): cookieless for
+  everyone, with cookies for whoever allows statistics in the WPConsent banner
+  (`wpconsent-cookies-banner-privacy-suite` with `wp-consent-api`); orders reported from the
+  server with the token of Matomo's user `arepazo-tracking`. Google Analytics (MonsterInsights,
+  Google Analytics for WooCommerce) still runs beside it, until Matomo's orders and revenue have
+  matched WooCommerce's for about two weeks; then both plugins go.
 - **Login through Zitadel** (since 2026-10-21; the chart's "Login through Zitadel" and
   "Registration in Zitadel"): the project "Arepazo" in `tofu/zitadel`, granted to the
   organisation `Arepazo`, where the shop's people are - Eduardo, who owns the shop and that

@@ -179,7 +179,13 @@ uses the GDPR tools. Only a superuser adds sites, manages plugins and global set
 2. Its roles in `tofu/zitadel/project_matomo.tf`, e.g. `"matomo:3:admin" = "arepazo.ch admin"`,
    and the owner's grant - or a project grant with only that site's roles to the owner's
    organisation, where the owner hands them out. Apply.
-3. The tracking code into the site (Administration → Websites → Tracking-Code).
+3. For a WordPress site: its ID as `matomo.siteId` in its values, which brings the tracking
+   (the chart's README, "Web analytics"). For a shop also the token its orders are sent with:
+   Administration → System → Benutzer → a **local** user `<site>-tracking` (RebelOIDC never
+   touches users that do not log in through it), **Schreiben** on that site only; logged in as it,
+   Persönlich → Sicherheit → Auth-Token erstellen. The token into 1Password
+   `Matomo | Prod | <site>-tracking` and OpenBao `secret/<site>-matomo` (`token`), read by the site
+   as `MATOMO_TOKEN`. Elsewhere: the tracking code from Administration → Websites → Tracking-Code.
 
 ## GeoIP
 
