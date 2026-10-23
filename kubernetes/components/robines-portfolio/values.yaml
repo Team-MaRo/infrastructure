@@ -16,7 +16,6 @@ plugins:
   - better-youtube-embed-block
   - embedpress
   - galleryberg-gallery-block
-  - google-analytics-for-wordpress
   - jetpack
   - jetpack-boost
   - jetpack-protect

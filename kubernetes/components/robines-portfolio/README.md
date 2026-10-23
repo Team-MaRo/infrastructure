@@ -69,9 +69,10 @@ The database is `robines_portfolio` in the shared MariaDB, the uploads are in th
   ([`../arepazo/README.md`](../arepazo/README.md)).
 - **Counted in Matomo** (site 2, since 2026-10-23; the chart's "Web analytics"): cookieless for
   everyone, with cookies for whoever allows statistics in the WPConsent banner
-  (`wpconsent-cookies-banner-privacy-suite` with `wp-consent-api`). It replaces Google Analytics
-  (MonsterInsights), which leaves once the banner and Matomo run - its data through "Daten
-  löschen" (the chart's runbook "Plugins"). The visits since the move (2026-10-03) came in from
+  (`wpconsent-cookies-banner-privacy-suite` with `wp-consent-api`). It replaced Google Analytics the
+  same day: MonsterInsights was deactivated, its data deleted through "Daten löschen" (the
+  chart's runbook "Plugins") and what its routine leaves by hand, and it left the plugin list;
+  Jetpack's Stats, Blaze, AI and Subscriptions modules were switched off. The visits since the move (2026-10-03) came in from
   the nginx log (Matomo's README, "Importing past visits from a site's logs"). **Reports in
   wp-admin** come from Connect Matomo
   (`wp-piwik`), set up in its settings (kept in the database): mode HTTP API,

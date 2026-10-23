@@ -630,7 +630,9 @@ running pods stay. A renamed or removed value changes in the same commit as ever
   `DISALLOW_FILE_MODS` - and then reads "Daten gelöscht am …"; the files go with the line in the
   values. Only plugins with such a routine get the link; one without (Google Analytics for
   WooCommerce) leaves its options behind, and some delete little unless a setting of their own
-  says so (WooCommerce: `WC_REMOVE_ALL_DATA`). A failure shows as a notice and in php-fpm's log.
+  says so (WooCommerce: `WC_REMOVE_ALL_DATA`) or keep their settings for a reinstall
+  (MonsterInsights: 19 options, its cache table and 3 cron hooks stayed - check the database
+  afterwards). A failure shows as a notice and in php-fpm's log.
 - **A plugin release breaks the site** (a 500 with its path in the php-fpm log): pin the last good
   version (`<slug> <version>`). Every start installs the latest release otherwise.
 - **A new WordPress major or PHP version** comes with the image tags (`7-php8.5-fpm` twice and
