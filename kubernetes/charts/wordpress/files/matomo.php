@@ -139,6 +139,9 @@ function matomo_track_order( $order_id ) {
 			'idsite'     => MATOMO_SITE_ID,
 			'rec'        => 1,
 			'send_image' => 0,
+			// An order is never a bot's, but without a browser of its own (an order entered in
+			// wp-admin) Matomo would see WordPress's user agent, which it counts as one and drops.
+			'bots'       => 1,
 			'url'        => $order->get_checkout_order_received_url() ? strtok( $order->get_checkout_order_received_url(), '?' ) : home_url(),
 			'idgoal'     => 0,
 			'ec_id'      => $order->get_order_number(),
@@ -166,7 +169,9 @@ function matomo_track_order( $order_id ) {
 			'timeout' => 5,
 		)
 	);
-	if ( is_wp_error( $response ) || 200 !== wp_remote_retrieve_response_code( $response ) ) {
+	// Matomo answers 204 without an image (send_image=0); it does so for a request it ignores too.
+	$code = wp_remote_retrieve_response_code( $response );
+	if ( is_wp_error( $response ) || $code < 200 || $code >= 300 ) {
 		// Not marked, so the next status change (completed after processing) tries again.
 		error_log( 'Matomo: order ' . $order->get_order_number() . ' not tracked: ' . ( is_wp_error( $response ) ? $response->get_error_message() : wp_remote_retrieve_response_code( $response ) ) );
 		return;

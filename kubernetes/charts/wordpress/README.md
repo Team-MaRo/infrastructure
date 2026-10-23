@@ -522,7 +522,9 @@ connector is paid, and none of them reads the WP Consent API (2026-10-23).
   change, sent with the next page (carts change in AJAX requests).
 - **Orders from the server**, when an order becomes "processing" or "completed": straight to
   Matomo, so an ad blocker or a closed tab cannot lose a sale. The visitor's address and browser
-  are noted when the order is placed, Matomo's visitor ID only if they agreed to cookies. Sent
+  are noted when the order is placed, Matomo's visitor ID only if they agreed to cookies; an order
+  entered in wp-admin has neither and is still counted (`bots=1` - Matomo would otherwise take
+  WordPress's user agent for a bot and drop it), with the shop as its visitor. Sent
   once per order (`_matomo_tracked`); a failure is logged and retried at the next status. Needs a
   token in `MATOMO_TOKEN` (`secrets`): a local Matomo user with **write** on this site only - with
   it Matomo takes the visitor's address from the request instead of the shop's
