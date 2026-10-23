@@ -15,6 +15,7 @@ own docs use.
 | `d3strukt0r-prod-wedding-manuele-robine` | bucket, versioning, lifecycle, policy | only the app's key and the admin key |
 | `d3strukt0r-prod-robines-portfolio` | bucket, versioning, lifecycle, policy | only the app's key, its uploads proxy's key (read only) and the admin key; only the admin key may change the bucket |
 | `d3strukt0r-prod-arepazo` | bucket, versioning, lifecycle, policy | as robines-portfolio's: the app's key, its uploads proxy's key (read only), the admin key |
+| `d3strukt0r-prod-matomo` | bucket, versioning, lifecycle, policy | only Matomo's key and the admin key; only the admin key may change the bucket |
 
 Shared rules, credentials and the state backend are in [`../README.md`](../README.md).
 
@@ -27,8 +28,9 @@ way to scope one is a bucket policy, so `tofu/objectstorage` writes every policy
 (`local.etcd_principal`, `local.loki_principal`, `local.mariadb_backups_principal`,
 `local.postgres_backups_principal`, `local.openbao_snapshots_principal`,
 `local.wedding_manuele_robine_principal`, `local.robines_portfolio_principal`,
-`local.arepazo_principal`; the WordPress sites' buckets also name their uploads proxy's read-only
-key, `local.robines_portfolio_uploads_proxy_principal`, `local.arepazo_uploads_proxy_principal`).
+`local.arepazo_principal`, `local.matomo_principal`; the WordPress sites' buckets also name
+their uploads proxy's read-only key, `local.robines_portfolio_uploads_proxy_principal`,
+`local.arepazo_uploads_proxy_principal`).
 That covers keys that do not exist yet, so
 **each key the cluster holds reaches only its own bucket**. The cluster keys' access key IDs
 (not their secrets) are `etcd_access_key_id`, `loki_access_key_id`,
@@ -136,6 +138,11 @@ below). **Whether Hetzner expires current objects depends on versioning**, both 
   `prod arepazo uploads-proxy` (1Password [`Hetzner | S3 | prod arepazo uploads-proxy`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=gs5mn5w3sfbqsljokq3ukhjtjy&h=my.1password.com),
   OpenBao `secret/arepazo-uploads-proxy-s3`). It also holds invoice PDFs with customer data, which
   the site's nginx never hands to the proxy.
+- **`d3strukt0r-prod-matomo`: Matomo's files that outlive its pod** - today the DB-IP city
+  database, which Matomo's monthly GeoIP job uploads and every pod start copies into Matomo
+  (kubernetes/components/matomo). One key, `prod matomo` (1Password
+  [`Hetzner | S3 | prod matomo`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=4vhpkhsjy4meb3pqhgvhu2zsge&h=my.1password.com), OpenBao `secret/matomo-s3`), reads and writes; only the admin key changes the
+  bucket. Versions and lifecycle as for wedding-manuele-robine.
 - **Provider `aminueza/minio`, `s3_compat_mode` off.** The `aws` provider cannot refresh a
   bucket here (it reads Accelerate, Website, Logging, Replication and Tagging, all
   unimplemented). Compat mode would swallow "not implemented" errors, object lock and
@@ -163,7 +170,7 @@ Needs `project_id`, `etcd_access_key_id`, `loki_access_key_id`, `tempo_access_ke
 `mariadb_backups_access_key_id`, `postgres_backups_access_key_id`,
 `openbao_snapshots_access_key_id`, `wedding_manuele_robine_access_key_id`,
 `robines_portfolio_access_key_id`, `robines_portfolio_uploads_proxy_access_key_id`,
-`arepazo_access_key_id` and `arepazo_uploads_proxy_access_key_id` in
+`arepazo_access_key_id`, `arepazo_uploads_proxy_access_key_id` and `matomo_access_key_id` in
 `objectstorage/terraform.tfvars` - the key IDs are the username fields of the keys'
 1Password items, never the secrets. The provider cannot read
 AWS profiles, so `locals.tf` parses the `[d3strukt0r-hetzner]` section of

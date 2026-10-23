@@ -1,0 +1,32 @@
+---
+# Matomo, shared by every cluster: the web analytics of every site at matomo.d3strukt0r.dev, with
+# its own Zitadel login. Its state is in a database of its own in the shared MariaDB and in the
+# bucket d3strukt0r-prod-matomo, so it needs no volume.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - namespace.yaml
+  - database.yaml
+  - external-secrets.yaml
+  - deployment.yaml
+  - cronjob-archive.yaml
+  - cronjob-geoip.yaml
+  - service.yaml
+  - ingress.yaml
+  - pod-monitor.yaml
+
+# Hashed name: the files are read at start, so a change rolls the pod.
+configMapGenerator:
+  - name: matomo
+    files:
+      - common.config.ini.php
+      - prepare.sh
+      - default.conf
+      - php-fpm.conf
+
+components:
+  # refreshInterval and the openbao store for every ExternalSecret here.
+  - ../../shared/external-secret-defaults
+  # The sync option for the PodMonitor, whose CRD belongs to kube-prometheus-stack.
+  - ../../shared/monitoring-sync-options

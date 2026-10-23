@@ -1,0 +1,103 @@
+---
+# Matomo's reports, built every hour from the raw visits (browser archiving is off,
+# common.config.ini.php). Its own pod with the same assembly as the web pod (prepare.sh archive).
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: archive
+  annotations:
+    keel.sh/policy: force
+    keel.sh/matchTag: "true"
+    keel.sh/trigger: poll
+spec:
+  schedule: "5 * * * *"
+  # A run that outlasts the hour is not joined by the next.
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 600
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 3000
+      ttlSecondsAfterFinished: 86400
+      template:
+        spec:
+          restartPolicy: Never
+          securityContext:
+            runAsUser: 33
+            runAsGroup: 33
+            fsGroup: 33
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+          initContainers:
+            - name: prepare
+              image: matomo:5-fpm
+              imagePullPolicy: Always
+              workingDir: /matomo
+              command: ["sh", "/config/prepare.sh", "archive"]
+              env:
+                - name: MATOMO_DB_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: matomo
+                      key: db-password
+                - name: MATOMO_SALT
+                  valueFrom:
+                    secretKeyRef:
+                      name: matomo
+                      key: salt
+                - name: MATOMO_SMTP_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: matomo
+                      key: smtp-password
+              securityContext: &restricted
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+              resources:
+                limits:
+                  memory: 256Mi
+              volumeMounts:
+                - name: html
+                  mountPath: /matomo
+                - name: config
+                  mountPath: /config
+                  readOnly: true
+                - name: mariadb-ca
+                  mountPath: /etc/mariadb-ca
+                  readOnly: true
+          containers:
+            - name: archive
+              image: matomo:5-fpm
+              imagePullPolicy: Always
+              workingDir: /var/www/html
+              command: ["php", "console", "core:archive", "--url=https://matomo.d3strukt0r.dev/"]
+              env:
+                # Matomo asks for at least 768M when archiving (minimum_memory_limit_when_archiving).
+                - name: PHP_MEMORY_LIMIT
+                  value: 1G
+              securityContext: *restricted
+              resources:
+                requests:
+                  memory: 256Mi
+                limits:
+                  memory: 1280Mi
+              volumeMounts:
+                - name: html
+                  mountPath: /var/www/html
+                  subPath: html
+                - name: mariadb-ca
+                  mountPath: /etc/mariadb-ca
+                  readOnly: true
+          volumes:
+            - name: html
+              emptyDir:
+                sizeLimit: 512Mi
+            - name: config
+              configMap:
+                name: matomo
+            - name: mariadb-ca
+              configMap:
+                name: mariadb-ca

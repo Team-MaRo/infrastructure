@@ -1,0 +1,10 @@
+---
+# Part of the app, so removing the app removes the namespace and anything left in it.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: matomo
+  labels:
+    # trust-manager puts the shared MariaDB's CA here as ConfigMap mariadb-ca
+    # (components/trust-manager).
+    trust.d3strukt0r.dev/mariadb-ca: "true"

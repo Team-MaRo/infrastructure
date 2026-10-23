@@ -1,0 +1,14 @@
+---
+# php-fpm's pool figures, served by nginx on the port metrics (default.conf). The job is
+# matomo/php-fpm, so kube-prometheus-stack's php-fpm alerts and dashboard cover it as they cover
+# the WordPress sites.
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: php-fpm
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: matomo
+  podMetricsEndpoints:
+    - port: metrics

@@ -44,3 +44,6 @@ arepazo_access_key_id = ""
 # 1Password "Hetzner | S3 | prod arepazo uploads-proxy"
 #   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=gs5mn5w3sfbqsljokq3ukhjtjy&h=my.1password.com
 arepazo_uploads_proxy_access_key_id = ""
+# 1Password "Hetzner | S3 | prod matomo"
+#   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=4vhpkhsjy4meb3pqhgvhu2zsge&h=my.1password.com
+matomo_access_key_id = ""

@@ -1,0 +1,27 @@
+---
+# Matomo at matomo.d3strukt0r.dev (its own record in tofu/cloudflare): the UI, which logs in
+# through Zitadel itself, and the tracking script and endpoint every site's visitors load, which
+# must stay public. No className: Traefik is the cluster's default IngressClass.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: matomo
+  annotations:
+    # cert-manager creates the Certificate from spec.tls (components/cert-manager).
+    cert-manager.io/cluster-issuer: letsencrypt
+spec:
+  tls:
+    - hosts:
+        - matomo.d3strukt0r.dev
+      secretName: matomo-tls
+  rules:
+    - host: matomo.d3strukt0r.dev
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: matomo
+                port:
+                  name: http

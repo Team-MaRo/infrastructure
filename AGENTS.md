@@ -175,10 +175,10 @@ rule, 2026-10-02). Where a name cannot hold a hyphen, the hyphens become undersc
   only the Application goes and its resources keep running, untracked.
   - It is on apps whose data lives elsewhere or does not matter: `gatus`, `zitadel`,
     `oauth2-proxy`, `phpmyadmin`, `pgadmin`, `reloader`, `keel`, `wedding-manuele-robine`,
-    `robines-portfolio`, `arepazo`, `kured`, `alloy`, `etcd-snapshots`, `cluster-rbac`, `tempo`,
-    `argocd-integrations`, `valkey-cache`. A Postgres app's database and role stay when it goes
-    (CloudNativePG's reclaim policies default to `retain`); a MariaDB app's objects set
-    `cleanupPolicy: Skip`, since mariadb-operator's default is `Delete`.
+    `robines-portfolio`, `arepazo`, `matomo`, `kured`, `alloy`, `etcd-snapshots`,
+    `cluster-rbac`, `tempo`, `argocd-integrations`, `valkey-cache`. A Postgres app's database
+    and role stay when it goes (CloudNativePG's reclaim policies default to `retain`); a MariaDB
+    app's objects set `cleanupPolicy: Skip`, since mariadb-operator's default is `Delete`.
   - **Never on an app that brings CRDs** (deleting a CRD deletes every object of its kind):
     cert-manager, external-secrets, kyverno, cloudnative-pg, the mariadb-operator ones,
     system-upgrade-controller, kube-prometheus-stack, kubeelasti, trust-manager. **Never on an
@@ -362,5 +362,6 @@ component); update it in the same change.
 | [`kubernetes/charts/wordpress/README.md`](kubernetes/charts/wordpress/README.md) | The WordPress chart every site uses: values, design, rolling out a chart change, adding a site |
 | [`kubernetes/components/robines-portfolio/README.md`](kubernetes/components/robines-portfolio/README.md) | The old WordPress portfolio: its values for the WordPress chart and what is particular to it |
 | [`kubernetes/components/arepazo/README.md`](kubernetes/components/arepazo/README.md) | The WooCommerce shop: its values for the WordPress chart (private files, memory, languages) |
+| [`kubernetes/components/matomo/README.md`](kubernetes/components/matomo/README.md) | Web analytics for every site: Zitadel login, installing, GeoIP, archiving, adding a site |
 | [`kubernetes/components/kubeelasti/README.md`](kubernetes/components/kubeelasti/README.md) | Scale to zero, letting an app sleep |
 | [`kubernetes/clusters/prod/etcd-snapshots/README.md`](kubernetes/clusters/prod/etcd-snapshots/README.md) | etcd snapshots to Object Storage, restoring one |

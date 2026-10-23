@@ -24,6 +24,7 @@ reloader:
     - argocd
     - gatus
     - loki
+    - matomo
     - monitoring
     - oauth2-proxy
     - pgadmin

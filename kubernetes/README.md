@@ -56,6 +56,7 @@ kubernetes/
 │       ├── wedding-manuele-robine.yaml  # the wedding website
 │       ├── robines-portfolio.yaml  # the old WordPress portfolio: the WordPress chart and its values
 │       ├── arepazo.yaml       # the WooCommerce shop: the WordPress chart and its values
+│       ├── matomo.yaml            # web analytics for every site
 │       ├── kubeelasti.yaml        # scale to zero: chart pinned here, values in components/
 │       ├── cluster-rbac.yaml      # cluster-wide rights for kubectl logins through Zitadel
 │       ├── priority-classes.yaml  # the cluster's PriorityClasses - no finalizer
@@ -232,8 +233,14 @@ kubernetes/
     │   └── ingresses.yaml         # Ingresses for the four names
     ├── robines-portfolio/
     │   └── values.yaml            # the WordPress chart's values: old.robines.space, its plugins
-    └── arepazo/
-        └── values.yaml            # the WordPress chart's values: www.arepazo.ch, the shop's plugins
+    ├── arepazo/
+    │   └── values.yaml            # the WordPress chart's values: www.arepazo.ch, the shop's plugins
+    └── matomo/
+        ├── kustomization.yaml
+        ├── deployment.yaml        # php-fpm and nginx, assembled by prepare.sh at every start
+        ├── cronjob-archive.yaml   # builds the reports every hour
+        ├── cronjob-geoip.yaml     # the monthly DB-IP city database into its bucket
+        └── common.config.ini.php  # Matomo's settings beside its defaults
 ```
 
 | Component | What it is |
@@ -268,6 +275,7 @@ kubernetes/
 | [`wedding-manuele-robine`](components/wedding-manuele-robine/README.md) | The wedding website (moved from prod-old) |
 | [`robines-portfolio`](components/robines-portfolio/README.md) | The old WordPress portfolio at old.robines.space (moved from prod-old), from the WordPress chart |
 | [`arepazo`](components/arepazo/README.md) | The WooCommerce shop at www.arepazo.ch (moved from prod-old), from the WordPress chart |
+| [`matomo`](components/matomo/README.md) | Web analytics for every site at matomo.d3strukt0r.dev, with its own Zitadel login |
 | [`kubeelasti`](components/kubeelasti/README.md) | Scale to zero; letting an app sleep |
 | [`cluster-rbac`](components/cluster-rbac/README.md) | Cluster-wide rights for kubectl logins through Zitadel |
 | [`priority-classes`](components/priority-classes/README.md) | `stateful-core`: the shared databases and OpenBao, evicted last under memory pressure |

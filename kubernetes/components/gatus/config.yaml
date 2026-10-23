@@ -75,6 +75,17 @@ endpoints:
     alerts:
       - type: ntfy
 
+  - name: Matomo
+    group: Apps
+    # The tracking endpoint the sites' visitors call, through nginx and PHP: the public half of
+    # Matomo (its UI needs a login).
+    url: https://matomo.d3strukt0r.dev/matomo.php
+    interval: 5m
+    conditions:
+      - "[STATUS] == 200"
+    alerts:
+      - type: ntfy
+
 # The alerting pipeline itself: Alertmanager's always-firing Watchdog alert arrives here every
 # minute (kube-prometheus-stack values, receiver watchdog), at
 # /api/v1/endpoints/alerting_watchdog/external?success=true with the token as a Bearer header.

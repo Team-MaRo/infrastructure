@@ -114,6 +114,7 @@ reaches the origin.
 | `argocd.d3strukt0r.dev` | Argo CD | Zitadel | on |
 | `grafana.d3strukt0r.dev` | Grafana | Zitadel | on |
 | `openbao.d3strukt0r.dev` | OpenBao | Zitadel | on |
+| `matomo.d3strukt0r.dev` | Matomo (web analytics; the tracking script is public) | Zitadel | on |
 | `pgadmin.d3strukt0r.dev` | pgAdmin | Zitadel | on |
 | `prometheus.d3strukt0r.dev` | Prometheus | oauth2-proxy | on |
 | `alertmanager.d3strukt0r.dev` | Alertmanager | oauth2-proxy | on |
