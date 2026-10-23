@@ -44,8 +44,10 @@ add_filter(
 		$url = wp_nonce_url( admin_url( 'admin-post.php?action=plugin_data_delete&plugin=' . rawurlencode( $file ) ), 'plugin_data_delete_' . $file );
 		/* translators: %s: plugin name. */
 		$question = sprintf( __( 'Delete all settings and data of %s? Its files stay until it is removed from the site. This cannot be undone.', 'plugin-data' ), $data['Name'] );
+		// Red like WordPress's own delete link, but not its `delete` class: the plugin list's script
+		// takes over every such link in a row and tries to delete the plugin's files instead.
 		$actions['plugin_data'] = sprintf(
-			'<a href="%s" class="delete" onclick="return confirm(%s);">%s</a>',
+			'<a href="%s" style="color: #b32d2e;" onclick="return confirm(%s);">%s</a>',
 			esc_url( $url ),
 			esc_attr( wp_json_encode( $question ) ),
 			esc_html__( 'Delete data', 'plugin-data' )
