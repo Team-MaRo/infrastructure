@@ -21,8 +21,10 @@ Shared rules, credentials and the state backend are in [`../README.md`](../READM
   usually unnoticed through a silent re-login. The project `Infrastructure` holds the admin
   UIs' and kubectl's applications and the role `infra-admin` (role keys carry their project's prefix, since the `groups` claim mixes all
   projects' roles); role assertion puts roles into tokens and role check makes Zitadel itself
-  refuse users without a role. Role assignments are here too - the personal user is looked up
-  by username. It logs in as the machine user `iam-admin` with the
+  refuse users without a role. A project and its roles carry display names for the console and
+  the login page ("Robines Portfolio", "Administrator"); only the role keys are technical, since
+  apps and the `groups` claim read those. Role assignments are here too - the personal user is
+  looked up by username. It logs in as the machine user `iam-admin` with the
   key its setup job wrote (`zitadel_jwt_profile` in the gitignored tfvars; the key expires
   2029-01-01). Human users stay in the console - their passwords and second factors are theirs.
   Kubernetes runs one `components/zitadel` however many organisations or instances exist; they
@@ -151,7 +153,7 @@ decided per site; the site logs in through the WordPress chart's OIDC support
 ## Matomo
 
 A spike (2026-10-22): can one Matomo serve every site's owner with exactly their sites, logging
-in through Zitadel? `project_matomo.tf` holds the project `matomo` and the app `matomo-spike` for
+in through Zitadel? `project_matomo.tf` holds the project "Matomo" and the app `matomo-spike` for
 a Matomo on the admin's machine (`http://localhost:8080`, development mode).
 
 - **A role is a right on a Matomo site**: `matomo:<siteID>:<view|write|admin>`. The groups
@@ -160,6 +162,11 @@ a Matomo on the admin's machine (`http://localhost:8080`, development mode).
   reads at every login and makes the user's site rights exactly match - a role removed here is a
   right gone at the next login. Role check on: without any Matomo role Zitadel refuses the login,
   so the plugin's own role gate stays off.
+- **The admin of all of Matomo** holds `matomo:superuser` here and Matomo's superuser flag
+  there. The claim can only name single sites, so the role only gets its holder past the role
+  check (the webhook makes no site right of it); the flag is set once in Matomo (Administration →
+  Benutzer → Superuser-Zugriff) and covers every site, future ones too. Taking the role away
+  blocks the login, not the flag - remove that in Matomo as well.
 - **The access token is a JWT**: RebelOIDC reads the claims by decoding the access and ID
   tokens it receives from the token endpoint.
 - **The client secret** is regenerated in the console after creation, like the WordPress sites'

@@ -44,7 +44,7 @@ resource "zitadel_login_policy" "arepazo" {
 
 resource "zitadel_project" "arepazo" {
   org_id = local.org_id
-  name   = "arepazo"
+  name   = "Arepazo"
 
   # The roles go into userinfo, where WordPress reads them.
   project_role_assertion = true
@@ -57,12 +57,16 @@ resource "zitadel_project" "arepazo" {
 # A WordPress role per key (WordPress takes every one it knows, charts/wordpress README "Login
 # through Zitadel"); another one is one more entry.
 resource "zitadel_project_role" "arepazo" {
-  for_each = toset(["administrator", "shop_manager", "customer"])
+  for_each = {
+    administrator = "Administrator"
+    shop_manager  = "Shop manager"
+    customer      = "Customer"
+  }
 
   org_id       = local.org_id
   project_id   = zitadel_project.arepazo.id
   role_key     = "arepazo:${each.key}"
-  display_name = "arepazo ${each.key}"
+  display_name = each.value
 }
 
 # Arepazo may give its people every role of the project; its owner does that in the console.

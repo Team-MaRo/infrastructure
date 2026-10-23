@@ -4,7 +4,7 @@
 # "Login through Zitadel"); without one Zitadel refuses the login.
 resource "zitadel_project" "robines_portfolio" {
   org_id = local.org_id
-  name   = "robines-portfolio"
+  name   = "Robines Portfolio"
 
   # The roles go into userinfo, where WordPress reads them.
   project_role_assertion = true
@@ -18,14 +18,14 @@ resource "zitadel_project_role" "robines_portfolio_administrator" {
   org_id       = local.org_id
   project_id   = zitadel_project.robines_portfolio.id
   role_key     = "robines-portfolio:administrator"
-  display_name = "robines-portfolio administrator"
+  display_name = "Administrator"
 }
 
 resource "zitadel_project_role" "robines_portfolio_editor" {
   org_id       = local.org_id
   project_id   = zitadel_project.robines_portfolio.id
   role_key     = "robines-portfolio:editor"
-  display_name = "robines-portfolio editor"
+  display_name = "Editor"
 }
 
 # WordPress's plugin (OpenID Connect Generic Client) has no PKCE, so the app needs a client

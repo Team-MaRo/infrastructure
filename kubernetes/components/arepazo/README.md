@@ -69,7 +69,7 @@ in the shared MariaDB, the uploads are in the bucket `d3strukt0r-prod-arepazo`
   valkey-cache"): before it, loading WordPress alone took 834 database queries, and every page
   1.5-2 s.
 - **Login through Zitadel** (since 2026-10-21; the chart's "Login through Zitadel" and
-  "Registration in Zitadel"): the project `arepazo` in `tofu/zitadel`, granted to the
+  "Registration in Zitadel"): the project "Arepazo" in `tofu/zitadel`, granted to the
   organisation `Arepazo`, where the shop's people are - Eduardo, who owns the shop and that
   organisation and gives his staff their roles there (`arepazo:administrator`,
   `arepazo:shop_manager`), and the customers. **Customers register in Zitadel** ("Create an
