@@ -309,6 +309,11 @@ normal form. The site's project and app are in `tofu/zitadel` (`project_<site>.t
 - **Who is linked shows in wp-admin**, read only: the profile page has a row "OpenID Connect user
   ID", the user list a column "OpenID Connect" (also `files/oidc.php`) - an account without one
   logs in with the form only. The plugin itself keeps the ID out of sight.
+- **wp-login.php puts the login through Zitadel first** (`files/oidc.php`): the buttons move into a
+  box of their own, and the password form - the break-glass administrator's - waits behind "Log in
+  with username and password" below them. It shows at once after a failed password login, without
+  JavaScript, in wp-admin's re-login dialog and on every other wp-login.php page (lost password,
+  reset). WooCommerce's login form keeps its layout.
 - **WooCommerce's login form** (My account, checkout) shows the button too and leads back to the
   page it was on.
 - **No text people see names Zitadel** (user decision, 2026-10-21) - buttons, messages, the

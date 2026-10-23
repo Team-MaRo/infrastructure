@@ -15,5 +15,7 @@ return array(
 		'This account logs in with OpenID Connect - use "Login with OpenID Connect" and choose "Reset Password" there.' => 'Dieses Konto meldet sich mit OpenID Connect an – verwenden Sie «Mit OpenID Connect anmelden» und wählen Sie dort «Passwort zurücksetzen».',
 		'Name and email address come from your login account - change them there:' => 'Name und E-Mail-Adresse stammen aus Ihrem Login-Konto – ändern Sie sie dort:',
 		'Account settings' => 'Konto-Einstellungen',
+		'or' => 'oder',
+		'Log in with username and password' => 'Mit Benutzername und Passwort anmelden',
 	),
 );

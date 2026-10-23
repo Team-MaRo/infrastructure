@@ -244,6 +244,108 @@ add_action(
 		echo zitadel_button( __( 'Login with OpenID Connect', 'zitadel-login' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- the plugin's own markup.
 	}
 );
+
+// wp-login.php puts the buttons first: they move into a box of their own, and the password form -
+// only the break-glass administrator's - waits behind a link below them. Only with JavaScript (the
+// styles need WordPress's `js` class), only on the login itself and not in wp-admin's re-login
+// dialog; after a failed password login the form shows at once, next to its error.
+add_action(
+	'login_head',
+	function () {
+		?>
+<style>
+	.js.login-action-login:not(.interim-login):not(.zitadel-password-form) #loginform,
+	.js.login-action-login:not(.interim-login):not(.zitadel-password-form) #nav {
+		display: none;
+	}
+	.zitadel-login-box {
+		margin: 24px 0 0;
+		padding: 26px 24px;
+		background: #fff;
+		border: 1px solid #c3c4c7;
+		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+	}
+	.zitadel-login-box .openid-connect-login-button {
+		margin: 0 0 12px !important;
+	}
+	.zitadel-login-box .openid-connect-login-button:last-of-type {
+		margin-bottom: 0 !important;
+	}
+	/* wp-login.php floats .button-primary to the right of the form's checkbox. */
+	.zitadel-login-box .openid-connect-login-button .button {
+		float: none;
+		display: block;
+		width: 100%;
+		text-align: center;
+	}
+	.zitadel-login-or {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		margin: 20px 0 12px;
+		color: #646970;
+		text-transform: uppercase;
+	}
+	.zitadel-login-or::before,
+	.zitadel-login-or::after {
+		content: "";
+		flex: 1;
+		border-top: 1px solid #dcdcde;
+	}
+	.zitadel-login-password {
+		display: block;
+		text-align: center;
+	}
+</style>
+		<?php
+	}
+);
+add_action(
+	'login_footer',
+	function () {
+		?>
+<script>
+	( function () {
+		var body    = document.body;
+		var form    = document.getElementById( 'loginform' );
+		var buttons = document.querySelectorAll( '.openid-connect-login-button' );
+		if ( ! body.classList.contains( 'login-action-login' ) || body.classList.contains( 'interim-login' ) || ! form || ! buttons.length ) {
+			return;
+		}
+		var box = document.createElement( 'div' );
+		box.className = 'zitadel-login-box';
+		buttons.forEach( function ( button ) {
+			box.appendChild( button );
+		} );
+		buttons[0].querySelector( '.button' ).classList.add( 'button-primary' );
+		var or = document.createElement( 'p' );
+		or.className   = 'zitadel-login-or';
+		or.textContent = <?php echo wp_json_encode( __( 'or', 'zitadel-login' ) ); ?>;
+		var link = document.createElement( 'a' );
+		link.className   = 'zitadel-login-password';
+		link.href        = '#loginform';
+		link.textContent = <?php echo wp_json_encode( __( 'Log in with username and password', 'zitadel-login' ) ); ?>;
+		box.appendChild( or );
+		box.appendChild( link );
+		form.parentNode.insertBefore( box, form );
+		function showForm() {
+			body.classList.add( 'zitadel-password-form' );
+			or.remove();
+			link.remove();
+		}
+		link.addEventListener( 'click', function ( event ) {
+			event.preventDefault();
+			showForm();
+			document.getElementById( 'user_login' ).focus();
+		} );
+		if ( document.getElementById( 'login_error' ) ) {
+			showForm();
+		}
+	} )();
+</script>
+		<?php
+	}
+);
 {{- with .Values.oidc.registerOrganisation }}
 
 // Registration in Zitadel (values oidc.registerOrganisation): a second button asks Zitadel's
