@@ -74,9 +74,16 @@ in the shared MariaDB, the uploads are in the bucket `d3strukt0r-prod-arepazo`
 - **Counted in Matomo** (site 1, since 2026-10-23; the chart's "Web analytics"): cookieless for
   everyone, with cookies for whoever allows statistics in the WPConsent banner
   (`wpconsent-cookies-banner-privacy-suite` with `wp-consent-api`); orders reported from the
-  server with the token of Matomo's user `arepazo-tracking`. Google Analytics (MonsterInsights,
-  Google Analytics for WooCommerce) still runs beside it, until Matomo's orders and revenue have
-  matched WooCommerce's for about two weeks; then both plugins go.
+  server with the token of Matomo's user `arepazo-tracking`. It replaced Google Analytics the same
+  day: MonsterInsights and Google Analytics for WooCommerce were deactivated, their options, table
+  and scheduled tasks deleted by hand (their own uninstall fails outside wp-admin), and they left
+  the plugin list. Matomo's orders and revenue are checked against WooCommerce's own reports; the
+  GA4 history at Google is to be imported into Matomo. **Reports in wp-admin** come from Connect
+  Matomo (`wp-piwik`), set up in its settings (kept in the database): mode HTTP API,
+  `https://matomo.d3strukt0r.dev`, site 1, the token of Matomo's user `arepazo-reports` (**view**
+  on site 1 only, 1Password
+  [`Matomo | Prod | arepazo-reports`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=6swvhnxx6ohlzfsrnvi7nfbbz4&h=my.1password.com)), and its tracking code
+  **off** - the mu-plugin counts, a second tracker would count every visit twice.
 - **Login through Zitadel** (since 2026-10-21; the chart's "Login through Zitadel" and
   "Registration in Zitadel"): the project "Arepazo" in `tofu/zitadel`, granted to the
   organisation `Arepazo`, where the shop's people are - Eduardo, who owns the shop and that
