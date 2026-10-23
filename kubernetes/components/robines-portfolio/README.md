@@ -67,6 +67,15 @@ The database is `robines_portfolio` in the shared MariaDB, the uploads are in th
   mailomat"). No IP restriction on the SMTP user: the password is its only guard. The mailomat
   plan's 200 mails a month are shared with the other sites
   ([`../arepazo/README.md`](../arepazo/README.md)).
+- **Counted in Matomo** (site 2, since 2026-10-23; the chart's "Web analytics"): cookieless for
+  everyone, with cookies for whoever allows statistics in the WPConsent banner
+  (`wpconsent-cookies-banner-privacy-suite` with `wp-consent-api`). It replaces Google Analytics
+  (MonsterInsights), which leaves once the banner and Matomo run - its data through "Daten
+  löschen" (the chart's runbook "Plugins"). **Reports in wp-admin** come from Connect Matomo
+  (`wp-piwik`), set up in its settings (kept in the database): mode HTTP API,
+  `https://matomo.d3strukt0r.dev`, site 2, the token of Matomo's user `robines-portfolio-reports`
+  (**view** on site 2 only), and its tracking code **off** - the mu-plugin counts, a second
+  tracker would count every visit twice.
 - **Not migrated**: prod-old's Duplicator package (`wp-content/backups-dup-lite`, 222 MB, from
   2025-10-14) and the `robines-portfolio.d3strukt0r.dev` name.
 

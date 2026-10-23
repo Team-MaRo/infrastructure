@@ -23,14 +23,26 @@ plugins:
   - svg-block
   - wordpress-seo
   - wp-mail-smtp
-  - wpconsent-cookies-banner-privacy-suite
   - wpforms-lite
+  # The consent banner and the API Matomo's tracking reads it through (the chart's README "Web
+  # analytics").
+  - wpconsent-cookies-banner-privacy-suite
+  - wp-consent-api
+  # Connect Matomo: Matomo's reports in wp-admin, read with the view-only user
+  # robines-portfolio-reports. Its own tracking stays off - the chart's mu-plugin counts (README
+  # "Counted in Matomo").
+  - wp-piwik
 themes:
   - mintraro
   - blogarise
 
 languages:
   - de_CH
+
+# The site is site 2 in Matomo (components/matomo), which replaces Google Analytics (README
+# "Counted in Matomo").
+matomo:
+  siteId: 2
 
 # Database 1 in valkey-cache (components/valkey-cache).
 objectCache:
