@@ -328,8 +328,11 @@ add_action(
 		box.appendChild( or );
 		box.appendChild( link );
 		form.parentNode.insertBefore( box, form );
+		// WordPress's user-profile.js disables a password field that is hidden at load, against
+		// autofill; shown, it has to take input again.
 		function showForm() {
 			body.classList.add( 'zitadel-password-form' );
+			document.getElementById( 'user_pass' ).disabled = false;
 			or.remove();
 			link.remove();
 		}
