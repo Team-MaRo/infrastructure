@@ -200,10 +200,14 @@ on 2026-10-23 for Arepazo and robines-portfolio, back to the move to the cluster
    (Loki's limit), the next page from the last timestamp; keep only access-log lines; compare each
    day's count with `count_over_time`. The files hold visitors' addresses: keep them out of git and
    out of folders a cloud syncs (`~/Documents`, `~/Desktop`).
-2. **Cut** each site's lines at its first tracked visit, or visits count twice, and **drop lines
-   whose address is 10.x**: nginx takes the visitor from Cloudflare's `CF-Connecting-IP`, so a
-   cluster address means the request reached port 443 past Cloudflare - scanners, not visitors
-   (on 2026-10-23 that was 1,282 of 1,440 imported visits, deleted again with the GDPR API).
+2. **Cut** each site's lines at its first tracked visit, or visits count twice. **Look at the
+   addresses before dropping any**: nginx takes the visitor from Cloudflare's `CF-Connecting-IP`
+   only since 2026-10-20 22:51 (c555dd8). Before, every request carried Traefik's cluster address
+   (10.x) - visitors included -, after it a 10.x address means a request past Cloudflare to port
+   443, a scanner. Lines without the visitor's address still count as visits, without location.
+   (On 2026-10-23 all 10.x visits were deleted again through the GDPR API as scanners, which took
+   the real visits of 2026-10-03..20 with them; Google Analytics' history filled those days -
+   "Google Analytics history".)
 3. **Import** with Matomo's own `misc/log-analytics/import_logs.py` (copy it out of the pod, which
    has no Python), on the admin's machine, with a temporary token of the `admin` user from the
    clipboard (`--token-auth="$(pbpaste)"`), deleted afterwards. A dry run first (`--dry-run`
@@ -227,9 +231,15 @@ later import undercounts those.
 ## Google Analytics history
 
 Before Matomo the sites were measured by Google Analytics 4 (the user's account "D3strukt0r").
-Their history comes in with the free plugin **GoogleAnalyticsImporter** (pinned in `prepare.sh`),
-each property into its existing Matomo site up to the day before the site's log import
-("Importing past visits from a site's logs"), so no day is counted twice.
+Their history came in on 2026-10-24 with the free plugin **GoogleAnalyticsImporter** (pinned in
+`prepare.sh`), each property into its **existing** Matomo site, from the property's creation up
+to 2026-10-20 - the last day without raw visits in Matomo (its own data starts 2026-10-21), so no
+day is both imported and tracked: Arepazo (property 287677108, from 2021-09-25), Robines Space
+(508744479, from 2025-10-14) and site 3 (from 2021-09-26). Imported were visits, pages,
+referrers, devices, locations and the key events as goals (`purchase`, for Robines Space also
+`qualify_lead` and `close_convert_lead`); **no custom dimensions** - MonsterInsights had created
+some with personal data in every property (`email_address`, `tel_number`, `user_id`,
+`wp_user_id`).
 
 - **It imports reports, not visits**: one finished report per day (visits, pages, referrers,
   ...), no raw visits. Matomo would rebuild an invalidated day from its raw visits - zero for these
@@ -241,14 +251,54 @@ each property into its existing Matomo site up to the day before the site's log 
   `[GoogleAnalyticsImporter] encryption_key`, which `prepare.sh` writes from OpenBao - the plugin
   would generate one into `config.ini.php`, which is rewritten at every start. Like the salt, the
   key never changes, or the credentials have to be uploaded and authorised again.
-- **The Google side**: a Google Cloud project with the Google Analytics Data API and Admin API,
-  an OAuth client "Web application" with the redirect
-  `https://matomo.d3strukt0r.dev/index.php?module=GoogleAnalyticsImporter&action=processAuthCode`
-  and its consent screen in testing mode with the user's own account as test user (no
-  verification; tokens last 7 days, enough for a one-off import). Uploaded and authorised under
-  Administration → System → Google Analytics Import, where an import is started and watched; it
-  runs in the background in the web pod (`googleanalyticsimporter:import-ga4-reports`) and is
-  resumed there if the pod restarts.
+- **Existing sites are not what the plugin offers**: its UI ("Einen Import aus Google Analytics 4
+  (GA4) planen") and its command always create a new site; only its WordPress variant imports
+  into the current one. `ga-prepare-site.php` (here, run by hand) does what that variant does:
+  moves the site's creation date back to the first imported day (reports before it stay hidden)
+  and writes the importer's status for the site, so the command resumes into it.
+
+### Importing a property
+
+1. **Google** (Google Cloud Console, the GA account's owner): a new project of its own (deleted
+   afterwards, so nothing else is touched), "APIs & Dienste" → enable the **Google Analytics Data
+   API** and **Google Analytics Admin API**. "Google Auth Platform" → "Erste Schritte":
+   "App-Information" (Anwendungsname, Nutzersupport-E-Mail), "Zielgruppe" **Extern**,
+   "Kontaktdaten", "Fertig" (accept the user data policy) → "Erstellen". "Zielgruppe" →
+   "Testnutzer" → "Add users": the owner's Google address (Enter, then "Speichern"); the status
+   stays "Testen" (no verification; a token lasts 7 days, enough for an import). "Clients" →
+   "Client erstellen": "Webanwendung", "Autorisierte JavaScript-Quellen"
+   `https://matomo.d3strukt0r.dev`, "Autorisierte Weiterleitungs-URIs"
+   `https://matomo.d3strukt0r.dev/index.php?module=GoogleAnalyticsImporter&action=processAuthCode`
+   → "Erstellen" → download the JSON into 1Password `Matomo | Prod | google-analytics-importer`
+   (file `oauth-client.json`). It can take minutes to hours until a new client works.
+2. **Matomo** (superuser): Administration → System → **Google-Analytics-Import** → "UPLOAD" the
+   JSON → "AUTORISIEREN" (Google warns "Google hat diese App nicht überprüft": "Weiter"). A
+   "Sicherheitsprüfung" error means the page's one-time token expired - reload and click at once.
+   Do **not** use the form "Einen Import … planen" for an existing site.
+3. **Check the property** (GA → Verwaltung): Property-Details (time zone and currency like the
+   site's), Ereignisse → "Schlüsselereignisse" (they become goals), "Benutzerdefinierte
+   Definitionen" (custom dimensions - see step 5). The creation date is not shown there;
+   `GoogleAnalyticsImporter\Google\AuthorizationGA4::getAdminClient()->getProperty()` returns it.
+4. **Backup**: dump the `matomo` database from the MariaDB replica (as in the chart README's
+   upgrade runbook, for `matomo` only).
+5. **Prepare and import**, in the web pod (`kubectl --context d3strukt0r-prod-admin -n matomo cp
+   ga-prepare-site.php <pod>:/tmp/ -c php-fpm`): `php /tmp/ga-prepare-site.php <idSite>
+   <propertyId> <created> <last day without raw visits>` (dry run), then with `apply`;
+   `php console plugin:deactivate CustomDimensions` (the importer then skips custom dimensions
+   altogether - a restart activates it again); then in the background `nohup php console
+   googleanalyticsimporter:import-ga4-reports --idsite=<n> --dates=<created>,<end> >
+   /tmp/gaimport-<n>.log 2>&1 &`. It works backwards from the end date, about a second per day
+   with data, and ends with "Done in …" and its own archiving of weeks, months and years ("Error:
+   error or warning logs detected" there only repeats the CustomDimensions warning). Google's
+   daily quota pauses it ("rate limit" / "quota" in the log), and so does a restart of the pod:
+   **run the same command again** (after a quota, the next day) - it resumes where it stopped.
+   The plugin's own hourly resume does not help here: it runs among `core:archive`'s scheduled
+   tasks in the short-lived `archive` pod and starts the import in that pod's background, which
+   ends with the pod. Afterwards `php console plugin:activate CustomDimensions`.
+6. **Check**: the importer's status `finished` (option `GoogleAnalyticsImporter.importStatus_<n>`),
+   visits per month against GA's, the first tracked days unchanged.
+7. **Wind down** when all properties are in: "Client Konfiguration entfernen" → "ENTFERNEN" in
+   Matomo, delete the Google Cloud project. The plugin stays.
 
 ## GeoIP
 
