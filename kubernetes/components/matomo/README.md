@@ -63,6 +63,7 @@ A custom logo is a file on the pod (`misc/user/`) and is lost the same way.
 |---|---|---|---|
 | `secret/mariadb-apps/matomo` | `password` | [`MariaDB \| Prod \| matomo`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=y25mk6eqqqqgbxub7ikgodomdi&h=my.1password.com) | The database user (`database.yaml`) and Matomo |
 | `secret/matomo` | `salt` | [`Matomo \| Prod \| salt`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=754ixrqhxttvt4ryqgucloapda&h=my.1password.com) | Matomo's `[General] salt` |
+| `secret/matomo` | `ga-importer-key` | [`Matomo \| Prod \| google-analytics-importer`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=baz73i3zj27m4syuer4qyedqgy&h=my.1password.com) | GoogleAnalyticsImporter's `encryption_key` (base64 of 32 random bytes, `openssl rand -base64 32`; "Google Analytics history") |
 | `secret/matomo-s3` | `access-key`, `secret-key` | [`Hetzner \| S3 \| prod matomo`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=4vhpkhsjy4meb3pqhgvhu2zsge&h=my.1password.com) | The bucket `d3strukt0r-prod-matomo` |
 | `secret/matomo-mailomat` | `password` | [`Mailomat \| Prod \| matomo`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=fq2kn2amieb2g7bmvjxurwbf6q&h=my.1password.com) | The SMTP login `matomo@mailomat.d3strukt0r.dev` |
 
@@ -223,6 +224,32 @@ Calls to Matomo's API from a script need a user agent of their own: Cloudflare r
 default (`Python-urllib`, 403). Since 2026-10-22 Varnish answers cached pages before nginx, so a
 later import undercounts those.
 
+## Google Analytics history
+
+Before Matomo the sites were measured by Google Analytics 4 (the user's account "D3strukt0r").
+Their history comes in with the free plugin **GoogleAnalyticsImporter** (pinned in `prepare.sh`),
+each property into its existing Matomo site up to the day before the site's log import
+("Importing past visits from a site's logs"), so no day is counted twice.
+
+- **It imports reports, not visits**: one finished report per day (visits, pages, referrers,
+  ...), no raw visits. Matomo would rebuild an invalidated day from its raw visits - zero for these
+  days - and only the loaded plugin stops that (`Archiving.isRequestAuthorizedToArchive`). So
+  `prepare.sh` loads it in the **archive pod too**, and it stays installed **as long as the
+  imported history matters**, even with Google long gone (Upgrades: Matomo 6 needs a release of
+  it for 6 first).
+- **Its Google credentials** (the OAuth client and token) are encrypted in Matomo's database with
+  `[GoogleAnalyticsImporter] encryption_key`, which `prepare.sh` writes from OpenBao - the plugin
+  would generate one into `config.ini.php`, which is rewritten at every start. Like the salt, the
+  key never changes, or the credentials have to be uploaded and authorised again.
+- **The Google side**: a Google Cloud project with the Google Analytics Data API and Admin API,
+  an OAuth client "Web application" with the redirect
+  `https://matomo.d3strukt0r.dev/index.php?module=GoogleAnalyticsImporter&action=processAuthCode`
+  and its consent screen in testing mode with the user's own account as test user (no
+  verification; tokens last 7 days, enough for a one-off import). Uploaded and authorised under
+  Administration → System → Google Analytics Import, where an import is started and watched; it
+  runs in the background in the web pod (`googleanalyticsimporter:import-ga4-reports`) and is
+  resumed there if the pod restarts.
+
 ## GeoIP
 
 Visitor locations come from DB-IP's free city database (IP to City Lite, CC BY 4.0 - DB-IP asks
@@ -245,7 +272,10 @@ next run catches up.
 ## Upgrades
 
 - **Matomo 5.x** arrives through Keel (floating `5-fpm`), and `prepare` runs `core:update` before
-  the new version serves. **Matomo 6** waits for RebelOIDC (it declares `matomo <6.0.0-b1`); 5.x
-  gets fixes for at least 12 months after 6.0 (Matomo's LTS policy).
+  the new version serves. **Matomo 6** waits for RebelOIDC (it declares `matomo <6.0.0-b1`) and
+  for a GoogleAnalyticsImporter release for 6 - without the importer the Google history is
+  rebuilt as zeros ("Google Analytics history"); 5.x gets fixes for at least 12 months after 6.0
+  (Matomo's LTS policy).
 - **RebelOIDC** is pinned in `prepare.sh`; a new version is a one-line change there, after
-  checking issue #47 (above).
+  checking issue #47 (above). So is **GoogleAnalyticsImporter** (`gaimporter=`); its versions
+  are listed on plugins.matomo.org.

@@ -1,6 +1,7 @@
 #!/bin/sh
 # Assembles Matomo in the empty html volume at every start, for the web pod (no argument) and the
-# archive job (`archive`): the code from the image and the configuration, and for the web pod also
+# archive job (`archive`): the code from the image, the configuration and the Google Analytics
+# importer, and for the web pod also
 # the RebelOIDC plugin, the GeoIP database and the database update. Nothing on the volume survives
 # the pod; Matomo's state is in its database (README).
 set -eu
@@ -37,11 +38,27 @@ salt = "$MATOMO_SALT"
 
 [mail]
 password = "$MATOMO_SMTP_PASSWORD"
+
+[GoogleAnalyticsImporter]
+encryption_key = "$MATOMO_GA_IMPORTER_KEY"
 EOF
 
+# GoogleAnalyticsImporter (README "Google Analytics history"), in the archive pod as well: the
+# imported days have reports but no raw visits, and only the loaded plugin stops Matomo from
+# rebuilding such a day from nothing if it is ever invalidated. Its OAuth credentials in the
+# database are encrypted with the key above, which it would otherwise generate into this file.
+gaimporter=5.2.4
+curl -fsSL --retry 3 -o /tmp/gaimporter.zip \
+  "https://plugins.matomo.org/api/2.0/plugins/GoogleAnalyticsImporter/download/$gaimporter"
+rm -rf plugins/GoogleAnalyticsImporter
+php -r '$zip = new ZipArchive(); if ($zip->open("/tmp/gaimporter.zip") !== true || !$zip->extractTo("plugins")) exit(1);'
+
 # Archiving (which also sends the scheduled email reports) needs neither the login nor locations,
-# and the web pod updates the database alone.
-[ "${1:-}" = archive ] && exit 0
+# and the web pod updates the database alone - and activates the plugins only after that update.
+if [ "${1:-}" = archive ]; then
+  php console plugin:activate GoogleAnalyticsImporter --no-interaction
+  exit 0
+fi
 
 # RebelOIDC, the Zitadel login (README "Login through Zitadel"), with one line patched: it decodes
 # the tokens as plain base64 instead of base64url, so a login fails whenever a token holds - or _
@@ -74,4 +91,4 @@ fi
 # A new Matomo from the image updates its tables before it serves.
 php console core:update --yes --no-interaction
 # Activation is recorded in config.ini.php, which was just written afresh.
-php console plugin:activate RebelOIDC --no-interaction
+php console plugin:activate RebelOIDC GoogleAnalyticsImporter --no-interaction

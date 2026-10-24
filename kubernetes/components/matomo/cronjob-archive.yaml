@@ -51,6 +51,11 @@ spec:
                     secretKeyRef:
                       name: matomo
                       key: smtp-password
+                - name: MATOMO_GA_IMPORTER_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: matomo
+                      key: ga-importer-key
               securityContext: &restricted
                 allowPrivilegeEscalation: false
                 capabilities:
