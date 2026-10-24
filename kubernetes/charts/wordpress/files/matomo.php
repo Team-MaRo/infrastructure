@@ -65,6 +65,18 @@ _paq.push(['enableLinkTracking']);
 	100
 );
 
+// WPConsent's script blocking holds back what its list (fetched daily from WPConsent) recognises
+// until the visitor consents - Matomo today only by `matomo.php`, which this tracker never names.
+// Counting without cookies needs no consent, so a future pattern that matches it must not stop it.
+add_filter(
+	'wpconsent_skip_script_blocking',
+	function ( $skip, $src, $name ) {
+		return 'matomo' === $name ? true : $skip;
+	},
+	10,
+	3
+);
+
 function matomo_sku( WC_Product $product ): string {
 	return $product->get_sku() ? $product->get_sku() : (string) $product->get_id();
 }

@@ -520,7 +520,10 @@ connector is paid, and none of them reads the WP Consent API (2026-10-23).
   (`requireCookieConsent`); whoever allows "statistics" in the site's consent banner gets
   Matomo's cookies and is recognised on later visits. The banner speaks through the WP Consent API
   (plugin `wp-consent-api` beside e.g. WPConsent): its consent is read in the browser, since
-  pages come from the page cache. Without a banner nobody gets cookies.
+  pages come from the page cache. Without a banner nobody gets cookies. WPConsent's script blocking
+  (on for arepazo and robines-portfolio since 2026-10-24, holding back e.g. X's embeds until
+  "Marketing") never holds back the tracker: its list knows Matomo only by `matomo.php`, which
+  `/m/` avoids, and `files/matomo.php` exempts the service `matomo` in case the list grows.
 - **Shop pages.** Product and category views (`setEcommerceView`), and the whole cart after every
   change, sent with the next page (carts change in AJAX requests).
 - **Orders from the server**, when an order becomes "processing" or "completed": straight to
