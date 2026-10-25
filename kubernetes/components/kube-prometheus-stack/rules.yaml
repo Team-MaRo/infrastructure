@@ -99,12 +99,15 @@ spec:
               Over 95 %: what writes to it will fail when it is full. Grow it now (a bigger
               storage request on its PVC).
 
-        # A container at its memory limit is killed by the kernel, and every request it was
-        # serving fails with it. Working set, as the kubelet counts it for the limit; only
-        # containers with a limit. In a week before these alerts, none went above 86 %.
+        # A container is killed when the memory the kernel cannot reclaim reaches its limit, and
+        # every request it was serving fails with it. RSS, not the working set: the working set
+        # also counts file cache the kernel drops at the limit instead of killing - a database
+        # that writes a lot keeps it near the limit (mariadb on 2026-10-25: 91 %, of it 453 MiB
+        # cache, at the limit 3017 times, no kill). Only containers with a limit. In the week
+        # before 2026-10-25, no container's RSS went above 69 %.
         - alert: ContainerMemoryNearLimit
           expr: >-
-            max by (namespace, pod, container) (container_memory_working_set_bytes{container!=""})
+            max by (namespace, pod, container) (container_memory_rss{container!=""})
             / on (namespace, pod, container)
             max by (namespace, pod, container) (kube_pod_container_resource_limits{resource="memory"})
             > 0.90
