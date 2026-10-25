@@ -13,6 +13,9 @@ tables_prefix = "matomo_"
 ; foreign key to the users failed with errno 150 (2026-10-23).
 charset = "utf8mb4"
 collation = "utf8mb4_uca1400_ai_ci"
+; MariaDB, not MySQL: the extra sort MariaDB needs for truncated reports ("Others" rows), its own
+; syntax for query time limits (it ignores MySQL's hint) and OPTIMIZE TABLE on InnoDB.
+schema = "Mariadb"
 ; TLS, checked against the shared MariaDB's CA (trust-manager's ConfigMap mariadb-ca).
 enable_ssl = 1
 ssl_ca = "/etc/mariadb-ca/ca.crt"

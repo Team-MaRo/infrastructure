@@ -30,6 +30,7 @@ since every site's visitors call them. It replaces Google Analytics on the WordP
 | Setting | Why |
 |---|---|
 | `[database]` host, user, name, `tables_prefix`, `enable_ssl`, `ssl_ca` | The shared MariaDB, over TLS checked against its CA |
+| `[database] schema = "Mariadb"` | Matomo treats the server as MySQL otherwise: it skips the extra sort MariaDB needs for truncated reports ("Others" rows) and writes query time limits in MySQL's syntax, which MariaDB ignores |
 | `trusted_hosts[]` | Matomo refuses requests for any other host name |
 | `proxy_client_headers[] = HTTP_CF_CONNECTING_IP` | The visitor's address behind Cloudflare and Traefik; a client that skips Cloudflare can set it (the same trade-off as the WordPress chart's nginx) |
 | `proxy_scheme_headers[] = HTTP_X_FORWARDED_PROTO`, `force_ssl` | TLS ends at Traefik, so the pod sees http; the scheme comes from Traefik's header. Without it Matomo would loop on `force_ssl`, and the Zitadel callback would be an `http://` address Zitadel refuses |
@@ -318,6 +319,14 @@ The CronJob `archive` runs `core:archive` every hour at :05 in a pod of its own 
 archive`: code and configuration only), with a 1G PHP limit (Matomo asks for 768M when
 archiving). Reports of today appear within the hour. A failed run raises `KubeJobFailed`; the
 next run catches up.
+
+The official image has no `ps`, so Matomo cannot run archiving as parallel processes of its own
+(system check "Cron einrichten - Prozesse via CLI steuern: nicht unterstützt", optional) and
+sends the work as HTTP requests to `--url` instead ("Async process archiving not supported, using
+curl requests" in the job's log) - out through Cloudflare and back. Accepted (2026-10-26): a run
+takes about half a minute for three sites, and if the public address is down the next run catches
+up. Copying `ps` into the pod from another image would be fragile; if archiving ever needs the
+parallel processes (many sites, long runs), the way is an image of our own with `procps` added.
 
 ## Upgrades
 
