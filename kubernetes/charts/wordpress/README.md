@@ -161,6 +161,15 @@ variable, stops the rendering with a message naming it.
   page. `files/complianz.php` sends it to `wp-content/complianz/` in the pod (the init container
   creates it - Complianz would only for an admin); nginx serves it, Varnish keeps it by `?ver=`, and
   after a restart Complianz rebuilds it on the first page. Without Complianz it does nothing.
+- **Complianz under a privacy signal**: with "respect DNT/GPC" on, a browser that sends Global
+  Privacy Control (Brave always does) gets no banner and nothing optional - but Complianz also
+  leaves it no way to decide otherwise: its "Manage consent" button stays hidden and opens nothing,
+  and its consent switches show "consider excluding this site" instead. GPC is meant as a default
+  the visitor can override on a site, so `files/complianz.php` shows the button to such browsers
+  and sets the banner up on its first click; an explicit choice then counts (under a signal
+  Complianz reads only the stored consent). It calls Complianz's global `cmplz_do_not_track()` and
+  `show_cookie_banner()`, no public interface: after a Complianz update, check with Brave that the
+  button still opens the banner. If not, nothing breaks - the button is just dead again.
 - **TLS to MariaDB, verified.** The site's user is refused without TLS. WordPress has no CA
   setting (wpdb only passes `MYSQL_CLIENT_FLAGS` to `mysqli_real_connect`), so PHP checks the
   certificate against `openssl.cafile` (`files/php.ini`) - but only with
