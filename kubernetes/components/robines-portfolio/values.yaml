@@ -62,8 +62,9 @@ mcp:
   clientId: "396201383902118276"
 
 nginx:
-  # Permissive like prod-old's, with the frames the site embeds (YouTube, Twitter).
-  contentSecurityPolicy: "default-src * data: 'unsafe-eval' 'unsafe-inline'; frame-src blob: 'self' https://platform.twitter.com https://www.youtube.com/ https://www.youtube-nocookie.com/; worker-src blob:"
+  # Permissive like prod-old's, with the frames the site embeds (YouTube, Twitter) and Matomo's,
+  # which its page overlay puts into the page (the chart's README, "Web analytics").
+  contentSecurityPolicy: "default-src * data: 'unsafe-eval' 'unsafe-inline'; frame-src blob: 'self' https://platform.twitter.com https://www.youtube.com/ https://www.youtube-nocookie.com/ https://matomo.d3strukt0r.dev; worker-src blob:"
 
 # Every secret the site reads: per entry in the secret store (key), which of its fields become
 # which environment variable (env), with the 1Password item the entry comes from. They reach the

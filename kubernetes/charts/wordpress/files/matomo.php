@@ -38,6 +38,8 @@ add_action(
 <script>
 var _paq = window._paq = window._paq || [];
 _paq.push(['setTrackerUrl', '/m/e']);
+// Only for Matomo's page overlay, which loads its script from Matomo itself; hits stay on /m/e.
+_paq.push(['setAPIUrl', 'https://<?php echo MATOMO_HOST; ?>/']);
 _paq.push(['setSiteId', '<?php echo (int) MATOMO_SITE_ID; ?>']);
 _paq.push(['requireCookieConsent']);
 if (typeof wp_has_consent === 'function' && window.wp_consent_type && wp_has_consent('statistics')) {

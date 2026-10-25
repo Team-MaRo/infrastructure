@@ -48,7 +48,7 @@ The database is `robines_portfolio` in the shared MariaDB, the uploads are in th
   claude mcp add --transport http --scope user --client-id 396201383902118276 --callback-port 33418 robines-portfolio https://old.robines.space/wp-json/mcp/mcp-adapter-default-server
   ```
 - **A permissive Content-Security-Policy** like prod-old's, with the frames the site embeds
-  (YouTube, Twitter).
+  (YouTube, Twitter) and Matomo's for its page overlay.
 - **The chart's pool** (image's five workers, 512Mi): its calculation is in `values.yaml`; the
   five have never all been busy. To recompute, see "Sizing the pool" in the chart's README.
 - **Watched by Gatus** ("Robines Portfolio (old)" on the status page, `components/gatus`): the

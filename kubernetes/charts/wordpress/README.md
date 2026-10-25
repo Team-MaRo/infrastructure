@@ -524,6 +524,13 @@ connector is paid, and none of them reads the WP Consent API (2026-10-23).
   (on for arepazo and robines-portfolio since 2026-10-24, holding back e.g. X's embeds until
   "Marketing") never holds back the tracker: its list knows Matomo only by `matomo.php`, which
   `/m/` avoids, and `files/matomo.php` exempts the service `matomo` in case the list grows.
+- **Matomo's page overlay** (Verhalten → Seiten, the overlay icon; free, unlike the heatmap
+  plugin) shows the site in a frame with the share of clicks on each link. For it the site allows
+  Matomo as a frame ancestor (`frame-ancestors 'self' https://matomo.d3strukt0r.dev`, beside
+  `X-Frame-Options: SAMEORIGIN` for older browsers), and the tracker knows Matomo's address
+  (`setAPIUrl`) to load the overlay's script from there - visitors' hits still go to `/m/e`. The
+  overlay also puts a hidden frame of Matomo into the page, so a site with its own CSP lists
+  `https://matomo.d3strukt0r.dev` in `frame-src` (robines-portfolio).
 - **Shop pages.** Product and category views (`setEcommerceView`), and the whole cart after every
   change, sent with the next page (carts change in AJAX requests).
 - **Orders from the server**, when an order becomes "processing" or "completed": straight to
