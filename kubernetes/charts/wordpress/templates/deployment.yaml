@@ -124,6 +124,10 @@ spec:
               mkdir -p plugins/s3-uploads mu-plugins
               fetch https://github.com/humanmade/S3-Uploads/releases/download/3.0.10/manual-install.zip plugins/s3-uploads
               cp /config/s3-uploads-hetzner.php mu-plugins/
+              # Complianz's generated files in the pod, not the bucket (files/complianz.php); it
+              # creates the directory only for an admin, so a visitor's page could not rebuild it.
+              cp /config/complianz.php mu-plugins/
+              mkdir -p complianz/css
               # The daily vulnerability check and, in a directory of its own so WordPress does not
               # load it, the script nginx's metrics port runs to report it (README "Vulnerability
               # check").

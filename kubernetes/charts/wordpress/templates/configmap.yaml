@@ -45,6 +45,8 @@ data:
     {{- tpl (.Files.Get "files/php-fpm.conf") . | nindent 4 }}
   s3-uploads-hetzner.php: |
     {{- .Files.Get "files/s3-uploads-hetzner.php" | nindent 4 }}
+  complianz.php: |
+    {{- .Files.Get "files/complianz.php" | nindent 4 }}
   vulnerability-check.php: |
     {{- .Files.Get "files/vulnerability-check.php" | nindent 4 }}
   vulnerability-metrics.php: |

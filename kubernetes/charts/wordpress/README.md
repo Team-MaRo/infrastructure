@@ -150,6 +150,17 @@ variable, stops the rendering with a message naming it.
   The init container also activates the plugin, so the plugin list shows it as in use: WordPress
   then loads it with `include_once` after the must-use plugin did, not a second time, and
   deactivating it in wp-admin changes nothing.
+- **A request to the bucket gives up instead of hanging.** Object Storage now and then leaves a
+  request unanswered; PHP then waited until nginx gave up after a minute (504 on a site's
+  uncached pages, 2026-10-26). `files/s3-uploads-hetzner.php` gives S3-Uploads 5 s to connect,
+  cuts a transfer only when nothing has moved for 10 s (a large upload takes as long as it needs)
+  and retries once instead of three times: about 20 s at worst, logged as a PHP warning. A page
+  then misses that one file check; an upload in wp-admin shows an error and can be repeated.
+- **Plugins' generated files stay out of the bucket** where a plugin lets them: Complianz writes
+  its banner's CSS under the uploads and checks it on every page it builds - a bucket request per
+  page. `files/complianz.php` sends it to `wp-content/complianz/` in the pod (the init container
+  creates it - Complianz would only for an admin); nginx serves it, Varnish keeps it by `?ver=`, and
+  after a restart Complianz rebuilds it on the first page. Without Complianz it does nothing.
 - **TLS to MariaDB, verified.** The site's user is refused without TLS. WordPress has no CA
   setting (wpdb only passes `MYSQL_CLIENT_FLAGS` to `mysqli_real_connect`), so PHP checks the
   certificate against `openssl.cafile` (`files/php.ini`) - but only with

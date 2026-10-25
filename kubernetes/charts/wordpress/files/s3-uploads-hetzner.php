@@ -17,5 +17,17 @@ add_filter( 's3_uploads_s3_client_params', function ( $params ) {
 	// Newer AWS SDKs add checksums to every upload, which S3-compatible stores may reject.
 	$params['request_checksum_calculation'] = 'when_required';
 	$params['response_checksum_validation'] = 'when_required';
+	// The bucket now and then leaves a request unanswered, which held the page until nginx gave up
+	// after a minute (504, 2026-10-26). Connecting gets 5 s; a transfer is cut only when nothing has
+	// moved for 10 s, so a large upload still takes as long as it needs. One retry instead of the
+	// SDK's three keeps the worst case at about 20 s; the failure is logged as a PHP warning.
+	$params['http'] = array(
+		'connect_timeout' => 5,
+		'curl'            => array(
+			CURLOPT_LOW_SPEED_LIMIT => 1,
+			CURLOPT_LOW_SPEED_TIME  => 10,
+		),
+	);
+	$params['retries'] = 1;
 	return $params;
 } );
