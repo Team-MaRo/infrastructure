@@ -97,10 +97,13 @@ spec:
   # longer is rebuilt from a backup anyway. Queries over 2 s go to the container's stderr and
   # with it to Loki - which query jammed the primary on 2026-10-06 was not recorded anywhere.
   # Running as 999 from the start, the server can open /dev/stderr (started as root and
-  # switching user, it cannot - and then turns the slow log off).
+  # switching user, it cannot - and then turns the slow log off). Matomo writes each archived
+  # report as one packet and asks for at least 64M (the default is 16M); the buffer grows only
+  # while a packet that large is in flight.
   myCnf: |
     [mariadb]
     innodb_buffer_pool_size=256M
+    max_allowed_packet=64M
     max_binlog_size=128M
     binlog_expire_logs_seconds=604800
     slow_query_log=ON
