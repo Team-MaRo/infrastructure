@@ -262,7 +262,9 @@ spec:
           # cannot take the container's; transit_buffer lets Varnish read only 1M ahead of the
           # visitor instead of holding a whole file - without it a 200 MB download broke off at 33 MB
           # once Transient was full (tested 2026-10-22). Fewer idle threads than the default 100.
-          args: ["-s", "Transient=malloc,64M", "-p", "transit_buffer=1M", "-p", "thread_pool_min=20"]
+          # Static files go to a storage of their own (files/default.vcl), a file on the emptyDir: on
+          # disk and in the kernel's file cache, not the container's own memory.
+          args: ["-s", "Transient=malloc,64M", "-s", "static=file,/var/lib/varnish/static,{{ .Values.pageCache.staticSizeMiB }}M", "-p", "transit_buffer=1M", "-p", "thread_pool_min=20"]
           securityContext:
             runAsUser: 1000
             runAsGroup: 1000
@@ -376,6 +378,12 @@ spec:
             # The default (10g) would outgrow the pod's ephemeral storage and get it evicted.
             - name: PROXY_CACHE_MAX_SIZE
               value: 256m
+            # Its cache key leaves out the query string, so a file rewritten under the same name
+            # stays old for as long as it caches, whatever ?ver= the site sends. With the page cache,
+            # Varnish keeps the files (by their full URL) and this keeps nothing - otherwise it would
+            # hand Varnish the old file under the new URL; without, a minute.
+            - name: PROXY_CACHE_VALID_OK
+              value: {{ ternary "0" "1m" .Values.pageCache.enabled | quote }}
           securityContext:
             runAsUser: 101
             allowPrivilegeEscalation: false
@@ -404,5 +412,6 @@ spec:
         {{- if .Values.pageCache.enabled }}
         - name: varnish
           emptyDir:
-            sizeLimit: 200Mi
+            # The static files' storage and 200Mi for the compiled VCL and the statistics.
+            sizeLimit: {{ add .Values.pageCache.staticSizeMiB 200 }}Mi
         {{- end }}

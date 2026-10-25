@@ -59,6 +59,7 @@ Only what differs between sites; `values.yaml` holds the defaults and says what 
 | `oidc.registerOrganisation` | empty | the Zitadel organisation people register into ("Registration in Zitadel"); empty: no registration |
 | `mcp.clientId` | empty | the site's Claude app in Zitadel, which makes the site an MCP server for Claude ("Content through Claude"); needs `oidc`; empty: off |
 | `pageCache.enabled`, `.size`, `.resources` | `false`, `64M`, 256Mi | Varnish in front of nginx ("Page cache"), its memory for pages and its container's |
+| `pageCache.staticSizeMiB` | `512` | Varnish's storage for static files, a file on the pod's disk ("Page cache") |
 | `pageCache.dropBasicAuth` | `false` | drop a basic-auth header before WordPress; only for a site behind Traefik's basic auth |
 | `matomo.siteId` | `0` | the site's ID in the cluster's Matomo, which turns on its tracking ("Web analytics"); 0: off |
 | `objectCache.database` | `0` | the site's database in valkey-cache, which turns on the object cache; 0: off |
@@ -134,8 +135,13 @@ variable, stops the rendering with a message naming it.
   wp-cli command breaks every `wp` command), writes them with the site's key; their objects are
   private and their URLs point at the site itself, so `/wp-content/uploads/...` reaches nginx,
   which hands it to the uploads proxy. The proxy signs with a read-only key (the bucket policy
-  denies it every write) and streams the file; it caches up to 256 MB, a deleted file for up to an
-  hour. It addresses the bucket virtual-host style (`S3_STYLE=virtual`): in path style the gateway
+  denies it every write) and streams the file. Its cache key leaves out the query string, so a
+  file rewritten under the same name stays old for as long as it caches, whatever `?ver=` the
+  site sends, and Varnish's purge does not reach it (a consent banner's generated CSS showed an
+  hour late at its default of an hour, 2026-10-26). So with the page cache it keeps nothing
+  (`PROXY_CACHE_VALID_OK=0`): Varnish keeps the files by their full URL ("Page cache"), and a
+  caching proxy would hand it the old file under the new URL. Without the page cache it keeps a
+  file a minute, up to 256 MB. It addresses the bucket virtual-host style (`S3_STYLE=virtual`): in path style the gateway
   signs `Host: nbg1.your-objectstorage.com:443`, which Hetzner rejects as
   `SignatureDoesNotMatch` - shown to the browser as 404. Its log's "connect() to [2a01:…]:443
   failed (101: Network is unreachable)" is harmless: Hetzner's endpoint has an IPv6 address too,
@@ -454,7 +460,13 @@ serves only what is personal. Rules in `files/default.vcl`:
   comments, the REST API (Claude's MCP included), `wc-api`, add-to-cart, `wc-ajax`, previews,
   searches; cart, checkout and my account (also German, `warenkorb`/`kasse`/`mein-konto`);
   anyone logged in or with a cart, a WooCommerce session, a comment-author or protected-post
-  cookie; a Bearer token; static files (nginx serves them, Cloudflare caches them).
+  cookie; a Bearer token.
+- **Static files kept too** (since 2026-10-26): CSS, JS, fonts, images and the uploads, for
+  everyone alike - logged in or not, cookies dropped - by their full URL, so a new `?ver=` is a
+  new file at once. A week with a query string, an hour without (an upload replaced under the same
+  name), 404s a minute; never a 403 (`nginx.deniedUploadPaths`) or a file over 10 MB (videos and
+  downloads flow through as before). They used to be left to Cloudflare; kept here, the origin
+  does not depend on it - leaving Cloudflare needs no change in the chart.
 - **One copy per page**: other cookies (analytics, Polylang's language - the language is in the
   URL) are dropped; tracking parameters (`utm_*`, `gclid`, `fbclid` ...) are removed and the
   query sorted; a browser's `Accept` becomes `text/html`, since WordPress answers every page with
@@ -476,7 +488,8 @@ serves only what is personal. Rules in `files/default.vcl`:
   by Claude - for the page, the home page and its archives; `files/page-cache.php` adds
   WooCommerce's stock changes (an order taking the last one), which save nothing: the product's
   page (a variation's parent), the shop page and its categories with their parent categories.
-  PURGE comes only from inside the pod; from outside it answers 405.
+  PURGE comes only from inside the pod; from outside it answers 405. The admin bar's "Purge Cache
+  (All Pages)" empties static files too - the way to show a file replaced in place before its hour.
   Its ads for the paid add-on Cacheability Pro in wp-admin notices count as dismissed for every
   user (also `files/page-cache.php`); its own settings page still shows them.
 - **Memory**: `pageCache.size` for pages (`-s malloc`), 64M for passed answers while they flow
@@ -485,8 +498,11 @@ serves only what is personal. Rules in `files/default.vcl`:
   Varnish itself - the container's limit leaves room for all three
   (arepazo: 128M in 384Mi; a page is a few dozen kB, so that holds thousands). Kept small on
   purpose: with all three sites the nodes would carry a failed one at about 94% of their memory
-  at twice these sizes (2026-10-22). Its working directory is an emptyDir; the root filesystem is
-  read-only.
+  at twice these sizes (2026-10-22). Static files have a storage of their own, so images never
+  push pages out: a file of `pageCache.staticSizeMiB` (512) on the working directory's emptyDir
+  (`-s static=file`, sized to it plus 200Mi), held in the kernel's file cache, which gives way
+  under memory pressure, not in the container's own memory. The working directory is that
+  emptyDir; the root filesystem is read-only.
 - **Gatus checks the login page**, not the home page: grace would serve the home page for hours
   while PHP is down.
 - **Not yet**: Prometheus metrics - the usual exporter needs an image of its own (roadmap).

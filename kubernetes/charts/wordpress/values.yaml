@@ -37,6 +37,9 @@ pageCache:
   # Application Password, which WordPress must see.
   dropBasicAuth: false
   size: 64M
+  # Static files (theme, plugin and core files, the uploads) in a file of their own on the pod's
+  # disk, in MiB; it lives in the kernel's file cache, which gives way under memory pressure.
+  staticSizeMiB: 512
   resources:
     requests:
       memory: 256Mi

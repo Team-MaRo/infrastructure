@@ -2,7 +2,8 @@ vcl 4.1;
 # The page cache in front of nginx, in the same pod (README "Page cache"). It keeps what an
 # anonymous visitor sees; everything personal - logged in, a cart, wp-admin, checkout, the REST
 # API with MCP - goes straight through (pass). WordPress empties it on every save through Proxy
-# Cache Purge, which sends PURGE to 127.0.0.1:6081 (files/page-cache.php).
+# Cache Purge, which sends PURGE to 127.0.0.1:6081 (files/page-cache.php). Static files are kept
+# too, in their own storage.
 
 import std;
 import header;
@@ -68,13 +69,16 @@ sub vcl_recv {
 	    || req.url ~ "^/([a-z]{2}/)?(cart|checkout|my-account|warenkorb|kasse|mein-konto)(/|\?|$)") {
 		return (pass);
 	}
-	# Logged in, a cart, a comment author, a protected post: their pages are their own.
-	if (req.http.Cookie ~ "(wordpress_logged_in_|wordpress_sec_|wp-postpass_|comment_author_|woocommerce_items_in_cart|woocommerce_cart_hash|wp_woocommerce_session_)") {
-		return (pass);
+	# Static files - theme, plugin and core files and the uploads - are the same for everyone, logged
+	# in or not, so this comes before the cookies. The URL stays as it is: its ?ver= is the version.
+	# Kept here rather than left to Cloudflare, so the origin does not depend on it.
+	if (req.url ~ "^[^?]*\.(css|js|mjs|map|png|jpe?g|gif|webp|avif|svg|ico|woff2?|ttf|eot|otf|mp4|webm|mp3|pdf|zip)(\?.*)?$") {
+		unset req.http.Cookie;
+		return (hash);
 	}
 
-	# Files nginx serves itself and Cloudflare caches - nothing to gain here.
-	if (req.url ~ "^[^?]*\.(css|js|mjs|map|png|jpe?g|gif|webp|avif|svg|ico|woff2?|ttf|eot|otf|mp4|webm|mp3|pdf|zip)(\?.*)?$") {
+	# Logged in, a cart, a comment author, a protected post: their pages are their own.
+	if (req.http.Cookie ~ "(wordpress_logged_in_|wordpress_sec_|wp-postpass_|comment_author_|woocommerce_items_in_cart|woocommerce_cart_hash|wp_woocommerce_session_)") {
 		return (pass);
 	}
 
@@ -101,6 +105,26 @@ sub vcl_backend_response {
 	set beresp.http.x-host = bereq.http.host;
 
 	if (bereq.uncacheable) {
+		return (deliver);
+	}
+	# Static files in a storage of their own on disk (-s static), so images never push pages out:
+	# a week with a version in the URL, an hour without (an upload replaced under the same name).
+	# Videos and downloads over 10 MB flow through as before; a denied upload (403) is never kept.
+	if (bereq.url ~ "^[^?]*\.(css|js|mjs|map|png|jpe?g|gif|webp|avif|svg|ico|woff2?|ttf|eot|otf|mp4|webm|mp3|pdf|zip)(\?.*)?$") {
+		if ((beresp.status != 200 && beresp.status != 404) || std.integer(beresp.http.Content-Length, 0) > 10485760) {
+			set beresp.uncacheable = true;
+			set beresp.ttl = 120s;
+			return (deliver);
+		}
+		set beresp.storage = storage.static;
+		if (beresp.status == 404) {
+			set beresp.ttl = 1m;
+		} elsif (bereq.url ~ "\?") {
+			set beresp.ttl = 7d;
+		} else {
+			set beresp.ttl = 1h;
+		}
+		set beresp.grace = 1d;
 		return (deliver);
 	}
 	# On a page fetched for the cache (anonymous by now), the cookies WordPress sets for nobody in
