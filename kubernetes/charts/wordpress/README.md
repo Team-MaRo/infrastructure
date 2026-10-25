@@ -530,7 +530,11 @@ connector is paid, and none of them reads the WP Consent API (2026-10-23).
   `X-Frame-Options: SAMEORIGIN` for older browsers), and the tracker knows Matomo's address
   (`setAPIUrl`) to load the overlay's script from there - visitors' hits still go to `/m/e`. The
   overlay also puts a hidden frame of Matomo into the page, so a site with its own CSP lists
-  `https://matomo.d3strukt0r.dev` in `frame-src` (robines-portfolio).
+  `https://matomo.d3strukt0r.dev` in `frame-src` (robines-portfolio). Matomo's nginx sets no
+  Referrer-Policy of its own: the overlay starts from the full address of Matomo's
+  `startOverlaySession` page, which a stricter policy cuts off ("Laden…" for ever). An ad blocker in
+  the viewer's browser (Brave's Shields) blocks the overlay's script from Matomo - allow it for
+  `matomo.d3strukt0r.dev`.
 - **Shop pages.** Product and category views (`setEcommerceView`), and the whole cart after every
   change, sent with the next page (carts change in AJAX requests).
 - **Orders from the server**, when an order becomes "processing" or "completed": straight to
