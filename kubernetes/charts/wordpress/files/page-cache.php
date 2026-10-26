@@ -42,6 +42,31 @@ add_action(
 	3
 );
 
+// A consent banner is in every cached page - its markup, its settings and the link to its CSS with
+// a ?ver= - but its settings are no post, so saving them emptied nothing and visitors kept the old
+// banner for hours (2026-10-26). Saving them empties the whole site, as the admin bar's "Purge
+// Cache (All Pages)" does.
+function page_cache_purge_all() {
+	if ( class_exists( 'VarnishPurger' ) ) {
+		VarnishPurger::purge_url( home_url( '/?vhp-regex' ) );
+	}
+}
+// Complianz: once its banner's CSS is written - a purge before that kept the old ?ver= in the
+// pages - but not for the preview wp-admin rebuilds while the banner is edited; and its other
+// settings (consent categories, DNT/GPC), which change only what the page carries inline.
+add_action(
+	'cmplz_after_css_generation',
+	function ( $file ) {
+		if ( ! str_contains( basename( $file ), 'preview' ) ) {
+			page_cache_purge_all();
+		}
+	}
+);
+add_action( 'cmplz_after_saved_fields', 'page_cache_purge_all' );
+// WPConsent keeps all of its settings in one option.
+add_action( 'add_option_wpconsent_settings', 'page_cache_purge_all' );
+add_action( 'update_option_wpconsent_settings', 'page_cache_purge_all' );
+
 // Proxy Cache Purge advertises its paid add-on in wp-admin notices until each user clicks them
 // away, per site (it keeps that in the user's meta). Every user counts as having done so; nothing
 // is stored. If a release renames the keys, the notice simply shows again.

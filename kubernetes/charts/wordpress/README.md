@@ -508,6 +508,9 @@ serves only what is personal. Rules in `files/default.vcl`:
   by Claude - for the page, the home page and its archives; `files/page-cache.php` adds
   WooCommerce's stock changes (an order taking the last one), which save nothing: the product's
   page (a variation's parent), the shop page and its categories with their parent categories.
+  Saving a consent banner's settings (Complianz, WPConsent) empties the whole site: the banner is
+  in every page but its settings are no post; Complianz's only once it has rewritten its CSS, so
+  the pages pick up the new `?ver=`.
   PURGE comes only from inside the pod; from outside it answers 405. The admin bar's "Purge Cache
   (All Pages)" empties static files too - the way to show a file replaced in place before its hour.
   Its ads for the paid add-on Cacheability Pro in wp-admin notices count as dismissed for every
