@@ -19,6 +19,8 @@ resources:
   - registration-webhook.yaml
   - registration-rate-limit.yaml
   - rules.yaml
+  # Only Cloudflare reaches its proxied routes (charts/cloudflare-only).
+  - ../../charts/cloudflare-only/files
 
 # refreshInterval and the openbao store for every ExternalSecret here, the sync option for the
 # PrometheusRule (shared/).

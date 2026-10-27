@@ -64,6 +64,7 @@ kubernetes/
 │       ├── etcd-snapshots.yaml    # syncs the subdirectory below
 │       └── etcd-snapshots/        # prod-only: the S3 settings k3s uploads snapshots with
 ├── charts/                    # charts of our own, rendered from master
+│   ├── cloudflare-only/       # the Middleware admitting only Cloudflare: a subchart, and files/ for Kustomize
 │   └── wordpress/             # every WordPress site; the sites' values are in components/
 ├── shared/                    # Kustomize Components a component lists under components:
 │   ├── external-secret-defaults/  # the openbao store and the 5m refresh for every ExternalSecret
@@ -300,6 +301,9 @@ the same way ([`charts/wordpress/README.md`](charts/wordpress/README.md)).
 What many components repeat lives once as a Kustomize Component under `shared/`, which a
 component's `kustomization.yaml` lists under `components:`
 ([`shared/external-secret-defaults/README.md`](shared/external-secret-defaults/README.md)).
+An object every app needs a copy of lives in a chart instead: `charts/cloudflare-only`, which our
+charts import as a subchart and a Kustomize directory lists as `../../charts/cloudflare-only/files`
+under `resources:` ([`charts/cloudflare-only/README.md`](charts/cloudflare-only/README.md)).
 
 The split is **what** against **how**. `clusters/<name>/` decides which components a
 cluster runs; `components/<app>/` holds the manifests, written once and shared. Each

@@ -1,0 +1,2 @@
+{{- /* The file is the one copy of Cloudflare's ranges, also read by the Kustomize directories. */}}
+{{ .Files.Get "files/middleware.yaml" }}

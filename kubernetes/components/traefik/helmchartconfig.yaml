@@ -72,7 +72,8 @@ spec:
       kubernetesCRD:
         safeNaming: true
     # The dashboard (read-only: routers, services, middlewares, certificates) at
-    # traefik.d3strukt0r.dev, behind the Zitadel login gate (middleware-oauth2-proxy.yaml).
+    # traefik.d3strukt0r.dev, only through Cloudflare (charts/cloudflare-only) and behind the
+    # Zitadel login gate (middleware-oauth2-proxy.yaml).
     ingressRoute:
       dashboard:
         enabled: true
@@ -80,6 +81,7 @@ spec:
         entryPoints:
           - websecure
         middlewares:
+          - name: cloudflare-only
           - name: oauth2-proxy
         tls:
           secretName: traefik-tls

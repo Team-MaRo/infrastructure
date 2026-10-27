@@ -12,6 +12,8 @@ resources:
   - deployment.yaml
   - service.yaml
   - ingress.yaml
+  # Only Cloudflare reaches its proxied routes (charts/cloudflare-only).
+  - ../../charts/cloudflare-only/files
 
 # A plain name, not a hashed one: Gatus reloads the file in place, so a change needs no new
 # ConfigMap and no pod restart.

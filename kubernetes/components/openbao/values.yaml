@@ -21,6 +21,8 @@ server:
     annotations:
       # cert-manager creates the Certificate from spec.tls (components/cert-manager).
       cert-manager.io/cluster-issuer: letsencrypt
+      # Only Cloudflare reaches it (charts/cloudflare-only).
+      traefik.ingress.kubernetes.io/router.middlewares: openbao_cloudflare-only@kubernetescrd
     hosts:
       - host: openbao.d3strukt0r.dev
     tls:

@@ -15,6 +15,8 @@ resources:
   - service.yaml
   - ingress.yaml
   - pod-monitor.yaml
+  # Only Cloudflare reaches its proxied routes (charts/cloudflare-only).
+  - ../../charts/cloudflare-only/files
 
 # Hashed name: the files are read at start, so a change rolls the pod.
 configMapGenerator:

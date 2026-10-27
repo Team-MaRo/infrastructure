@@ -10,6 +10,8 @@ metadata:
     # cert-manager creates the Certificate gatus-tls for the names in spec.tls
     # (components/cert-manager, "Requesting a certificate").
     cert-manager.io/cluster-issuer: letsencrypt
+    # Only Cloudflare reaches it (charts/cloudflare-only).
+    traefik.ingress.kubernetes.io/router.middlewares: gatus_cloudflare-only@kubernetescrd
 spec:
   tls:
     - hosts:

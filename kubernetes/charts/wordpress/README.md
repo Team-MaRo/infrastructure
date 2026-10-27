@@ -72,6 +72,7 @@ Only what differs between sites; `values.yaml` holds the defaults and says what 
 | `nginx.contentSecurityPolicy` | empty | the CSP header; empty: none |
 | `nginx.xmlrpcAllow` | WordPress.com's ranges | who may reach `xmlrpc.php` (Jetpack); empty: nobody |
 | `nginx.deniedUploadPaths` | `[]` | directories under uploads nginx refuses (regular expressions) |
+| `ingress.cloudflareOnly` | `true` | the Middleware `cloudflare-only` first on the site's router: only Cloudflare reaches it; the Middleware comes from the subchart `cloudflare-only` (`Chart.yaml`, [`../cloudflare-only/README.md`](../cloudflare-only/README.md)); `false` only for names Cloudflare does not proxy |
 | `ingress.middlewares` | `[]` | Traefik middlewares on the site's router |
 
 ## Secrets
@@ -215,9 +216,10 @@ variable, stops the rendering with a message naming it.
   (`real_ip_header`) and hands it to PHP as `REMOTE_ADDR` and as `X-Real-IP`, replacing
   Traefik's, which is Cloudflare's own - Jetpack reads that one and locked arepazo's login page
   for a Cloudflare node every visitor there shared (2026-10-21); WooCommerce records it with an
-  order. nginx's access log shows it too. Port 443 is open to everyone, so a client that skips
-  Cloudflare can set the header itself and choose the address plugins see; restricting 443 to
-  Cloudflare's ranges would close that.
+  order. nginx's access log shows it too. Only Cloudflare reaches the site's routes
+  (`ingress.cloudflareOnly`), so the header cannot come from a client that skips Cloudflare;
+  nginx still trusts it from anywhere (`set_real_ip_from 0.0.0.0/0`), which is safe only while
+  that holds.
 - **32k for the headers of a PHP response** (`fastcgi_buffer_size`; default 4k): logging out
   through Zitadel redirects with the whole ID token in the URL and deletes a cookie per plugin,
   which on arepazo ended in a 502 (`upstream sent too big header`).

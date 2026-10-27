@@ -1,0 +1,9 @@
+---
+# The Middleware that admits only Cloudflare, as a subchart for our own charts (README). Its
+# objects land in the parent release's namespace. Rendered from git on master like its parents;
+# `version` is bumped so a change can still be named.
+apiVersion: v2
+name: cloudflare-only
+description: Traefik Middleware admitting only Cloudflare's IP ranges
+type: application
+version: 1.0.0

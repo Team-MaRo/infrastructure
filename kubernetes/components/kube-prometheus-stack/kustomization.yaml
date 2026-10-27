@@ -13,6 +13,8 @@ resources:
   - wordpress.yaml
   - middleware-oauth2-proxy.yaml
   - network-policy.yaml
+  # Only Cloudflare reaches its proxied routes (charts/cloudflare-only).
+  - ../../charts/cloudflare-only/files
 
 # Dashboards of our own, as ConfigMaps Grafana's sidecar loads (label grafana_dashboard).
 configMapGenerator:

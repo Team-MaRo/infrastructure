@@ -9,6 +9,8 @@ kind: Kustomization
 resources:
   - namespace.yaml
   - external-secrets.yaml
+  # Only Cloudflare reaches its proxied routes (charts/cloudflare-only).
+  - ../../charts/cloudflare-only/files
 
 # refreshInterval and the openbao store for every ExternalSecret here (shared/).
 components:

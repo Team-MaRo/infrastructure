@@ -7,3 +7,12 @@ name: wordpress
 description: A WordPress site on the prod cluster
 type: application
 version: 0.1.0
+
+# The site's copy of the Middleware its Ingress puts first (ingress.cloudflareOnly), from the
+# chart next to this one. Argo CD runs `helm dependency build` itself; charts/ and Chart.lock are
+# not committed (.gitignore).
+dependencies:
+  - name: cloudflare-only
+    version: 1.0.0
+    repository: file://../cloudflare-only
+    condition: ingress.cloudflareOnly

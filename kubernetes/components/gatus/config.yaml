@@ -86,6 +86,21 @@ endpoints:
     alerts:
       - type: ntfy
 
+  # Cloudflare's IP ranges, which the Middleware cloudflare-only admits (charts/cloudflare-only):
+  # the API's etag changes with the list. Red means new ranges whose visitors get 403 - update the
+  # list and this etag together (charts/cloudflare-only README).
+  - name: Cloudflare IP ranges
+    group: Cluster
+    url: https://api.cloudflare.com/client/v4/ips
+    interval: 1h
+    conditions:
+      - "[STATUS] == 200"
+      - "[BODY].result.etag == 38f79d050aa027e3be3865e495dcc9bc"
+    ui:
+      hide-url: true
+    alerts:
+      - type: ntfy
+
 # The alerting pipeline itself: Alertmanager's always-firing Watchdog alert arrives here every
 # minute (kube-prometheus-stack values, receiver watchdog), at
 # /api/v1/endpoints/alerting_watchdog/external?success=true with the token as a Bearer header.

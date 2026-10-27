@@ -1,0 +1,3 @@
+# What `helm dependency build` writes locally; Argo CD builds it itself (Chart.yaml).
+charts/
+Chart.lock

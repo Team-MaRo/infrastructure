@@ -1,6 +1,12 @@
 ---
 # Every name reaches WordPress, which redirects to its own address, {{ include "wordpress.host" . }}.
 # Their records are in tofu/cloudflare. No className: Traefik is the cluster's default IngressClass.
+{{- /* Only Cloudflare first (ingress.cloudflareOnly; the Middleware comes from the subchart
+     cloudflare-only), then the site's own. */}}
+{{- $middlewares := .Values.ingress.middlewares }}
+{{- if .Values.ingress.cloudflareOnly }}
+{{- $middlewares = prepend $middlewares (printf "%s_cloudflare-only@kubernetescrd" .Release.Namespace) }}
+{{- end }}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -9,7 +15,7 @@ metadata:
     # cert-manager creates the Certificate web-tls for every name in spec.tls, the DNS-01 solver
     # picked by zone (components/cert-manager).
     cert-manager.io/cluster-issuer: letsencrypt
-    {{- with .Values.ingress.middlewares }}
+    {{- with $middlewares }}
     traefik.ingress.kubernetes.io/router.middlewares: {{ join "," . }}
     {{- end }}
 spec:

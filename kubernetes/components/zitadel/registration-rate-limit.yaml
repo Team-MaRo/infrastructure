@@ -22,7 +22,8 @@ kind: Ingress
 metadata:
   name: zitadel-login-register
   annotations:
-    traefik.ingress.kubernetes.io/router.middlewares: zitadel_registration-rate-limit@kubernetescrd
+    # Only Cloudflare reaches it (charts/cloudflare-only), then the registration limit.
+    traefik.ingress.kubernetes.io/router.middlewares: zitadel_cloudflare-only@kubernetescrd,zitadel_registration-rate-limit@kubernetescrd
 spec:
   tls:
     - hosts:

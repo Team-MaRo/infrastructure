@@ -12,6 +12,8 @@ resources:
   - pwa.yaml
   - ingresses.yaml
   - pod-monitor.yaml
+  # Only Cloudflare reaches its proxied routes (charts/cloudflare-only).
+  - ../../charts/cloudflare-only/files
 
 # A hash in the name, so a change to any of these files rolls the API.
 configMapGenerator:

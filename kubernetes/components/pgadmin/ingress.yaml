@@ -9,6 +9,8 @@ metadata:
   annotations:
     # cert-manager creates the Certificate from spec.tls (components/cert-manager).
     cert-manager.io/cluster-issuer: letsencrypt
+    # Only Cloudflare reaches it (charts/cloudflare-only).
+    traefik.ingress.kubernetes.io/router.middlewares: pgadmin_cloudflare-only@kubernetescrd
 spec:
   tls:
     - hosts:

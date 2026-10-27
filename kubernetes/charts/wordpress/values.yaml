@@ -122,5 +122,9 @@ nginx:
     - 192.0.64.0/18
 
 ingress:
+  # Only Cloudflare reaches the site: its copy of the Middleware cloudflare-only, from the subchart
+  # of that name (Chart.yaml), goes first. false only for a site whose names are not proxied by
+  # Cloudflare - it also leaves the subchart out.
+  cloudflareOnly: true
   # Traefik middlewares for the router, by the names Traefik gives them (`...@kubernetescrd`).
   middlewares: []

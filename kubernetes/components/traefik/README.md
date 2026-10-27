@@ -70,6 +70,15 @@ rebuild) the complete one.
   (`ports.websecure.http.middlewares` in `helmchartconfig.yaml`), so it covers every route on
   443 without each Ingress naming it. **A wrong name there stops every route on 443** - check
   Traefik's log for `middleware ... does not exist` after changing it.
+- **Only through Cloudflare** (Middleware `cloudflare-only`,
+  [`../../charts/cloudflare-only/README.md`](../../charts/cloudflare-only/README.md)): every
+  route of a name Cloudflare proxies admits only Cloudflare's IP ranges and answers anyone else
+  403. Traefik on the host network sees the connecting Cloudflare server as the client, so the
+  check needs no header. It is per route, not on the entry point like the rate limit: names
+  that are not proxied (the registry, later Forgejo) share port 443 and must stay reachable.
+  With it, `CF-Connecting-IP` on a proxied route can only come from Cloudflare, which the rate
+  limit, the sites' nginx and the xmlrpc allowlist rely on. A route that names the middleware
+  without its namespace's copy existing is switched off (404) - it fails closed.
 - **Every request is traced** (`tracing.otlp` in `helmchartconfig.yaml`, the default sample rate
   1.0): Traefik sends a span per request over OTLP gRPC to the Alloy on its node
   (`alloy.kube-system.svc:4317`, resolved through `ClusterFirstWithHostNet`), which forwards it
@@ -93,7 +102,9 @@ rebuild) the complete one.
 - **A Hetzner Load Balancer fits on top without changing Traefik**: targets by label over the
   private network, TCP 80 and 443 passed through (TLS stays at Traefik), health checks, PROXY
   protocol for client IPs, and one address (IPv4 and IPv6) in DNS instead of one per node. The
-  firewall could then close 80/443 on the nodes' public side.
+  firewall could then close 80/443 on the nodes' public side. With PROXY protocol trusted from
+  the balancer (`proxyProtocol.trustedIPs` on the entry points), Traefik takes the original
+  address as the client again, so `cloudflare-only` works unchanged.
 
 ## Checking it
 

@@ -153,6 +153,9 @@ metrics:
 # Traefik is the cluster's default IngressClass.
 ingress:
   enabled: true
+  annotations:
+    # Only Cloudflare reaches it (charts/cloudflare-only).
+    traefik.ingress.kubernetes.io/router.middlewares: zitadel_cloudflare-only@kubernetescrd
   tls:
     - hosts:
         - auth.d3strukt0r.dev
@@ -183,6 +186,9 @@ login:
       enabled: true
   ingress:
     enabled: true
+    annotations:
+      # Only Cloudflare reaches it (charts/cloudflare-only).
+      traefik.ingress.kubernetes.io/router.middlewares: zitadel_cloudflare-only@kubernetescrd
     tls:
       - hosts:
           - auth.d3strukt0r.dev

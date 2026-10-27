@@ -204,6 +204,12 @@ rule, 2026-10-02). Where a name cannot hold a hyphen, the hyphens become undersc
   they throttle an idle node. A container sets its memory itself only where the defaults do
   not fit, and always in `kube-system` and `system-upgrade`, which have no LimitRange
   ([`kubernetes/components/kyverno/README.md`](kubernetes/components/kyverno/README.md)).
+- **Only Cloudflare reaches a proxied name.** Every route of a name Cloudflare proxies puts
+  the Middleware `cloudflare-only` first (`<namespace>_cloudflare-only@kubernetescrd`); its app
+  brings the namespace's copy - a chart of ours as the subchart `kubernetes/charts/cloudflare-only`,
+  a Kustomize directory by listing `kubernetes/charts/cloudflare-only/files` (Traefik takes
+  middlewares only from the route's own namespace). DNS-only routes leave it out
+  ([`kubernetes/charts/cloudflare-only/README.md`](kubernetes/charts/cloudflare-only/README.md)).
 - **Images come only from `docker.io`, `ghcr.io`, `quay.io`, `registry.k8s.io` and
   `public.ecr.aws`** (Kyverno's `allowed-registries`); a new registry is one entry there.
 - **Secret values never enter git or OpenTofu state.** They go into OpenBao with

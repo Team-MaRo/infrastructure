@@ -7,6 +7,8 @@ kind: Kustomization
 resources:
   - external-secrets.yaml
   - rules.yaml
+  # Only Cloudflare reaches its proxied routes (charts/cloudflare-only).
+  - ../../charts/cloudflare-only/files
 
 # Shared settings (shared/): the openbao store and refresh for every ExternalSecret, the
 # sync option for every monitor and rule.
