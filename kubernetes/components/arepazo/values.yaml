@@ -29,9 +29,6 @@ plugins:
   # Connect Matomo: Matomo's reports in wp-admin, read with the view-only user arepazo-reports. Its
   # own tracking stays off - the chart's mu-plugin counts (README "Counted in Matomo").
   - wp-piwik
-  # Temporary: where an uncached page's 0.5 s go (time per plugin, queries, autoload). Shows only
-  # to administrators; removed again once measured.
-  - query-monitor
 themes:
   - inspiro-blocks
   - twentytwentyfive
