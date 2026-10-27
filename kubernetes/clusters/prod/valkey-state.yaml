@@ -6,6 +6,10 @@ kind: Application
 metadata:
   name: valkey-state
   namespace: argocd
+  annotations:
+    # Compare on the server: the API server fills in the volume template's volumeMode and status,
+    # which the client-side diff showed as drift after every successful sync.
+    argocd.argoproj.io/compare-options: ServerSideDiff=true
   # No finalizer: removing this file leaves the StatefulSet and its volume in place, untracked -
   # the data must not go with a deleted file (components/argocd, "Pruning and the finalizer").
 spec:
