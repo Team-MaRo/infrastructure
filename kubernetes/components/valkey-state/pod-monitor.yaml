@@ -1,0 +1,13 @@
+---
+# Valkey's figures from the exporter beside it (statefulset.yaml): up, memory against maxmemory,
+# clients, the append-only file's state, keys per database. The job is valkey-state/valkey-state.
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: valkey-state
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: valkey-state
+  podMetricsEndpoints:
+    - port: metrics

@@ -1,0 +1,27 @@
+---
+# The cluster's shared state, from kubernetes/components/valkey-state: Valkey on a volume, a
+# database per app. Needs secret/valkey-state in OpenBao.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: valkey-state
+  namespace: argocd
+  # No finalizer: removing this file leaves the StatefulSet and its volume in place, untracked -
+  # the data must not go with a deleted file (components/argocd, "Pruning and the finalizer").
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Team-MaRo/infrastructure.git
+    targetRevision: master
+    path: kubernetes/components/valkey-state
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: valkey-state
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      # Not required here (no large CRDs); used for consistency.
+      - ServerSideApply=true

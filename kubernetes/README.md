@@ -53,6 +53,7 @@ kubernetes/
 │       ├── trust-manager.yaml     # the databases' CAs in the apps' namespaces: chart pinned here
 │       ├── keel.yaml              # rolls out new images under floating tags: chart pinned here
 │       ├── valkey-cache.yaml      # the shared cache, a database per app
+│       ├── valkey-state.yaml      # the shared state (sessions, locks) on a volume, a database per app
 │       ├── wedding-manuele-robine.yaml  # the wedding website
 │       ├── robines-portfolio.yaml  # the old WordPress portfolio: the WordPress chart and its values
 │       ├── arepazo.yaml       # the WooCommerce shop: the WordPress chart and its values
@@ -223,6 +224,15 @@ kubernetes/
     │   ├── network-policy.yaml    # only labelled namespaces, metrics only from Prometheus
     │   ├── pod-monitor.yaml
     │   └── rules.yaml             # alerts: down, refused connections
+    ├── valkey-state/
+    │   ├── kustomization.yaml     # valkey.conf becomes the ConfigMap valkey-state
+    │   ├── valkey.conf            # 128 MB, nothing evicted, every write on disk before it is confirmed
+    │   ├── external-secrets.yaml  # the users: default off, the exporter; the apps bring their own
+    │   ├── statefulset.yaml       # one replica on a 10 GiB volume, pinned image, the exporter beside it
+    │   ├── service.yaml
+    │   ├── network-policy.yaml    # only labelled namespaces, metrics only from Prometheus
+    │   ├── pod-monitor.yaml
+    │   └── rules.yaml             # alerts: down, memory near maxmemory, disk writes failing, refused connections
     ├── wedding-manuele-robine/
     │   ├── kustomization.yaml
     │   ├── namespace.yaml         # exempt from restricted Pod Security (root images, TODO)

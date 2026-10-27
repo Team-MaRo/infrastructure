@@ -1,0 +1,28 @@
+---
+# Valkey only for the apps that use it: port 6379 from namespaces labelled
+# valkey.d3strukt0r.dev/state (each app sets it on its own namespace), the exporter's port from
+# Prometheus. The ACLs would refuse everyone else anyway; this keeps them from even trying.
+# kube-router admits a node's own traffic regardless (components/kube-prometheus-stack).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: valkey-state
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: valkey-state
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              valkey.d3strukt0r.dev/state: "true"
+      ports:
+        - port: valkey
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+      ports:
+        - port: metrics

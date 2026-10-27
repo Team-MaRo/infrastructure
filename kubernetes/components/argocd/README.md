@@ -43,7 +43,7 @@ component is deleted.
   `cloudnative-pg` would take the Postgres `Cluster` with it): cert-manager,
   external-secrets, kyverno, cloudnative-pg, the mariadb-operator ones,
   system-upgrade-controller, kube-prometheus-stack, kubeelasti, trust-manager. **Never on an
-  app with a volume** (openbao, mariadb, postgres, loki, kube-prometheus-stack): a mistakenly
+  app with a volume** (openbao, mariadb, postgres, loki, kube-prometheus-stack, valkey-state): a mistakenly
   deleted file must not take its data along. **Never on the foundation**: root, private,
   argocd, hcloud-csi, traefik. **Never on `priority-classes`**: a pod naming a class that does
   not exist is refused, so the databases would fail at their next restart.

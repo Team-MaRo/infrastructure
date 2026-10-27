@@ -1,0 +1,25 @@
+---
+# valkey-state, the cluster's shared state: one Valkey on a volume that writes every change to disk
+# before confirming it, a database per app, each app's user restricted to its own (README).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - external-secrets.yaml
+  - statefulset.yaml
+  - service.yaml
+  - network-policy.yaml
+  - pod-monitor.yaml
+  - rules.yaml
+
+# A hash in the name, so a change to the configuration rolls the pod.
+configMapGenerator:
+  - name: valkey-state
+    files:
+      - valkey.conf
+
+# Shared settings (shared/): the openbao store and refresh for every ExternalSecret, the
+# sync option for every monitor and rule.
+components:
+  - ../../shared/external-secret-defaults
+  - ../../shared/monitoring-sync-options

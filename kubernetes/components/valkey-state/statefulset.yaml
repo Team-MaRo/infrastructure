@@ -1,0 +1,220 @@
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: valkey-state
+  annotations:
+    # The users are read at start: a change to any Secret it mounts that is marked
+    # reloader.stakater.com/match - users and every db-<n> - restarts it (components/reloader).
+    # The data survives a restart: Valkey replays its append-only file from the volume.
+    reloader.stakater.com/search: "true"
+spec:
+  replicas: 1
+  serviceName: valkey-state
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: valkey-state
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: valkey-state
+    spec:
+      # Evicted last when a node runs short of memory (kubernetes/components/priority-classes).
+      priorityClassName: stateful-core
+      securityContext:
+        runAsNonRoot: true
+        # The volume's files belong to Valkey's group, so user 999 can write to it.
+        fsGroup: 999
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: valkey
+          # Pinned; bumping the tag is the upgrade. Not a floating tag: `9` and `9.2` already
+          # pointed at 9.2.0-rc1 (2026-10-19). 9.1 or newer for the per-database ACLs.
+          image: valkey/valkey:9.1.2
+          # Started directly as the image's user valkey (999), past the entrypoint, which would
+          # only change the owner of /data as root.
+          command:
+            - valkey-server
+            - /etc/valkey/valkey.conf
+          workingDir: /data
+          securityContext:
+            runAsUser: 999
+            runAsGroup: 999
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          ports:
+            - name: valkey
+              containerPort: 6379
+          # TCP only: the default user is off, and a PING without logging in only says NOAUTH.
+          readinessProbe:
+            tcpSocket:
+              port: valkey
+          livenessProbe:
+            tcpSocket:
+              port: valkey
+            periodSeconds: 30
+          # maxmemory (128mb, valkey.conf) plus Valkey's own overhead, client buffers and the
+          # fork that rewrites the append-only file.
+          resources:
+            requests:
+              memory: 192Mi
+            limits:
+              memory: 256Mi
+          volumeMounts:
+            - name: config
+              mountPath: /etc/valkey/valkey.conf
+              subPath: valkey.conf
+              readOnly: true
+            - name: users
+              mountPath: /etc/valkey/users
+              readOnly: true
+            # The append-only file (appenddirname under the working directory).
+            - name: data
+              mountPath: /data
+        # The figures for Prometheus (pod-monitor.yaml), logged in as the user exporter.
+        - name: exporter
+          # Pinned; bumping the tag is the upgrade.
+          image: oliver006/redis_exporter:v1.94.0
+          env:
+            - name: REDIS_ADDR
+              value: redis://localhost:6379
+            - name: REDIS_USER
+              value: exporter
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: users
+                  key: exporter-password
+          securityContext:
+            # The image's own user.
+            runAsUser: 59000
+            runAsGroup: 59000
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          ports:
+            - name: metrics
+              containerPort: 9121
+      volumes:
+        - name: config
+          configMap:
+            name: valkey-state
+        # Valkey's own users, and the user of each app, which the app brings itself as the
+        # Secret db-<n> for its database n (README). A Pod can only mount Secrets by name, so all
+        # fifteen possible databases are listed; those no app has taken are simply absent.
+        - name: users
+          projected:
+            sources:
+              - secret:
+                  name: users
+                  items:
+                    - key: users.conf
+                      path: users.conf
+              - secret:
+                  name: db-1
+                  optional: true
+                  items:
+                    - key: users.conf
+                      path: db-1.conf
+              - secret:
+                  name: db-2
+                  optional: true
+                  items:
+                    - key: users.conf
+                      path: db-2.conf
+              - secret:
+                  name: db-3
+                  optional: true
+                  items:
+                    - key: users.conf
+                      path: db-3.conf
+              - secret:
+                  name: db-4
+                  optional: true
+                  items:
+                    - key: users.conf
+                      path: db-4.conf
+              - secret:
+                  name: db-5
+                  optional: true
+                  items:
+                    - key: users.conf
+                      path: db-5.conf
+              - secret:
+                  name: db-6
+                  optional: true
+                  items:
+                    - key: users.conf
+                      path: db-6.conf
+              - secret:
+                  name: db-7
+                  optional: true
+                  items:
+                    - key: users.conf
+                      path: db-7.conf
+              - secret:
+                  name: db-8
+                  optional: true
+                  items:
+                    - key: users.conf
+                      path: db-8.conf
+              - secret:
+                  name: db-9
+                  optional: true
+                  items:
+                    - key: users.conf
+                      path: db-9.conf
+              - secret:
+                  name: db-10
+                  optional: true
+                  items:
+                    - key: users.conf
+                      path: db-10.conf
+              - secret:
+                  name: db-11
+                  optional: true
+                  items:
+                    - key: users.conf
+                      path: db-11.conf
+              - secret:
+                  name: db-12
+                  optional: true
+                  items:
+                    - key: users.conf
+                      path: db-12.conf
+              - secret:
+                  name: db-13
+                  optional: true
+                  items:
+                    - key: users.conf
+                      path: db-13.conf
+              - secret:
+                  name: db-14
+                  optional: true
+                  items:
+                    - key: users.conf
+                      path: db-14.conf
+              - secret:
+                  name: db-15
+                  optional: true
+                  items:
+                    - key: users.conf
+                      path: db-15.conf
+  # A Hetzner Volume (hcloud-volumes, Retain - components/hcloud-csi): 10 GiB is the smallest
+  # Hetzner sells; the data is a few MB.
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        storageClassName: hcloud-volumes
+        resources:
+          requests:
+            storage: 10Gi

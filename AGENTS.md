@@ -182,7 +182,7 @@ rule, 2026-10-02). Where a name cannot hold a hyphen, the hyphens become undersc
   - **Never on an app that brings CRDs** (deleting a CRD deletes every object of its kind):
     cert-manager, external-secrets, kyverno, cloudnative-pg, the mariadb-operator ones,
     system-upgrade-controller, kube-prometheus-stack, kubeelasti, trust-manager. **Never on an
-    app with a volume** (openbao, mariadb, postgres, loki, kube-prometheus-stack). **Never on the
+    app with a volume** (openbao, mariadb, postgres, loki, kube-prometheus-stack, valkey-state). **Never on the
     foundation**: root, private, argocd, hcloud-csi, traefik. **Never on `priority-classes`**: a
     pod naming a missing class is refused.
   - An app with the finalizer brings its own `namespace.yaml` instead of `CreateNamespace`,
@@ -355,6 +355,7 @@ component); update it in the same change.
 | [`kubernetes/components/reloader/README.md`](kubernetes/components/reloader/README.md) | Restarting apps when a Secret or ConfigMap they read at start changes |
 | [`kubernetes/components/trust-manager/README.md`](kubernetes/components/trust-manager/README.md) | The databases' CA certificates in the apps' namespaces |
 | [`kubernetes/components/valkey-cache/README.md`](kubernetes/components/valkey-cache/README.md) | The shared cache: a database per app, its users, adding an app |
+| [`kubernetes/components/valkey-state/README.md`](kubernetes/components/valkey-state/README.md) | The shared state on a volume: sessions, locks, zot's logins; a database per app, adding an app |
 | [`kubernetes/components/keel/README.md`](kubernetes/components/keel/README.md) | Rolling out new images under floating tags, opting an app in |
 | [`kubernetes/components/wedding-manuele-robine/README.md`](kubernetes/components/wedding-manuele-robine/README.md) | The wedding website; its two TODOs; moving it from prod-old |
 | [`kubernetes/shared/external-secret-defaults/README.md`](kubernetes/shared/external-secret-defaults/README.md) | The Kustomize Component giving every ExternalSecret its store and refresh interval |

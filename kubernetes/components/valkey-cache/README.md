@@ -20,7 +20,8 @@ One pod (`deployment.yaml`):
   recently used keys of any app go. Nothing is written to disk (`save ""`, `appendonly no`) and
   there is no volume, so a restart - a rollout, a reboot, a changed user - starts empty and the
   apps fill it again. One app's keys can push out another's; that only costs speed. State that
-  must survive (sessions, locks) does not belong here.
+  must survive (sessions, locks) belongs in valkey-state
+  ([`../valkey-state/README.md`](../valkey-state/README.md)), with the same database number.
 - **One pod, no operator, no replicas.** A second replica would be a second, separate cache, and
   failover would buy nothing a restart does not. While the pod is away the WordPress sites run
   without the cache, only slower (`WP_REDIS_GRACEFUL`, `charts/wordpress`). No priority class:

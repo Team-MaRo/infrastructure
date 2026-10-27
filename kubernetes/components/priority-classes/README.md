@@ -9,8 +9,9 @@ The cluster's PriorityClasses (Application `priority-classes`, no finalizer). A 
 
 For the pods holding data everything else depends on: the shared MariaDB
 ([`../mariadb/README.md`](../mariadb/README.md)), the shared PostgreSQL
-([`../postgres/README.md`](../postgres/README.md)) and OpenBao
-([`../openbao/README.md`](../openbao/README.md)). Value 1000000 - far below k3s's own
+([`../postgres/README.md`](../postgres/README.md)), OpenBao
+([`../openbao/README.md`](../openbao/README.md)) and the shared state, valkey-state
+([`../valkey-state/README.md`](../valkey-state/README.md)). Value 1000000 - far below k3s's own
 `system-cluster-critical` and `system-node-critical` (2 billion), which stay on top.
 
 - **What it changes: the eviction order.** When a node drops below the kubelet's memory

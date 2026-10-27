@@ -1,0 +1,13 @@
+---
+# valkey-state.valkey-state.svc:6379 for the apps.
+apiVersion: v1
+kind: Service
+metadata:
+  name: valkey-state
+spec:
+  selector:
+    app.kubernetes.io/name: valkey-state
+  ports:
+    - name: valkey
+      port: 6379
+      targetPort: valkey

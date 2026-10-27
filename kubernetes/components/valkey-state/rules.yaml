@@ -1,0 +1,64 @@
+---
+# Alerts for valkey-state. Unlike the cache, the apps cannot do without it: their sessions, locks
+# and zot's logins are here. The container's own memory is kube-prometheus-stack's
+# ContainerMemoryNearLimit.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: valkey-state
+spec:
+  groups:
+    - name: valkey-state
+      rules:
+        # The exporter answers but cannot reach Valkey, or the pod is not scraped at all.
+        - alert: ValkeyStateDown
+          expr: redis_up{job="valkey-state/valkey-state"} == 0 or absent(up{job="valkey-state/valkey-state"} == 1)
+          for: 5m
+          labels:
+            severity: critical
+            namespace: valkey-state
+          annotations:
+            summary: "valkey-state does not answer."
+            description: >-
+              The apps that keep sessions or locks there fail, and the nodes cannot log in to
+              zot. Check the pod and its volume (kubectl -n valkey-state get pods,pvc) and its
+              log (README, "Checking it"); after a node loss the volume takes about 6 minutes
+              to move (README, "A node is lost").
+        # noeviction: when maxmemory is reached, every write fails for every app.
+        - alert: ValkeyStateMemoryHigh
+          expr: redis_memory_used_bytes{job="valkey-state/valkey-state"} / redis_memory_max_bytes{job="valkey-state/valkey-state"} > 0.8
+          for: 10m
+          labels:
+            severity: warning
+            namespace: valkey-state
+          annotations:
+            summary: "valkey-state uses {{ $value | humanizePercentage }} of its maxmemory."
+            description: >-
+              At 100 % every write fails for every app (noeviction). Find the database that
+              grows (redis_db_keys) - usually keys without a TTL - or raise maxmemory and the
+              memory limit together (README, "Design").
+        # A write to the append-only file failed (a full or broken volume): Valkey then refuses
+        # writes until it can write again.
+        - alert: ValkeyStateAofWriteFailing
+          expr: redis_aof_last_write_status{job="valkey-state/valkey-state"} == 0 or redis_aof_last_bgrewrite_status{job="valkey-state/valkey-state"} == 0
+          for: 5m
+          labels:
+            severity: critical
+            namespace: valkey-state
+          annotations:
+            summary: "valkey-state cannot write its append-only file."
+            description: >-
+              Valkey refuses writes while it cannot persist them. Check the volume (kubectl -n
+              valkey-state exec valkey-state-0 -c valkey -- df -h /data) and Valkey's log
+              (README, "Checking it").
+        # Connections refused because maxclients is reached.
+        - alert: ValkeyStateRejectedConnections
+          expr: increase(redis_rejected_connections_total{job="valkey-state/valkey-state"}[5m]) > 0
+          labels:
+            severity: warning
+            namespace: valkey-state
+          annotations:
+            summary: "valkey-state refused {{ $value | humanize }} connections in 5 minutes."
+            description: >-
+              Valkey reached maxclients (10000 by default) - an app opening connections without
+              closing them. CLIENT LIST as the user exporter shows which one (README).
