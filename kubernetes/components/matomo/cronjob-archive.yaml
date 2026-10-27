@@ -51,11 +51,13 @@ spec:
                     secretKeyRef:
                       name: matomo
                       key: smtp-password
+                # Only while a Google Analytics import runs (README "Google Analytics history").
                 - name: MATOMO_GA_IMPORTER_KEY
                   valueFrom:
                     secretKeyRef:
                       name: matomo
                       key: ga-importer-key
+                      optional: true
               securityContext: &restricted
                 allowPrivilegeEscalation: false
                 capabilities:

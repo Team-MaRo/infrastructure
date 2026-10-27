@@ -64,7 +64,6 @@ A custom logo is a file on the pod (`misc/user/`) and is lost the same way.
 |---|---|---|---|
 | `secret/mariadb-apps/matomo` | `password` | [`MariaDB \| Prod \| matomo`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=y25mk6eqqqqgbxub7ikgodomdi&h=my.1password.com) | The database user (`database.yaml`) and Matomo |
 | `secret/matomo` | `salt` | [`Matomo \| Prod \| salt`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=754ixrqhxttvt4ryqgucloapda&h=my.1password.com) | Matomo's `[General] salt` |
-| `secret/matomo` | `ga-importer-key` | [`Matomo \| Prod \| google-analytics-importer`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=baz73i3zj27m4syuer4qyedqgy&h=my.1password.com) | GoogleAnalyticsImporter's `encryption_key` (base64 of 32 random bytes, `openssl rand -base64 32`; "Google Analytics history") |
 | `secret/matomo-s3` | `access-key`, `secret-key` | [`Hetzner \| S3 \| prod matomo`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=4vhpkhsjy4meb3pqhgvhu2zsge&h=my.1password.com) | The bucket `d3strukt0r-prod-matomo` |
 | `secret/matomo-mailomat` | `password` | [`Mailomat \| Prod \| matomo`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=fq2kn2amieb2g7bmvjxurwbf6q&h=my.1password.com) | The SMTP login `matomo@mailomat.d3strukt0r.dev` |
 
@@ -242,16 +241,28 @@ referrers, devices, locations and the key events as goals (`purchase`, for Robin
 some with personal data in every property (`email_address`, `tel_number`, `user_id`,
 `wp_user_id`).
 
+Two properties of sites that no longer run came in on 2026-10-27 as **new sites**, over their
+whole life: Wund Expertin Plus (property 287841226, data from 2021-09-28 to 2026-05-19, site 4)
+and Weleda WebCenter Text Export (227190878, site 5 - the property never received data, so the
+site holds empty days). Only superusers see them. The account's last property, D3strukt0r
+(279220328), had data on three days in July 2021 and was left out.
+
 - **It imports reports, not visits**: one finished report per day (visits, pages, referrers,
   ...), no raw visits. Matomo would rebuild an invalidated day from its raw visits - zero for these
   days - and only the loaded plugin stops that (`Archiving.isRequestAuthorizedToArchive`). So
   `prepare.sh` loads it in the **archive pod too**, and it stays installed **as long as the
   imported history matters**, even with Google long gone (Upgrades: Matomo 6 needs a release of
   it for 6 first).
-- **Its Google credentials** (the OAuth client and token) are encrypted in Matomo's database with
-  `[GoogleAnalyticsImporter] encryption_key`, which `prepare.sh` writes from OpenBao - the plugin
-  would generate one into `config.ini.php`, which is rewritten at every start. Like the salt, the
-  key never changes, or the credentials have to be uploaded and authorised again.
+- **No Google credentials are left** (2026-10-27: client configuration removed in Matomo, Google
+  Cloud project shut down, every property in the trash). The plugin encrypts its OAuth client and
+  token in Matomo's database with `[GoogleAnalyticsImporter] encryption_key`; without one it
+  generates a key into `config.ini.php`, which `prepare.sh` rewrites at every start, so the
+  credentials would become unreadable at the next restart. Another import therefore first needs
+  a key that stays: `openssl rand -base64 32` into a 1Password item and into `secret/matomo` as
+  `ga-importer-key`, and that key's entry in `external-secrets.yaml` (`secretKey` and `property`
+  `ga-importer-key`). Both pods read it as an optional variable, and `prepare.sh` writes the
+  `[GoogleAnalyticsImporter]` section only when it is set. The entry cannot stay without the
+  value: External Secrets fails the whole Secret over one missing field.
 - **Existing sites are not what the plugin offers**: its UI ("Einen Import aus Google Analytics 4
   (GA4) planen") and its command always create a new site; only its WordPress variant imports
   into the current one. `ga-prepare-site.php` (here, run by hand) does what that variant does:
@@ -270,8 +281,8 @@ some with personal data in every property (`email_address`, `tel_number`, `user_
    "Client erstellen": "Webanwendung", "Autorisierte JavaScript-Quellen"
    `https://matomo.d3strukt0r.dev`, "Autorisierte Weiterleitungs-URIs"
    `https://matomo.d3strukt0r.dev/index.php?module=GoogleAnalyticsImporter&action=processAuthCode`
-   → "Erstellen" → download the JSON into 1Password `Matomo | Prod | google-analytics-importer`
-   (file `oauth-client.json`). It can take minutes to hours until a new client works.
+   → "Erstellen" → download the JSON into the 1Password item of the encryption key (above). It can
+   take minutes to hours until a new client works.
 2. **Matomo** (superuser): Administration → System → **Google-Analytics-Import** → "UPLOAD" the
    JSON → "AUTORISIEREN" (Google warns "Google hat diese App nicht überprüft": "Weiter"). A
    "Sicherheitsprüfung" error means the page's one-time token expired - reload and click at once.
@@ -288,18 +299,39 @@ some with personal data in every property (`email_address`, `tel_number`, `user_
    `php console plugin:deactivate CustomDimensions` (the importer then skips custom dimensions
    altogether - a restart activates it again); then in the background `nohup php console
    googleanalyticsimporter:import-ga4-reports --idsite=<n> --dates=<created>,<end> >
-   /tmp/gaimport-<n>.log 2>&1 &`. It works backwards from the end date, about a second per day
-   with data, and ends with "Done in …" and its own archiving of weeks, months and years ("Error:
-   error or warning logs detected" there only repeats the CustomDimensions warning). Google's
-   daily quota pauses it ("rate limit" / "quota" in the log), and so does a restart of the pod:
-   **run the same command again** (after a quota, the next day) - it resumes where it stopped.
-   The plugin's own hourly resume does not help here: it runs among `core:archive`'s scheduled
-   tasks in the short-lived `archive` pod and starts the import in that pod's background, which
-   ends with the pod. Afterwards `php console plugin:activate CustomDimensions`.
+   /tmp/gaimport-<n>.log 2>&1 &`. A site that no longer runs gets a new Matomo site instead: no
+   prepare script, and the first run takes `--property=properties/<propertyId>` without
+   `--idsite` (the bare number fails with "Could not map bindings") and logs "Created new site
+   with ID = <n>"; that site has the property's name as its address - set the real one in
+   "Websites verwalten" - and every later run adds `--idsite=<n>`. It works backwards from the
+   end date, 1-8 seconds per day with data (under one without), and ends with "Done in …" and its
+   own archiving of weeks, months and years ("Error: error or warning logs detected" there only
+   repeats the CustomDimensions warning). Google's daily quota pauses it ("rate limit" / "quota"
+   in the log), and so does a restart of the pod: **run the same command again** (after a quota,
+   the next day) - it resumes where it stopped. Google also breaks it off now and then for a
+   moment ("The service is currently unavailable", code 14, or a cURL timeout after 60 s, then
+   "Error encountered, aborting."), and the next run is refused for about 5 minutes ("An import
+   is currently in progress"). A loop in the pod resumes it unattended - ten tries stay under the
+   API's ten server errors per project and hour: `nohup sh -c 'for i in 1 2 3 4 5 6 7 8 9 10; do
+   php console googleanalyticsimporter:import-ga4-reports --idsite=<n> --dates=<created>,<end> >
+   /tmp/gaimport-<n>-$i.log 2>&1; grep -qE "Error encountered|currently in progress"
+   /tmp/gaimport-<n>-$i.log || break; sleep 120; done' > /dev/null 2>&1 &`. The plugin's own
+   hourly resume does not help here: it runs among `core:archive`'s scheduled tasks in the
+   short-lived `archive` pod and starts the import in that pod's background, which ends with the
+   pod. Afterwards `php console plugin:activate CustomDimensions`.
 6. **Check**: the importer's status `finished` (option `GoogleAnalyticsImporter.importStatus_<n>`),
-   visits per month against GA's, the first tracked days unchanged.
+   visits per month against GA's, the first tracked days unchanged. An aborted run archives
+   weeks, months and years with only the days it had, and later runs do not rebuild them (site 4's
+   2022 showed 185 of 388 visits): mark them outdated and rebuild, leaving the days alone - they
+   are the imported reports themselves - with `php console core:invalidate-report-data
+   --sites=<n> --dates=<created>,<end> --periods=week,month,year`, then `php console core:archive
+   --force-idsites=<n>`. The deactivated plugin did not stop the import of site 4 from configuring
+   five of MonsterInsights' dimensions ("Email Address" among them), without values: list them
+   with `CustomDimensions.getConfiguredCustomDimensions` and deactivate them in "Benutzerdefinierte
+   Dimensionen" - Matomo cannot delete one.
 7. **Wind down** when all properties are in: "Client Konfiguration entfernen" → "ENTFERNEN" in
-   Matomo, delete the Google Cloud project. The plugin stays.
+   Matomo, delete the Google Cloud project, then the encryption key: its ExternalSecret entry
+   first, then the OpenBao field and the 1Password item. The plugin stays.
 
 ## GeoIP
 

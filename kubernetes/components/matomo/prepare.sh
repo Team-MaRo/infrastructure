@@ -38,15 +38,17 @@ salt = "$MATOMO_SALT"
 
 [mail]
 password = "$MATOMO_SMTP_PASSWORD"
-
-[GoogleAnalyticsImporter]
-encryption_key = "$MATOMO_GA_IMPORTER_KEY"
 EOF
+# The importer's encryption_key, only while a Google Analytics import runs (README "Google
+# Analytics history"); without it the plugin would generate one into this file, lost at the next
+# start together with the credentials it encrypted.
+if [ -n "${MATOMO_GA_IMPORTER_KEY:-}" ]; then
+  printf '\n[GoogleAnalyticsImporter]\nencryption_key = "%s"\n' "$MATOMO_GA_IMPORTER_KEY" >> config/config.ini.php
+fi
 
 # GoogleAnalyticsImporter (README "Google Analytics history"), in the archive pod as well: the
 # imported days have reports but no raw visits, and only the loaded plugin stops Matomo from
-# rebuilding such a day from nothing if it is ever invalidated. Its OAuth credentials in the
-# database are encrypted with the key above, which it would otherwise generate into this file.
+# rebuilding such a day from nothing if it is ever invalidated.
 gaimporter=5.2.4
 curl -fsSL --retry 3 -o /tmp/gaimporter.zip \
   "https://plugins.matomo.org/api/2.0/plugins/GoogleAnalyticsImporter/download/$gaimporter"
