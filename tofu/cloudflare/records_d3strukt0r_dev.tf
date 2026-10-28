@@ -53,6 +53,56 @@ moved {
   to   = cloudflare_dns_record.d3strukt0r_dev_aaaa_prod["prod-01"]
 }
 
+# The prod cluster's direct entry point: like prod.d3strukt0r.dev, one A and one AAAA record per
+# node, but DNS-only. Services that cannot go through Cloudflare's proxy CNAME to this name, so the
+# node addresses are listed once. Publishing them is safe for the proxied services: each of their
+# routes admits only Cloudflare (kubernetes/charts/cloudflare-only).
+resource "cloudflare_dns_record" "d3strukt0r_dev_a_direct_prod" {
+  for_each = local.prod_nodes
+  provider = cloudflare.personal
+
+  content  = each.value.ipv4
+  name     = "direct.prod.d3strukt0r.dev"
+  proxied  = false
+  tags     = []
+  ttl      = 1
+  type     = "A"
+  zone_id  = local.zone_ids["d3strukt0r.dev"]
+  settings = {}
+}
+
+resource "cloudflare_dns_record" "d3strukt0r_dev_aaaa_direct_prod" {
+  for_each = local.prod_nodes
+  provider = cloudflare.personal
+
+  content  = each.value.ipv6
+  name     = "direct.prod.d3strukt0r.dev"
+  proxied  = false
+  tags     = []
+  ttl      = 1
+  type     = "AAAA"
+  zone_id  = local.zone_ids["d3strukt0r.dev"]
+  settings = {}
+}
+
+# The container registry (zot) on the cluster, DNS-only: through Cloudflare's proxy a request may
+# carry at most 100 MB, and a push sends each image layer in one request - the official PHP
+# image's base layer alone is 118 MB.
+resource "cloudflare_dns_record" "d3strukt0r_dev_cname_registry" {
+  provider = cloudflare.personal
+
+  content = "direct.prod.d3strukt0r.dev"
+  name    = "registry.d3strukt0r.dev"
+  proxied = false
+  tags    = []
+  ttl     = 1
+  type    = "CNAME"
+  zone_id = local.zone_ids["d3strukt0r.dev"]
+  settings = {
+    flatten_cname = false
+  }
+}
+
 # Zitadel, the identity provider, on the cluster.
 resource "cloudflare_dns_record" "d3strukt0r_dev_cname_auth" {
   provider = cloudflare.personal

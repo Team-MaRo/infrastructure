@@ -101,7 +101,8 @@ the app's own Zitadel login, or the oauth2-proxy gate
 "HTTPS" is the zone's `always_use_https` (`settings.tf`): off means a plain `http://` request
 reaches the origin.
 
-**On the cluster** (all proxied; each a CNAME to `prod.d3strukt0r.dev`, except `arepazo.ch`):
+**On the cluster** (proxied, each a CNAME to `prod.d3strukt0r.dev`, except `arepazo.ch`; those marked
+DNS-only CNAME to `direct.prod.d3strukt0r.dev` instead):
 
 | Name | Serves | Login | HTTPS |
 |---|---|---|---|
@@ -122,6 +123,8 @@ reaches the origin.
 | `traefik.d3strukt0r.dev` | Traefik's dashboard (IngressRoute) | oauth2-proxy | on |
 | `oauth2-proxy.d3strukt0r.dev` | oauth2-proxy's own callback | - | on |
 | `prod.d3strukt0r.dev` | the nodes themselves; no route, Traefik answers 404 | - | on |
+| `direct.prod.d3strukt0r.dev` | the nodes themselves, **DNS-only** (A/AAAA per node): the entry point for what cannot go through the proxy; publishes the nodes' addresses, so every proxied route admits only Cloudflare (`kubernetes/charts/cloudflare-only`) | - | - |
+| `registry.d3strukt0r.dev` | zot, the container registry - **DNS-only**, CNAME to `direct.prod.d3strukt0r.dev`: a push sends each layer in one request, and the proxy takes at most 100 MB | zot's own | - |
 | `d3st.dev`, `d3st.org` (+ wildcards) | nothing yet, Traefik answers 404 | - | on |
 | `d3strukt0r.me`, `manuele-vaccari.ch` (+ wildcards) | nothing yet, Traefik answers 404 | - | **off** |
 

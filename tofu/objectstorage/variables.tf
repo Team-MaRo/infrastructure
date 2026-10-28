@@ -158,3 +158,15 @@ variable "matomo_access_key_id" {
     error_message = "matomo_access_key_id must be a 20-character Hetzner access key ID."
   }
 }
+
+# 1Password "Hetzner | S3 | prod zot"
+#   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=iiiac6kigz57va4kxpfk2c2tc4&h=my.1password.com
+variable "zot_access_key_id" {
+  description = "Access key ID of the S3 key the container registry zot stores its images with (1Password: Hetzner | S3 | prod zot, username). Set in terraform.tfvars."
+  type        = string
+
+  validation {
+    condition     = can(regex("^[A-Z0-9]{20}$", var.zot_access_key_id))
+    error_message = "zot_access_key_id must be a 20-character Hetzner access key ID."
+  }
+}

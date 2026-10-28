@@ -16,6 +16,7 @@ own docs use.
 | `d3strukt0r-prod-robines-portfolio` | bucket, versioning, lifecycle, policy | only the app's key, its uploads proxy's key (read only) and the admin key; only the admin key may change the bucket |
 | `d3strukt0r-prod-arepazo` | bucket, versioning, lifecycle, policy | as robines-portfolio's: the app's key, its uploads proxy's key (read only), the admin key |
 | `d3strukt0r-prod-matomo` | bucket, versioning, lifecycle, policy | only Matomo's key and the admin key; only the admin key may change the bucket |
+| `d3strukt0r-prod-zot` | bucket, versioning (old versions kept 14 days), lifecycle, policy | only the registry zot's key and the admin key; only the admin key may change the bucket. Versioned so a layer deleted by zot's garbage collection, a bug or a mistake can be restored: a rebuilt image gets a new digest |
 
 Shared rules, credentials and the state backend are in [`../README.md`](../README.md).
 
@@ -28,7 +29,7 @@ way to scope one is a bucket policy, so `tofu/objectstorage` writes every policy
 (`local.etcd_principal`, `local.loki_principal`, `local.mariadb_backups_principal`,
 `local.postgres_backups_principal`, `local.openbao_snapshots_principal`,
 `local.wedding_manuele_robine_principal`, `local.robines_portfolio_principal`,
-`local.arepazo_principal`, `local.matomo_principal`; the WordPress sites' buckets also name
+`local.arepazo_principal`, `local.matomo_principal`, `local.zot_principal`; the WordPress sites' buckets also name
 their uploads proxy's read-only key, `local.robines_portfolio_uploads_proxy_principal`,
 `local.arepazo_uploads_proxy_principal`).
 That covers keys that do not exist yet, so
@@ -170,7 +171,8 @@ Needs `project_id`, `etcd_access_key_id`, `loki_access_key_id`, `tempo_access_ke
 `mariadb_backups_access_key_id`, `postgres_backups_access_key_id`,
 `openbao_snapshots_access_key_id`, `wedding_manuele_robine_access_key_id`,
 `robines_portfolio_access_key_id`, `robines_portfolio_uploads_proxy_access_key_id`,
-`arepazo_access_key_id`, `arepazo_uploads_proxy_access_key_id` and `matomo_access_key_id` in
+`arepazo_access_key_id`, `arepazo_uploads_proxy_access_key_id`, `matomo_access_key_id` and
+`zot_access_key_id` in
 `objectstorage/terraform.tfvars` - the key IDs are the username fields of the keys'
 1Password items, never the secrets. The provider cannot read
 AWS profiles, so `locals.tf` parses the `[d3strukt0r-hetzner]` section of
