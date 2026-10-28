@@ -92,6 +92,16 @@
     mode: "0600"
   register: k3s_kubelet_dropin
 
+- name: Write the registry configuration
+  # Pulls through zot and the embedded registry (k3s_registries). containerd reads it only when
+  # k3s starts, so a change restarts the node below. Holds the API key: root only, never logged.
+  ansible.builtin.copy:
+    content: "{{ k3s_registries | to_nice_yaml(indent=2) }}"
+    dest: /etc/rancher/k3s/registries.yaml
+    mode: "0600"
+  register: k3s_registries_file
+  no_log: true
+
 - name: Write the Pod Security Admission configuration
   # Read by the API server through admission-control-config-file in k3s_config, at start -
   # so a change here restarts k3s just like a change to the drop-in.
@@ -156,7 +166,8 @@
   # moves on - with serial: 1, one server restarts at a time and etcd keeps its quorum. The
   # installer names the service k3s on a server and k3s-agent on an agent.
   when: >-
-    (k3s_config_dropin.changed or k3s_kubelet_dropin.changed or k3s_psa.changed or k3s_authn.changed)
+    (k3s_config_dropin.changed or k3s_kubelet_dropin.changed or k3s_registries_file.changed
+     or k3s_psa.changed or k3s_authn.changed)
     and k3s_binary.stat.exists
   block:
     - name: Restart k3s

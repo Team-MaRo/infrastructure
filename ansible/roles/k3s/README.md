@@ -260,6 +260,36 @@ what is k3s configuration is here.
   (command in the etcd-snapshots README); a restore uses the admin key instead. Console label
   `prod etcd snapshots`.
 
+## Pulling through zot
+
+Every node's containerd pulls through the cluster's own registry, zot at
+`registry.d3strukt0r.dev` ([`kubernetes/components/zot/README.md`](../../../kubernetes/components/zot/README.md)):
+`/etc/rancher/k3s/registries.yaml` from `k3s_registries`, plus `embedded-registry: true` in
+`k3s_config`.
+
+- **The five allowed registries** (`docker.io`, `ghcr.io`, `quay.io`, `registry.k8s.io`,
+  `public.ecr.aws`) go through zot's mirror: a `rewrite` puts the name under zot's prefix, so
+  `docker.io/library/busybox` is fetched as `registry.d3strukt0r.dev/docker.io/library/busybox`.
+  Manifests keep the original names, and Kyverno's allowed registries are unchanged.
+- **Order per pull**: a peer node first (the embedded registry, Spegel, on 5001 and 6443 over the
+  private network, which Hetzner's firewall does not filter), then zot, then the origin registry,
+  which k3s always tries last. A broken zot slows pulls down; it does not stop them. Only images
+  of registries under `mirrors` are shared between peers, and **never `latest` tags** (k3s's
+  rule) - the Keel apps on floating tags pull from zot or the origin every time.
+- **Our own registry** is listed without an endpoint: pulls go to it directly, and the embedded
+  registry shares its images. A peer hands them out without asking for credentials - all nodes
+  are equally trusted.
+- **The login**: zot wants one for everything; the nodes use the API key of its read-only user
+  `cluster`, from 1Password at run time (`k3s_registry_password` in `group_vars/prod.yml`, item
+  [`Zot | Prod | cluster`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=od76biljijf6a7umrlojyd45ya&h=my.1password.com),
+  field `api-key`). So `prod.yml` asks for 1Password, like `secrets.yml`. The file is root-only
+  and the task `no_log`.
+- **A change restarts k3s one node at a time** - containerd reads the file only at start - like
+  a drop-in change. Running containers keep running.
+- **Rotating the key**: make a new one (zot README, "Making an API key"), put it into the item's
+  `api-key`, run `prod.yml` (every node restarts in turn), then delete the old key in zot (zot
+  README, "Rotating a key").
+
 ## Running it
 
 ```shell

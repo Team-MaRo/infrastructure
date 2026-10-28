@@ -69,9 +69,15 @@ k3s_server_args:
 # instead of the unencrypted VXLAN default. Flannel options must be identical on all
 # servers, and switching a running cluster breaks cross-node pod traffic until the last node
 # has restarted - then reboot each node to clear the old flannel.1 interface.
+#
+# embedded-registry lets the nodes pull images from each other (Spegel, on 5001 and 6443 over
+# the private network) before asking zot or the origin registry - a pod starts from a peer's
+# copy while zot is down. A server key, which turns it on for every node; only the registries
+# under mirrors in k3s_registries take part.
 k3s_config:
   disable:
     - local-storage
+  embedded-registry: true
   etcd-s3: true
   etcd-s3-config-secret: k3s-etcd-snapshot-s3-config
   etcd-expose-metrics: true
@@ -109,6 +115,38 @@ k3s_kubelet_config:
     memory: 1536Mi
   systemReserved:
     memory: 256Mi
+
+# containerd's registry settings, written to /etc/rancher/k3s/registries.yaml on every node; a
+# change restarts one node at a time, like k3s_config (README "Pulling through zot"). The five
+# registries Kyverno allows are pulled through zot's mirror, each under its own prefix there
+# (rewrite); our own registry is listed without an endpoint, so the embedded registry shares its
+# images too. Order per pull: a peer node (embedded-registry), then zot, then the origin
+# registry, which k3s always tries last - a broken zot slows pulls down, it does not stop them.
+# zot wants a login for everything; the nodes use the API key of its read-only user cluster.
+k3s_registry_url: https://registry.d3strukt0r.dev
+k3s_registries:
+  mirrors:
+    docker.io:
+      endpoint: ["{{ k3s_registry_url }}"]
+      rewrite: { "^(.*)$": "docker.io/$1" }
+    ghcr.io:
+      endpoint: ["{{ k3s_registry_url }}"]
+      rewrite: { "^(.*)$": "ghcr.io/$1" }
+    quay.io:
+      endpoint: ["{{ k3s_registry_url }}"]
+      rewrite: { "^(.*)$": "quay.io/$1" }
+    registry.k8s.io:
+      endpoint: ["{{ k3s_registry_url }}"]
+      rewrite: { "^(.*)$": "registry.k8s.io/$1" }
+    public.ecr.aws:
+      endpoint: ["{{ k3s_registry_url }}"]
+      rewrite: { "^(.*)$": "public.ecr.aws/$1" }
+    registry.d3strukt0r.dev: {}
+  configs:
+    registry.d3strukt0r.dev:
+      auth:
+        username: cluster
+        password: "{{ k3s_registry_password }}"
 
 # Kernel settings on the node itself. ip_unprivileged_port_start lets non-root processes bind
 # ports from 80 up in the host's network namespace (it covers IPv6 too, despite the name):

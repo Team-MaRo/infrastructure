@@ -41,6 +41,15 @@ k3s_node_labels:
 onepassword_account: my.1password.com
 onepassword_vault: Private
 
+# The nodes' API key for the registry zot (user cluster, read-only), written into
+# registries.yaml by the k3s role (README "Pulling through zot"). Read from 1Password on the
+# admin's machine whenever a play renders that file, so prod.yml asks for 1Password too.
+# 1Password "Zot | Prod | cluster"
+#   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=od76biljijf6a7umrlojyd45ya&h=my.1password.com
+k3s_registry_password: >-
+  {{ lookup('community.general.onepassword', 'Zot | Prod | cluster', field='api-key',
+     vault=onepassword_vault, account_id=onepassword_account) }}
+
 # The Secrets secrets.yml writes - only what the cluster needs before OpenBao can supply
 # secrets itself. Each value is one field of one 1Password item.
 cluster_secrets:

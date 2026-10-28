@@ -67,8 +67,10 @@ valkey-state's data is lost, they are gone and must be made again.
 
 zot fetches from the five registries on demand, under a prefix per registry:
 `registry.d3strukt0r.dev/docker.io/library/busybox` is `docker.io/library/busybox`. The nodes are
-pointed at it in `/etc/rancher/k3s/registries.yaml` (Ansible, k3s role) and fall back to the
-origin registry when zot fails. Docker Hub limits anonymous pulls per address; zot's cache keeps
+pointed at it in `/etc/rancher/k3s/registries.yaml`, with the `cluster` user's API key, and share
+images among themselves first (embedded registry); they fall back to the origin registry when
+zot fails ([`ansible/roles/k3s/README.md`](../../../ansible/roles/k3s/README.md), "Pulling through
+zot"). Docker Hub limits anonymous pulls per address; zot's cache keeps
 that low.
 
 ## Secrets
@@ -83,12 +85,14 @@ that low.
 
 ### Making an API key
 
-With the user's password, once; the key is shown only in the answer:
+With the user's password, once; the key is shown only in the answer. The password goes through a
+variable - piped into `curl -u "cluster:$(cat)"` it arrived wrong and zot answered 401
+(2026-10-28):
 
 ```shell
-op item get 'Zot | Prod | cluster' --account my.1password.com --fields password --reveal \
-  | curl -fsS -u "cluster:$(cat)" -X POST -H 'Content-Type: application/json' \
-      -d '{"label":"nodes"}' https://registry.d3strukt0r.dev/zot/auth/apikey | jq -r .apiKey
+pw=$(op item get 'Zot | Prod | cluster' --account my.1password.com --fields password --reveal) && \
+  curl -fsS -u "cluster:$pw" -X POST -H 'Content-Type: application/json' \
+    -d '{"label":"nodes"}' https://registry.d3strukt0r.dev/zot/auth/apikey | jq -r .apiKey; unset pw
 ```
 
 Store it in the user's 1Password item (field `api-key`). `docker login registry.d3strukt0r.dev -u
@@ -96,7 +100,9 @@ cluster` takes it as the password.
 
 ### Rotating a key
 
-Make a new one as above, roll it out (the nodes: Ansible), then remove the old one:
+Make a new one as above and roll it out - the nodes' key: into the field `api-key` of
+`Zot | Prod | cluster`, then `ansible-playbook prod.yml` from `ansible/`, which restarts every
+node in turn - then remove the old one:
 `curl -u cluster:<password> -X DELETE 'https://registry.d3strukt0r.dev/zot/auth/apikey?id=<uuid>'`
 (`GET /zot/auth/apikey` lists them with their ids).
 
