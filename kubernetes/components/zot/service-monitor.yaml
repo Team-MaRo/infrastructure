@@ -1,6 +1,7 @@
 ---
-# zot's metrics (requests, storage, garbage collection) from its Service; /metrics needs no login
-# (accessControl.metrics in external-secrets.yaml) and is not routed outside the cluster.
+# zot's metrics (requests, storage, garbage collection) from its Service, logged in as the user
+# metrics (Secret zot-metrics, external-secrets.yaml) - /metrics needs a login, since the whole
+# host is routed for the UI (ingress.yaml).
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
@@ -12,3 +13,10 @@ spec:
   endpoints:
     - port: zot
       path: /metrics
+      basicAuth:
+        username:
+          name: zot-metrics
+          key: username
+        password:
+          name: zot-metrics
+          key: password

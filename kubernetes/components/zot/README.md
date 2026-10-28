@@ -6,7 +6,8 @@ The container registry at `registry.d3strukt0r.dev` (`kubernetes/clusters/prod/z
 Helm chart pinned there with `values.yaml` and this directory's manifests, namespace `zot`). It
 holds our own images - only here, never pushed to ghcr.io or Docker Hub - and mirrors the
 registries Kyverno allows (`docker.io`, `ghcr.io`, `quay.io`, `registry.k8s.io`,
-`public.ecr.aws`).
+`public.ecr.aws`). Its web UI is at `https://registry.d3strukt0r.dev/`, login through Zitadel
+("Sign in with OpenID Connect", role `infra-admin`).
 
 ## Why zot
 
@@ -34,8 +35,12 @@ containers, PostgreSQL and Redis - too much for four small nodes (research 2026-
   118 MB. So the Ingress (`ingress.yaml`) has no `cloudflare-only`, carries the label
   `d3strukt0r.dev/dns-only: "true"` for Kyverno's guard, and a rate limit of its own
   (`middleware-rate-limit.yaml`: 100 requests a second per connection address, bursts of 500 -
-  a pull asks for every layer in parallel). Only `/v2` and `/zot` are routed; `/metrics` stays
-  inside the cluster.
+  a pull asks for every layer in parallel). The whole host is routed - the registry API, zot's
+  login and the UI - so `/metrics` needs a login as well: Prometheus logs in as `metrics`.
+- **The UI and its sessions**: `extensions.ui` and `search`; a browser login is a session cookie
+  whose session lives in valkey-state (`sessionDriver` redis, keys `zotsession:*`, 2 hours), so
+  a restart of zot logs nobody out. A fixed cookie key (`sessionKeysFile`) does not do that: the
+  sessions themselves would stay on the pod's disk - tested 2026-10-29.
 - **Restricted Pod Security**: the image runs as root; here as 10001 with a read-only root, `/tmp`
   and its root directory as emptyDirs (tested 2026-10-28).
 - **The mirror downloads to the pod first** (`extensions.sync.downloadDir`,
@@ -48,17 +53,19 @@ containers, PostgreSQL and Redis - too much for four small nodes (research 2026-
 
 ## Logins
 
-Every request needs one; nothing is anonymous except `/metrics` (in-cluster only). zot answers
-every client with a Bearer challenge, so a client exchanges its credential at
-`/zot/auth/token`:
+Every request needs one; nothing is anonymous. zot answers every registry client with a Bearer
+challenge, so a client exchanges its credential at `/zot/auth/token`:
 
 | Who | Credential | May |
 |---|---|---|
 | GitHub Actions of `Team-MaRo` and `D3strukt0r` | the workflow's OIDC token (audience `registry.d3strukt0r.dev`, `permissions: id-token: write`) - no secret stored at GitHub | read and push `team-maro/**`, `d3strukt0r/**` |
 | the nodes (user `cluster`) | an API key | read everything, the mirror included |
-| `admin` | an API key | everything, deleting included |
+| people with `infra-admin` in Zitadel | the UI's login ("Sign in with OpenID Connect", app `zot` in project Infrastructure, `tofu/zitadel`); for `docker login` an API key of their own, made in the UI | everything, deleting included (`adminPolicy` group `infra-admin`) |
+| `admin` | an API key | everything - the break-glass login for when Zitadel is down, and for making the keys anew after valkey-state lost them |
+| Prometheus (user `metrics`) | its password, directly (Basic) | `/metrics` only |
 
-`admin` and `cluster` are htpasswd users (hashes in `secret/zot`), but zot refuses their
+`admin`, `cluster` and `metrics` are htpasswd users (hashes in `secret/zot`). zot refuses the
+first two's
 passwords at the token endpoint once GitHub's tokens are on - tested 2026-10-28. The password
 only creates API keys ("Making an API key"). Keys live in Valkey and survive restarts; if
 valkey-state's data is lost, they are gone and must be made again.
@@ -77,13 +84,19 @@ that low.
 
 | OpenBao | Fields | 1Password |
 |---|---|---|
-| `secret/zot` | `htpasswd` (two lines, bcrypt) | [`Zot \| Prod \| admin`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=oflhq5kcafpo5np4aj2csrvfqq&h=my.1password.com), [`Zot \| Prod \| cluster`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=od76biljijf6a7umrlojyd45ya&h=my.1password.com) (the passwords) |
+| `secret/zot` | `htpasswd` (three lines, bcrypt), `metrics-password` | [`Zot \| Prod \| metrics`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=76i4r6k6moxwyrhttdfebbkf3u&h=my.1password.com), [`Zot \| Prod \| admin`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=oflhq5kcafpo5np4aj2csrvfqq&h=my.1password.com), [`Zot \| Prod \| cluster`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=od76biljijf6a7umrlojyd45ya&h=my.1password.com) (the passwords) |
 | `secret/zot-s3` | `access-key`, `secret-key` | [`Hetzner \| S3 \| prod zot`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=iiiac6kigz57va4kxpfk2c2tc4&h=my.1password.com) |
 | `secret/valkey-apps/zot` | `password` | [`Valkey \| Prod \| zot`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=233swwvse6eihstd2sxh222xsu&h=my.1password.com) |
+| `secret/zot-oidc` | `client-secret` | [`Zitadel \| Prod \| zot`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=44rf2knxnk3y4wvjbn5yg7w44i&h=my.1password.com) |
 
 ## Runbooks
 
-### Making an API key
+### Making your own API key
+
+In the UI, logged in through Zitadel: the user menu → API keys → create one. It is shown once;
+`docker login registry.d3strukt0r.dev -u <your Zitadel username>` takes it as the password.
+
+### Making an API key for `cluster` or `admin`
 
 With the user's password, once; the key is shown only in the answer. The password goes through a
 variable - piped into `curl -u "cluster:$(cat)"` it arrived wrong and zot answered 401
