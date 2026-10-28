@@ -1,4 +1,8 @@
 ---
+# No longer referenced: the rate limit moved into charts/cloudflare-only. Deleted once every
+# Traefik pod runs without the entry-point reference - deleting it first would stop every route
+# on 443 until they have rolled.
+#
 # A rate limit per visitor, for every route on websecure (attached to the entry point in
 # helmchartconfig.yaml), so one client flooding the cluster is answered 429 by Traefik before
 # it costs memory or reaches an app. On 2026-10-07 a scanner sent 1249 requests in a minute

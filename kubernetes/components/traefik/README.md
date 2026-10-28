@@ -6,7 +6,7 @@ Traffic enters through Traefik, which k3s ships. Traefik is k3s's own - k3s inst
 upgrades it from its bundled chart - and is configured only through the `HelmChartConfig` in
 `kubernetes/components/traefik/` (`helmchartconfig.yaml`, Application `traefik`), next to the
 dashboard's certificate (`certificate.yaml`), its Zitadel gate
-(`middleware-oauth2-proxy.yaml`), the rate limit per visitor (`middleware-rate-limit.yaml`) and
+(`middleware-oauth2-proxy.yaml`) and
 the PodMonitor for its metrics (`pod-monitor.yaml`). It
 runs as a **DaemonSet on every ingress node's host network** and listens on the node's ports 80
 and 443 itself, IPv4 and IPv6. `prod.d3strukt0r.dev` has an A and an AAAA record per ingress
@@ -63,22 +63,19 @@ rebuild) the complete one.
   70-160 MiB normally; a scanner's burst of requests (1249 in a minute, 2026-10-07) pushed the
   Traefik on prod-02 past the former 256Mi and got it OOM-killed. Every ingress node needs the
   headroom, since any of them can take such a burst.
-- **A rate limit per visitor** (`middleware-rate-limit.yaml`, Middleware `rate-limit` in
-  `kube-system`): 20 requests a second on average, bursts of 100, grouped by
-  `CF-Connecting-IP` - the client address Traefik sees is Cloudflare's. Above it Traefik
-  answers 429 (and logs it). It sits on the `websecure` entry point
-  (`ports.websecure.http.middlewares` in `helmchartconfig.yaml`), so it covers every route on
-  443 without each Ingress naming it. **A wrong name there stops every route on 443** - check
-  Traefik's log for `middleware ... does not exist` after changing it.
-- **Only through Cloudflare** (Middleware `cloudflare-only`,
-  [`../../charts/cloudflare-only/README.md`](../../charts/cloudflare-only/README.md)): every
-  route of a name Cloudflare proxies admits only Cloudflare's IP ranges and answers anyone else
-  403. Traefik on the host network sees the connecting Cloudflare server as the client, so the
-  check needs no header. It is per route, not on the entry point like the rate limit: names
-  that are not proxied (the registry, later Forgejo) share port 443 and must stay reachable.
-  With it, `CF-Connecting-IP` on a proxied route can only come from Cloudflare, which the rate
-  limit, the sites' nginx and the xmlrpc allowlist rely on. A route that names the middleware
-  without its namespace's copy existing is switched off (404) - it fails closed.
+- **Only through Cloudflare, at most 20 requests a second per visitor** (Middleware
+  `cloudflare-only`, [`../../charts/cloudflare-only/README.md`](../../charts/cloudflare-only/README.md)):
+  every route of a name Cloudflare proxies puts this chain first. It admits only Cloudflare's IP
+  ranges (anyone else gets 403 - Traefik on the host network sees the connecting Cloudflare
+  server as the client, so that check needs no header), then limits each visitor to 20 requests
+  a second on average with bursts of 100, grouped by `CF-Connecting-IP` (429 above it, logged).
+  A scanner's 1249 requests in a minute (2026-10-07) had got the Traefik on prod-02 OOM-killed.
+  Both are per route, not on the entry point: names that are not proxied (the registry, later
+  Forgejo) share port 443, must stay reachable directly and carry no `CF-Connecting-IP` - on the
+  entry point their clients would all share one bucket. Behind the chain, `CF-Connecting-IP` can
+  only come from Cloudflare, which the rate limit, the sites' nginx and the xmlrpc allowlist
+  rely on. A route that names the middleware without its namespace's copy existing is switched
+  off (404) - it fails closed.
 - **Every request is traced** (`tracing.otlp` in `helmchartconfig.yaml`, the default sample rate
   1.0): Traefik sends a span per request over OTLP gRPC to the Alloy on its node
   (`alloy.kube-system.svc:4317`, resolved through `ClusterFirstWithHostNet`), which forwards it

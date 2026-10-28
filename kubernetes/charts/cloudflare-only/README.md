@@ -2,9 +2,14 @@
 
 Back to [`kubernetes/README.md`](../../README.md).
 
-The Traefik Middleware `cloudflare-only` (`files/middleware.yaml`): an `ipAllowList` of Cloudflare's IP
-ranges. Every route of a name that Cloudflare proxies puts it first, so only Cloudflare reaches
-those sites; anyone talking to a node directly gets 403 from Traefik.
+The Traefik Middleware `cloudflare-only` (`files/middleware.yaml`), a `chain` of two:
+`cloudflare-allowlist`, an `ipAllowList` of Cloudflare's IP ranges, and `cloudflare-rate-limit`,
+20 requests a second per visitor (bursts of 100, grouped by `CF-Connecting-IP`). Every route of a
+name that Cloudflare proxies puts it first, so only Cloudflare reaches those sites - anyone
+talking to a node directly gets 403 from Traefik - and a single visitor cannot flood one. The
+rate limit was on Traefik's entry point before (2026-10-07, a scanner's burst); it moved here
+because DNS-only routes share that port without a `CF-Connecting-IP`, so their clients would all
+have counted as one visitor.
 
 ## Why
 
@@ -42,7 +47,9 @@ so every app with a proxied route gets its own copy, all from the one file `file
 - **The route** names it first: `traefik.ingress.kubernetes.io/router.middlewares:
   <namespace>_cloudflare-only@kubernetescrd[,<its others>]` on an Ingress (a chart's ingress
   annotations in its values), `middlewares: [{name: cloudflare-only}]` on an IngressRoute.
-- **A DNS-only route** leaves it out and carries the label `d3strukt0r.dev/dns-only: "true"`;
+- **A DNS-only route** leaves it out, carries the label `d3strukt0r.dev/dns-only: "true"` and
+  brings a rate limit of its own, grouped by the connection's address (there it is the real
+  client) - without one it has no cap at all;
   Kyverno refuses any other route without the middleware first
   ([`../../components/kyverno/README.md`](../../components/kyverno/README.md), "Routes only
   through Cloudflare").

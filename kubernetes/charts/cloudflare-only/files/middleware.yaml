@@ -1,22 +1,33 @@
 ---
-# Only Cloudflare reaches the sites whose names Cloudflare proxies: every route of such a name
-# carries this middleware first (<namespace>_cloudflare-only@kubernetescrd). A client that knows a
-# node's address - DNS-only names like the registry publish them - and talks to it directly gets
-# 403 instead of the site, and so can no longer set CF-Connecting-IP itself on a proxied route.
-# DNS-only routes leave it out and carry the label d3strukt0r.dev/dns-only: "true" - Kyverno
-# refuses any other route without it (components/kyverno, cloudflare-only-routes.yaml). No namespace: Traefik takes a route's middlewares only
-# from the route's own namespace, so every app gets its own copy of this one file - a chart of ours
-# as the subchart cloudflare-only, a Kustomize directory by listing this directory (README).
-#
-# No ipStrategy: Traefik runs on the host network, so the connection's own address is the
-# Cloudflare server that opened it - exactly what to check.
+# What every route of a name Cloudflare proxies puts first
+# (<namespace>_cloudflare-only@kubernetescrd): only Cloudflare gets in, then the per-visitor rate
+# limit. A chain, so the routes name one
+# middleware. DNS-only routes leave it out and carry the label d3strukt0r.dev/dns-only: "true" -
+# Kyverno refuses any other route without it (components/kyverno, cloudflare-only-routes.yaml).
+# No namespace: Traefik takes a route's middlewares only from the route's own namespace, so every
+# app gets its own copy of this one file - a chart of ours as the subchart cloudflare-only, a
+# Kustomize directory by listing this directory (README).
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: cloudflare-only
+spec:
+  chain:
+    middlewares:
+      - name: cloudflare-allowlist
+      - name: cloudflare-rate-limit
+---
+# Only Cloudflare: a client that knows a node's address - DNS-only names like the registry publish
+# them - and talks to it directly gets 403 instead of the site, and so can no longer set
+# CF-Connecting-IP itself. No ipStrategy: Traefik runs on the host network, so the connection's
+# own address is the Cloudflare server that opened it - exactly what to check.
 #
 # Cloudflare's ranges, from https://api.cloudflare.com/client/v4/ips on 2026-10-28, etag
 # 38f79d050aa027e3be3865e495dcc9bc. Gatus alerts when that etag changes (components/gatus).
 apiVersion: traefik.io/v1alpha1
 kind: Middleware
 metadata:
-  name: cloudflare-only
+  name: cloudflare-allowlist
 spec:
   ipAllowList:
     sourceRange:
@@ -42,3 +53,23 @@ spec:
       - 2405:8100::/32
       - 2a06:98c0::/29
       - 2c0f:f248::/32
+---
+# A rate limit per visitor, so one client flooding a site is answered 429 by Traefik before it
+# costs memory or reaches the app. On 2026-10-07 a scanner sent 1249 requests in a minute for
+# backup archives (/corp.zip, /composer.json.zip, ...) and the Traefik on prod-02 was OOM-killed.
+# Grouped by CF-Connecting-IP: the connection comes from Cloudflare, so its address would put many
+# visitors into one bucket - and behind the allowlist the header can only be Cloudflare's. 20
+# requests a second on average with bursts of 100: a page load with its assets and a Grafana
+# dashboard's parallel queries stay well inside; Cloudflare also serves static files from its
+# cache. The bucket is per copy and Traefik node, so a visitor is limited per app, not cluster-wide.
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: cloudflare-rate-limit
+spec:
+  rateLimit:
+    average: 20
+    period: 1s
+    burst: 100
+    sourceCriterion:
+      requestHeaderName: CF-Connecting-IP

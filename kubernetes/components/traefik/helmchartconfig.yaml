@@ -43,10 +43,9 @@ spec:
         port: 443
         http:
           aliasHeadersStrategy: delete
-          # Every route on 443 passes the per-visitor rate limit first (middleware-rate-limit.yaml).
-          # Named <namespace>_<name> (safe naming); a wrong name would stop every route here.
-          middlewares:
-            - kube-system_rate-limit@kubernetescrd
+          # No entry-point middlewares: the per-visitor rate limit is part of cloudflare-only on
+          # each proxied route (kubernetes/charts/cloudflare-only), since DNS-only routes share
+          # this port and their clients carry no CF-Connecting-IP to tell them apart.
       metrics:
         http:
           aliasHeadersStrategy: delete
