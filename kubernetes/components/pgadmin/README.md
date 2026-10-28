@@ -95,7 +95,7 @@ The configuration database's password has letters and digits only, since it sits
 
 Then `tofu/zitadel` (the app) and `tofu/cloudflare` (the record `pgadmin.d3strukt0r.dev`).
 
-The first login: "Login with Zitadel", open "PostgreSQL" under "prod" and enter the password of
+The first login: "Login with OpenID Connect", open "PostgreSQL" under "prod" and enter the password of
 `admin` from 1Password.
 
 ## Checking it

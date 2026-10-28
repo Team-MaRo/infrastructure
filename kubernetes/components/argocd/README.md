@@ -117,7 +117,7 @@ of itself is a no-op.
 
 ## Accessing the UI
 
-**Argo CD** is at `https://argocd.d3strukt0r.dev` - "Log in via Zitadel" with the personal user
+**Argo CD** is at `https://argocd.d3strukt0r.dev` - "Log in via OpenID Connect" with the personal user
 (it needs the role `infra-admin`). The CLI, once; `--grpc-web` is remembered:
 
 ```shell

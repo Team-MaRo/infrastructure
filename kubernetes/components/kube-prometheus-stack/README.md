@@ -182,7 +182,7 @@ Reloader only acts on the Deployment; [`../reloader/README.md`](../reloader/READ
 
 ## Accessing the UIs
 
-**Grafana** is at `https://grafana.d3strukt0r.dev` - "Sign in with Zitadel"; its local `admin`
+**Grafana** is at `https://grafana.d3strukt0r.dev` - "Sign in with OpenID Connect"; its local `admin`
 (password in 1Password [`Grafana | Prod | Admin`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=25tqaghtajnc3efoop2ve6jfze&h=my.1password.com)) and the port-forward below
 stay as break-glass. **Prometheus** is at `https://prometheus.d3strukt0r.dev` and
 **Alertmanager** at `https://alertmanager.d3strukt0r.dev`, both behind the Zitadel gate

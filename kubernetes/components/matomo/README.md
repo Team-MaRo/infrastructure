@@ -139,11 +139,12 @@ stops with "Matomo is not installed in its database yet". Once, in this order:
      `https://auth.d3strukt0r.dev/oidc/v1/end_session`, client ID (`tofu output -raw
      matomo_client_id` in `tofu/zitadel`) and secret, scope `openid email profile`, "Erstelle
      automatisch einen neuen Account …" on, "Deaktiviere Passwortbestätigung" on (OIDC users know
-     no Matomo password), "Feingranulare Zugriffsrechte nutzen" on - then **Speichern**, confirmed
+     no Matomo password), "Feingranulare Zugriffsrechte nutzen" on, "Name" `OpenID Connect` (the
+     login button's label, AGENTS.md; set 2026-10-29) - then **Speichern**, confirmed
      with the admin password.
    - Administration → System → Geolokalisierung: the DBIP / GeoIP 2 provider, automatic updates
      **never** (the CronJob updates it; Matomo's own download would land on the pod and vanish).
-   - Log in once through "OIDC login", then as `admin` give that user superuser access
+   - Log in once through "OpenID Connect", then as `admin` give that user superuser access
      (Administration → Benutzer).
 
 ## Email

@@ -135,6 +135,11 @@ built from IDs only:
 It opens only for someone signed in with access to the vault; it exposes account, vault and
 item IDs (accepted) and **goes stale when an item is recreated** - regenerate its links then.
 
+**A login button says "OpenID Connect", never "Zitadel"** (user decision): no text people see
+names the identity provider - WordPress, Argo CD, Grafana, pgAdmin, Matomo and zot all label
+their Zitadel login that way; OpenBao's own "OIDC Provider" is fixed by its UI. Only the button's
+label - internal names (a provider key, a config section) may still say `zitadel`.
+
 **Every directory documents itself in its `README.md`**, updated in the same change: a tofu
 module, an Ansible role, a Kubernetes component or cluster subdirectory. The README holds the
 design, every setting that differs from upstream and why, and the runbooks; this file holds

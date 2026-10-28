@@ -376,7 +376,7 @@ way in (a local admin and a port-forward).
   [`components/oauth2-proxy/README.md`](components/oauth2-proxy/README.md)
 - **phpMyAdmin** - `https://phpmyadmin.d3strukt0r.dev`, behind the Zitadel gate, then a MariaDB
   login: [`components/phpmyadmin/README.md`](components/phpmyadmin/README.md)
-- **pgAdmin** - `https://pgadmin.d3strukt0r.dev`, "Login with Zitadel", then a PostgreSQL role
+- **pgAdmin** - `https://pgadmin.d3strukt0r.dev`, "Login with OpenID Connect", then a PostgreSQL role
   (`admin`): [`components/pgadmin/README.md`](components/pgadmin/README.md)
 - **zot (container registry)** - `https://registry.d3strukt0r.dev`, "Sign in with OpenID
   Connect"; API keys for `docker login` from its user menu:

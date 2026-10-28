@@ -8,7 +8,9 @@ AUTHENTICATION_SOURCES = ['oauth2']
 OAUTH2_CONFIG = [
     {
         'OAUTH2_NAME': 'zitadel',
-        'OAUTH2_DISPLAY_NAME': 'Zitadel',
+        # The login button's label; no visible text names Zitadel (AGENTS.md). OAUTH2_NAME is only
+        # the source's key in pgAdmin.
+        'OAUTH2_DISPLAY_NAME': 'OpenID Connect',
         'OAUTH2_CLIENT_ID': '393358386470584673',
         'OAUTH2_SERVER_METADATA_URL': 'https://auth.d3strukt0r.dev/.well-known/openid-configuration',
         'OAUTH2_AUTHORIZATION_URL': 'https://auth.d3strukt0r.dev/oauth/v2/authorize',

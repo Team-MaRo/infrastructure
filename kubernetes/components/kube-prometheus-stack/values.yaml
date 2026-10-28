@@ -237,7 +237,8 @@ grafana:
     # login stays as the break-glass way in.
     auth.generic_oauth:
       enabled: true
-      name: Zitadel
+      # The login button's label; no visible text names Zitadel (AGENTS.md).
+      name: OpenID Connect
       client_id: "393061051085685089"
       use_pkce: true
       # A public client sends its ID in the request body and no secret; the automatic mode

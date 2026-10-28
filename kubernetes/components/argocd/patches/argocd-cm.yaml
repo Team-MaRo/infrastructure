@@ -10,8 +10,10 @@ data:
   url: https://argocd.d3strukt0r.dev
   # Login through Zitadel directly, without Dex. Both clients are public (PKCE, no secret) and
   # defined in tofu/zitadel/apps_argocd.tf, which also prints these client IDs.
+  # name is the login button's label ("Log in via OpenID Connect"); no visible text names Zitadel
+  # (AGENTS.md).
   oidc.config: |
-    name: Zitadel
+    name: OpenID Connect
     issuer: https://auth.d3strukt0r.dev
     clientID: "393057825934279009"
     cliClientID: "393057825934344545"
