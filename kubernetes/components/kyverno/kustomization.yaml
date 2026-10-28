@@ -9,3 +9,4 @@ resources:
   - rbac-limitranges.yaml
   - default-resources.yaml
   - allowed-registries.yaml
+  - cloudflare-only-routes.yaml

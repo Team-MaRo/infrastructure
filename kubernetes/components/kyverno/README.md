@@ -120,3 +120,26 @@ values) instead of its default `reg.kyverno.io`.
 - Adding a registry is one entry in the `allowed` variable in
   `components/kyverno/allowed-registries.yaml`. Test a change offline first:
   `kyverno apply <policy> --resource <pods and deployments>`.
+
+## Routes only through Cloudflare
+
+Every proxied route puts the Middleware `cloudflare-only` first, so only Cloudflare reaches it
+([`../../charts/cloudflare-only/README.md`](../../charts/cloudflare-only/README.md)). A new route
+that forgets it would be reachable around Cloudflare by anyone who knows a node's address, which
+the DNS-only names publish. `components/kyverno/cloudflare-only-routes.yaml`, a
+`ValidatingPolicy` in `Deny` mode, refuses it when it is applied:
+
+- **An Ingress** must name `<namespace>_cloudflare-only@kubernetescrd` first in
+  `traefik.ingress.kubernetes.io/router.middlewares`; **an IngressRoute** must name
+  `cloudflare-only` first in every route's `middlewares`. First, so nothing else (a login gate, a
+  rate limit) runs for a request from outside Cloudflare.
+- **A route for a DNS-only name** (the registry, later Forgejo) carries the label
+  `d3strukt0r.dev/dns-only: "true"` and is not checked. The label is the visible decision that
+  this route is meant to be reachable directly.
+- **`kube-system` and `kyverno` are not checked**, as for the registries - the Traefik
+  dashboard's IngressRoute in `kube-system` carries the middleware all the same. TCP routes
+  (`IngressRouteTCP`) are not checked either: they carry no HTTP middlewares.
+- **`failurePolicy: Ignore`**, for the same reason as the registries: routes only come from git.
+- Tested offline with the CLI of the running version (2026-10-28: the middleware second, missing
+  or from another namespace refused; labelled skipped; all 23 live routes passed):
+  `docker run --rm -v "$PWD:/w" -w /w ghcr.io/kyverno/kyverno-cli:v1.19.1 apply <policy> --resource <routes>`.

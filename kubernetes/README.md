@@ -263,7 +263,7 @@ kubernetes/
 | [`external-secrets`](components/external-secrets/README.md) | Delivers OpenBao values as Kubernetes Secrets |
 | [`system-upgrade-controller`](components/system-upgrade-controller/README.md) | Upgrades k3s on the nodes |
 | [`kured`](components/kured/README.md) | Reboots nodes after kernel updates |
-| [`kyverno`](components/kyverno/README.md) | Default resources (LimitRange) and allowed registries |
+| [`kyverno`](components/kyverno/README.md) | Default resources (LimitRange), allowed registries, routes only through Cloudflare |
 | [`traefik`](components/traefik/README.md) | k3s's Traefik on the ingress nodes' host network, the dashboard |
 | [`cert-manager`](components/cert-manager/README.md) | Certificates from Let's Encrypt over DNS-01 |
 | [`gatus`](components/gatus/README.md) | The public status page and the alerting heartbeat |

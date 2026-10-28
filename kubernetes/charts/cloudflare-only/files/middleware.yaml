@@ -3,7 +3,8 @@
 # carries this middleware first (<namespace>_cloudflare-only@kubernetescrd). A client that knows a
 # node's address - DNS-only names like the registry publish them - and talks to it directly gets
 # 403 instead of the site, and so can no longer set CF-Connecting-IP itself on a proxied route.
-# DNS-only routes leave it out (README). No namespace: Traefik takes a route's middlewares only
+# DNS-only routes leave it out and carry the label d3strukt0r.dev/dns-only: "true" - Kyverno
+# refuses any other route without it (components/kyverno, cloudflare-only-routes.yaml). No namespace: Traefik takes a route's middlewares only
 # from the route's own namespace, so every app gets its own copy of this one file - a chart of ours
 # as the subchart cloudflare-only, a Kustomize directory by listing this directory (README).
 #

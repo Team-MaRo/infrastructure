@@ -1,0 +1,55 @@
+---
+# Every route must put the Middleware cloudflare-only first (kubernetes/charts/cloudflare-only), so
+# a new site cannot be reached around Cloudflare by anyone who knows a node's address - which the
+# DNS-only names publish. A route for a DNS-only name carries the label d3strukt0r.dev/dns-only:
+# "true" and is left alone. Ingresses are checked by their router annotation, IngressRoutes by
+# each route's middlewares. kube-system and kyverno are never sent here (like
+# allowed-registries.yaml); the Traefik dashboard's route in kube-system carries it anyway.
+apiVersion: policies.kyverno.io/v1
+kind: ValidatingPolicy
+metadata:
+  name: cloudflare-only-routes
+  annotations:
+    # The CRD is installed by the chart in the same sync.
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  validationActions: [Deny]
+  # With Kyverno down, routes are applied unchecked rather than not at all, as for the
+  # registries: routes only come from git, so the check guards against mistakes.
+  failurePolicy: Ignore
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [networking.k8s.io]
+        apiVersions: [v1]
+        operations: [CREATE, UPDATE]
+        resources: [ingresses]
+      - apiGroups: [traefik.io]
+        apiVersions: [v1alpha1]
+        operations: [CREATE, UPDATE]
+        resources: [ingressroutes]
+  matchConditions:
+    - name: not-dns-only
+      expression: >-
+        object.metadata.?labels[?'d3strukt0r.dev/dns-only'].orValue('') != 'true'
+  variables:
+    - name: wanted
+      expression: object.metadata.namespace + '_cloudflare-only@kubernetescrd'
+    - name: ingressFirst
+      expression: >-
+        object.metadata.?annotations[?'traefik.ingress.kubernetes.io/router.middlewares']
+        .orValue('').split(',')[0].trim()
+  validations:
+    - expression: object.kind != 'Ingress' || variables.ingressFirst == variables.wanted
+      messageExpression: >-
+        'an Ingress must name ' + variables.wanted + ' first in
+        traefik.ingress.kubernetes.io/router.middlewares (only Cloudflare reaches it), or carry
+        the label d3strukt0r.dev/dns-only: "true" if its names are not proxied'
+    - expression: >-
+        object.kind != 'IngressRoute' || object.spec.routes.all(r,
+        size(r.?middlewares.orValue([])) > 0
+        && r.middlewares[0].name == 'cloudflare-only'
+        && r.middlewares[0].?namespace.orValue(object.metadata.namespace) == object.metadata.namespace)
+      messageExpression: >-
+        'every route of an IngressRoute must name the middleware cloudflare-only first (only
+        Cloudflare reaches it), or the IngressRoute carry the label d3strukt0r.dev/dns-only:
+        "true" if its names are not proxied'

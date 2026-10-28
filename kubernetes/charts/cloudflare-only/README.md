@@ -42,7 +42,10 @@ so every app with a proxied route gets its own copy, all from the one file `file
 - **The route** names it first: `traefik.ingress.kubernetes.io/router.middlewares:
   <namespace>_cloudflare-only@kubernetescrd[,<its others>]` on an Ingress (a chart's ingress
   annotations in its values), `middlewares: [{name: cloudflare-only}]` on an IngressRoute.
-- **A DNS-only route** leaves it out.
+- **A DNS-only route** leaves it out and carries the label `d3strukt0r.dev/dns-only: "true"`;
+  Kyverno refuses any other route without the middleware first
+  ([`../../components/kyverno/README.md`](../../components/kyverno/README.md), "Routes only
+  through Cloudflare").
 
 A route that names it in a namespace without the copy is switched off by Traefik (404, "middleware
 ... does not exist" in its log): it fails closed.

@@ -208,7 +208,8 @@ rule, 2026-10-02). Where a name cannot hold a hyphen, the hyphens become undersc
   the Middleware `cloudflare-only` first (`<namespace>_cloudflare-only@kubernetescrd`); its app
   brings the namespace's copy - a chart of ours as the subchart `kubernetes/charts/cloudflare-only`,
   a Kustomize directory by listing `kubernetes/charts/cloudflare-only/files` (Traefik takes
-  middlewares only from the route's own namespace). DNS-only routes leave it out
+  middlewares only from the route's own namespace). DNS-only routes leave it out and carry the
+  label `d3strukt0r.dev/dns-only: "true"`; Kyverno refuses any other route without it
   ([`kubernetes/charts/cloudflare-only/README.md`](kubernetes/charts/cloudflare-only/README.md)).
 - **Images come only from `docker.io`, `ghcr.io`, `quay.io`, `registry.k8s.io` and
   `public.ecr.aws`** (Kyverno's `allowed-registries`); a new registry is one entry there.
@@ -340,7 +341,7 @@ component); update it in the same change.
 | [`kubernetes/components/external-secrets/README.md`](kubernetes/components/external-secrets/README.md) | The `openbao` store and writing an ExternalSecret |
 | [`kubernetes/components/system-upgrade-controller/README.md`](kubernetes/components/system-upgrade-controller/README.md) | k3s upgrades: channel, window, failed Jobs |
 | [`kubernetes/components/kured/README.md`](kubernetes/components/kured/README.md) | Reboots after kernel updates, blocked drains |
-| [`kubernetes/components/kyverno/README.md`](kubernetes/components/kyverno/README.md) | Default resources and allowed registries |
+| [`kubernetes/components/kyverno/README.md`](kubernetes/components/kyverno/README.md) | Default resources, allowed registries, routes only through Cloudflare |
 | [`kubernetes/components/traefik/README.md`](kubernetes/components/traefik/README.md) | Ingress on the host network, ingress nodes, the dashboard |
 | [`kubernetes/components/cert-manager/README.md`](kubernetes/components/cert-manager/README.md) | DNS-01 issuers, the Cloudflare tokens, requesting a certificate |
 | [`kubernetes/components/cluster-rbac/README.md`](kubernetes/components/cluster-rbac/README.md) | Cluster-wide rights for Zitadel logins, revoking |
