@@ -1,0 +1,10 @@
+---
+# Part of the app, so removing the app removes the namespace and anything left in it.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: zot
+  labels:
+    # valkey-state admits connections from here (components/valkey-state): zot's users and API
+    # keys live in its database 4.
+    valkey.d3strukt0r.dev/state: "true"

@@ -1,0 +1,38 @@
+---
+# zot, the container registry at registry.d3strukt0r.dev: the zot Helm chart with values from
+# kubernetes/components/zot, plus that directory's manifests. Needs secret/zot, secret/zot-s3 and
+# secret/valkey-apps/zot in OpenBao and the bucket d3strukt0r-prod-zot (tofu/objectstorage).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: zot
+  namespace: argocd
+  # Removing this file removes everything it deployed, namespace included; the images stay in
+  # the bucket, the users and API keys in valkey-state.
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  sources:
+    # Pinned: bumping the version is the upgrade. 0.1.128 deploys zot v2.1.22.
+    - repoURL: https://zotregistry.dev/helm-charts
+      chart: zot
+      targetRevision: 0.1.128
+      helm:
+        # The chart's test pods (alpine, as root) are not wanted; Argo CD skips them anyway.
+        skipTests: true
+        valueFiles:
+          - $repo/kubernetes/components/zot/values.yaml
+    - repoURL: https://github.com/Team-MaRo/infrastructure.git
+      targetRevision: master
+      ref: repo
+      path: kubernetes/components/zot
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: zot
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - ServerSideApply=true

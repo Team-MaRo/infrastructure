@@ -211,8 +211,10 @@ rule, 2026-10-02). Where a name cannot hold a hyphen, the hyphens become undersc
   middlewares only from the route's own namespace). DNS-only routes leave it out and carry the
   label `d3strukt0r.dev/dns-only: "true"`; Kyverno refuses any other route without it
   ([`kubernetes/charts/cloudflare-only/README.md`](kubernetes/charts/cloudflare-only/README.md)).
-- **Images come only from `docker.io`, `ghcr.io`, `quay.io`, `registry.k8s.io` and
-  `public.ecr.aws`** (Kyverno's `allowed-registries`); a new registry is one entry there.
+- **Images come only from `docker.io`, `ghcr.io`, `quay.io`, `registry.k8s.io`,
+  `public.ecr.aws` and our own `registry.d3strukt0r.dev`** (Kyverno's `allowed-registries`); a
+  new registry is one entry there. Our own images are only in `registry.d3strukt0r.dev` (zot),
+  never pushed to ghcr.io or Docker Hub ([`kubernetes/components/zot/README.md`](kubernetes/components/zot/README.md)).
 - **Secret values never enter git or OpenTofu state.** They go into OpenBao with
   `bao kv put` (JSON on stdin) and reach workloads through an ExternalSecret against the
   `ClusterSecretStore` `openbao`
@@ -363,6 +365,7 @@ component); update it in the same change.
 | [`kubernetes/components/trust-manager/README.md`](kubernetes/components/trust-manager/README.md) | The databases' CA certificates in the apps' namespaces |
 | [`kubernetes/components/valkey-cache/README.md`](kubernetes/components/valkey-cache/README.md) | The shared cache: a database per app, its users, adding an app |
 | [`kubernetes/components/valkey-state/README.md`](kubernetes/components/valkey-state/README.md) | The shared state on a volume: sessions, locks, zot's logins; a database per app, adding an app |
+| [`kubernetes/components/zot/README.md`](kubernetes/components/zot/README.md) | The container registry: our own images, the mirror, logins, API keys, restoring a layer |
 | [`kubernetes/components/keel/README.md`](kubernetes/components/keel/README.md) | Rolling out new images under floating tags, opting an app in |
 | [`kubernetes/components/wedding-manuele-robine/README.md`](kubernetes/components/wedding-manuele-robine/README.md) | The wedding website; its two TODOs; moving it from prod-old |
 | [`kubernetes/shared/external-secret-defaults/README.md`](kubernetes/shared/external-secret-defaults/README.md) | The Kustomize Component giving every ExternalSecret its store and refresh interval |

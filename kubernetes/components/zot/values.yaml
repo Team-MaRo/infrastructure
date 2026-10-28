@@ -1,0 +1,60 @@
+# Values for the zot chart (README). Only what differs from the chart's defaults; the chart is
+# pinned in kubernetes/clusters/prod/zot.yaml.
+
+# Inside the cluster only: the Ingress (ingress.yaml) is ours, since it must carry the label
+# d3strukt0r.dev/dns-only, which the chart cannot set.
+service:
+  type: ClusterIP
+
+# The configuration and the htpasswd file come from the Secret zot-config (external-secrets.yaml),
+# mounted where the image reads config.json.
+externalSecrets:
+  - secretName: zot-config
+    mountPath: /etc/zot
+
+# The key to the bucket, read by zot's S3 driver from its usual variables.
+env:
+  - name: AWS_ACCESS_KEY_ID
+    valueFrom:
+      secretKeyRef:
+        name: zot-s3
+        key: AWS_ACCESS_KEY_ID
+  - name: AWS_SECRET_ACCESS_KEY
+    valueFrom:
+      secretKeyRef:
+        name: zot-s3
+        key: AWS_SECRET_ACCESS_KEY
+
+# The image runs as root by default; the restricted Pod Security standard needs a user. Tested as
+# 10001 with a read-only root (2026-10-28): it only writes /tmp and its root directory, both
+# emptyDirs - the images are in S3, users and API keys in Valkey.
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  runAsGroup: 10001
+  fsGroup: 10001
+  seccompProfile:
+    type: RuntimeDefault
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+extraVolumes:
+  - name: tmp
+    emptyDir: {}
+extraVolumeMounts:
+  - name: tmp
+    mountPath: /tmp
+
+# A first estimate; layer uploads stream through to S3.
+resources:
+  requests:
+    memory: 256Mi
+  limits:
+    memory: 512Mi
+
+# zot reads its configuration only at start (components/reloader).
+deploymentAnnotations:
+  secret.reloader.stakater.com/reload: zot-config,zot-s3

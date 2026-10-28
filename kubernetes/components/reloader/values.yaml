@@ -35,6 +35,7 @@ reloader:
     - valkey-state
     - wedding-manuele-robine
     - zitadel
+    - zot
   # A changed Secret would otherwise start a CronJob's Job at once and recreate Jobs.
   ignoreJobs: true
   ignoreCronJobs: true

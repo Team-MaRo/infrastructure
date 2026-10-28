@@ -35,6 +35,17 @@ endpoints:
     alerts:
       - type: ntfy
 
+  # The container registry: /v2/ answers 401 with a Bearer challenge when zot is up - every
+  # request needs a login (components/zot).
+  - name: Registry
+    group: Cluster
+    url: https://registry.d3strukt0r.dev/v2/
+    interval: 5m
+    conditions:
+      - "[STATUS] == 401"
+    alerts:
+      - type: ntfy
+
   - name: Wedding Manuele & Robine
     group: Apps
     url: https://manuele-robine.wedding/

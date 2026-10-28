@@ -68,6 +68,7 @@ The same number per app as in valkey-cache, so an app has one number for both:
 |---|---|
 | 0 | nobody - where a connection lands before it selects its own |
 | 1-3 | kept for the WordPress sites' numbers in valkey-cache |
+| 4 | zot - its users and API keys (`components/zot`) |
 
 Which are taken right now:
 `kubectl --context d3strukt0r-prod-admin -n valkey-state get secrets -o name | grep /db-`.

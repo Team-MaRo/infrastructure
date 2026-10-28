@@ -1,0 +1,40 @@
+---
+# The registry at registry.d3strukt0r.dev - DNS-only, a CNAME to direct.prod.d3strukt0r.dev
+# (tofu/cloudflare): through Cloudflare's proxy a push of a layer over 100 MB would fail. So no
+# cloudflare-only, but the label that tells Kyverno this route is meant to be reached directly,
+# and a rate limit of its own (middleware-rate-limit.yaml). Only the registry API (/v2) and zot's
+# own endpoints (/zot: token, API keys) are routed; /metrics stays inside the cluster. No
+# className: Traefik is the cluster's default IngressClass.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: zot
+  labels:
+    d3strukt0r.dev/dns-only: "true"
+  annotations:
+    # cert-manager creates the Certificate from spec.tls (components/cert-manager).
+    cert-manager.io/cluster-issuer: letsencrypt
+    traefik.ingress.kubernetes.io/router.middlewares: zot_rate-limit@kubernetescrd
+spec:
+  tls:
+    - hosts:
+        - registry.d3strukt0r.dev
+      secretName: registry-tls
+  rules:
+    - host: registry.d3strukt0r.dev
+      http:
+        paths:
+          - path: /v2
+            pathType: Prefix
+            backend:
+              service:
+                name: zot
+                port:
+                  name: zot
+          - path: /zot
+            pathType: Prefix
+            backend:
+              service:
+                name: zot
+                port:
+                  name: zot

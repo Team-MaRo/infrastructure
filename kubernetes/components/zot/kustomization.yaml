@@ -1,0 +1,21 @@
+---
+# zot, the container registry at registry.d3strukt0r.dev: our own images and a mirror of the
+# allowed registries. What this repo adds to the zot Helm chart, which the cluster's Application
+# pins; values.yaml next to this file is its values, not a resource. Its images are in the bucket
+# d3strukt0r-prod-zot, its users and API keys in valkey-state, so it needs no volume (README).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - namespace.yaml
+  - external-secrets.yaml
+  - middleware-rate-limit.yaml
+  - ingress.yaml
+  - service-monitor.yaml
+  - rules.yaml
+
+# Shared settings (shared/): the openbao store and refresh for every ExternalSecret, the
+# sync option for every monitor and rule.
+components:
+  - ../../shared/external-secret-defaults
+  - ../../shared/monitoring-sync-options

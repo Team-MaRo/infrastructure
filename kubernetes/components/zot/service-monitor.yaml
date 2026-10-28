@@ -1,0 +1,14 @@
+---
+# zot's metrics (requests, storage, garbage collection) from its Service; /metrics needs no login
+# (accessControl.metrics in external-secrets.yaml) and is not routed outside the cluster.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: zot
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: zot
+  endpoints:
+    - port: zot
+      path: /metrics

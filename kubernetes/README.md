@@ -54,6 +54,7 @@ kubernetes/
 │       ├── keel.yaml              # rolls out new images under floating tags: chart pinned here
 │       ├── valkey-cache.yaml      # the shared cache, a database per app
 │       ├── valkey-state.yaml      # the shared state (sessions, locks) on a volume, a database per app
+│       ├── zot.yaml               # the container registry: chart pinned here, values in components/
 │       ├── wedding-manuele-robine.yaml  # the wedding website
 │       ├── robines-portfolio.yaml  # the old WordPress portfolio: the WordPress chart and its values
 │       ├── arepazo.yaml       # the WooCommerce shop: the WordPress chart and its values
@@ -246,12 +247,20 @@ kubernetes/
     │   └── values.yaml            # the WordPress chart's values: old.robines.space, its plugins
     ├── arepazo/
     │   └── values.yaml            # the WordPress chart's values: www.arepazo.ch, the shop's plugins
-    └── matomo/
+    ├── matomo/
+    │   ├── kustomization.yaml
+    │   ├── deployment.yaml        # php-fpm and nginx, assembled by prepare.sh at every start
+    │   ├── cronjob-archive.yaml   # builds the reports every hour
+    │   ├── cronjob-geoip.yaml     # the monthly DB-IP city database into its bucket
+    │   └── common.config.ini.php  # Matomo's settings beside its defaults
+    └── zot/
+        ├── values.yaml            # Helm values: config from a Secret, non-root, the S3 key as env
         ├── kustomization.yaml
-        ├── deployment.yaml        # php-fpm and nginx, assembled by prepare.sh at every start
-        ├── cronjob-archive.yaml   # builds the reports every hour
-        ├── cronjob-geoip.yaml     # the monthly DB-IP city database into its bucket
-        └── common.config.ini.php  # Matomo's settings beside its defaults
+        ├── external-secrets.yaml  # config.json as a template, the S3 key, its user in valkey-state
+        ├── ingress.yaml           # registry.d3strukt0r.dev, DNS-only, /v2 and /zot only
+        ├── middleware-rate-limit.yaml  # its own limit per connection address
+        ├── service-monitor.yaml
+        └── rules.yaml             # alert: down
 ```
 
 | Component | What it is |
@@ -283,6 +292,8 @@ kubernetes/
 | [`trust-manager`](components/trust-manager/README.md) | The databases' CA certificates as ConfigMaps in the namespaces that ask for them |
 | [`keel`](components/keel/README.md) | Rolls out new images under floating tags without a commit |
 | [`valkey-cache`](components/valkey-cache/README.md) | The shared cache (Valkey): a database per app, the WordPress object cache |
+| [`valkey-state`](components/valkey-state/README.md) | The shared state (Valkey) on a volume: sessions, locks, zot's logins |
+| [`zot`](components/zot/README.md) | The container registry `registry.d3strukt0r.dev`: our own images, the mirror |
 | [`wedding-manuele-robine`](components/wedding-manuele-robine/README.md) | The wedding website (moved from prod-old) |
 | [`robines-portfolio`](components/robines-portfolio/README.md) | The old WordPress portfolio at old.robines.space (moved from prod-old), from the WordPress chart |
 | [`arepazo`](components/arepazo/README.md) | The WooCommerce shop at www.arepazo.ch (moved from prod-old), from the WordPress chart |
@@ -392,8 +403,8 @@ Host namespaces, host paths and privileged mode are not allowed at all. Many off
 run as root by default; set `runAsUser` to a non-zero ID or use the image's rootless
 variant.
 
-Images must come from `docker.io`, `ghcr.io`, `quay.io`, `registry.k8s.io` or
-`public.ecr.aws` (Kyverno policy `allowed-registries`); anything else is refused when the
+Images must come from `docker.io`, `ghcr.io`, `quay.io`, `registry.k8s.io`, `public.ecr.aws`
+or our own `registry.d3strukt0r.dev` (zot) (Kyverno policy `allowed-registries`); anything else is refused when the
 Deployment - or whichever controller - is applied. A new registry is one entry in
 `components/kyverno/allowed-registries.yaml`.
 

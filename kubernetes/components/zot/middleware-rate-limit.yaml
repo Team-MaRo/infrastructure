@@ -1,0 +1,15 @@
+---
+# A rate limit for the registry, which is reached directly and so has no cloudflare-only: one
+# client flooding it is answered 429 by Traefik before it reaches zot (the case of 2026-10-07,
+# components/traefik). By the connection's own address - on a DNS-only route that is the client.
+# Generous, since a pull asks for every layer in parallel and a node's cold start pulls several
+# images at once.
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: rate-limit
+spec:
+  rateLimit:
+    average: 100
+    period: 1s
+    burst: 500
