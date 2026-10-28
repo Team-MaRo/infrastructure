@@ -48,12 +48,17 @@ extraVolumeMounts:
   - name: tmp
     mountPath: /tmp
 
-# A first estimate; layer uploads stream through to S3.
+# A first estimate; layer uploads stream through to S3. The mirror downloads an image into
+# /var/lib/registry/sync (an emptyDir) before it moves to S3 - zot refuses to start without that
+# directory once its storage is remote - so the local storage limit is raised from the
+# LimitRange's 1Gi: an image with several large layers would otherwise get the pod evicted.
 resources:
   requests:
     memory: 256Mi
+    ephemeral-storage: 1Gi
   limits:
     memory: 512Mi
+    ephemeral-storage: 5Gi
 
 # zot reads its configuration only at start (components/reloader).
 deploymentAnnotations:

@@ -38,6 +38,10 @@ containers, PostgreSQL and Redis - too much for four small nodes (research 2026-
   inside the cluster.
 - **Restricted Pod Security**: the image runs as root; here as 10001 with a read-only root, `/tmp`
   and its root directory as emptyDirs (tested 2026-10-28).
+- **The mirror downloads to the pod first** (`extensions.sync.downloadDir`,
+  `/var/lib/registry/sync`): with remote storage zot refuses to start without it - its first start
+  on the cluster failed on exactly that. Hence up to 5Gi of local storage instead of the
+  LimitRange's 1Gi.
 - **Configuration in git**: `external-secrets.yaml` renders `config.json` from a template, with
   only zot's Valkey password and the htpasswd file from OpenBao; the S3 key reaches zot's driver
   as `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY`. Reloader restarts zot when either changes.
