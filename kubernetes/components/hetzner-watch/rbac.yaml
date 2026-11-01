@@ -1,0 +1,33 @@
+---
+# The job's own identity: it may create its state ConfigMap and then read and replace exactly
+# that one - nothing else in the cluster (README "The state").
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: hetzner-watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: hetzner-watch
+rules:
+  # create cannot be limited to a name; this namespace holds nothing else.
+  - apiGroups: [""]
+    resources: [configmaps]
+    verbs: [create]
+  - apiGroups: [""]
+    resources: [configmaps]
+    resourceNames: [hetzner-watch-state]
+    verbs: [get, update]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: hetzner-watch
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: hetzner-watch
+subjects:
+  - kind: ServiceAccount
+    name: hetzner-watch

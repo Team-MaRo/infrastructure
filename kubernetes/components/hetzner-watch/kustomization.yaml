@@ -1,0 +1,22 @@
+---
+# A CronJob reporting changes in the Hetzner Cloud API to ntfy (README).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: hetzner-watch
+
+resources:
+  - namespace.yaml
+  - rbac.yaml
+  - external-secrets.yaml
+  - cronjob.yaml
+
+# The script, mounted into the job; a change gets a new name, so the next run uses it.
+configMapGenerator:
+  - name: hetzner-watch
+    files:
+      - watch.py
+
+# refreshInterval and the openbao store for every ExternalSecret here (shared/).
+components:
+  - ../../shared/external-secret-defaults

@@ -1,0 +1,7 @@
+---
+# Part of the app, so removing the app removes the namespace - and with it the state ConfigMap,
+# which is not in git.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: hetzner-watch

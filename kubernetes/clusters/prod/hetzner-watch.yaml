@@ -1,0 +1,27 @@
+# The Hetzner watch for this cluster, from kubernetes/components/hetzner-watch: an hourly look at
+# the Hetzner Cloud API that reports changes to ntfy.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: hetzner-watch
+  namespace: argocd
+  # Removing this file removes everything it deployed, namespace and state included; nothing in
+  # it needs keeping.
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Team-MaRo/infrastructure.git
+    targetRevision: master
+    path: kubernetes/components/hetzner-watch
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: hetzner-watch
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      # Not required here (no large CRDs); used for consistency.
+      - ServerSideApply=true
