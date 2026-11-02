@@ -388,6 +388,16 @@ kube-state-metrics:
       memory: 160Mi
     limits:
       memory: 384Mi
+  # A fixed instance instead of the pod's address: every restart gave each object a second series
+  # for an hour, and joins on kube_pod_info failed as many-to-many (Freelens' node graphs, rule
+  # evaluations; 2026-11-02). With one replica there is a single source; during a rollout
+  # Prometheus drops the few duplicate samples.
+  prometheus:
+    monitor:
+      http:
+        relabelings:
+          - targetLabel: instance
+            replacement: kube-state-metrics
   # Metrics from objects that report their state nowhere else. The mariadb-operator's status
   # conditions become kube_customresource_condition{customresource_kind, name, type, status},
   # valued with the condition's lastTransitionTime; a PointInTimeRecovery's lastRecoverableTime

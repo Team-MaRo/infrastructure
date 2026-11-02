@@ -244,6 +244,11 @@ then `http://localhost:3000` (break-glass: user `admin`, password in 1Password [
   is one more entry there plus its `list`, `watch` in `rbac.extraRules`; the config can be tried
   locally by running the kube-state-metrics image with `--custom-resource-state-only` against the
   admin kubeconfig.
+- **Its series keep a fixed `instance`** (`kube-state-metrics`, a relabeling in the values), not
+  the pod's address: otherwise every restart started a second series per object, and for the next
+  hour every join on `kube_pod_info` failed as many-to-many - Freelens' node graphs and Disk column
+  showed nothing, and rules that join it failed to evaluate (2026-11-02). It runs as one replica,
+  so there is one source; during a rollout Prometheus drops the few duplicate samples.
 
 ## Before the first sync
 
