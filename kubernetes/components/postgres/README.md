@@ -24,8 +24,10 @@ in the last 30 days. How the cluster's manifests fit together is in
     `kubectl cnpg restart postgres -n postgres --context d3strukt0r-prod-admin`;
   - synchronous replication with `dataDurability: preferred` - a commit waits for the replica
     while it is up, and the primary goes on alone while it is not, like MariaDB's semi-sync;
-  - 160Mi/384Mi (real-memory p95 148 MiB; working set p95 182 MiB, peak 219 MiB over
-    2026-10-23..11-02) and `shared_buffers` 128MB, raised with real data.
+  - 160Mi/512Mi (real-memory p95 148 MiB; working set p95 182 MiB, peak 219 MiB over
+    2026-10-23..11-02; the limit kept at its former value until Prometheus holds its full
+    history, about 23 days, since a kill means a failover) and `shared_buffers` 128MB, raised
+    with real data.
   - `log_min_duration_statement` 2 s and `log_lock_waits` on: slow statements and lock waits
     over 1 s land in Loki (`{namespace="postgres"} |~ "duration:|still waiting for"`).
   WAL stays on the data volume - a WAL volume per instance would make four.

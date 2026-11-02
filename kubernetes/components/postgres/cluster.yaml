@@ -44,12 +44,14 @@ spec:
       log_lock_waits: "on"
 
   # Over 2026-10-23..11-02: real memory (working set minus active file cache) p95 148 MiB, the
-  # request; working set p95 182 MiB, peak 219 MiB, the limit twice that p95.
+  # request; working set p95 182 MiB, peak 219 MiB. The limit stays at the former 512Mi until
+  # Prometheus holds its full history (about 23 days): ten days miss rare peaks, and a kill here
+  # means a failover.
   resources:
     requests:
       memory: 160Mi
     limits:
-      memory: 384Mi
+      memory: 512Mi
 
   # Continuous WAL archiving and base backups to Object Storage (backups.yaml).
   plugins:
