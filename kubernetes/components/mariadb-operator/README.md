@@ -38,3 +38,24 @@ How the cluster's manifests fit together is in [`kubernetes/README.md`](../../RE
 - **Memory** (`values.yaml`): the operator 128Mi / 256Mi, since it watches every namespace; the
   webhook 48Mi / 96Mi (p99 41 MiB, peak 43 MiB over 2026-10-23..11-02), above the default
   request of 32Mi.
+
+## The operator is stuck
+
+The alert `ControllerReconcileStuck` with `namespace: mariadb-operator` means the leader has been
+working on one item for over 15 minutes. Until it finishes, nothing changed in a MariaDB reaches
+its pods and the operator performs no failover. `kubectl get mariadb` still shows `Running`;
+the sign is a change from git that stays in the MariaDB object but never reaches the
+StatefulSet. The log stays empty at `INFO`, and a pass that hangs reports no error.
+
+Restart the operator - its two pods only; the MariaDB pods keep running, and the new leader
+runs a fresh pass that applies whatever was waiting:
+
+```shell
+kubectl --context d3strukt0r-prod-admin rollout restart deployment/mariadb-operator -n mariadb-operator
+```
+
+Seen so far (26.10.1): from 2026-10-29 10:15 every pass of the `mariadb` queue hung for about
+3.3 hours, finished, and the next one hung again within about 10 minutes; before that twice in
+the night of 2026-10-27 (up to 2.4 hours). Noticed on 2026-11-02, when the agent's new memory
+values did not arrive; the restart cleared it. The cause is unknown - if it returns, take the
+leader's log at `--log-level=DEBUG` during the hang before restarting, for an upstream issue.

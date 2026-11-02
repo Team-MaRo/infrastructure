@@ -119,6 +119,17 @@ port-forwards stay the break-glass way in. The status page and alerting heartbea
   from grafana.com by revision (`grafana.dashboards` in the values, at the top level next to the
   chart's own), downloaded at every Grafana start with `defaultCurlOptions: -sLf` - the chart's
   default `-k` skips the TLS check.
+- **A stuck operator** (`rules.yaml`, 2026-11-02): `ControllerReconcileStuck` when an
+  operator's queue has worked on one item for over 15 minutes, for 5 minutes (warning). A stuck
+  operator applies no changes and repairs nothing - for mariadb-operator that includes the
+  failover - while everything it runs still looks healthy, so nothing else tells. The metric is
+  controller-runtime's `workqueue_longest_running_processor_seconds`, from every operator that
+  exports it: mariadb-operator, CloudNativePG, External Secrets, trust-manager, Argo CD (and the
+  API server). Normal passes take seconds, at most 17 s over 2026-10-23..11-02; mariadb-operator
+  hung for about 3.3 hours at a time from 2026-10-29 until its restart on 2026-11-02
+  ([`../mariadb-operator/README.md`](../mariadb-operator/README.md) "The operator is stuck").
+  Not covered, since they do not export it: Kyverno, cert-manager, the Prometheus operator,
+  KubeElasti, Reloader and Keel.
 - **Volume alerts at three levels** (`rules.yaml`): 80 % warning, 90 % critical, 95 % critical
   again, each a separate alert so every level notifies once; inhibit rules in the
   Alertmanager config let a higher level silence the lower ones for the same PVC. They replace

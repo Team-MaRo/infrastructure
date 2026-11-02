@@ -66,6 +66,24 @@ spec:
               Restarting k3s on the node renews it (sudo systemctl restart k3s, one node at a
               time); k3s certificate rotate forces it.
 
+        # An operator that hangs in one reconcile applies no more changes and repairs nothing it
+        # owns, while everything it already runs looks healthy. Operators built on
+        # controller-runtime (and Argo CD) report how long their oldest unfinished item has been
+        # running; a normal pass takes seconds - highest outside the incident 17 s (Argo CD),
+        # 2026-10-23..11-02. mariadb-operator hung for about 3.3 hours at a time, from 2026-10-29
+        # until it was restarted on 2026-11-02. Grouped by the queue's name: Argo CD's queues
+        # carry no controller label.
+        - alert: ControllerReconcileStuck
+          expr: max by (namespace, job, name) (workqueue_longest_running_processor_seconds) > 900
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "{{ $labels.namespace }}: the {{ $labels.name }} queue has been working on one item for {{ $value | humanizeDuration }}."
+            description: >-
+              The operator is stuck and applies no changes. Check its log, then restart its
+              Deployment - see the component's README.
+
         # Every volume, at three levels; a higher one silences the lower ones (the inhibit
         # rules in values.yaml). A volume can be grown with a bigger PVC request - Hetzner
         # volumes resize online - but never shrunk.
