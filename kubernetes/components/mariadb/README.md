@@ -67,7 +67,7 @@ manifests fit together is in [`kubernetes/README.md`](../../README.md).
 - **Backups** (`backups.yaml`), to `d3strukt0r-prod-mariadb-backups`:
   - `PhysicalBackup` `mariadb-daily` at 23:30 UTC from the replica, kept 30 days. Staged on
     the node's disk before the upload, so it sets an ephemeral-storage limit of its own.
-  - `PointInTimeRecovery` `pitr-2026-11-02` (the one `mariadb.yaml` names; a new dated one after
+  - `PointInTimeRecovery` `pitr-2026-11-03` (the one `mariadb.yaml` names; a new dated one after
     every replica recovery, see below): the agent next to the primary archives **closed**
     binary logs every ten minutes (hardcoded, counted from the agent's start, not the clock). The operator
     rotates only by size, so at low traffic the active file would stay unarchived for weeks; the CronJob `mariadb-flush-binlogs` runs
@@ -129,8 +129,9 @@ manifests fit together is in [`kubernetes/README.md`](../../README.md).
   the switch (mariadb-operator#1815, open in 26.10.1). Happened 2026-10-18 to 2026-10-22: recovery
   of `mariadb-1` on 2026-10-06, primary again after a reboot on 2026-10-18. Again on 2026-11-02:
   `mariadb-1` rebuilt after a switchover during a resize, moved to `pitr-2026-11-02` while it was
-  still the replica. The way out is a fresh
-  prefix after every replica recovery (runbook "After a replica recovery"); the old
+  still the replica. And in the night of 2026-11-03 both servers, each rebuilt after kured's
+  reboot drain had evicted it as primary; moved to `pitr-2026-11-03` once both were back. The way
+  out is a fresh prefix after every replica recovery (runbook "After a replica recovery"); the old
   `PointInTimeRecovery` stays for restores up to the switch.
 - **PITR works only in this replication topology**, not with Galera or a standalone instance.
 

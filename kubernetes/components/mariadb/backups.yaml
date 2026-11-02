@@ -173,11 +173,11 @@ spec:
           name: s3-ca
           key: ca.crt
 ---
-# Archives the primary's binary logs to Object Storage (done by the agent next to MariaDB,
-# every ten minutes), so a restore can replay up to a chosen moment after a daily backup.
-# The prefix must hold nothing else, and it is new after every replica recovery (dated name,
-# README "After a replica recovery"). Nothing prunes the archived logs; the bucket's lifecycle
-# rule expires them after 35 days (tofu/objectstorage/mariadb-backups.tf).
+# The archive until the switch to pitr-2026-11-03, kept for restores up to then. In the night of
+# 2026-11-03 both servers were rebuilt by replica recoveries after the primary was evicted for a
+# reboot, which restarted their binary log numbering under names already archived here (README
+# "After a replica recovery"). Nothing archives into it any more; the bucket's lifecycle rule
+# removes it after 35 days.
 apiVersion: k8s.mariadb.com/v1alpha1
 kind: PointInTimeRecovery
 metadata:
@@ -192,6 +192,39 @@ spec:
     s3:
       bucket: d3strukt0r-prod-mariadb-backups
       prefix: pitr-2026-11-02
+      endpoint: nbg1.your-objectstorage.com
+      region: nbg1
+      accessKeyIdSecretKeyRef:
+        name: mariadb-backups-s3
+        key: access-key-id
+      secretAccessKeySecretKeyRef:
+        name: mariadb-backups-s3
+        key: secret-access-key
+      tls:
+        enabled: true
+        caSecretKeyRef:
+          name: s3-ca
+          key: ca.crt
+---
+# Archives the primary's binary logs to Object Storage (done by the agent next to MariaDB,
+# every ten minutes), so a restore can replay up to a chosen moment after a daily backup.
+# The prefix must hold nothing else, and it is new after every replica recovery (dated name,
+# README "After a replica recovery"). Nothing prunes the archived logs; the bucket's lifecycle
+# rule expires them after 35 days (tofu/objectstorage/mariadb-backups.tf).
+apiVersion: k8s.mariadb.com/v1alpha1
+kind: PointInTimeRecovery
+metadata:
+  name: pitr-2026-11-03
+spec:
+  physicalBackupRef:
+    name: mariadb-daily
+  compression: gzip
+  # Refuses a restore target it cannot fully reach, instead of stopping at the last log it has.
+  strictMode: true
+  storage:
+    s3:
+      bucket: d3strukt0r-prod-mariadb-backups
+      prefix: pitr-2026-11-03
       endpoint: nbg1.your-objectstorage.com
       region: nbg1
       accessKeyIdSecretKeyRef:
