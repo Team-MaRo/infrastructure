@@ -100,25 +100,73 @@ spec:
               storage request on its PVC).
 
         # A container is killed when the memory the kernel cannot reclaim reaches its limit, and
-        # every request it was serving fails with it. RSS, not the working set: the working set
-        # also counts file cache the kernel drops at the limit instead of killing - a database
-        # that writes a lot keeps it near the limit (mariadb on 2026-10-25: 91 %, of it 453 MiB
-        # cache, at the limit 3017 times, no kill). Only containers with a limit. In the week
-        # before 2026-10-25, no container's RSS went above 69 %.
+        # every request it was serving fails with it. The limit counts all of the cgroup's
+        # memory; at the limit the kernel first drops file cache, and without swap it cannot free
+        # anonymous memory or shared memory. So: the working set (usage minus inactive file
+        # cache) minus the active file cache = anonymous + shared memory + kernel memory.
+        # - Not the working set alone: it counts active file cache, which the kernel drops at the
+        #   limit - mariadb's primary sat at 91 % from the cache of its writes (2026-10-25),
+        #   76 % against 53 % here (2026-11-02), without a kill.
+        # - Not RSS (used 2026-10-25..11-02): on cgroup v2 it is anonymous memory only and misses
+        #   shared memory - PHP's OPcache (256 MB per php-fpm pool) and Postgres' shared_buffers,
+        #   which cannot be reclaimed without swap either (Alloy: RSS 18 %, this 46 %).
+        # Only containers with a limit. Two levels under one name: above 80 % a warning (time to
+        # raise the limit), above 90 % critical (the kill is near); the inhibit rule in
+        # values.yaml silences the warning while the critical one fires. With limits at least
+        # twice the request, a container normally sits near 50 %. Highest over
+        # 2026-10-23..11-02: 75 % (mariadb's agent, on the default limit).
         - alert: ContainerMemoryNearLimit
           expr: >-
-            max by (namespace, pod, container) (container_memory_rss{container!=""})
+            max by (namespace, pod, container) (
+              container_memory_working_set_bytes{container!=""}
+              - container_memory_total_active_file_bytes{container!=""}
+            )
             / on (namespace, pod, container)
             max by (namespace, pod, container) (kube_pod_container_resource_limits{resource="memory"})
-            > 0.90
+            > 0.80
           for: 5m
           labels:
             severity: warning
           annotations:
             summary: "{{ $labels.namespace }}/{{ $labels.container }} uses {{ $value | humanizePercentage }} of its memory limit."
             description: >-
-              Raise its memory limit, or lower what it may use (php-fpm workers, PHP's
+              Raise its memory limit soon, or lower what it may use (php-fpm workers, PHP's
               memory_limit, a cache size) - see the component's README.
+        - alert: ContainerMemoryNearLimit
+          expr: >-
+            max by (namespace, pod, container) (
+              container_memory_working_set_bytes{container!=""}
+              - container_memory_total_active_file_bytes{container!=""}
+            )
+            / on (namespace, pod, container)
+            max by (namespace, pod, container) (kube_pod_container_resource_limits{resource="memory"})
+            > 0.90
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "{{ $labels.namespace }}/{{ $labels.container }} uses {{ $value | humanizePercentage }} of its memory limit - an OOM kill is near."
+            description: >-
+              Raise its memory limit now, or lower what it may use (php-fpm workers, PHP's
+              memory_limit, a cache size) - see the component's README.
+        # A limit can hurt before it kills: processes wait while the kernel reclaims (or
+        # re-reads) cache to stay under it. PSI measures that wait; above 10 % of the time for
+        # 10 minutes the container is slowed down by its limit. Highest over 2026-10-23..11-02:
+        # 0.25 % (Prometheus). Not memory.events "max": hitting the limit is normal for
+        # containers with much file cache (Postgres 2.2 million times in those 10 days, unharmed).
+        - alert: ContainerMemoryPressure
+          expr: >-
+            max by (namespace, pod, container) (
+              rate(container_pressure_memory_waiting_seconds_total{container!=""}[5m])
+            ) > 0.10
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "{{ $labels.namespace }}/{{ $labels.container }} waits for memory {{ $value | humanizePercentage }} of the time."
+            description: >-
+              Its memory limit slows it down: the kernel keeps reclaiming its cache. Raise the
+              limit or lower what it may use - see the component's README.
         # A single kill only restarts the container, so nothing else would tell: it is no crash
         # loop unless it repeats. Fires for the restart that an OOM kill caused, in the last
         # 10 minutes.

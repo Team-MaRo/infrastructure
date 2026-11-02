@@ -123,17 +123,28 @@ port-forwards stay the break-glass way in. The status page and alerting heartbea
   Alertmanager config let a higher level silence the lower ones for the same PVC. They replace
   the chart's `KubePersistentVolumeFillingUp` (disabled), which only warned at 15 % free when
   a trend predicted it full within four days.
-- **Container memory** (`rules.yaml`, 2026-10-18; the chart has neither): `ContainerMemoryNearLimit`
-  when a container's RSS (what the kernel cannot reclaim) stays above 90 % of its memory limit
-  for 5 minutes, and
-  `ContainerOOMKilled` for a restart that an OOM kill caused. A single kill only restarts the
-  container - no crash loop, so nothing else would tell - but every request it was serving
-  fails with it (arepazo's php-fpm, twice on 2026-10-04, noticed only by chance). Both cover
+- **Container memory** (`rules.yaml`, 2026-10-18; the chart has none of these): three alerts for
   every container with a limit; the fix is in its component's README (a higher limit, fewer
-  php-fpm workers, a lower `memory_limit`). Until 2026-10-25 it measured the working set, which
-  also counts file cache the kernel drops at the limit instead of killing: mariadb's primary sat
-  at 91 % from the cache of its writes, at the limit thousands of times without a kill. In the
-  week before the switch, no container's RSS went above 69 %.
+  php-fpm workers, a lower `memory_limit`, a smaller cache).
+  - `ContainerMemoryNearLimit`: the memory the kernel cannot reclaim stays above 80 % of the
+    limit for 5 minutes (warning: raise the limit soon) or above 90 % (critical: the kill is
+    near; it silences the warning through the inhibit rule) - 5 minutes, since it should come
+    before the kill. The limit counts all of the container's memory; at the limit the
+    kernel drops file cache first and kills only when that is not enough - and without swap it
+    can free neither anonymous nor shared memory. So the alert measures the working set minus
+    the active file cache, which leaves anonymous, shared and kernel memory. The working set
+    alone (until 2026-10-25) counted file cache: mariadb's primary sat at 91 % from the cache of
+    its writes, at the limit thousands of times without a kill. RSS (2026-10-25..11-02) missed
+    shared memory - PHP's OPcache, Postgres' `shared_buffers` - on cgroup v2 it is anonymous
+    memory only. Highest over 2026-10-23..11-02: 75 % (mariadb's agent).
+  - `ContainerMemoryPressure`: the container waits for memory (PSI) more than 10 % of the time
+    for 10 minutes - its limit slows it down before it kills it; longer, since brief bursts of
+    reclaim (a backup, an import) are harmless. Highest over those days: 0.25 %.
+    Hitting the limit as such is no alert: containers with much file cache do it constantly
+    (Postgres 2.2 million times in 10 days, unharmed), since the kernel fills the cache up to it.
+  - `ContainerOOMKilled` for a restart that an OOM kill caused. A single kill only restarts the
+    container - no crash loop, so nothing else would tell - but every request it was serving
+    fails with it (arepazo's php-fpm, twice on 2026-10-04, noticed only by chance).
 - **php-fpm of the PHP apps** (`php-fpm.yaml`; the metrics come from each app's
   `pod-monitor.yaml`, job `<namespace>/php-fpm`): `PhpFpmRequestsQueued` (requests waiting for a
   worker), `PhpFpmNoIdleWorker` (all busy) and `PhpFpmStatusDown` (php-fpm's status pool,
