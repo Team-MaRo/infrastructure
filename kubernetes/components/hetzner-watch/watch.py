@@ -69,7 +69,7 @@ def collect():
         )
         image = server.get("image")
         if image:
-            state[f"image/{image['name']}/deprecation"] = image["deprecated"] or "none"
+            state[f"image/{image['name']}/deprecation"] = deprecation_text(image.get("deprecation"))
 
     for ip in hcloud("/primary_ips?per_page=50")["primary_ips"]:
         state[f"primary-ip/{ip['ip']}/blocked"] = "yes" if ip["blocked"] else "no"

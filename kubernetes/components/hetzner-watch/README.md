@@ -13,7 +13,7 @@ Signals that no other part of the cluster sees:
 |---|---|---|
 | `server-type/<type>/nbg1` | `orderable`, `not orderable`, `not offered` | Whether a server of that type can be created in Nuremberg - for a new node, a replacement after a delete, or a resize. The watched types are `WATCH_SERVER_TYPES` (`cx33`, the type the nodes run, and `cx43`, the planned upgrade) plus every type a server currently uses. |
 | `server-type/<type>/deprecation` | `none` or the announced dates | Hetzner announcing the end of a server type before a rebuild runs into it. |
-| `image/<image>/deprecation` | `none` or the date | The same for the image the servers were created from. |
+| `image/<image>/deprecation` | `none` or the announced dates | The same for the image the servers were created from. |
 | `primary-ip/<ip>/blocked` | `yes`, `no` | Hetzner blocking an address for abuse - since 2026-11-01 outbound mail ports are open, so a compromised app could send spam from them. |
 | `server/<name>/rescue` | `on`, `off` | Rescue mode switched on - someone working in the console, or not us. |
 | `server/<name>/locked` | `yes`, `no` | Hetzner running an action on the server. |
