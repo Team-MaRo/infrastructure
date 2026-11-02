@@ -35,6 +35,12 @@ How the cluster's manifests fit together is in [`kubernetes/README.md`](../../RE
   images the operator deploys are written fully qualified in `config.*` (docker.io, quay.io),
   so the registry check does not depend on short-name resolution.
 - Kubernetes 1.37 is not yet in the operator's CI (1.36 when adopted).
+- **26.10.2 since 2026-11-03**, for #1935: a restarted backup container compressed the backup a
+  second time, and the replica recovery in that night failed on it (`wrong chunk magic at offset
+  0x0`). The MariaDB's init container uses the operator's image, so bumping it rolls the MariaDB
+  pods. The rejoin of a former primary after a failover (error 1236,
+  [mariadb-operator#1948](https://github.com/mariadb-operator/mariadb-operator/issues/1948)) is
+  not confirmed fixed by it.
 - **Memory** (`values.yaml`), over 2026-10-23..11-02, the request from real memory's p95: the
   operator 96Mi / 224Mi (real p95 94 MiB; working set p95 98 MiB, peak 107 MiB), since it
   watches every namespace; the webhook 48Mi / 96Mi (real p95 34 MiB, peak 43 MiB), above the

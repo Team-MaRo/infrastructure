@@ -71,7 +71,7 @@ spec:
     initContainer:
       # Required once the block is set at all (for its securityContext): the operator's own
       # image, so it is bumped together with the operator (kubernetes/clusters/prod/mariadb-operator*.yaml).
-      image: ghcr.io/mariadb-operator/mariadb-operator:26.10.1
+      image: ghcr.io/mariadb-operator/mariadb-operator:26.10.2
       securityContext: *containerSecurityContext
 
   # The readiness probe stays replication-aware. With the default three failures (30 s) the

@@ -13,7 +13,7 @@ spec:
     # Pinned: bumping the version is the upgrade, together with mariadb-operator-crds.yaml.
     - repoURL: https://mariadb-operator.github.io/mariadb-operator
       chart: mariadb-operator
-      targetRevision: 26.10.1
+      targetRevision: 26.10.2
       helm:
         valueFiles:
           - $repo/kubernetes/components/mariadb-operator/values.yaml
