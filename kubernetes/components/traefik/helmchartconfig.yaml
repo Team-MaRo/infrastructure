@@ -118,11 +118,13 @@ spec:
             User-Agent: keep
         queryParameters:
           defaultMode: drop
-    # 70-160 MiB in normal use (2026-10-07). 256Mi was OOM-killed on prod-02 by a scanner's
-    # burst of requests (2026-10-07 00:09), so the limit leaves room for peaks like that. The
-    # chart sets none, and kube-system has no LimitRange.
+    # Over 2026-10-23..11-02: real memory (working set minus active file cache) p95 104 MiB, the
+    # request; working set p95 123 MiB, peak 141 MiB. The limit leaves
+    # room for bursts: 256Mi was OOM-killed on prod-02 by a scanner's burst of requests
+    # (2026-10-07 00:09), and a limit does not hold back scheduling. The chart sets none, and
+    # kube-system has no LimitRange.
     resources:
       requests:
-        memory: 128Mi
+        memory: 112Mi
       limits:
         memory: 512Mi

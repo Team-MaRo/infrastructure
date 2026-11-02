@@ -57,7 +57,9 @@ themselves (Gatus' config, Alertmanager's ntfy secret, Alloy, Argo CD's webhook 
   restarts (stakater/Reloader#1089).
 - Chart 2.2.18 (Reloader v1.4.22); 3.x is Reloader v2 with an enterprise subchart and still in
   beta. The chart's empty container securityContext is filled in for the restricted standard;
-  the root filesystem is read-only. Metrics through a PodMonitor.
+  the root filesystem is read-only. Metrics through a PodMonitor. Memory 48Mi / 160Mi
+  (`reloader.deployment.resources`; real-memory p95 39 MiB; working set p95 76 MiB, peak 78 MiB
+  over 2026-10-23..11-02).
 
 ## Which workloads opt in
 

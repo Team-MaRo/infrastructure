@@ -57,12 +57,14 @@ singleBinary:
   # start).
   annotations:
     secret.reloader.stakater.com/reload: loki-s3
-  # Memory only; the CPU request comes from the namespace's LimitRange.
+  # Memory only; the CPU request comes from the namespace's LimitRange. Over 2026-10-23..11-02:
+  # real memory (working set minus active file cache) p95 224 MiB, the request; working set p95
+  # 259 MiB, peak 333 MiB, the limit twice that p95.
   resources:
     requests:
-      memory: 256Mi
+      memory: 224Mi
     limits:
-      memory: 1Gi
+      memory: 544Mi
 
 # The chart defaults these to 3 replicas each, which it refuses next to the single binary.
 write:

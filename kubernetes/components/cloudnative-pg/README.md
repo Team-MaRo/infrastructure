@@ -41,9 +41,9 @@ cluster's manifests fit together is in [`kubernetes/README.md`](../../README.md)
 - Both charts meet the restricted Pod Security Standard as they are; images are on `ghcr.io`.
   The operator's metrics are scraped through the chart's PodMonitor, and its Grafana dashboard
   comes as a ConfigMap. Kubernetes 1.37 is "tested, but not supported" for 1.30.x.
-- **Memory**: the operator 128Mi / 256Mi (`values.yaml`), since it watches every namespace; the
-  Barman Cloud plugin 48Mi / 96Mi (`plugin-values.yaml`; p99 41 MiB, peak 42 MiB
-  over 2026-10-23..11-02), above the default request of 32Mi.
+- **Memory**, over 2026-10-23..11-02: the operator 80Mi / 160Mi (`values.yaml`; real-memory p95
+  65 MiB for the request, working set p95 69 MiB, peak 72 MiB for the limit); the Barman Cloud
+  plugin on the LimitRange defaults (real p95 24 MiB, peak 42 MiB).
 
 ## Looking at it
 

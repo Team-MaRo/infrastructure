@@ -62,19 +62,21 @@ prometheusOperator:
   admissionWebhooks:
     certManager:
       enabled: true
-  # p99 49 MiB, peak 51 MiB over 2026-10-23..11-02: the request p99 x 1.1, the limit twice the
-  # request.
+  # Over 2026-10-23..11-02: real memory (working set minus active file cache) p95 40 MiB, the
+  # request; working set p95 48 MiB, peak 51 MiB, the limit twice that p95.
   resources:
     requests:
-      memory: 64Mi
+      memory: 48Mi
     limits:
-      memory: 128Mi
-  # One setting for the reloader sidecars of Prometheus (p99 34 MiB, peak 37 MiB) and
-  # Alertmanager (p99 29 MiB, peak 33 MiB) over 2026-10-23..11-02, sized for the larger.
+      memory: 96Mi
+  # One setting for the reloader sidecars of Prometheus (real p95 28 MiB; working set p95 33 MiB,
+  # peak 37 MiB) and Alertmanager (25; 28, 33 MiB) over 2026-10-23..11-02, sized for the larger.
+  # Written out although it is within the LimitRange's defaults: left empty, the operator would
+  # set its own.
   prometheusConfigReloader:
     resources:
       requests:
-        memory: 48Mi
+        memory: 32Mi
       limits:
         memory: 96Mi
 
@@ -115,14 +117,14 @@ prometheus:
           resources:
             requests:
               storage: 10Gi
-    # Usually about 1.2 GB, at most 1.5 GB in the first week (2026-10-05); its size is capped
-    # by retentionSize, so the limit stays.
+    # Over 2026-10-23..11-02: real memory (working set minus active file cache) p95 1305 MiB, the
+    # request; working set p95 1350 MiB, peak 1670 MiB, the limit twice that p95.
     resources:
       requests:
         cpu: 200m
-        memory: 1280Mi
+        memory: 1312Mi
       limits:
-        memory: 2Gi
+        memory: 2720Mi
     # Pick up monitors, rules and scrape configs from every Application, not only from
     # objects carrying this Helm release's label.
     ruleSelectorNilUsesHelmValues: false
@@ -152,12 +154,13 @@ alertmanager:
     # Mounted under /etc/alertmanager/secrets/alertmanager-ntfy/, from external-secrets.yaml.
     secrets:
       - alertmanager-ntfy
-    # The operator's default request is 200Mi; it used about 25 MiB when set (2026-09-28).
+    # The operator's default request is 200Mi, so it is written out. Over 2026-10-23..11-02: real
+    # memory p95 30 MiB, the request; working set p95 45 MiB, peak 46 MiB, the limit twice that p95.
     resources:
       requests:
-        memory: 64Mi
+        memory: 32Mi
       limits:
-        memory: 128Mi
+        memory: 96Mi
   # Phone notifications through ntfy.sh, one receiver per priority, since Alertmanager's
   # webhook cannot set ntfy's priority header - it goes into the topic URL instead. The
   # always-firing Watchdog goes to Gatus every minute as a heartbeat (its external endpoint
@@ -274,21 +277,21 @@ grafana:
   # A test pod Helm would run on install; Argo CD would only ever show it as extra.
   testFramework:
     enabled: false
-  # About 300 MiB idle; browsing dashboards took it past 512Mi into OOM kills, and in the
-  # first week (2026-10-05) to 1018 MiB of the 1Gi it had then - usually about 500 MiB.
+  # Browsing dashboards is where it peaks. Over 2026-10-23..11-02: real memory p95 526 MiB, the
+  # request; working set p95 740 MiB, peak 918 MiB, the limit twice that p95.
   resources:
     requests:
-      memory: 512Mi
+      memory: 528Mi
     limits:
-      memory: 2Gi
-  # One setting for the dashboard and datasource sidecars: p99 92 / 81 MiB, peak 92 / 81 MiB
-  # over 2026-10-23..11-02, sized for the larger.
+      memory: 1504Mi
+  # One setting for the dashboard and datasource sidecars: real p95 76 / 75 MiB; working set p95
+  # 91 / 81 MiB, peak 92 / 81 MiB over 2026-10-23..11-02, sized for the larger.
   sidecar:
     resources:
       requests:
-        memory: 112Mi
+        memory: 80Mi
       limits:
-        memory: 224Mi
+        memory: 192Mi
   # Logs and traces, next to the chart's own Prometheus and Alertmanager datasources, linked
   # both ways: a log line's TraceId (Traefik's access log) opens the trace, a trace opens its
   # logs, its service's metrics and the service map.
@@ -366,22 +369,25 @@ prometheus-node-exporter:
   service:
     port: 9101
     targetPort: 9101
-  # kube-system has no LimitRange, so these are its only resources.
+  # kube-system has no LimitRange, so these are its only resources. Over 2026-10-23..11-02: real
+  # memory p95 42 MiB, the request; working set p95 48 MiB, peak 58 MiB, the limit twice that p95.
   resources:
     requests:
       cpu: 10m
-      memory: 32Mi
+      memory: 48Mi
     limits:
-      memory: 128Mi
+      memory: 96Mi
 
 kube-state-metrics:
-  # It holds every object it reports on in memory: about 120 MiB usually, and the namespace's
-  # LimitRange limit of 128Mi got it OOM-killed when many objects arrived at once (2026-10-02).
+  # It holds every object it reports on in memory: the namespace's LimitRange limit of 128Mi got
+  # it OOM-killed when many objects arrived at once (2026-10-02). Over 2026-10-23..11-02: real
+  # memory p95 155 MiB, the request; working set p95 177 MiB, peak 186 MiB, the limit twice that
+  # p95.
   resources:
     requests:
-      memory: 128Mi
+      memory: 160Mi
     limits:
-      memory: 256Mi
+      memory: 384Mi
   # Metrics from objects that report their state nowhere else. The mariadb-operator's status
   # conditions become kube_customresource_condition{customresource_kind, name, type, status},
   # valued with the condition's lastTransitionTime; a PointInTimeRecovery's lastRecoverableTime

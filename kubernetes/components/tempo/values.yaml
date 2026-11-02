@@ -44,12 +44,13 @@ tempo:
   extraVolumeMounts:
     - name: data
       mountPath: /var/tempo
-  # A first guess for a few spans a second; measure after a day.
+  # Over 2026-10-23..11-02: real memory (working set minus active file cache) p95 373 MiB, the
+  # request; working set p95 383 MiB, peak 513 MiB, the limit twice that p95.
   resources:
     requests:
-      memory: 256Mi
+      memory: 384Mi
     limits:
-      memory: 1Gi
+      memory: 768Mi
   securityContext:
     allowPrivilegeEscalation: false
     capabilities:

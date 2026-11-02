@@ -64,14 +64,15 @@ server:
         current_key    = "file:///openbao/seal/key"
       }
 
-  # About 70 MiB when set (2026-09-28); with the apps' secrets it grew to about 210 MiB usually
-  # and 228 MiB at most in the first week (2026-10-05), and it can spike on startup and
-  # snapshots.
+  # Real memory (working set minus active file cache) p95 56 MiB over 2026-10-23..11-02, the
+  # request; working set p95 61 MiB, peak 80 MiB. The limit covers the
+  # highest use ever seen, not only that window: 228 MiB in its first week (2026-10-05), on
+  # start-up and snapshots.
   resources:
     requests:
-      memory: 224Mi
+      memory: 64Mi
     limits:
-      memory: 512Mi
+      memory: 256Mi
 
   volumes:
     - name: seal

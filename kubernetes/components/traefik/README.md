@@ -59,10 +59,11 @@ rebuild) the complete one.
   `namespace` and is unaffected. A wrong reference fails closed - the router is not served (404)
   and the dashboard lists its error. The same names appear in the access log (`RouterName`,
   `ServiceName`) and in the metrics' `router`/`service` labels.
-- **Memory: 128Mi requested, 512Mi limit** (`resources` in `helmchartconfig.yaml`). It uses
-  70-160 MiB normally; a scanner's burst of requests (1249 in a minute, 2026-10-07) pushed the
-  Traefik on prod-02 past the former 256Mi and got it OOM-killed. Every ingress node needs the
-  headroom, since any of them can take such a burst.
+- **Memory: 112Mi requested, 512Mi limit** (`resources` in `helmchartconfig.yaml`; real-memory p95
+  104 MiB; working set p95 123 MiB, peak 141 MiB over 2026-10-23..11-02). A scanner's burst of
+  requests (1249 in a minute, 2026-10-07) pushed the Traefik on prod-02 past the former 256Mi and
+  got it OOM-killed; the limit does not hold back scheduling. Every ingress node needs the headroom,
+  since any of them can take such a burst.
 - **Only through Cloudflare, at most 20 requests a second per visitor** (Middleware
   `cloudflare-only`, [`../../charts/cloudflare-only/README.md`](../../charts/cloudflare-only/README.md)):
   every route of a name Cloudflare proxies puts this chain first. It admits only Cloudflare's IP

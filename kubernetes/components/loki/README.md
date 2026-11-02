@@ -34,6 +34,8 @@ Loki as a datasource (`additionalDataSources` in the kube-prometheus-stack value
   else is searched in the line, not labelled - Loki stays fast with few labels.
 - **Restarted by Reloader** when Secret `loki-s3` changes in OpenBao (environment variables read at
   start; `singleBinary.annotations`, [`../reloader/README.md`](../reloader/README.md)).
+- **Memory 224Mi / 544Mi** (`singleBinary.resources`; real-memory p95 224 MiB; working set p95
+  259 MiB, peak 333 MiB over 2026-10-23..11-02).
 
 ## Searching logs
 

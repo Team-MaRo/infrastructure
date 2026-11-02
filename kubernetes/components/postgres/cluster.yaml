@@ -43,11 +43,13 @@ spec:
       log_min_duration_statement: "2000"
       log_lock_waits: "on"
 
+  # Over 2026-10-23..11-02: real memory (working set minus active file cache) p95 148 MiB, the
+  # request; working set p95 182 MiB, peak 219 MiB, the limit twice that p95.
   resources:
     requests:
-      memory: 256Mi
+      memory: 160Mi
     limits:
-      memory: 512Mi
+      memory: 384Mi
 
   # Continuous WAL archiving and base backups to Object Storage (backups.yaml).
   plugins:

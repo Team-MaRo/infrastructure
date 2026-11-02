@@ -112,9 +112,12 @@ spec:
             - name: PHP_MEMORY_LIMIT
               value: 512M
           securityContext: *restricted
+          # The request the p95 of real memory, working set minus active file cache (159 MiB;
+          # working set p95 227 MiB, peak 291 MiB over 2026-10-23..11-02); the limit leaves room
+          # for PHP_MEMORY_LIMIT's 512M beside the idle workers.
           resources:
             requests:
-              memory: 256Mi
+              memory: 160Mi
             limits:
               memory: 1Gi
           volumeMounts:

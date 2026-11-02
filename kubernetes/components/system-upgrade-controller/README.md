@@ -8,7 +8,9 @@ Plans in `plan.yaml`: `server` for the three servers and `agent` for the workers
 the `control-plane` label). For each node it runs a privileged Job that replaces the k3s binary
 and restarts k3s. Ansible's `k3s_version` is therefore only the
 version a node is *installed* with; the Ansible install never upgrades (`creates:`), and a new
-node catches up in the next window.
+node catches up in the next window. The controller's memory is 112Mi / 224Mi (a patch in
+`kustomization.yaml`; real-memory p95 97 MiB; working set p95 111 MiB, peak 112 MiB over
+2026-10-23..11-02).
 
 ## How it upgrades
 

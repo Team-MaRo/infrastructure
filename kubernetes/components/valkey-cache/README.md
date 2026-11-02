@@ -16,7 +16,7 @@ One pod (`deployment.yaml`):
 
 ## Design
 
-- **A cache, nothing more.** `maxmemory 192mb` with `allkeys-lru`: when it is full, the least
+- **A cache, nothing more.** `maxmemory 64mb` with `allkeys-lru`: when it is full, the least
   recently used keys of any app go. Nothing is written to disk (`save ""`, `appendonly no`) and
   there is no volume, so a restart - a rollout, a reboot, a changed user - starts empty and the
   apps fill it again. One app's keys can push out another's; that only costs speed. State that
@@ -61,8 +61,9 @@ One pod (`deployment.yaml`):
 - **Restricted Pod Security**: Valkey runs as the image's user 999, started directly as
   `valkey-server` (the image's entrypoint would only change the owner of `/data` as root), with a
   read-only root and an emptyDir as its working directory; the exporter as its own 59000.
-- **Memory**: Valkey 256Mi / 320Mi (`maxmemory` plus its own overhead); the exporter 48Mi / 96Mi,
-  from p99 32 MiB, peak 33 MiB over 2026-10-23..11-02 - above the default request of 32Mi.
+- **Memory**, over 2026-10-23..11-02: Valkey 96Mi / 192Mi (`maxmemory` plus its own overhead;
+  real-memory p95 14 MiB, working set peak 25 MiB, so `maxmemory` went from 192mb to 64mb on
+  2026-11-02); the exporter on the namespace's defaults (real p95 22 MiB, peak 33 MiB).
 - **Not an operator, not the official chart.** valkey-operator (v0.7.1, `v1alpha1`) runs only
   Valkey Cluster and calls itself not ready for production; the chart `valkey-io/valkey-helm`
   (0.12.0) leaves the default user open and probes without logging in. A few plain manifests are

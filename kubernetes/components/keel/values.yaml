@@ -39,10 +39,15 @@ rbac:
         resources: [cronjobs]
         verbs: [get, list, watch, update]
 
-# No CPU limit (null removes the chart's 100m).
+# No CPU limit (null removes the chart's 100m). Memory over 2026-10-23..11-02: real memory
+# (working set minus active file cache) p95 47 MiB, the request; working set p95 66 MiB, peak
+# 71 MiB, the limit twice that p95.
 resources:
+  requests:
+    memory: 48Mi
   limits:
     cpu: null
+    memory: 160Mi
 
 podSecurityContext:
   runAsNonRoot: true

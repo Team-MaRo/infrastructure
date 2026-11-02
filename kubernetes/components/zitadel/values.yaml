@@ -125,9 +125,11 @@ securityContext:
     drop:
       - ALL
 
+# Over 2026-10-23..11-02: real memory (working set minus active file cache) p95 199 MiB, the
+# request; working set p95 247 MiB, peak 286 MiB, the limit twice that p95.
 resources:
   requests:
-    memory: 256Mi
+    memory: 208Mi
   limits:
     memory: 512Mi
 # Setting up the first instance and its projections takes more than the namespace's LimitRange
@@ -175,11 +177,13 @@ login:
     # page's default (false) creates them unconfirmed and sends nothing.
     - name: EMAIL_VERIFICATION
       value: "true"
+  # Real p95 137 MiB, the request; working set p95 155 MiB, peak 167 MiB, the limit twice that
+  # p95.
   resources:
     requests:
-      memory: 128Mi
+      memory: 144Mi
     limits:
-      memory: 256Mi
+      memory: 320Mi
   metrics:
     enabled: true
     serviceMonitor:

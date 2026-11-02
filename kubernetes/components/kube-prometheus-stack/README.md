@@ -7,8 +7,13 @@ values leave out; they set memory for the containers that need more - Prometheus
 its sidecars, kube-state-metrics, the operator and the config reloaders - and for Alertmanager,
 whose operator would otherwise request 200Mi. node-exporter goes to `kube-system`
 (`namespaceOverride`), since it needs the host's network, PIDs and files; there is no
-LimitRange there, so it sets its own. How the cluster's manifests fit together is in
-[`kubernetes/README.md`](../../README.md).
+LimitRange there, so it sets its own. The values were sized on 2026-11-02 over
+2026-10-23..11-02, the requests from real memory's p95, the limits from the working set's p95
+and peak, each next to its value in `values.yaml`: Prometheus 1312Mi / 2720Mi, Grafana 528Mi /
+1504Mi and its sidecars 80Mi / 192Mi, kube-state-metrics 160Mi / 384Mi, the operator and
+node-exporter 48Mi / 96Mi, Alertmanager and the config reloaders 32Mi / 96Mi - written out,
+since the operator would otherwise set its own. How the cluster's
+manifests fit together is in [`kubernetes/README.md`](../../README.md).
 
 Each monitoring component gets its own namespace, under the restricted Pod Security
 Standard; components that need the host (node-exporter, the log collector) go to

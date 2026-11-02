@@ -1,15 +1,15 @@
 # MariaDB
 
-The app database (`kubernetes/clusters/prod/mariadb.yaml`, manifests in this directory,
-namespace `mariadb`): `MariaDB` `mariadb`, image pinned, 2 replicas on 10 GB each, one per
-node, run by the mariadb-operator ([`../mariadb-operator/README.md`](../mariadb-operator/README.md)).
-Apps connect to the Service **`mariadb-primary`** (`mariadb-primary.mariadb.svc:3306`), which
-follows the primary through a failover (`mariadb-secondary` reads from the replica). It is
-backed up every night and its binary logs are archived every ten minutes, so it can be restored
-to any moment in the last 30 days. Its pods carry the PriorityClass `stateful-core`, so they are
-evicted last when a node runs short of memory
-([`../priority-classes/README.md`](../priority-classes/README.md)). The server gets 512Mi / 1Gi,
-the agent 128Mi / 256Mi (p99 103 MiB, peak 113 MiB over 2026-10-23..11-02). How the cluster's
+The app database (`kubernetes/clusters/prod/mariadb.yaml`, manifests in this directory, namespace
+`mariadb`): `MariaDB` `mariadb`, image pinned, 2 replicas on 10 GB each, one per node, run by the
+mariadb-operator ([`../mariadb-operator/README.md`](../mariadb-operator/README.md)). Apps connect to
+the Service **`mariadb-primary`** (`mariadb-primary.mariadb.svc:3306`), which follows the primary
+through a failover (`mariadb-secondary` reads from the replica). It is backed up every night and its
+binary logs are archived every ten minutes, so it can be restored to any moment in the last 30 days.
+Its pods carry the PriorityClass `stateful-core`, so they are evicted last when a node runs short of
+memory ([`../priority-classes/README.md`](../priority-classes/README.md)). The server gets 608Mi /
+1888Mi (real-memory p95 604 MiB; working set p95 935 MiB with the file cache of its writes, peak 956
+MiB), the agent 96Mi / 192Mi (89; 92, peak 113 MiB), both over 2026-10-23..11-02. How the cluster's
 manifests fit together is in [`kubernetes/README.md`](../../README.md).
 
 ## Failover

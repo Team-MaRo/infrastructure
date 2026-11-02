@@ -46,11 +46,13 @@ reloader:
       capabilities:
         drop:
           - ALL
+    # Over 2026-10-23..11-02: real memory (working set minus active file cache) p95 39 MiB, the
+    # request; working set p95 76 MiB, peak 78 MiB, the limit twice that p95.
     resources:
       requests:
-        memory: 64Mi
+        memory: 48Mi
       limits:
-        memory: 256Mi
+        memory: 160Mi
   podMonitor:
     enabled: true
     annotations:

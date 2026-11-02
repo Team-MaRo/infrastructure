@@ -15,13 +15,14 @@ affinity:
           matchLabels:
             app.kubernetes.io/name: cloudnative-pg
 
-# It watches every namespace, so its memory grows with the cluster; above the namespace's
-# LimitRange defaults, like mariadb-operator's.
+# It watches every namespace, so its memory grows with the cluster. Over 2026-10-23..11-02: real
+# memory (working set minus active file cache) p95 65 MiB, the request; working set p95 69 MiB,
+# peak 72 MiB, the limit twice that p95.
 resources:
   requests:
-    memory: 128Mi
+    memory: 80Mi
   limits:
-    memory: 256Mi
+    memory: 160Mi
 
 monitoring:
   podMonitorEnabled: true

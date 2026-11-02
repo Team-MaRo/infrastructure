@@ -20,6 +20,11 @@ registries. `rbac-limitranges.yaml` lets Kyverno create LimitRanges.
   and `ignoreAggregatedRoles: true` in `argocd-cm`, since aggregated ClusterRoles never
   match git. Argo CD's own defaults already exclude Kyverno's report kinds.
 - Kyverno is scraped through its chart's `serviceMonitor.enabled` per controller.
+- **Memory per controller** (`values.yaml`), over 2026-10-23..11-02, the request from real memory's
+  p95, the limit from the working set's p95 and peak: admission 96Mi / 224Mi (real p95 89 MiB; 97,
+  101 MiB), background 96Mi / 224Mi (86; 110, 120 MiB), cleanup 48Mi / 160Mi (45; 68, 72 MiB),
+  reports 96Mi / 224Mi (89; 105, 112 MiB). The admission controller's is under
+  `admissionController.container`, the others' directly under the controller.
 - **Nodes are not filtered out** (`config.resourceFiltersExclude: ["[Node,*,*]"]`, 2026-10-18):
   Kyverno's default list ignores Nodes, but kube-prometheus-stack's `network-policy.yaml`
   generates a NetworkPolicy per node from them (Traefik's access to Prometheus). Only the Node
@@ -38,25 +43,33 @@ registries. `rbac-limitranges.yaml` lets Kyverno create LimitRanges.
   idle; requests already share CPU fairly under contention.
 - **The default request is 32Mi** (64Mi until 2026-11-02): most containers use less, and a
   request no one uses still holds back a node's memory from the scheduler.
-- **A container sets its memory itself where the defaults do not fit** - more than about
-  29 MiB used (p99) or a limit above 128Mi - and everywhere in `kube-system` and
-  `system-upgrade`, which have no LimitRange; through a patch or Helm value in its component.
-  Where the defaults fit, nothing is set, so there is nothing to keep in step. Without a
-  request the scheduler reserves nothing for it (Argo CD's application controller uses
-  1.2-1.6 GB), and without a limit a leak can take the node's memory. Only what k3s itself
+- **A container sets its memory itself where the defaults do not fit** - more than 32 MiB of real
+  memory (p95) or a limit above 128Mi, the latter with a request of 32Mi written out - and
+  everywhere in `kube-system` and `system-upgrade`, which have no LimitRange; through a patch or
+  Helm value in its component. Where the defaults fit, nothing is set, so there is nothing to keep
+  in step. Without a request the scheduler reserves nothing for it (Argo CD's application controller
+  uses 1.2-1.6 GB), and without a limit a leak can take the node's memory. Only what k3s itself
   deploys (CoreDNS, metrics-server, its Helm install Jobs) is left as k3s sets it.
 - **How the values are sized** (user decision, 2026-11-02), from Prometheus over a window of
-  days, not hours (2026-10-23..11-02 for the first ones), on `container_memory_working_set_bytes`:
-  the kubelet ranks pods for eviction by it against their request, and unlike
-  `container_memory_rss` it includes shared memory the kernel cannot reclaim either (PHP's
-  OPcache, Postgres' `shared_buffers`); file cache it can reclaim makes it err high, never
-  low. The request is the p99 x 1.1, rounded
-  up to 16 MiB; the limit is twice the request or the peak x 1.1 rounded up to 32 MiB, whichever is
-  higher. A comment next to the value gives the p99, the peak and the window they come from.
-  Values set before 2026-11-02 rest on the older rule (the request about the usual use, the
-  limit about twice the highest seen, 128Mi at the least). An OOM kill means raising that
-  limit - `kubectl get pod` shows the restarts, `kubectl describe pod` the `OOMKilled`
-  reason.
+  days, not hours (2026-10-23..11-02 for the first ones). The request is the p95 of real memory,
+  `container_memory_working_set_bytes - container_memory_total_active_file_bytes` - anonymous,
+  shared and kernel memory, what the kernel cannot reclaim without swap (PHP's OPcache,
+  Postgres' `shared_buffers` included) - rounded up to 16 MiB. The limit is twice the working
+  set's p95 or the highest working set ever seen x 1.1 rounded up to 32 MiB, whichever is
+  higher, so the file cache keeps its room up to the limit. A comment next to the value gives
+  the real-memory p95, the working set's p95 and peak, and the window they come from. An OOM
+  kill means raising that limit - `kubectl get pod` shows the restarts, `kubectl describe pod`
+  the `OOMKilled` reason.
+- **Requests from real memory, not the working set** (user decision, 2026-11-02): file cache
+  only fills memory that is free, and the kernel hands it back when a process needs it, so
+  nothing has to be reserved for it. The real-memory p95s sum to 10.1 GiB, the working set's to
+  12.6 GiB; MariaDB alone went from 935 to 604 MiB. The caveat: the kubelet ranks pods for
+  eviction by the working set, cache included, against their request, so a cache-heavy pod
+  counts as above its request first - but only when a node really runs out of memory.
+- **p95, not p99** (user decision, 2026-11-02): each container's p99 reserves its own rare peak,
+  and they never peak together. The p95s summed (12.2 GiB) match the most the pods ever used at
+  once (12.9 GiB), while p99 x 1.1 booked about 15 GiB. A container above its request is neither
+  slowed nor killed; it only goes first if a node runs out of memory.
 - **Only four namespaces are left out** (the policy's `matchConditions`): `kube-system`,
   whose pods k3s manages; `system-upgrade`, whose k3s upgrade Jobs set no memory and must not
   be killed halfway through replacing the binary; and the pod-less `kube-public` and

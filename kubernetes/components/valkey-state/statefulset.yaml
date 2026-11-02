@@ -57,13 +57,15 @@ spec:
             tcpSocket:
               port: valkey
             periodSeconds: 30
-          # maxmemory (128mb, valkey.conf) plus Valkey's own overhead, client buffers and the
-          # fork that rewrites the append-only file.
+          # The container used p95 9 MiB (real memory and working set alike), peak 10 MiB over
+          # 2026-10-23..11-02. The limit holds maxmemory (48mb, valkey.conf) plus Valkey's own
+          # overhead, client buffers and the fork that rewrites the append-only file. Set although
+          # it equals the namespace's defaults, so it stays tied to maxmemory if those change.
           resources:
             requests:
-              memory: 192Mi
+              memory: 32Mi
             limits:
-              memory: 256Mi
+              memory: 128Mi
           volumeMounts:
             - name: config
               mountPath: /etc/valkey/valkey.conf

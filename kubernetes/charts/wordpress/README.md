@@ -55,11 +55,10 @@ Only what differs between sites; `values.yaml` holds the defaults and says what 
 | `languages` | `[]` | language packs for core, plugins and themes |
 | `secrets` | `[]` | every secret of the WordPress containers: blocks of `key` and `env` ("Secrets") |
 | `uploadsProxy.secrets` | `[]` | the uploads proxy's key, the same way |
-| `uploadsProxy.resources` | 48Mi / 96Mi | the uploads proxy's memory; nginx stays on the namespace's defaults |
 | `oidc.clientId` | empty | the site's app in Zitadel, which turns on the login through Zitadel; empty: off |
 | `oidc.registerOrganisation` | empty | the Zitadel organisation people register into ("Registration in Zitadel"); empty: no registration |
 | `mcp.clientId` | empty | the site's Claude app in Zitadel, which makes the site an MCP server for Claude ("Content through Claude"); needs `oidc`; empty: off |
-| `pageCache.enabled`, `.size`, `.resources` | `false`, `64M`, 256Mi | Varnish in front of nginx ("Page cache"), its memory for pages and its container's |
+| `pageCache.enabled`, `.size`, `.resources` | `false`, `48M`, 128Mi / 192Mi | Varnish in front of nginx ("Page cache"), its memory for pages and its container's |
 | `pageCache.staticSizeMiB` | `512` | Varnish's storage for static files, a file on the pod's disk ("Page cache") |
 | `pageCache.dropBasicAuth` | `false` | drop a basic-auth header before WordPress; only for a site behind Traefik's basic auth |
 | `matomo.siteId` | `0` | the site's ID in the cluster's Matomo, which turns on its tracking ("Web analytics"); 0: off |
@@ -67,7 +66,7 @@ Only what differs between sites; `values.yaml` holds the defaults and says what 
 | `reloader` | `true` | the Reloader annotation; needs the namespace in Reloader's list |
 | `phpFpm.pool` | `{}` | `pm.*` settings, e.g. `max_children: 6`; empty: the image's five workers |
 | `phpIni` | `{}` | PHP settings of the site, after `files/php.ini` so they win (e.g. `opcache.interned_strings_buffer: 64`) |
-| `phpFpm.resources` | 256Mi / 768Mi | the php-fpm container's memory |
+| `phpFpm.resources` | 224Mi / 768Mi | the php-fpm container's memory |
 | `wpCli.memoryLimit` | empty | PHP's `memory_limit` for wp-cli in the init container (`WP_CLI_PHP_ARGS`) |
 | `wpCli.resources` | limit 256Mi | the init container `plugins`' memory |
 | `nginx.contentSecurityPolicy` | empty | the CSP header; empty: none |
@@ -521,14 +520,15 @@ serves only what is personal. Rules in `files/default.vcl`:
 - **Memory**: `pageCache.size` for pages (`-s malloc`), 64M for passed answers while they flow
   through (`-s Transient`; with `transit_buffer=1M` Varnish reads only 1M ahead of the visitor, so a
   file of any size passes - without it a 200 MB download broke off at 33 MB, 2026-10-22), plus
-  Varnish itself - the container's limit leaves room for all three
-  (arepazo: 128M in 384Mi; a page is a few dozen kB, so that holds thousands). Kept small on
-  purpose: with all three sites the nodes would carry a failed one at about 94% of their memory
-  at twice these sizes (2026-10-22). Static files have a storage of their own, so images never
-  push pages out: a file of `pageCache.staticSizeMiB` (512) on the working directory's emptyDir
-  (`-s static=file`, sized to it plus 200Mi), held in the kernel's file cache, which gives way
-  under memory pressure, not in the container's own memory. The working directory is that
-  emptyDir; the root filesystem is read-only.
+  Varnish itself - the container's limit leaves room for all three (48M in 192Mi, arepazo 96M in
+  256Mi; a page is a few dozen kB, so that holds thousands). Kept small on purpose: with all three
+  sites the nodes would carry a failed one at about 94% of their memory at twice the sizes of
+  2026-10-22 (64M, arepazo 128M). Lowered on 2026-11-02 from what Varnish used over
+  2026-10-23..11-02: working set p95 48-68 MiB on 64M, 122 MiB on arepazo's 128M. Static files have
+  a storage of their own, so images never push pages out: a file of `pageCache.staticSizeMiB` (512)
+  on the working directory's emptyDir (`-s static=file`, sized to it plus 200Mi), held in the
+  kernel's file cache, which gives way under memory pressure, not in the container's own memory. The
+  working directory is that emptyDir; the root filesystem is read-only.
 - **Gatus checks the login page**, not the home page: grace would serve the home page for hours
   while PHP is down.
 - **Not yet**: Prometheus metrics - the usual exporter needs an image of its own (roadmap).

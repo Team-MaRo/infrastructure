@@ -34,6 +34,10 @@ Secrets policy and role and the Zitadel login for admins; see
   one pod and the static seal it only adds a manual step (changed 2026-10-06).
 - **PriorityClass `stateful-core`** (`server.priorityClassName`): evicted last when a node runs
   short of memory ([`../priority-classes/README.md`](../priority-classes/README.md)).
+- **Memory 64Mi / 256Mi** (`server.resources`; real-memory p95 56 MiB; working set p95 61 MiB,
+  peak 80 MiB over 2026-10-23..11-02).
+  The limit covers the highest use ever seen, not only that window: 228 MiB in its first week
+  (2026-10-05), on start-up and snapshots.
 - The injector is off; secrets reach workloads through External Secrets.
 - **The UI and API are public at `https://openbao.d3strukt0r.dev`** (user decision; the chart's
   Ingress, its certificate created by cert-manager from the Ingress annotation in `values.yaml`,

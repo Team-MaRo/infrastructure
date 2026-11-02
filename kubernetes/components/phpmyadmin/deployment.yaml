@@ -73,10 +73,11 @@ spec:
               drop:
                 - ALL
           resources:
-            # PHP may use up to 512 MB for one request (MEMORY_LIMIT), which large imports and
-            # exports do; idle it needs well under 128 MB.
+            # The request the p95 of real memory, working set minus active file cache (101 MiB;
+            # working set p95 126 MiB, peak 128 MiB over 2026-10-23..11-02); PHP may use up to
+            # 512 MB for one request (MEMORY_LIMIT), which large imports and exports do.
             requests:
-              memory: 128Mi
+              memory: 112Mi
             limits:
               memory: 640Mi
           readinessProbe:

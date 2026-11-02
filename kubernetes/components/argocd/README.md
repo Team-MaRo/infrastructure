@@ -87,8 +87,12 @@ different gets a Kustomize overlay in its own directory, not a copy of the compo
   syncing stays stopped until the node returns or is tainted
   `node.kubernetes.io/out-of-service` (see "When a node dies" below).
 - **Memory for every main container** (`patches/resources.yaml`): the LimitRange's defaults fit
-  none of them. The application controller is the cluster's largest user (1.5 GiB requested);
-  Redis got its 48Mi / 96Mi on 2026-11-02 (p99 39 MiB, peak 41 MiB over 2026-10-23..11-02).
+  none of them. Sized on 2026-11-02 over 2026-10-23..11-02, the request from the p95 of real
+  memory, the limit from the working set's p95 and peak: the application controller, the
+  cluster's largest user, 1328Mi / 2688Mi (real p95 1314 MiB; working set p95 1338 MiB, peak
+  1714 MiB); the repo server 144Mi / 608Mi (143; 290, 551 MiB); the server 80Mi / 224Mi (69; 109,
+  153 MiB); the ApplicationSet controller 64Mi / 160Mi (50; 66, 70 MiB); the notifications
+  controller 64Mi / 128Mi (53; 55, 61 MiB); Redis 48Mi / 96Mi (at most 38; 38, 41 MiB).
 
 ## The UI and the Zitadel login
 

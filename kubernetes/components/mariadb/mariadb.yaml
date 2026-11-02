@@ -61,13 +61,13 @@ spec:
         capabilities:
           drop:
             - ALL
-      # p99 103 MiB, peak 113 MiB over 2026-10-23..11-02: the request p99 x 1.1, the limit
-      # twice the request.
+      # Over 2026-10-23..11-02: real memory (working set minus active file cache) p95 89 MiB, the
+      # request; working set p95 92 MiB, peak 113 MiB, the limit twice that p95.
       resources:
         requests:
-          memory: 128Mi
+          memory: 96Mi
         limits:
-          memory: 256Mi
+          memory: 192Mi
     initContainer:
       # Required once the block is set at all (for its securityContext): the operator's own
       # image, so it is bumped together with the operator (kubernetes/clusters/prod/mariadb-operator*.yaml).
@@ -92,12 +92,15 @@ spec:
       type: RuntimeDefault
   securityContext: *containerSecurityContext
 
+  # Over 2026-10-23..11-02: real memory (working set minus active file cache) p95 604 MiB, the
+  # request; working set p95 935 MiB, peak 956 MiB - the file cache of its writes - the limit
+  # twice that p95, so the cache keeps its room.
   resources:
     requests:
-      memory: 512Mi
+      memory: 608Mi
     limits:
-      memory: 1Gi
-  # The buffer pool leaves room in the 1Gi for connections and the rest. The archiver uploads
+      memory: 1888Mi
+  # The buffer pool leaves room in the limit for connections and the rest. The archiver uploads
   # closed binary log files every ten minutes; flush-binlogs.yaml closes the active one as
   # often, and 128M caps a file under heavy writes. The server keeps binary logs forever by
   # default; after 7 days they are long in Object Storage, and a replica that has been gone

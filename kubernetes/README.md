@@ -421,7 +421,10 @@ Deployment - or whichever controller - is applied. A new registry is one entry i
 `components/kyverno/allowed-registries.yaml`.
 
 A container that sets no `resources` gets Kyverno's defaults (requests 50m CPU, 32Mi memory,
-limit 128Mi memory, no CPU limit); one that needs more sets its own - "Default resources" in
+limit 128Mi memory, no CPU limit); one that needs more sets its own: the request the p95 of its real
+memory (working set minus active file cache) over a window of days, rounded up to 16 MiB, the
+limit twice the working set's p95 or the highest working set ever seen x 1.1 (rounded up to
+32 MiB), whichever is higher - "Default resources" in
 [`components/kyverno/README.md`](components/kyverno/README.md).
 
 ## When a node dies

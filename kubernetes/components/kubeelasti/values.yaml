@@ -11,20 +11,31 @@ elastiController:
     env:
       # Where each ElastiService's scale-down query runs, so the ElastiServices need not say it.
       prometheusTriggerServerAddress: http://kube-prometheus-stack-prometheus.monitoring.svc:9090
-    # No CPU limit, as everywhere in this cluster: it throttles even an idle node.
+    # No CPU limit, as everywhere in this cluster: it throttles even an idle node. Memory: real
+    # memory (working set minus active file cache) p95 27 MiB, working set peak 36 MiB over
+    # 2026-10-23..11-02 fit the namespace's LimitRange defaults; null removes the chart's
+    # 40Mi / 80Mi so they apply.
     resources:
+      requests:
+        memory: null
       limits:
         cpu: null
+        memory: null
 
 elastiResolver:
   proxy:
     env:
       # Requests held while an app wakes up: 50000 by default, far more than these apps see,
-      # and all of it in the resolver's 80Mi.
+      # and all of it in the resolver's 128Mi default limit.
       queueSize: "1000"
       # How long a held request waits for the app (default 600 s) before it gets a 408. Longer
       # than any of these apps should take to start, shorter than a client gives up.
       reqTimeout: "120"
+    # Real p95 22 MiB, working set peak 24 MiB over 2026-10-23..11-02 fit the namespace's
+    # LimitRange defaults; null removes the chart's 40Mi / 80Mi so they apply.
     resources:
+      requests:
+        memory: null
       limits:
         cpu: null
+        memory: null

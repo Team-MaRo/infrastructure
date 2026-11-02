@@ -39,11 +39,13 @@ alloy:
         - ALL
     seccompProfile:
       type: RuntimeDefault
-  # kube-system has no LimitRange. Measured 130-180 MiB per node after the first start.
+  # kube-system has no LimitRange. Over 2026-10-23..11-02: real memory (working set minus active
+  # file cache) p95 230 MiB, the request; working set p95 255 MiB, peak 259 MiB, the limit twice
+  # that p95.
   resources:
     requests:
       cpu: 20m
-      memory: 192Mi
+      memory: 240Mi
     limits:
       memory: 512Mi
   configMap:
@@ -205,6 +207,15 @@ alloy:
 # node's only while its own is down.
 service:
   trafficDistribution: PreferSameNode
+
+# The chart's 50Mi request and no limit; kube-system has no LimitRange. Over 2026-10-23..11-02:
+# real p95 14 MiB, the request; working set p95 15 MiB, peak 18 MiB, the limit twice that p95.
+configReloader:
+  resources:
+    requests:
+      memory: 16Mi
+    limits:
+      memory: 32Mi
 
 controller:
   volumes:

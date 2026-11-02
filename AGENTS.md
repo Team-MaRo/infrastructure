@@ -208,8 +208,9 @@ rule, 2026-10-02). Where a name cannot hold a hyphen, the hyphens become undersc
   ephemeral storage; limits 128Mi memory, 1Gi ephemeral storage). **No CPU limits**, anywhere:
   they throttle an idle node. A container sets its memory itself only where the defaults do
   not fit, and always in `kube-system` and `system-upgrade`, which have no LimitRange: the
-  request p99 x 1.1 in 16 MiB steps, the limit twice the request or the peak x 1.1 (in 32 MiB
-  steps), whichever is higher
+  request the p95 of real memory (working set minus active file cache) over a window of days,
+  rounded up to 16 MiB; the limit twice the working set's p95 or the highest working set ever
+  seen x 1.1 (rounded up to 32 MiB), whichever is higher
   ([`kubernetes/components/kyverno/README.md`](kubernetes/components/kyverno/README.md)).
 - **Only Cloudflare reaches a proxied name.** Every route of a name Cloudflare proxies puts
   the Middleware `cloudflare-only` first (`<namespace>_cloudflare-only@kubernetescrd`); its app

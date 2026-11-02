@@ -64,11 +64,13 @@ spec:
             capabilities:
               drop:
                 - ALL
+          # Over 2026-10-23..11-02: real memory (working set minus active file cache) p95 248 MiB,
+          # the request; working set p95 301 MiB, peak 302 MiB, the limit twice that p95.
           resources:
             requests:
               memory: 256Mi
             limits:
-              memory: 1Gi
+              memory: 608Mi
           readinessProbe:
             httpGet:
               path: /misc/ping

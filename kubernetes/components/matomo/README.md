@@ -20,8 +20,10 @@ since every site's visitors call them. It replaces Google Analytics on the WordP
 - **Configuration in two files.** `common.config.ini.php` (in git) holds every setting that
   differs from Matomo's `global.ini.php`; `prepare.sh` writes `config.ini.php` at every start with
   only the database password, the salt and the SMTP password. See "What the UI may change".
-- **One replica**, `matomo:5-fpm` and nginx on floating tags rolled out by Keel; the secrets
-  restart the pod through Reloader. php-fpm 256Mi request / 1Gi limit at a 512M PHP limit.
+- **One replica**, `matomo:5-fpm` and nginx on floating tags rolled out by Keel; the secrets restart
+  the pod through Reloader. php-fpm 160Mi request (real-memory p95 159 MiB; working set p95 227 MiB,
+  peak 291 MiB over 2026-10-23..11-02) / 1Gi limit at a 512M PHP limit; nginx on the namespace's
+  defaults.
 - **The job** `matomo/php-fpm` (`pod-monitor.yaml`) brings the php-fpm alerts and dashboard of
   kube-prometheus-stack; Gatus checks `/matomo.php`.
 

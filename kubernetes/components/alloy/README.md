@@ -37,6 +37,10 @@ forwards them to Tempo ([`../tempo/README.md`](../tempo/README.md)).
   root needs no capability to read them. Its read positions live on the node
   (`/var/lib/alloy`), so a restarted pod neither re-sends nor skips lines, and it mounts
   `/etc/machine-id`, by which the journal reader finds the node's own journal.
+- **Memory** (`values.yaml`; kube-system has no LimitRange), over 2026-10-23..11-02, the
+  request from real memory's p95, the limit from the working set's: Alloy 240Mi / 512Mi (real p95
+  230 MiB; working set p95 255 MiB, peak 259 MiB), its config reloader 16Mi / 32Mi (14; 15, peak
+  18 MiB) instead of the chart's 50Mi request without a limit.
 - **Its chart's RBAC is not used.** Alloy's chart role reads every Secret and ConfigMap, so
   `rbac.create: false` and `clusterrole.yaml` grants only pods, namespaces and events.
 - **Events are collected once**: the Alloy instances form a cluster, and a

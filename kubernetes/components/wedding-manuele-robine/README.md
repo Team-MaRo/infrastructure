@@ -46,7 +46,7 @@ ran under Docker Compose. How the cluster's manifests fit together is in
   status pool of its own (`pm.status_listen`), which answers while every worker is busy, a
   slow log (requests over 2 s write their PHP backtrace into the container log) and a memory
   limit per request of 256M (the image's `php.ini` sets none, so one runaway request could fill
-  the container's 512Mi and kill every other request with it);
+  the container's 704Mi and kill every other request with it);
   `pm.status_path` is already in the image's `www.conf`. `config/nginx-metrics.conf` is copied
   by the init container `nginx-config` into `/etc/nginx/conf.d/php-fpm-metrics.conf` (an
   emptyDir; the image's conf.d is otherwise empty) - not mounted, because the image's start
@@ -56,6 +56,9 @@ ran under Docker Compose. How the cluster's manifests fit together is in
   in the WordPress sites, see [`../../charts/wordpress/README.md`](../../charts/wordpress/README.md).
   **The pool path carries the image's PHP version (8.3)**: on a new PHP version the file is no
   longer read and `PhpFpmStatusDown` fires - then change the version in `api.yaml`.
+- **Memory**, over 2026-10-23..11-02, the request from real memory's p95: the API 240Mi / 704Mi
+  (real p95 237 MiB; working set p95 313 MiB, peak 316 MiB - plus one request at `memory_limit`
+  256M, which 512Mi no longer held); the PWA 144Mi / 320Mi (142; 158, peak 158 MiB).
 - Dropped from prod-old: the app's own MariaDB (now the shared one, backed up by the operator),
   phpMyAdmin (the shared one at `phpmyadmin.d3strukt0r.dev`) and tiredofit/db-backup.
 

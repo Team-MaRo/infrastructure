@@ -15,29 +15,48 @@ global:
     # The chart pulls from reg.kyverno.io by default; the same images are published on
     # ghcr.io, one of the registries allowed-registries.yaml admits.
     registry: ghcr.io
-# The chart's 128Mi limits were too tight when measured (2026-09-28): the background controller
-# already used 104 MiB. The reports controller grows with the number of policy reports.
+# Memory from what the controllers used over 2026-10-23..11-02: the request the p95 of real memory
+# (working set minus active file cache), the limit twice the working set's p95; the chart's own
+# (64-128Mi, limit 128-384Mi) did not fit. The reports controller grows with the number of policy
+# reports.
+#
+# Real p95 86 MiB; working set p95 110 MiB, peak 120 MiB.
 backgroundController:
   serviceMonitor:
     enabled: true
   resources:
     requests:
-      memory: 128Mi
+      memory: 96Mi
     limits:
-      memory: 256Mi
+      memory: 224Mi
+# Real p95 89 MiB; working set p95 105 MiB, peak 112 MiB.
 reportsController:
   serviceMonitor:
     enabled: true
   resources:
     requests:
-      memory: 128Mi
+      memory: 96Mi
     limits:
-      memory: 256Mi
+      memory: 224Mi
 # Metrics for Prometheus: admission requests and policy results per controller. The monitors'
 # CRD comes with kube-prometheus-stack.
+#
+# Real p95 89 MiB; working set p95 97 MiB, peak 101 MiB.
 admissionController:
   serviceMonitor:
     enabled: true
+  container:
+    resources:
+      requests:
+        memory: 96Mi
+      limits:
+        memory: 224Mi
+# Real p95 45 MiB; working set p95 68 MiB, peak 72 MiB.
 cleanupController:
   serviceMonitor:
     enabled: true
+  resources:
+    requests:
+      memory: 48Mi
+    limits:
+      memory: 160Mi

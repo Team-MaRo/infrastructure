@@ -3,10 +3,10 @@
 # Cloudflare Worker), from the chart kubernetes/charts/wordpress (README). Only what differs from
 # the chart's defaults.
 #
-# The pool keeps the chart's defaults (2026-10-18): (512 MiB limit - ~140 opcache and master - ~100
-# headroom) / ~30 MB per worker (php-fpm's memory peak 22.5 MB) = 9, so the image's five fit; they
-# have never all been busy. The limit leaves room for one request up to memory_limit's 256M beside
-# the idle workers: ~140 + 3 x 30 + 266 = ~500 MiB.
+# The pool keeps the chart's defaults: (768 MiB limit - ~296 opcache (256M) and master - ~100
+# headroom) / ~30 MB per worker (php-fpm's memory peak 22.5 MB, 2026-10-18) = 12, so the image's
+# five fit; they have never all been busy. The limit leaves room for one request up to
+# memory_limit's 256M beside the other four: ~296 + 4 x 30 + 256 = ~670 MiB.
 
 hosts:
   - old.robines.space

@@ -41,10 +41,12 @@ namespace `phpmyadmin`). How the cluster's manifests fit together is in
   pod as a file (`PMA_CONTROLPASS_FILE`), not as an environment variable.
 - **The session secret is not stored.** The entrypoint generates a new `blowfish_secret` on
   every start, so a restart only logs everyone out of phpMyAdmin - no secret to keep.
-- **One replica, `Recreate`**: sessions are files in the pod. Memory: request 128Mi, limit
-  640Mi - idle it needs far less, but PHP may use up to 512 MB for one large import or export
-  (`MEMORY_LIMIT`). Imports up to 100 MB (`UPLOAD_LIMIT`, default 2 MB) - the most Cloudflare's
-  proxy accepts in one request on the free plan, so a higher value would not help.
+- **One replica, `Recreate`**: sessions are files in the pod. Memory: request 112Mi
+  (real-memory p95 101 MiB; working set p95 126 MiB, peak 128 MiB over 2026-10-23..11-02), limit
+  640Mi - PHP may use up to 512 MB for one
+  large import or export (`MEMORY_LIMIT`). Imports up to 100 MB (`UPLOAD_LIMIT`, default 2 MB) -
+  the most Cloudflare's proxy accepts in one request on the free plan, so a higher value would not
+  help.
 - **Restarted by Reloader** when Secret `phpmyadmin` changes in OpenBao: the entrypoint reads
   `PMA_CONTROLPASS_FILE` into the environment at start
   ([`../reloader/README.md`](../reloader/README.md)).

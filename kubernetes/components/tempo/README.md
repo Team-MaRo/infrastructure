@@ -42,7 +42,8 @@ is in [`kubernetes/README.md`](../../README.md).
   `count({__name__=~"traces_.+"})` after a new sender.
 - **The finalizer is on** (AGENTS.md): Tempo brings no CRDs and no volume, and its traces are in
   the bucket - removing the Application removes the namespace, not the traces.
-- Memory 256Mi requested, 1Gi limit - a first guess for a few spans a second, to be measured.
+- Memory 384Mi / 768Mi, from real-memory p95 373 MiB and working set p95 383 MiB, peak 513 MiB
+  over 2026-10-23..11-02.
   Restricted Pod Security as the chart ships it plus seccomp, no capabilities, read-only root.
   Usage reports to Grafana are off.
 

@@ -12,10 +12,10 @@ app:
 defaultPackage:
   enabled: false
 
-# p99 49 MiB, peak 51 MiB over 2026-10-23..11-02: the request p99 x 1.1, the limit twice the
-# request.
+# Over 2026-10-23..11-02: real memory (working set minus active file cache) p95 33 MiB, the
+# request; working set p95 48 MiB, peak 51 MiB, the limit twice that p95.
 resources:
   requests:
-    memory: 64Mi
+    memory: 48Mi
   limits:
-    memory: 128Mi
+    memory: 96Mi

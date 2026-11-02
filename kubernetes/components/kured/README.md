@@ -19,6 +19,8 @@ between the k3s upgrades and the OS updates is "The night's maintenance order" i
 - **A drain that cannot finish blocks the reboot** (no `--force-reboot`), and nothing ever
   times it out (`--drain-timeout` 0): a PodDisruptionBudget allowing no disruption keeps the
   node cordoned and waiting. `kubectl -n kube-system logs -l name=kured` shows it.
+- **Memory 16Mi / 64Mi** (a patch in `kustomization.yaml`; real-memory p95 14 MiB; working set
+  p95 17 MiB, peak 17 MiB over 2026-10-23..11-02); kube-system has no LimitRange.
 - **Only kernels set the sentinel.** A host service using an updated library keeps the old
   copy until it restarts - there is no `needrestart` on these nodes - but containers bring
   their own libraries anyway, so this only concerns the few host daemons.

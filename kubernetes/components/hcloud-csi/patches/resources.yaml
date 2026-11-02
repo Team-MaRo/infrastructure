@@ -1,7 +1,7 @@
 ---
-# Memory for the driver's containers, from what they used when set (2026-09-28): the request
-# about the usual use, the limit about twice the highest seen, 128Mi at the least. The
-# upstream manifest sets only CPU requests, and kube-system has no LimitRange.
+# Memory for the driver's containers; the upstream manifest sets only CPU requests, and
+# kube-system has no LimitRange. From what they used over 2026-10-23..11-02: the request the p95
+# of real memory (working set minus active file cache), the limit twice the working set's p95.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -11,36 +11,41 @@ spec:
   template:
     spec:
       containers:
+        # Real p95 15 MiB; working set p95 20 MiB, peak 20 MiB.
         - name: csi-attacher
           resources:
             requests:
-              memory: 96Mi
+              memory: 16Mi
             limits:
-              memory: 192Mi
+              memory: 64Mi
+        # Real p95 19 MiB; working set p95 29 MiB, peak 29 MiB.
         - name: csi-provisioner
-          resources:
-            requests:
-              memory: 96Mi
-            limits:
-              memory: 192Mi
-        - name: csi-resizer
-          resources:
-            requests:
-              memory: 96Mi
-            limits:
-              memory: 192Mi
-        - name: hcloud-csi-driver
-          resources:
-            requests:
-              memory: 48Mi
-            limits:
-              memory: 128Mi
-        - name: liveness-probe
           resources:
             requests:
               memory: 32Mi
             limits:
-              memory: 128Mi
+              memory: 64Mi
+        # Real p95 26 MiB; working set p95 37 MiB, peak 38 MiB.
+        - name: csi-resizer
+          resources:
+            requests:
+              memory: 32Mi
+            limits:
+              memory: 96Mi
+        # Real p95 13 MiB; working set p95 14 MiB, peak 14 MiB.
+        - name: hcloud-csi-driver
+          resources:
+            requests:
+              memory: 16Mi
+            limits:
+              memory: 32Mi
+        # Real p95 13 MiB; working set p95 13 MiB, peak 14 MiB.
+        - name: liveness-probe
+          resources:
+            requests:
+              memory: 16Mi
+            limits:
+              memory: 32Mi
 ---
 apiVersion: apps/v1
 kind: DaemonSet
@@ -51,21 +56,24 @@ spec:
   template:
     spec:
       containers:
+        # Real p95 9 MiB; working set p95 17 MiB, peak 19 MiB.
         - name: csi-node-driver-registrar
           resources:
             requests:
-              memory: 32Mi
+              memory: 16Mi
             limits:
-              memory: 128Mi
+              memory: 64Mi
+        # Real p95 16 MiB; working set p95 26 MiB, peak 27 MiB.
         - name: hcloud-csi-driver
           resources:
             requests:
-              memory: 32Mi
+              memory: 16Mi
             limits:
-              memory: 128Mi
+              memory: 64Mi
+        # Real p95 14 MiB; working set p95 22 MiB, peak 23 MiB.
         - name: liveness-probe
           resources:
             requests:
-              memory: 32Mi
+              memory: 16Mi
             limits:
-              memory: 128Mi
+              memory: 64Mi

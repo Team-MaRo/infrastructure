@@ -35,11 +35,13 @@ spec:
           ports:
             - name: http
               containerPort: 80
+          # Over 2026-10-23..11-02: real memory (working set minus active file cache) p95 142 MiB,
+          # the request; working set p95 158 MiB, peak 158 MiB, the limit twice that p95.
           resources:
             requests:
-              memory: 64Mi
+              memory: 144Mi
             limits:
-              memory: 256Mi
+              memory: 320Mi
           readinessProbe:
             httpGet:
               path: /

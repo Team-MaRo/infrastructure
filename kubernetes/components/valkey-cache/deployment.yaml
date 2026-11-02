@@ -55,12 +55,14 @@ spec:
             tcpSocket:
               port: valkey
             periodSeconds: 30
-          # maxmemory (192mb, valkey.conf) plus Valkey's own overhead and client buffers.
+          # Sized by maxmemory (64mb, valkey.conf) plus Valkey's own overhead and client buffers,
+          # not by use: the container's real memory (working set minus active file cache) p95
+          # 14 MiB, working set peak 25 MiB over 2026-10-23..11-02.
           resources:
             requests:
-              memory: 256Mi
+              memory: 96Mi
             limits:
-              memory: 320Mi
+              memory: 192Mi
           volumeMounts:
             - name: config
               mountPath: /etc/valkey/valkey.conf
@@ -98,13 +100,6 @@ spec:
           ports:
             - name: metrics
               containerPort: 9121
-          # p99 32 MiB, peak 33 MiB over 2026-10-23..11-02: the request p99 x 1.1, the limit
-          # twice the request.
-          resources:
-            requests:
-              memory: 48Mi
-            limits:
-              memory: 96Mi
       volumes:
         - name: config
           configMap:

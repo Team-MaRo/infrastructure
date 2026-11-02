@@ -132,7 +132,7 @@ spec:
         # raise the limit), above 90 % critical (the kill is near); the inhibit rule in
         # values.yaml silences the warning while the critical one fires. With limits at least
         # twice the request, a container normally sits near 50 %. Highest over
-        # 2026-10-23..11-02: 75 % (mariadb's agent, on the default limit).
+        # 2026-10-23..11-02: 75 % (mariadb's agent, then on the default limit).
         - alert: ContainerMemoryNearLimit
           expr: >-
             max by (namespace, pod, container) (

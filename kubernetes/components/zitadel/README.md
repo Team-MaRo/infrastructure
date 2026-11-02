@@ -11,8 +11,10 @@ claim's action - is `tofu/zitadel`, see [`tofu/zitadel/README.md`](../../../tofu
 Chosen over Keycloak for its footprint (user decision, 2026-09-29): a Go server that stores
 everything in the shared PostgreSQL (database `zitadel`). It runs as one replica of Zitadel and
 one of its separate v4 login page (Next.js, path `/ui/v2/login`) until prod-03's resize; while it
-is down, the UIs stay reachable by port-forward. Measured idle after the first start
-(2026-09-30): Zitadel about 120-170Mi, the login page about 120Mi.
+is down, the UIs stay reachable by port-forward. Memory (`values.yaml`), over 2026-10-23..11-02, the
+request from real memory's p95, the limit from the working set's: Zitadel 208Mi / 512Mi (real p95
+199 MiB; 247, peak 286 MiB), the login page 144Mi / 320Mi (137; 155, peak 167 MiB); the groups
+and registration webhooks stay on the namespace's defaults (real p95 11 / 14 MiB).
 
 ## Design
 

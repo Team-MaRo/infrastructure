@@ -15,8 +15,10 @@ resources:
 
 patches:
   # The cainjector holds every certificate, CRD and webhook configuration it patches in memory:
-  # about 127 MiB usually, and the namespace's LimitRange limit of 128Mi got it OOM-killed
-  # when many CRDs arrived at once (2026-10-02). The manifest sets no resources.
+  # the namespace's LimitRange limit of 128Mi got it OOM-killed when many CRDs arrived at once
+  # (2026-10-02). Over 2026-10-23..11-02: real memory (working set minus active file cache) p95
+  # 127 MiB, the request; working set p95 142 MiB, peak 143 MiB, the limit twice that p95. The
+  # manifest sets no resources.
   - target:
       kind: Deployment
       name: cert-manager-cainjector
@@ -27,9 +29,9 @@ patches:
           requests:
             memory: 128Mi
           limits:
-            memory: 256Mi
-  # The controller and the webhook: p99 81 / 38 MiB, peak 83 / 38 MiB over 2026-10-23..11-02,
-  # above the default request of 32Mi. The request p99 x 1.1, the limit twice the request.
+            memory: 288Mi
+  # The controller: real p95 52 MiB, the request; working set p95 78 MiB, peak 83 MiB, the limit
+  # twice that p95. The webhook (real p95 19 MiB, peak 38 MiB) stays on the LimitRange defaults.
   - target:
       kind: Deployment
       name: cert-manager
@@ -38,20 +40,9 @@ patches:
         path: /spec/template/spec/containers/0/resources
         value:
           requests:
-            memory: 96Mi
+            memory: 64Mi
           limits:
-            memory: 192Mi
-  - target:
-      kind: Deployment
-      name: cert-manager-webhook
-    patch: |-
-      - op: add
-        path: /spec/template/spec/containers/0/resources
-        value:
-          requests:
-            memory: 48Mi
-          limits:
-            memory: 96Mi
+            memory: 160Mi
 
 # Shared settings (shared/): the openbao store and refresh for every ExternalSecret, the
 # sync option for every monitor and rule.

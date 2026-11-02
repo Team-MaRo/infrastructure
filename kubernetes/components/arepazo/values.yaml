@@ -45,15 +45,17 @@ objectCache:
   database: 2
 
 # Varnish in front (chart README "Page cache"): a shop has more pages - products, categories,
-# three languages - so twice the chart's memory for them.
+# three languages - so twice the chart's memory for them. Sized by the cache, not by use: the
+# limit holds 96M pages + 64M passed responses = 160M before Varnish's own overhead. It used a
+# working set p95 of 122 MiB, peak 137 MiB over 2026-10-23..11-02 with 128M for pages.
 pageCache:
   enabled: true
-  size: 128M
+  size: 96M
   resources:
     requests:
-      memory: 384Mi
+      memory: 192Mi
     limits:
-      memory: 384Mi
+      memory: 256Mi
 
 # Login through Zitadel (README): the app `arepazo` in tofu/zitadel (project_arepazo.tf), and
 # customers register into the organisation Arepazo, which gives them arepazo:customer.
@@ -92,11 +94,12 @@ phpFpm:
     min_spare_servers: 2
     max_spare_servers: 4
   # Six workers run at once under load, about 90 MB each plus the shared opcache; 512Mi was
-  # OOM-killed twice right after the switch. It idled at 250-300Mi with a 128M opcache; the 256M
-  # one (the chart's php.ini) adds up to 128Mi, so request and limit grew by that and a margin.
+  # OOM-killed twice right after the switch. The request the p95 of real memory, working set
+  # minus active file cache (324 MiB; working set p95 361 MiB, peak 493 MiB over
+  # 2026-10-23..11-02); the limit is the one the pool above was sized against.
   resources:
     requests:
-      memory: 512Mi
+      memory: 336Mi
     limits:
       memory: 1280Mi
 

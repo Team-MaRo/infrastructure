@@ -22,19 +22,19 @@ in the shared MariaDB, the uploads are in the bucket `d3strukt0r-prod-arepazo`
   proxy sees the request. WordPress reads them itself through S3-Uploads. A plugin that adds
   such a directory needs it added to `nginx.deniedUploadPaths` in `values.yaml`.
 - **More memory.** prod-old's php-fpm was OOM-killed at 280M: PHP gets `memory_limit 256M`, the
-  php-fpm container a 1Gi limit (384Mi requested; it idles at 250-300Mi). Under real traffic all
-  workers (`pm.max_children`) run at once - 512Mi was OOM-killed twice with five right after the
-  switch (2026-10-04). wp-cli in the init container loads WooCommerce's admin code and
-  crashes at 128M, so it runs with `-d memory_limit=1024M` (`WP_CLI_PHP_ARGS`) in a 1280Mi
-  container that exits once the site is assembled. It requests only 256Mi: without a request
-  the limit would count as one, and a pod keeps its largest init container's request booked on
-  the node for its whole life.
+  php-fpm container a 1280Mi limit (336Mi requested; real-memory p95 324 MiB, working set p95 361
+  MiB, peak 493 MiB over 2026-10-23..11-02). Under real traffic all workers (`pm.max_children`) run
+  at once - 512Mi was OOM-killed twice with five right after the switch (2026-10-04). wp-cli in the
+  init container loads WooCommerce's admin code and crashes at 128M, so it runs with `-d
+  memory_limit=1024M` (`WP_CLI_PHP_ARGS`) in a 1280Mi container that exits once the site is
+  assembled. It requests only 256Mi: without a request the limit would count as one, and a pod keeps
+  its largest init container's request booked on the node for its whole life.
 - **Six workers, sized from the memory limit** (`phpFpm` in `values.yaml`): `(limit - opcache -
-  master - headroom) / memory per worker` = (1024 - 128 - 40 - ~200) / 90 MB = 7, one fewer so a
-  heavy request (an export, up to `memory_limit` 256M) still fits beside five normal ones: ~160
-  fixed + 5 x 90 + 256 = ~870 MiB; two at once would not. The memory per
-  worker is its own, not the RSS `ps` shows: every worker's RSS includes the opcache (128M, shared
-  once), which made them look 225 MB each. The image's five were taken by a single `/wp-admin/`
+  master - headroom) / memory per worker` = (1280 - 256 - 40 - ~200) / 90 MB = 8, one fewer so a
+  heavy request (an export, up to `memory_limit` 256M) still fits beside the others, kept at 6:
+  ~296 fixed + 5 x 90 + 256 = ~1000 MiB; two at once would not. The memory per worker is its own,
+  not the RSS `ps` shows: every worker's RSS includes the opcache (256M, shared once), which made
+  them look 225 MB each with the former 128M. The image's five were taken by a single `/wp-admin/`
   load (2026-10-18): Jetpack, Yoast and admin-ajax fire ~17 requests at once, each 1.5-9 s and
   mostly waiting on wordpress.com and the database - five busy workers used 1.65 of the node's 4
   cores. `pm` stays `dynamic` (2-4 idle), so an idle count of 0 still means a full pool; a worker

@@ -78,11 +78,14 @@ spec:
             # php-fpm's pool figures (config/nginx-metrics.conf, pod-monitor.yaml).
             - name: metrics
               containerPort: 9253
+          # Over 2026-10-23..11-02: real memory (working set minus active file cache) p95 237 MiB,
+          # the request; working set p95 313 MiB, peak 316 MiB. The limit leaves room for one
+          # request at PHP's memory_limit beside that (config/php-fpm-metrics.conf).
           resources:
             requests:
-              memory: 256Mi
+              memory: 240Mi
             limits:
-              memory: 512Mi
+              memory: 704Mi
           # Migrations and the database wait come first.
           startupProbe:
             httpGet:

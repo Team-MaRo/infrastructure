@@ -1,24 +1,26 @@
 # Helm values for the external-secrets chart; the chart version is pinned in the cluster's
 # Application. Memory where the namespace's LimitRange defaults (32Mi, limit 128Mi) do not
-# fit, from what the containers used when set (2026-09-28): the request about the usual use,
-# the limit about twice the highest seen.
+# fit, from what the containers used over 2026-10-23..11-02: the request the p95 of real memory
+# (working set minus active file cache), the limit twice the working set's p95.
+#
+# Real p95 75 MiB; working set p95 104 MiB, peak 109 MiB.
 resources:
   requests:
-    memory: 192Mi
+    memory: 80Mi
   limits:
-    memory: 512Mi
+    memory: 224Mi
+# Real p95 90 MiB; working set p95 110 MiB, peak 113 MiB.
 certController:
   resources:
     requests:
       memory: 96Mi
     limits:
-      memory: 256Mi
-# p99 45 MiB, peak 46 MiB over 2026-10-23..11-02: the request p99 x 1.1, the limit twice the
-# request.
+      memory: 224Mi
+# Real p95 44 MiB; working set peak 46 MiB, the limit kept at 128Mi.
 webhook:
   resources:
     requests:
-      memory: 64Mi
+      memory: 48Mi
     limits:
       memory: 128Mi
 

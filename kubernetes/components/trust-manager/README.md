@@ -44,8 +44,8 @@ updated when the CA rotates, instead of a copy per app.
 - Chart v0.25.0 meets the restricted Pod Security Standard as it is; the debian default-CA package
   is off. Metrics through `service-monitor.yaml`. The webhook's certificate comes from a
   self-signed Issuer the chart creates.
-- **Memory 64Mi / 128Mi** (`resources`; p99 49 MiB, peak 51 MiB over 2026-10-23..11-02), above
-  the default request of 32Mi.
+- **Memory 48Mi / 96Mi** (`resources`; real-memory p95 33 MiB; working set p95 48 MiB, peak
+  51 MiB over 2026-10-23..11-02), above the default request of 32Mi.
 - **Watch**: `Bundle` (`trust.cert-manager.io/v1alpha1`) is the current API; a later release will
   replace it with `ClusterBundle` (renamed fields, migration by the controller) - read the release
   notes before an upgrade. trust-manager#1119 reports v0.25.0 still listing Secrets in

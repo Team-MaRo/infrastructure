@@ -27,8 +27,12 @@ holds here as well, with `valkey-state` for `valkey-cache` and the namespace lab
   `appendfsync always`, no RDB snapshots (`save ""`). A crash or a killed pod loses nothing it
   confirmed - `everysec` could lose the last second, and with it a lock a second process would
   then take while the first still works.
-- **Nothing is evicted** (`maxmemory 128mb`, `noeviction`): when it is full, writes fail for every
+- **Nothing is evicted** (`maxmemory 48mb`, `noeviction`): when it is full, writes fail for every
   app, hence `ValkeyStateMemoryHigh` at 80 %. Every key an app writes should carry a TTL.
+- **Memory**: Valkey 32Mi / 128Mi (p95 9 MiB, peak 10 MiB over 2026-10-23..11-02, so `maxmemory`
+  went from 128mb to 48mb on 2026-11-02); the limit holds `maxmemory` plus the fork that rewrites
+  the append-only file. Written out although it equals the namespace's defaults, so it stays
+  tied to `maxmemory`. The exporter is on the defaults (real p95 22 MiB, peak 23 MiB).
 - **One instance on a volume, no replica or Sentinel.** Replication is asynchronous, so a
   failover could lose locks again; a single instance whose writes are on its volume is the safe
   form. A lost node costs about 6 minutes until the volume is detached and attached elsewhere

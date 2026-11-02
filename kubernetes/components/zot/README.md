@@ -47,6 +47,9 @@ containers, PostgreSQL and Redis - too much for four small nodes (research 2026-
   `/var/lib/registry/sync`): with remote storage zot refuses to start without it - its first start
   on the cluster failed on exactly that. Hence up to 5Gi of local storage instead of the
   LimitRange's 1Gi.
+- **Memory 160Mi / 320Mi** (`resources`; real-memory p95 149 MiB; working set p95 150 MiB, peak
+  184 MiB over 2026-10-23..11-02);
+  layer uploads stream through to S3.
 - **Configuration in git**: `external-secrets.yaml` renders `config.json` from a template, with
   only zot's Valkey password and the htpasswd file from OpenBao; the S3 key reaches zot's driver
   as `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY`. Reloader restarts zot when either changes.

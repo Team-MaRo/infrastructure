@@ -18,8 +18,9 @@ paths:
 - Images only from `docker.io`, `ghcr.io`, `quay.io`, `registry.k8s.io`, `public.ecr.aws`;
   write them fully qualified where an operator deploys them.
 - No CPU limits. Set memory only where Kyverno's defaults (32Mi request, 128Mi limit) do not
-  fit, and always in `kube-system` and `system-upgrade`: request p99 x 1.1 in 16 MiB steps,
-  limit max(2 x request, peak x 1.1 in 32 MiB steps).
+  fit, and always in `kube-system` and `system-upgrade`: request the p95 of real memory
+  (working set minus active file cache) over a window of days in 16 MiB steps, limit max(2 x the
+  working set's p95, highest working set ever seen x 1.1 in 32 MiB steps).
 - An app whose Application carries the finalizer brings its own `namespace.yaml` (never in
   `kube-system`); one that brings CRDs or volumes gets no finalizer - see "Pruning and the
   finalizer" in `kubernetes/components/argocd/README.md`.

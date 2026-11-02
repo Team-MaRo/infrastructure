@@ -28,7 +28,7 @@ objectCache:
 
 # The page cache (README "Page cache"): Varnish in front of nginx, for anonymous visitors.
 # size: Varnish's memory for pages (-s malloc); its container's memory below has room for that
-# plus Varnish itself and its 64M for passed responses. A page is a few dozen kB, so 64M holds
+# plus Varnish itself and its 64M for passed responses. A page is a few dozen kB, so 48M holds
 # thousands - enough for a small site; the nodes' memory is tight (README "Page cache").
 pageCache:
   enabled: false
@@ -36,15 +36,18 @@ pageCache:
   # has checked it already; its visitors then share the cached pages. Elsewhere the header is an
   # Application Password, which WordPress must see.
   dropBasicAuth: false
-  size: 64M
+  size: 48M
   # Static files (theme, plugin and core files, the uploads) in a file of their own on the pod's
   # disk, in MiB; it lives in the kernel's file cache, which gives way under memory pressure.
   staticSizeMiB: 512
+  # Sized by the cache, not by use: the limit holds 48M pages + 64M passed responses = 112M before
+  # Varnish's own overhead. The sites on the former 64M used a working set p95 of 48-68 MiB, peak
+  # 71 MiB over 2026-10-23..11-02.
   resources:
     requests:
-      memory: 256Mi
+      memory: 128Mi
     limits:
-      memory: 256Mi
+      memory: 192Mi
 
 # Login through Zitadel (README "Login through Zitadel"): the client ID of the site's app in
 # Zitadel (tofu/zitadel, project_<site>.tf); empty: the normal WordPress login only. Its secret
@@ -81,9 +84,11 @@ phpFpm:
   # container's memory limit (README, "Sizing the pool").
   pool: {}
   resources:
-    # What a site of the image's five workers idles at with the opcache filled.
+    # What a site of the image's five workers uses with the opcache filled (robines-portfolio,
+    # 2026-10-23..11-02): real memory (working set minus active file cache) p95 213 MiB, the
+    # request; working set p95 223 MiB, peak 257 MiB.
     requests:
-      memory: 256Mi
+      memory: 224Mi
     # The image's five workers: one request may use memory_limit's 256M (files/php.ini) beside the
     # opcache (256M, files/php.ini), the master and four others at ~50 MB (the sites on these
     # defaults, measured 2026-10-22): 256 + 40 + 4 x 50 + 256 = ~750.
@@ -101,13 +106,6 @@ uploadsProxy:
   # The uploads proxy's key, the same way (the Secret uploads-proxy): AWS_ACCESS_KEY_ID and
   # AWS_SECRET_ACCESS_KEY.
   secrets: []
-  # The sites used p99 27-35 MiB, peak 35 MiB over 2026-10-23..11-02: the request p99 x 1.1 for
-  # the busiest, the limit twice the request.
-  resources:
-    requests:
-      memory: 48Mi
-    limits:
-      memory: 96Mi
 
 nginx:
   # Sent as Content-Security-Policy; empty: no such header.

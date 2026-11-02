@@ -24,6 +24,9 @@ too.
   through Traefik held and answered with the app's JSON after 3.1 s, the next one in 0.13 s;
   Argo CD stayed Synced throughout. Operator ~24 MiB, resolver ~12 MiB; restricted Pod Security
   as the chart ships it; the chart's CPU limits are removed (`null`) as everywhere.
+- **Memory** (`values.yaml`): the operator and the resolver on the namespace's defaults
+  (real-memory p95 27 / 22 MiB, working set peak 36 / 24 MiB over 2026-10-23..11-02) - `null`
+  removes the chart's 40Mi / 80Mi.
 - **Traefik needs two things per app.** The Service annotation
   `traefik.ingress.kubernetes.io/service.nativelb: "true"`: Traefik normally sends to pod IPs
   and skips the resolver's EndpointSlice, which has no ready condition (KubeElasti#285, open) -

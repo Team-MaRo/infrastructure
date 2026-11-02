@@ -1,12 +1,11 @@
 ---
 # Memory for the Argo CD containers the namespace's LimitRange defaults (32Mi, limit 128Mi) do
-# not fit, from what they used when set (2026-09-28): the request about the usual use, the
-# limit about twice the highest seen; checked again after the first week (2026-10-05). Redis
-# since 2026-11-02, when the default request went down to 32Mi: the request p99 x 1.1, the
-# limit twice the request.
+# not fit, from what they used over 2026-10-23..11-02: the request the p95 of real memory (working
+# set minus active file cache), the limit twice the working set's p95 or its peak x 1.1, whichever
+# is higher.
 #
 # The application controller caches every resource it manages and is the largest user in the
-# cluster: about 1.55 GB usually, 1.6 GB at most.
+# cluster: real p95 1314 MiB; working set p95 1338 MiB, peak 1714 MiB.
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -18,11 +17,12 @@ spec:
         - name: argocd-application-controller
           resources:
             requests:
-              memory: 1536Mi
+              memory: 1328Mi
             limits:
-              memory: 2560Mi
+              memory: 2688Mi
 ---
-# Rendering Helm charts (kube-prometheus-stack, Kyverno) is where it peaks.
+# Rendering Helm charts (kube-prometheus-stack, Kyverno) is where it peaks: real p95 143 MiB;
+# working set p95 290 MiB, peak 551 MiB.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -34,11 +34,11 @@ spec:
         - name: argocd-repo-server
           resources:
             requests:
-              memory: 320Mi
+              memory: 144Mi
             limits:
-              memory: 1Gi
+              memory: 608Mi
 ---
-# About 230 MiB usually, 254 MiB at most of the 256Mi it had (2026-10-05).
+# Real p95 69 MiB; working set p95 109 MiB, peak 153 MiB.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -50,11 +50,11 @@ spec:
         - name: argocd-server
           resources:
             requests:
-              memory: 256Mi
+              memory: 80Mi
             limits:
-              memory: 512Mi
+              memory: 224Mi
 ---
-# Both used about 95 MiB of the 128Mi default limit (2026-10-05).
+# Real p95 50 MiB; working set p95 66 MiB, peak 70 MiB.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -66,10 +66,11 @@ spec:
         - name: argocd-applicationset-controller
           resources:
             requests:
-              memory: 96Mi
+              memory: 64Mi
             limits:
-              memory: 192Mi
+              memory: 160Mi
 ---
+# Real p95 53 MiB; working set p95 55 MiB, peak 61 MiB.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -81,11 +82,11 @@ spec:
         - name: argocd-notifications-controller
           resources:
             requests:
-              memory: 96Mi
+              memory: 64Mi
             limits:
-              memory: 192Mi
+              memory: 128Mi
 ---
-# p99 39 MiB, peak 41 MiB over 2026-10-23..11-02.
+# Real p95 at most 38 MiB; working set p95 38 MiB, peak 41 MiB.
 apiVersion: apps/v1
 kind: Deployment
 metadata:

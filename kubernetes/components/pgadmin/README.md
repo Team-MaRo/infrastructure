@@ -57,9 +57,10 @@ namespace `pgadmin`). How the cluster's manifests fit together is in
   `SESSION_COOKIE_SECURE`, and `ENHANCED_COOKIE_PROTECTION = False` - it ties a session to the
   client's IP address, but behind Cloudflare's proxy pgAdmin sees a Cloudflare address that can
   change between two requests (Traefik does not trust Cloudflare's forwarded headers).
-- **One replica, `Recreate`**: the old pod must stop before the new one migrates the database.
-  8 Gunicorn threads instead of 25 for a handful of users. Memory: request 256Mi, limit 1Gi -
-  large result sets are held in memory; adjust once it has run for a while.
+- **One replica, `Recreate`**: the old pod must stop before the new one migrates the database. 8
+  Gunicorn threads instead of 25 for a handful of users. Memory: request 256Mi, limit 608Mi
+  (real-memory p95 248 MiB; working set p95 301 MiB, peak 302 MiB over 2026-10-23..11-02) - large
+  result sets are held in memory, so an OOM kill on a big query means raising the limit.
 - **Restarted by Reloader** when Secret `pgadmin` changes in OpenBao: the entrypoint reads the
   `*_FILE` secrets at start ([`../reloader/README.md`](../reloader/README.md)). The ConfigMap's
   name is hashed, so a change to it rolls the pod anyway.
