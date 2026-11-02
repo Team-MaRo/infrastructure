@@ -51,15 +51,36 @@ port-forwards stay the break-glass way in. The status page and alerting heartbea
 
 ## Storage and retention
 
-- **Prometheus keeps what fits in 7 GiB** of its 10 GiB volume (`retentionSize: 7GB` -
-  Prometheus counts GB as GiB; oldest first), about 10 days (8 GiB held 12, 2026-10-17), capped
-  at 30 days. The filesystem holds 9.75 GiB: 8 GiB was 82 % of it and kept the volume alert
-  (80 %) firing (2026-10-13/14); 7 GiB is 72 %, and compaction (a merged block written beside
-  the old ones) adds only 1-2 % at its peak. It started on 30 GB and was
-  recreated at 10 GB: a volume can grow but never shrink, so the smaller start is the
-  cheaper mistake. Alertmanager and Grafana have no volume: silences and anything
-  changed in Grafana's UI are lost on restart - dashboards and datasources come from the chart
-  and from ConfigMaps (the sidecar reads every ConfigMap labelled `grafana_dashboard: "1"`).
+- **Prometheus keeps what fits in 16 GiB** of its 20 GiB volume (`retentionSize: 16GB` -
+  Prometheus counts GB as GiB; oldest first), about 23 days at 0.7 GiB a day, and at most 30
+  days (`retention`). Memory sizing needs that much: ten days missed the peak that got Argo CD's
+  repo server OOM-killed (2026-11-02), so the volume went from 10 to 20 GiB that day. The volume
+  runs full on purpose (user decision): 16 GiB is 82 % of the filesystem, and a compaction
+  (blocks of up to 3 days merged beside the old ones, about 2 GiB for a few minutes) brings it to
+  about 92 %. So the 80 % and 90 % volume alerts leave it out; the 95 % one still covers it and
+  means its cleanup failed. A volume can grow but never shrink. Alertmanager and Grafana have no volume:
+  silences and anything changed in Grafana's UI are lost on restart - dashboards and datasources
+  come from the chart and from ConfigMaps (the sidecar reads every ConfigMap labelled
+  `grafana_dashboard: "1"`).
+
+### Growing Prometheus' volume
+
+The operator does not resize an existing volume, and a StatefulSet's volume template cannot be
+changed in place. Grow the volume before pushing a larger `retentionSize`, or Prometheus fills
+the old one:
+
+1. Grow the PVC; the CSI driver enlarges the Hetzner volume and its filesystem while Prometheus
+   runs:
+   ```shell
+   kubectl --context d3strukt0r-prod-admin -n monitoring patch pvc prometheus-kube-prometheus-stack-prometheus-db-prometheus-kube-prometheus-stack-prometheus-0 -p '{"spec":{"resources":{"requests":{"storage":"20Gi"}}}}'
+   ```
+   `kubectl get pvc` shows the new capacity within a minute or two.
+2. Push `storage` and `retentionSize` in `values.yaml`.
+3. Once Argo CD has synced, delete the StatefulSet but not its pod, so the operator recreates it
+   with the new template; Prometheus keeps running:
+   ```shell
+   kubectl --context d3strukt0r-prod-admin -n monitoring delete statefulset prometheus-kube-prometheus-stack-prometheus --cascade=orphan
+   ```
 
 ## Scraping k3s
 
@@ -137,7 +158,8 @@ port-forwards stay the break-glass way in. The status page and alerting heartbea
   KubeElasti, Reloader and Keel.
 - **Volume alerts at three levels** (`rules.yaml`): 80 % warning, 90 % critical, 95 % critical
   again, each a separate alert so every level notifies once; inhibit rules in the
-  Alertmanager config let a higher level silence the lower ones for the same PVC. They replace
+  Alertmanager config let a higher level silence the lower ones for the same PVC. Prometheus'
+  own volume has only the 95 % level: it runs at 82-92 % by design ("Storage and retention"). They replace
   the chart's `KubePersistentVolumeFillingUp` (disabled), which only warned at 15 % free when
   a trend predicted it full within four days.
 - **Container memory** (`rules.yaml`, 2026-10-18; the chart has none of these): three alerts for

@@ -103,20 +103,21 @@ prometheus:
     # only Tempo and the known readers reach port 9090.
     enableRemoteWriteReceiver: true
     retention: 30d
-    # Deletes the oldest data before the volume fills, whatever the age. 8 GB held 12 days
-    # (2026-10-17), so 7 GB holds about 10 - this is the limit that applies, not the 30 days.
-    # Prometheus counts GB as GiB, and the volume's filesystem holds 9.75 GiB: 8 was 82 % of it,
-    # past the 80 % alert again and again (2026-10-13/14); 7 is 72 %, and the daily peaks
-    # (compaction writes a merged block beside the old ones) stay 1-2 % above that. Growing
-    # the volume later (it can never shrink) means raising this with it, by hand.
-    retentionSize: 7GB
+    # Deletes the oldest data before the volume fills, whatever the age. About 0.7 GiB a day
+    # (7 GB held 10 days, 2026-11-02), so 16 GB holds about 23 days - enough for memory sizing to
+    # see rare peaks. Prometheus counts GB as GiB; 16 is 82 % of the 20 GiB volume's filesystem.
+    # At this retention a compaction merges blocks of up to 3 days (10 % of 30d), written beside
+    # the old ones: about 2 GiB more for a few minutes, so 92 %, below the 95 % alert that alone
+    # covers this volume (rules.yaml). Growing the volume (it can never shrink) is a runbook in
+    # the README; this value moves with it, by hand.
+    retentionSize: 16GB
     storageSpec:
       volumeClaimTemplate:
         spec:
           accessModes: [ReadWriteOnce]
           resources:
             requests:
-              storage: 10Gi
+              storage: 20Gi
     # Over 2026-10-23..11-02: real memory (working set minus active file cache) p95 1305 MiB, the
     # request; working set p95 1350 MiB, peak 1670 MiB, the limit twice that p95.
     resources:
