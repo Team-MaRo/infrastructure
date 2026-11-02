@@ -11,6 +11,7 @@ resources:
   - backups.yaml
   - flush-binlogs.yaml
   - backup-after-switchover.yaml
+  - primary-off-rebooting-node.yaml
   - rules.yaml
 
 # Shared settings (shared/): the openbao store and refresh for every ExternalSecret, the

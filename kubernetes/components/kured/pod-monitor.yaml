@@ -1,0 +1,14 @@
+---
+# kured's metrics: kured_reboot_required{node} is 1 while a node waits for its reboot. The alert
+# NodeRebootPending (kube-prometheus-stack/rules.yaml) uses it to report a reboot that stays
+# blocked, e.g. by the MariaDB primary that could not be moved away (README).
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: kured
+spec:
+  selector:
+    matchLabels:
+      name: kured
+  podMetricsEndpoints:
+    - port: metrics

@@ -1,0 +1,130 @@
+---
+# Moves the primary off a node that kured wants to reboot. kured never drains the primary's node
+# (its --blocking-pod-selector, kubernetes/components/kured/), because an evicted primary fails
+# over without being demoted and comes back unable to rejoin - error 1236, a full rebuild from a
+# backup (mariadb-operator#1948; night of 2026-11-03). kured marks a node waiting for a reboot
+# with an annotation; this switches the primary to the other pod, the planned switchover the
+# operator does cleanly, and kured reboots the node on its next round. Checks every 5 minutes.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: mariadb-primary-off-rebooting-node
+---
+# Reading the MariaDB and its two pods, and switching the primary - nothing else.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: mariadb-primary-off-rebooting-node
+rules:
+  - apiGroups: [k8s.mariadb.com]
+    resources: [mariadbs]
+    resourceNames: [mariadb]
+    verbs: [get, patch]
+  - apiGroups: [""]
+    resources: [pods]
+    resourceNames: [mariadb-0, mariadb-1]
+    verbs: [get]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: mariadb-primary-off-rebooting-node
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: mariadb-primary-off-rebooting-node
+subjects:
+  - kind: ServiceAccount
+    name: mariadb-primary-off-rebooting-node
+---
+# Nodes are cluster-scoped: reading their annotations needs a ClusterRole.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: mariadb-primary-off-rebooting-node
+rules:
+  - apiGroups: [""]
+    resources: [nodes]
+    verbs: [get]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: mariadb-primary-off-rebooting-node
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: mariadb-primary-off-rebooting-node
+subjects:
+  - kind: ServiceAccount
+    name: mariadb-primary-off-rebooting-node
+    namespace: mariadb
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: mariadb-primary-off-rebooting-node
+spec:
+  schedule: "*/5 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      activeDeadlineSeconds: 120
+      template:
+        spec:
+          serviceAccountName: mariadb-primary-off-rebooting-node
+          restartPolicy: Never
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65534
+            runAsGroup: 65534
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: switch
+              image: docker.io/alpine/kubectl:1.37.1
+              env:
+                # kubectl keeps its discovery cache under $HOME.
+                - name: HOME
+                  value: /tmp
+              # Two pods, so the other one is 1 - the primary's index. A switch only while the
+              # MariaDB is Ready, no switch is already under way and the other pod is Ready;
+              # otherwise kured simply keeps waiting (NodeRebootPending reports it after a day).
+              command:
+                - sh
+                - -euc
+                - |
+                  get() { kubectl -n mariadb get "$1" -o jsonpath="$2"; }
+                  current=$(get mariadb/mariadb '{.status.currentPrimaryPodIndex}')
+                  wanted=$(get mariadb/mariadb '{.spec.replication.primary.podIndex}')
+                  ready=$(get mariadb/mariadb '{.status.conditions[?(@.type=="Ready")].status}')
+                  node=$(get pod/mariadb-"$current" '{.spec.nodeName}')
+                  needed=$(kubectl get node "$node" -o jsonpath='{.metadata.annotations.weave\.works/kured-most-recent-reboot-needed}')
+                  if [ -z "$needed" ]; then
+                    echo "Primary mariadb-$current on $node, no reboot pending there."
+                    exit 0
+                  fi
+                  other=$((1 - current))
+                  other_ready=$(get pod/mariadb-"$other" '{.status.conditions[?(@.type=="Ready")].status}')
+                  if [ "$ready" != True ] || [ "$other_ready" != True ] || [ "${wanted:-$current}" != "$current" ]; then
+                    echo "$node waits for a reboot (since $needed), but no switch now: MariaDB Ready=$ready, mariadb-$other Ready=$other_ready, podIndex $wanted, current $current."
+                    exit 0
+                  fi
+                  echo "$node waits for a reboot (since $needed): switching the primary from mariadb-$current to mariadb-$other."
+                  kubectl -n mariadb patch mariadb mariadb --type=merge \
+                    -p "{\"spec\":{\"replication\":{\"primary\":{\"podIndex\":$other}}}}"
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop:
+                    - ALL
+              volumeMounts:
+                - name: tmp
+                  mountPath: /tmp
+          volumes:
+            - name: tmp
+              emptyDir: {}

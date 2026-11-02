@@ -18,7 +18,23 @@ between the k3s upgrades and the OS updates is "The night's maintenance order" i
   briefly unavailable; External Secrets only delays refreshes meanwhile.
 - **A drain that cannot finish blocks the reboot** (no `--force-reboot`), and nothing ever
   times it out (`--drain-timeout` 0): a PodDisruptionBudget allowing no disruption keeps the
-  node cordoned and waiting. `kubectl -n kube-system logs -l name=kured` shows it.
+  node cordoned and waiting. `kubectl -n kube-system logs -l name=kured` shows it. A drain
+  that has started keeps going after the window; deleting the kured pod on that node stops it
+  (the new one waits for the next window), then `kubectl uncordon`.
+- **Never the MariaDB primary's node** (`--blocking-pod-selector=k8s.mariadb.com/role=primary`,
+  since 2026-11-03): an evicted primary comes back unable to rejoin and is rebuilt from a backup
+  (`../mariadb/README.md`, "A planned reboot never evicts the primary"). kured checks the
+  selector before it takes the lock or cordons, and only against pods on its own node, so a
+  blocked node stays schedulable and the next node may reboot meanwhile; its log says "Reboot
+  required, but blocked at this time". `--annotate-nodes` marks a node that needs a reboot with
+  `weave.works/kured-most-recent-reboot-needed` (removed once it needs none); mariadb's CronJob
+  `mariadb-primary-off-rebooting-node` sees that on the primary's node and switches the primary
+  away, and kured reboots the node on its next round (at most 10 minutes later).
+- **`NodeRebootPending`** (warning) fires when a node has needed a reboot for over 26 hours -
+  a blocked node is never cordoned, so `NodeCordonedTooLong` does not see it. The metric
+  `kured_reboot_required` comes from the PodMonitor `pod-monitor.yaml`. Check kured's log on the
+  node and the last job of `mariadb-primary-off-rebooting-node` in `mariadb`: it switches only
+  while the MariaDB and both its pods are Ready.
 - **Memory 16Mi / 64Mi** (a patch in `kustomization.yaml`; real-memory p95 14 MiB; working set
   p95 17 MiB, peak 17 MiB over 2026-10-23..11-02); kube-system has no LimitRange.
 - **Only kernels set the sentinel.** A host service using an updated library keeps the old

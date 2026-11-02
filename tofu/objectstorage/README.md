@@ -59,7 +59,9 @@ below). **Whether Hetzner expires current objects depends on versioning**, both 
 
 - **Unversioned: yes.** An object in a test bucket with a one-day `Expiration` rule was gone the
   next day (uploaded 2026-10-02, checked 2026-10-04) - so the 35-day rule of the unversioned
-  `d3strukt0r-prod-mariadb-backups` does delete old backups and binlogs.
+  `d3strukt0r-prod-mariadb-backups` does delete old backups and binlogs. Confirmed at scale on
+  2026-11-03: the binlogs archived on 2026-09-28 were gone, the oldest left was from 2026-09-29
+  00:05 UTC.
 - **Versioned: no.** On a versioned bucket the current objects stayed (2026-09-25 to 28),
   although uploads answer with an `Expiration` header that suggests otherwise; there the rule
   only removes noncurrent versions and, with `expired_object_delete_marker`, orphaned markers.

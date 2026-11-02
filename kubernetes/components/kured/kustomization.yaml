@@ -8,6 +8,11 @@ kind: Kustomization
 resources:
   # Pinned to a release; bumping this line is the upgrade. Everything lands in kube-system.
   - https://github.com/kubereboot/kured/releases/download/1.23.0/kured-1.23.0-combined.yaml
+  - pod-monitor.yaml
+
+# The sync option for the PodMonitor (shared/).
+components:
+  - ../../shared/monitoring-sync-options
 
 patches:
   - target:
@@ -29,6 +34,21 @@ patches:
       - op: add
         path: /spec/template/spec/containers/0/command/-
         value: --period=10m
+  # Never drain the MariaDB primary's node: an evicted primary fails over without being demoted
+  # and comes back unable to rejoin (error 1236, mariadb-operator#1948), so the operator rebuilds
+  # it from a backup (night of 2026-11-03). kured checks this before it takes the lock or
+  # cordons, and only for pods on its own node; the annotation marks a node that waits for a
+  # reboot, and mariadb's CronJob primary-off-rebooting-node then switches the primary away.
+  - target:
+      kind: DaemonSet
+      name: kured
+    patch: |-
+      - op: add
+        path: /spec/template/spec/containers/0/command/-
+        value: --blocking-pod-selector=k8s.mariadb.com/role=primary
+      - op: add
+        path: /spec/template/spec/containers/0/command/-
+        value: --annotate-nodes
   # Memory over 2026-10-23..11-02: real memory (working set minus active file cache) p95 14 MiB,
   # the request; working set p95 17 MiB, peak 17 MiB, the limit twice that p95. The manifest sets
   # none, and kube-system has no LimitRange.

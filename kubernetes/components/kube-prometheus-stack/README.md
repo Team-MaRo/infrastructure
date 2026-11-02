@@ -123,7 +123,8 @@ The operator does not resize an existing volume. Grow the volume before pushing 
   `alertmanager-ntfy`). Gatus alerts when it has not heard from it for 5 minutes - Alertmanager
   down, Prometheus down, or its rules not evaluating.
 - **Own alerts** (`rules.yaml`): a node cordoned for over 2 hours (a failed upgrade Job or a
-  drain that cannot finish), a server without a successful etcd snapshot upload for 13 hours
+  drain that cannot finish), a node waiting for its reboot for over 26 hours (kured blocked by
+  the MariaDB primary that could not be moved away, `../kured/README.md`), a server without a successful etcd snapshot upload for 13 hours
   or with a failed one, and a k3s certificate within 30 days of expiry (k3s renews at start
   within 120 days, so this means renewal failed). Their descriptions say what to do. The
   missing-upload alert reads the age of each node's newest S3 snapshot from k3s's

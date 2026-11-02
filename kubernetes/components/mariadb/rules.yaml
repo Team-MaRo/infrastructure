@@ -91,19 +91,23 @@ spec:
               kubernetes/components/mariadb/README.md ("After a replica recovery"), otherwise
               "Binary log archiving stuck".
         # A rebuilt replica restarts its binary log numbering; once it is primary again its files
-        # would collide with its old ones in the archive. Fires for a day after every replica
-        # recovery, so the archive gets a fresh prefix before that.
+        # would collide with its old ones in the archive. Fires while a replica recovery runs (or
+        # hangs) and for a day after it, so the archive gets a fresh prefix before that. It keys
+        # on ReplicaRecovered=False ("Recovering replica"), which only a recovery sets; the time
+        # of ReplicaRecovered=True also moves when the operator merely re-sets the condition, and
+        # fired falsely after the update to 26.10.2 (2026-11-03).
         - alert: MariaDBReplicaRecovered
-          expr: time() - kube_customresource_condition{customresource_kind="MariaDB", namespace="mariadb", type="ReplicaRecovered", status="True"} < 24 * 3600
+          expr: max by (name) (max_over_time(kube_customresource_condition{customresource_kind="MariaDB", namespace="mariadb", type="ReplicaRecovered", status="False"}[24h])) > 0
           labels:
             severity: warning
             namespace: mariadb
           annotations:
             summary: "MariaDB rebuilt a replica - its binary logs need a fresh archive prefix."
             description: >-
-              Follow the runbook in kubernetes/components/mariadb/README.md ("After a replica
-              recovery") within seven days, while the server still has every binary log. The
-              alert clears by itself a day after the recovery.
+              If kubectl get mariadb still shows "Recovering replicas" after ten minutes, follow
+              "A replica recovery hangs" in kubernetes/components/mariadb/README.md. Once it is
+              done, follow "After a replica recovery" there within seven days, while the server
+              still has every binary log. The alert clears by itself a day after the recovery.
         # Either the last backup did not complete (a failed Job leaves Complete=False, and the
         # True series then disappears), or none has completed for 26 hours - the nightly one
         # plus slack. Also catches a failed backup of the after-switchover CronJob, which does

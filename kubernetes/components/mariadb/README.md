@@ -26,6 +26,24 @@ manifests fit together is in [`kubernetes/README.md`](../../README.md).
     the failover tests measure what it needs here.
   - `MariaDBNoReadyPrimary` (critical, 5 min) - no ready endpoint behind `mariadb-primary`,
     i.e. a failover that hangs; the runbook is "Failover hangs" below.
+- **A planned reboot never evicts the primary.** An evicted primary fails over, but the operator
+  cannot demote a primary that is not ready; when it returns it asks the new primary for its own
+  last GTID, which the new primary's binary log does not hold (`log_slave_updates` is off in a
+  single cluster) - error 1236, and the operator rebuilds it from a backup
+  ([mariadb-operator#1948](https://github.com/mariadb-operator/mariadb-operator/issues/1948),
+  open in 26.10.2). That happened twice in the night of 2026-11-03, when kured's reboot drain
+  evicted the primary. A planned switchover is clean (the operator hands the old primary the
+  new primary's position), so:
+  - kured skips a node that runs the primary (`--blocking-pod-selector`, see
+    [`../kured/README.md`](../kured/README.md)) and marks it as waiting for a reboot;
+  - the CronJob `mariadb-primary-off-rebooting-node` (`primary-off-rebooting-node.yaml`, every
+    5 minutes) sees the mark on the primary's node and, while the MariaDB and the other pod are
+    Ready, switches the primary to the other pod (`spec.replication.primary.podIndex`); kured
+    then reboots the node with only the replica on it. Its Role may only read the MariaDB and
+    its two pods and patch the MariaDB; a ClusterRole lets it read nodes.
+  - **A node drained by hand** gets the same treatment first: switch the primary away
+    (`kubectl --context d3strukt0r-prod-admin -n mariadb patch mariadb mariadb --type=merge -p '{"spec":{"replication":{"primary":{"podIndex":<other>}}}}'`),
+    wait until `kubectl get mariadb` shows the new primary, then drain.
 - **Known MariaDB bug, accepted: a replica returning under a new IP hangs the primary** (found
   and reproduced 2026-09-29). When the replica's node dies hard, its connection on the primary
   stays open - no FIN or RST ever arrives. When the replica comes back as a new pod (new IP), the
@@ -91,8 +109,10 @@ manifests fit together is in [`kubernetes/README.md`](../../README.md).
   - Alerts: `MariaDBBinlogArchivingFailing` (`BinlogsArchived` not True for 30 minutes),
     `MariaDBPointInTimeRecoveryBehind` (the archive the MariaDB names can only restore up to more
     than two hours ago, or has no `LAST RECOVERABLE TIME` - also when the agent believes it
-    archived), `MariaDBReplicaRecovered` (for a day after a replica recovery, the cue for the
-    runbook "After a replica recovery") and
+    archived), `MariaDBReplicaRecovered` (while a replica recovery runs and for a day after it,
+    keyed on `ReplicaRecovered=False`, which only a recovery sets - the time of `True` also moves
+    when the operator merely re-sets the condition; the cue for the runbooks "A replica recovery
+    hangs" and "After a replica recovery") and
     `MariaDBBackupFailed` (`mariadb-daily`'s last run did not complete, or none has for 26
     hours - also a failed after-switchover backup, which the CronJob does not retry), from
     kube-state-metrics' custom resource metrics (see
@@ -305,6 +325,42 @@ Writes are not affected, only point-in-time recovery.
    ```
 4. Within ten minutes the agent archives the remaining files; `kubectl get pitr` shows a
    `LAST RECOVERABLE TIME` again and the MariaDB turns Ready.
+
+## A replica recovery hangs
+
+`kubectl --context d3strukt0r-prod-admin -n mariadb get mariadb` stays at "Recovering replicas",
+the rebuilt pod at `Init:0/1`, and the Job `mariadb-<n>-pb-init` is `Failed`. The operator
+never starts a failed restore Job again, and archiving pauses until the recovery is done
+("Replica recovery in progress, skipping binary log archival"). In the night of 2026-11-03 the
+recovery backup was compressed twice (fixed in 26.10.2) and every attempt failed with `wrong
+chunk magic at offset 0x0`. In this order:
+
+1. Read why it failed. The Job's pods are gone after five attempts, but Loki has their log:
+   `{namespace="mariadb", pod=~"mariadb-<n>-pb-init.*"}` in Grafana's Explore.
+2. If kured is still draining a node (its log repeats "Cannot evict pod ... disruption budget"),
+   stop it first - the recovery backup runs on the primary's node and stays `Pending` while that
+   node is cordoned, and once the replica is back the drain would evict the primary. Deleting
+   the kured pod on that node stops the drain; outside its window the new one does not start
+   another. Then uncordon:
+   ```shell
+   kubectl --context d3strukt0r-prod-admin -n kube-system delete pod <kured pod on the node>
+   kubectl --context d3strukt0r-prod-admin uncordon <node>
+   ```
+3. Have the operator take a fresh recovery backup; the files already in the bucket stay:
+   ```shell
+   kubectl --context d3strukt0r-prod-admin -n mariadb delete physicalbackup mariadb-pb-recovery
+   ```
+   Once `kubectl --context d3strukt0r-prod-admin -n mariadb get physicalbackup mariadb-pb-recovery`
+   shows `Success`, check the newest file under `recovery/` in the bucket: after one `gunzip` it
+   must start with `XBSTCK01` (`gunzip -c <file> | head -c 8`), not with gzip's `\037\213`.
+4. Delete the failed restore Job; the operator starts it again with the fresh backup:
+   ```shell
+   kubectl --context d3strukt0r-prod-admin -n mariadb delete job mariadb-<n>-pb-init
+   ```
+   The MariaDB turns Ready within a few minutes, with both pods replicating.
+5. Then the archive needs a fresh prefix ("After a replica recovery" below), and the primary
+   should not stay on a node that is still due for a reboot - switch it away (see "A planned
+   reboot never evicts the primary" under "Failover").
 
 ## After a replica recovery
 
