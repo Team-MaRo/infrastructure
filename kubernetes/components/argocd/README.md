@@ -90,7 +90,8 @@ different gets a Kustomize overlay in its own directory, not a copy of the compo
   none of them. Sized on 2026-11-02 over 2026-10-23..11-02, the request from the p95 of real
   memory, the limit from the working set's p95 and peak: the application controller, the
   cluster's largest user, 1328Mi / 2688Mi (real p95 1314 MiB; working set p95 1338 MiB, peak
-  1714 MiB); the repo server 144Mi / 608Mi (143; 290, 551 MiB); the server 80Mi / 224Mi (69; 109,
+  1714 MiB); the repo server 144Mi / 1Gi (143; 290, 551 MiB; 608Mi got it OOM-killed rendering
+  kube-prometheus-stack the same day); the server 80Mi / 224Mi (69; 109,
   153 MiB); the ApplicationSet controller 64Mi / 160Mi (50; 66, 70 MiB); the notifications
   controller 64Mi / 128Mi (53; 55, 61 MiB); Redis 48Mi / 96Mi (at most 38; 38, 41 MiB).
 

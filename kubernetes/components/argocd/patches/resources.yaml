@@ -22,7 +22,8 @@ spec:
               memory: 2688Mi
 ---
 # Rendering Helm charts (kube-prometheus-stack, Kyverno) is where it peaks: real p95 143 MiB;
-# working set p95 290 MiB, peak 551 MiB.
+# working set p95 290 MiB, peak 551 MiB over 2026-10-23..11-02. The limit stays 1Gi: at 608Mi
+# rendering kube-prometheus-stack got it OOM-killed (2026-11-02), a peak the window had not seen.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -36,7 +37,7 @@ spec:
             requests:
               memory: 144Mi
             limits:
-              memory: 608Mi
+              memory: 1Gi
 ---
 # Real p95 69 MiB; working set p95 109 MiB, peak 153 MiB.
 apiVersion: apps/v1
