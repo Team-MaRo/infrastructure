@@ -8,8 +8,9 @@ follows the primary through a failover (`mariadb-secondary` reads from the repli
 backed up every night and its binary logs are archived every ten minutes, so it can be restored
 to any moment in the last 30 days. Its pods carry the PriorityClass `stateful-core`, so they are
 evicted last when a node runs short of memory
-([`../priority-classes/README.md`](../priority-classes/README.md)). How the cluster's manifests
-fit together is in [`kubernetes/README.md`](../../README.md).
+([`../priority-classes/README.md`](../priority-classes/README.md)). The server gets 512Mi / 1Gi,
+the agent 128Mi / 256Mi (p99 103 MiB, peak 113 MiB over 2026-10-23..11-02). How the cluster's
+manifests fit together is in [`kubernetes/README.md`](../../README.md).
 
 ## Failover
 

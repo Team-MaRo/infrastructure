@@ -45,9 +45,10 @@ The databases' CA certificates are distributed by trust-manager, from the same p
   beta, at an upgrade.
 - **Its pods run restricted** (non-root, seccomp, no capabilities), so `cert-manager` is not
   in `k3s_psa_exempt_namespaces`.
-- **The cainjector gets 128Mi / 256Mi** (a patch in `kustomization.yaml`); the manifest sets no
-  resources, and the LimitRange default of 128Mi got it OOM-killed. The controller and webhook
-  stay on the defaults.
+- **Memory from patches in `kustomization.yaml`**; the manifest sets no resources. The
+  cainjector gets 128Mi / 256Mi, since the LimitRange's default limit of 128Mi got it
+  OOM-killed; the controller 96Mi / 192Mi and the webhook 48Mi / 96Mi, from p99 81 / 38 MiB over
+  2026-10-23..11-02 - above the default request of 32Mi.
 
 ## Metrics and alerts
 

@@ -394,6 +394,8 @@ spec:
             capabilities:
               drop:
                 - ALL
+          resources:
+            {{- toYaml .Values.uploadsProxy.resources | nindent 12 }}
           volumeMounts:
             - name: proxy-cache
               mountPath: /var/cache/nginx/s3_proxy

@@ -204,10 +204,12 @@ rule, 2026-10-02). Where a name cannot hold a hyphen, the hyphens become undersc
   its CRD belongs to another Application: in a Kustomize directory through the shared Component
   `kubernetes/shared/monitoring-sync-options` (under `components:`), in a Helm template itself.
 - **Every namespace runs the restricted Pod Security Standard** (see "Pod Security" below).
-- **Default resources come from Kyverno's LimitRange** (requests 50m CPU, 64Mi memory, 50Mi
+- **Default resources come from Kyverno's LimitRange** (requests 50m CPU, 32Mi memory, 50Mi
   ephemeral storage; limits 128Mi memory, 1Gi ephemeral storage). **No CPU limits**, anywhere:
   they throttle an idle node. A container sets its memory itself only where the defaults do
-  not fit, and always in `kube-system` and `system-upgrade`, which have no LimitRange
+  not fit, and always in `kube-system` and `system-upgrade`, which have no LimitRange: the
+  request p99 x 1.1 in 16 MiB steps, the limit twice the request or the peak x 1.1 (in 32 MiB
+  steps), whichever is higher
   ([`kubernetes/components/kyverno/README.md`](kubernetes/components/kyverno/README.md)).
 - **Only Cloudflare reaches a proxied name.** Every route of a name Cloudflare proxies puts
   the Middleware `cloudflare-only` first (`<namespace>_cloudflare-only@kubernetescrd`); its app

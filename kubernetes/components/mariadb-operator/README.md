@@ -35,3 +35,6 @@ How the cluster's manifests fit together is in [`kubernetes/README.md`](../../RE
   images the operator deploys are written fully qualified in `config.*` (docker.io, quay.io),
   so the registry check does not depend on short-name resolution.
 - Kubernetes 1.37 is not yet in the operator's CI (1.36 when adopted).
+- **Memory** (`values.yaml`): the operator 128Mi / 256Mi, since it watches every namespace; the
+  webhook 48Mi / 96Mi (p99 41 MiB, peak 43 MiB over 2026-10-23..11-02), above the default
+  request of 32Mi.

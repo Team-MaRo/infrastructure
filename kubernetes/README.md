@@ -420,7 +420,7 @@ or our own `registry.d3strukt0r.dev` (zot) (Kyverno policy `allowed-registries`)
 Deployment - or whichever controller - is applied. A new registry is one entry in
 `components/kyverno/allowed-registries.yaml`.
 
-A container that sets no `resources` gets Kyverno's defaults (requests 50m CPU, 64Mi memory,
+A container that sets no `resources` gets Kyverno's defaults (requests 50m CPU, 32Mi memory,
 limit 128Mi memory, no CPU limit); one that needs more sets its own - "Default resources" in
 [`components/kyverno/README.md`](components/kyverno/README.md).
 

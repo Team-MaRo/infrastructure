@@ -31,8 +31,9 @@ monitoring component it has its own namespace, under the restricted Pod Security
 - **One replica, `strategy: Recreate`**: a second instance would run every check and send every
   alert twice.
 - **The image is `FROM scratch` and names no user**, so the pod sets UID 65534; with Postgres as
-  storage it writes nothing, so the root filesystem is read-only. About 17 MiB, within the
-  namespace's LimitRange defaults, so no `resources` are set.
+  storage it writes nothing, so the root filesystem is read-only.
+- **Memory 48Mi / 96Mi**: p99 38 MiB, peak 43 MiB over 2026-10-23..11-02, above the
+  namespace's default request of 32Mi.
 - **The Watchdog** is the external endpoint `alerting_watchdog`: Alertmanager POSTs to
   `/api/v1/endpoints/alerting_watchdog/external?success=true` with the 32-character token as a
   Bearer header (anything else is `401`); without one for 5 minutes, Gatus alerts. Alertmanager

@@ -17,8 +17,9 @@ paths:
   more goes onto `k3s_psa_exempt_namespaces` in `ansible/roles/k3s/defaults/main.yml`.
 - Images only from `docker.io`, `ghcr.io`, `quay.io`, `registry.k8s.io`, `public.ecr.aws`;
   write them fully qualified where an operator deploys them.
-- No CPU limits. Set memory only where Kyverno's defaults (64Mi request, 128Mi limit) do not
-  fit, and always in `kube-system` and `system-upgrade`.
+- No CPU limits. Set memory only where Kyverno's defaults (32Mi request, 128Mi limit) do not
+  fit, and always in `kube-system` and `system-upgrade`: request p99 x 1.1 in 16 MiB steps,
+  limit max(2 x request, peak x 1.1 in 32 MiB steps).
 - An app whose Application carries the finalizer brings its own `namespace.yaml` (never in
   `kube-system`); one that brings CRDs or volumes gets no finalizer - see "Pruning and the
   finalizer" in `kubernetes/components/argocd/README.md`.

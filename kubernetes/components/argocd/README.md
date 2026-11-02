@@ -86,6 +86,9 @@ different gets a Kustomize overlay in its own directory, not a copy of the compo
   controller is a StatefulSet, which Kubernetes will not replace on an unreachable node:
   syncing stays stopped until the node returns or is tainted
   `node.kubernetes.io/out-of-service` (see "When a node dies" below).
+- **Memory for every main container** (`patches/resources.yaml`): the LimitRange's defaults fit
+  none of them. The application controller is the cluster's largest user (1.5 GiB requested);
+  Redis got its 48Mi / 96Mi on 2026-11-02 (p99 39 MiB, peak 41 MiB over 2026-10-23..11-02).
 
 ## The UI and the Zitadel login
 

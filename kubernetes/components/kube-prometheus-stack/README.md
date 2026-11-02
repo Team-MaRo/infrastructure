@@ -2,9 +2,10 @@
 
 Metrics and alerts (`kubernetes/clusters/prod/kube-prometheus-stack.yaml`, chart pinned, values
 and extra manifests in this directory): Prometheus, Alertmanager and Grafana in `monitoring` - an
-ordinary namespace, not PSA-exempt: the LimitRange's defaults fit most of its containers, so the
-values set memory only for Prometheus and Grafana, which need more, and for Alertmanager, whose
-operator would otherwise request 200Mi. node-exporter goes to `kube-system`
+ordinary namespace, not PSA-exempt. The LimitRange's defaults (32Mi, limit 128Mi) cover what the
+values leave out; they set memory for the containers that need more - Prometheus, Grafana and
+its sidecars, kube-state-metrics, the operator and the config reloaders - and for Alertmanager,
+whose operator would otherwise request 200Mi. node-exporter goes to `kube-system`
 (`namespaceOverride`), since it needs the host's network, PIDs and files; there is no
 LimitRange there, so it sets its own. How the cluster's manifests fit together is in
 [`kubernetes/README.md`](../../README.md).

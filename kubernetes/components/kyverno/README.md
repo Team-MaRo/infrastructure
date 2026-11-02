@@ -30,22 +30,33 @@ registries. `rbac-limitranges.yaml` lets Kyverno create LimitRanges.
 
 ## Default resources
 
-- **Defaults, never a max.** Requests CPU `50m`, memory `64Mi`, ephemeral-storage `50Mi`;
+- **Defaults, never a max.** Requests CPU `50m`, memory `32Mi`, ephemeral-storage `50Mi`;
   limits memory `128Mi`, ephemeral-storage `1Gi`. An app that needs more sets `resources`
   on its containers, which always wins. The ephemeral-storage limit keeps a container from
   filling a node's 40 GB disk, which holds etcd too.
 - **No CPU limit, on purpose.** A CPU limit throttles a container even while the node is
   idle; requests already share CPU fairly under contention.
-- **A container sets its memory itself where the defaults do not fit** - more than 64Mi
-  used or a limit above 128Mi - and everywhere in `kube-system` and `system-upgrade`, which
-  have no LimitRange; through a patch or Helm value in its component. Where the defaults fit,
-  nothing is set, so there is nothing to keep in step. Without a request the scheduler reserves nothing for it (Argo CD's application controller uses
-  1.2-1.6 GB), and without a limit a leak can take the node's memory. The values were set on
-  2026-09-28 from Prometheus: the request about the usual use, the limit about twice the
-  highest seen, 128Mi at the least. They rest on a few hours of data, so an OOM kill means
-  raising that limit - `kubectl get pod` shows the restarts, `kubectl describe pod` the
-  `OOMKilled` reason. Only what k3s itself deploys (CoreDNS, metrics-server, its Helm install
-  Jobs) is left as k3s sets it.
+- **The default request is 32Mi** (64Mi until 2026-11-02): most containers use less, and a
+  request no one uses still holds back a node's memory from the scheduler.
+- **A container sets its memory itself where the defaults do not fit** - more than about
+  29 MiB used (p99) or a limit above 128Mi - and everywhere in `kube-system` and
+  `system-upgrade`, which have no LimitRange; through a patch or Helm value in its component.
+  Where the defaults fit, nothing is set, so there is nothing to keep in step. Without a
+  request the scheduler reserves nothing for it (Argo CD's application controller uses
+  1.2-1.6 GB), and without a limit a leak can take the node's memory. Only what k3s itself
+  deploys (CoreDNS, metrics-server, its Helm install Jobs) is left as k3s sets it.
+- **How the values are sized** (user decision, 2026-11-02), from Prometheus over a window of
+  days, not hours (2026-10-23..11-02 for the first ones), on `container_memory_working_set_bytes`:
+  the kubelet ranks pods for eviction by it against their request, and unlike
+  `container_memory_rss` it includes shared memory the kernel cannot reclaim either (PHP's
+  OPcache, Postgres' `shared_buffers`); file cache it can reclaim makes it err high, never
+  low. The request is the p99 x 1.1, rounded
+  up to 16 MiB; the limit is twice the request or the peak x 1.1 rounded up to 32 MiB, whichever is
+  higher. A comment next to the value gives the p99, the peak and the window they come from.
+  Values set before 2026-11-02 rest on the older rule (the request about the usual use, the
+  limit about twice the highest seen, 128Mi at the least). An OOM kill means raising that
+  limit - `kubectl get pod` shows the restarts, `kubectl describe pod` the `OOMKilled`
+  reason.
 - **Only four namespaces are left out** (the policy's `matchConditions`): `kube-system`,
   whose pods k3s manages; `system-upgrade`, whose k3s upgrade Jobs set no memory and must not
   be killed halfway through replacing the binary; and the pod-less `kube-public` and
@@ -73,7 +84,7 @@ registries. `rbac-limitranges.yaml` lets Kyverno create LimitRanges.
 ### Checking the defaults
 
 Kyverno gives every namespace a LimitRange `default-resources`. A container that sets no
-`resources` gets requests of 50m CPU, 64Mi memory and 50Mi ephemeral storage, and limits of
+`resources` gets requests of 50m CPU, 32Mi memory and 50Mi ephemeral storage, and limits of
 128Mi memory and 1Gi ephemeral storage - no CPU limit. Setting `resources` on a container
 overrides any of them; there is no maximum.
 

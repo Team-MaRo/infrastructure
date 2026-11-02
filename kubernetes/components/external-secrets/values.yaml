@@ -1,7 +1,7 @@
 # Helm values for the external-secrets chart; the chart version is pinned in the cluster's
-# Application. Memory where the namespace's LimitRange defaults (64Mi, limit 128Mi) do not
+# Application. Memory where the namespace's LimitRange defaults (32Mi, limit 128Mi) do not
 # fit, from what the containers used when set (2026-09-28): the request about the usual use,
-# the limit about twice the highest seen. The webhook stays within the defaults.
+# the limit about twice the highest seen.
 resources:
   requests:
     memory: 192Mi
@@ -13,6 +13,14 @@ certController:
       memory: 96Mi
     limits:
       memory: 256Mi
+# p99 45 MiB, peak 46 MiB over 2026-10-23..11-02: the request p99 x 1.1, the limit twice the
+# request.
+webhook:
+  resources:
+    requests:
+      memory: 64Mi
+    limits:
+      memory: 128Mi
 
 # Prometheus scrapes the controller, the webhook and the cert controller (one switch for all
 # three), so the alert in rules.yaml sees an ExternalSecret that stops syncing. The chart renders

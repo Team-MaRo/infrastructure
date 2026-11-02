@@ -55,7 +55,7 @@ spec:
             "spec": dyn({
               "limits": [{
                 "type": dyn("Container"),
-                "defaultRequest": dyn({"cpu": "50m", "memory": "64Mi", "ephemeral-storage": "50Mi"}),
+                "defaultRequest": dyn({"cpu": "50m", "memory": "32Mi", "ephemeral-storage": "50Mi"}),
                 "default": dyn({"memory": "128Mi", "ephemeral-storage": "1Gi"})
               }]
             })

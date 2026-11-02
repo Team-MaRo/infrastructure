@@ -61,6 +61,13 @@ spec:
         capabilities:
           drop:
             - ALL
+      # p99 103 MiB, peak 113 MiB over 2026-10-23..11-02: the request p99 x 1.1, the limit
+      # twice the request.
+      resources:
+        requests:
+          memory: 128Mi
+        limits:
+          memory: 256Mi
     initContainer:
       # Required once the block is set at all (for its securityContext): the operator's own
       # image, so it is bumped together with the operator (kubernetes/clusters/prod/mariadb-operator*.yaml).

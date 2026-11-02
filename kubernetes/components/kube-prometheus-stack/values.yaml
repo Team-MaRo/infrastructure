@@ -1,6 +1,6 @@
 # Helm values for kube-prometheus-stack; the chart version is pinned in the cluster's
 # Application. Namespace monitoring gets Kyverno's LimitRange like any app namespace, so only
-# containers that need more than its defaults set resources here.
+# containers that need more than its defaults (32Mi, limit 128Mi) set resources here.
 
 # The chart's volume alert warns at 15 % free if a trend says it fills within 4 days, and is
 # critical at 3 % free; rules.yaml has fixed thresholds instead.
@@ -62,6 +62,21 @@ prometheusOperator:
   admissionWebhooks:
     certManager:
       enabled: true
+  # p99 49 MiB, peak 51 MiB over 2026-10-23..11-02: the request p99 x 1.1, the limit twice the
+  # request.
+  resources:
+    requests:
+      memory: 64Mi
+    limits:
+      memory: 128Mi
+  # One setting for the reloader sidecars of Prometheus (p99 34 MiB, peak 37 MiB) and
+  # Alertmanager (p99 29 MiB, peak 33 MiB) over 2026-10-23..11-02, sized for the larger.
+  prometheusConfigReloader:
+    resources:
+      requests:
+        memory: 48Mi
+      limits:
+        memory: 96Mi
 
 prometheus:
   # At prometheus.d3strukt0r.dev behind the Zitadel gate (middleware-oauth2-proxy.yaml), its
@@ -266,6 +281,14 @@ grafana:
       memory: 512Mi
     limits:
       memory: 2Gi
+  # One setting for the dashboard and datasource sidecars: p99 92 / 81 MiB, peak 92 / 81 MiB
+  # over 2026-10-23..11-02, sized for the larger.
+  sidecar:
+    resources:
+      requests:
+        memory: 112Mi
+      limits:
+        memory: 224Mi
   # Logs and traces, next to the chart's own Prometheus and Alertmanager datasources, linked
   # both ways: a log line's TraceId (Traefik's access log) opens the trace, a trace opens its
   # logs, its service's metrics and the service map.

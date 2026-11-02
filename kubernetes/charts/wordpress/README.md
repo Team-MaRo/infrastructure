@@ -55,6 +55,7 @@ Only what differs between sites; `values.yaml` holds the defaults and says what 
 | `languages` | `[]` | language packs for core, plugins and themes |
 | `secrets` | `[]` | every secret of the WordPress containers: blocks of `key` and `env` ("Secrets") |
 | `uploadsProxy.secrets` | `[]` | the uploads proxy's key, the same way |
+| `uploadsProxy.resources` | 48Mi / 96Mi | the uploads proxy's memory; nginx stays on the namespace's defaults |
 | `oidc.clientId` | empty | the site's app in Zitadel, which turns on the login through Zitadel; empty: off |
 | `oidc.registerOrganisation` | empty | the Zitadel organisation people register into ("Registration in Zitadel"); empty: no registration |
 | `mcp.clientId` | empty | the site's Claude app in Zitadel, which makes the site an MCP server for Claude ("Content through Claude"); needs `oidc`; empty: off |

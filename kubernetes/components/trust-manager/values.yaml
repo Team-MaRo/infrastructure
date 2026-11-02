@@ -11,3 +11,11 @@ app:
 # The public CAs of a Debian bundle; the Bundles here distribute only the databases' own CAs.
 defaultPackage:
   enabled: false
+
+# p99 49 MiB, peak 51 MiB over 2026-10-23..11-02: the request p99 x 1.1, the limit twice the
+# request.
+resources:
+  requests:
+    memory: 64Mi
+  limits:
+    memory: 128Mi

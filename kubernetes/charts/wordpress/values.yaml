@@ -101,6 +101,13 @@ uploadsProxy:
   # The uploads proxy's key, the same way (the Secret uploads-proxy): AWS_ACCESS_KEY_ID and
   # AWS_SECRET_ACCESS_KEY.
   secrets: []
+  # The sites used p99 27-35 MiB, peak 35 MiB over 2026-10-23..11-02: the request p99 x 1.1 for
+  # the busiest, the limit twice the request.
+  resources:
+    requests:
+      memory: 48Mi
+    limits:
+      memory: 96Mi
 
 nginx:
   # Sent as Content-Security-Policy; empty: no such header.
