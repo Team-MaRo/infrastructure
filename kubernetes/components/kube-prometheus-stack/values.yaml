@@ -396,8 +396,10 @@ kube-state-metrics:
   prometheus:
     monitor:
       http:
+        # action written out: the CRD defaults it, and without it Argo CD sees a diff.
         relabelings:
-          - targetLabel: instance
+          - action: replace
+            targetLabel: instance
             replacement: kube-state-metrics
   # Metrics from objects that report their state nowhere else. The mariadb-operator's status
   # conditions become kube_customresource_condition{customresource_kind, name, type, status},

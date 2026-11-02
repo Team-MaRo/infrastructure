@@ -65,9 +65,8 @@ port-forwards stay the break-glass way in. The status page and alerting heartbea
 
 ### Growing Prometheus' volume
 
-The operator does not resize an existing volume, and a StatefulSet's volume template cannot be
-changed in place. Grow the volume before pushing a larger `retentionSize`, or Prometheus fills
-the old one:
+The operator does not resize an existing volume. Grow the volume before pushing a larger
+`retentionSize`, or Prometheus fills the old one:
 
 1. Grow the PVC; the CSI driver enlarges the Hetzner volume and its filesystem while Prometheus
    runs:
@@ -76,10 +75,10 @@ the old one:
    ```
    `kubectl get pvc` shows the new capacity within a minute or two.
 2. Push `storage` and `retentionSize` in `values.yaml`.
-3. Once Argo CD has synced, delete the StatefulSet but not its pod, so the operator recreates it
-   with the new template; Prometheus keeps running:
+3. The operator replaces the StatefulSet itself, since its volume template cannot change in
+   place (seen 2026-11-02); Prometheus restarts once for the new `retentionSize`. Check:
    ```shell
-   kubectl --context d3strukt0r-prod-admin -n monitoring delete statefulset prometheus-kube-prometheus-stack-prometheus --cascade=orphan
+   kubectl --context d3strukt0r-prod-admin -n monitoring get statefulset prometheus-kube-prometheus-stack-prometheus -o jsonpath='{.spec.volumeClaimTemplates[0].spec.resources.requests.storage}'
    ```
 
 ## Scraping k3s
