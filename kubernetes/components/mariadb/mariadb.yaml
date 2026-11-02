@@ -132,4 +132,4 @@ spec:
       securityContext: *containerSecurityContext
 
   pointInTimeRecoveryRef:
-    name: pitr-2026-10-22
+    name: pitr-2026-11-02
