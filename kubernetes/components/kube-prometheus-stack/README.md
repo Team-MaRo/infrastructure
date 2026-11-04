@@ -30,11 +30,13 @@ port-forwards stay the break-glass way in. The status page and alerting heartbea
   to `/api/v1/write` instead of being scraped. Remote write takes no login.
 - **So `network-policy.yaml` limits port 9090** (user decision 2026-10-18 - everyone reading is
   less dangerous than everyone writing): anything in `monitoring` (Grafana, the operator,
-  Prometheus itself), namespace `tempo`, namespace `kubeelasti` (reads for scale-to-zero) and
-  Traefik for `prometheus.d3strukt0r.dev`. Traefik runs on the host network: towards a pod on
-  another node it arrives from that node's WireGuard address, the `.0` of the node's pod range;
-  on the same node kube-router admits the node's own traffic anyway (both measured with test
-  pods, 2026-10-18). A pod never has a `.0` address, so an ipBlock for it admits only the host.
+  Prometheus itself), namespace `tempo`, namespace `kubeelasti` (reads for scale-to-zero), the
+  pods of mariadb's CronJob `mariadb-primary-off-rebooting-node` (reads `kured_reboot_required`;
+  only those, by label - not MariaDB) and Traefik for `prometheus.d3strukt0r.dev`. Traefik runs
+  on the host network: towards a pod on another node it arrives from that node's WireGuard
+  address, the `.0` of the node's pod range; on the same node kube-router admits the node's own
+  traffic anyway (both measured with test pods, 2026-10-18). A pod never has a `.0` address, so
+  an ipBlock for it admits only the host.
 - **The node allowances maintain themselves**: the Kyverno GeneratingPolicy
   `prometheus-from-nodes` (same file) creates a NetworkPolicy `prometheus-from-<node>` for every
   **ingress node** (`node-role.kubernetes.io/ingress=true`, the label that places Traefik) from
@@ -44,7 +46,9 @@ port-forwards stay the break-glass way in. The status page and alerting heartbea
   taken off its filter list (`components/kyverno/values.yaml`), not its status updates. If
   Kyverno is down, the existing allowances stay; a node added meanwhile gets its own once
   Kyverno is back. `kubectl port-forward` is not affected by any of it. Anything else that
-  should read Prometheus needs its namespace added to `network-policy.yaml`.
+  should read Prometheus needs an entry in `network-policy.yaml`: its namespace, or - where that
+  namespace holds anything else - its namespace and its pods' label together, as for mariadb's
+  CronJob, so nothing else there can remote-write.
 - **Checking it**:
   `kubectl --context d3strukt0r-prod-admin -n monitoring get networkpolicy` lists `prometheus`
   and one `prometheus-from-<node>` per ingress node.

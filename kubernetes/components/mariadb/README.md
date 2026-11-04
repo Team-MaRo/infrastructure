@@ -37,10 +37,20 @@ manifests fit together is in [`kubernetes/README.md`](../../README.md).
   - kured skips a node that runs the primary (`--blocking-pod-selector`, see
     [`../kured/README.md`](../kured/README.md)) and marks it as waiting for a reboot;
   - the CronJob `mariadb-primary-off-rebooting-node` (`primary-off-rebooting-node.yaml`, every
-    5 minutes) sees the mark on the primary's node and, while the MariaDB and the other pod are
-    Ready, switches the primary to the other pod (`spec.replication.primary.podIndex`); kured
-    then reboots the node with only the replica on it. Its Role may only read the MariaDB and
-    its two pods and patch the MariaDB; a ClusterRole lets it read nodes.
+    5 minutes) sees the mark on the primary's node, checks kured's metric
+    `kured_reboot_required` in Prometheus (a node rebooted outside kured keeps a stale mark, and
+    the metric is 0 there) and switches the primary to the other pod
+    (`spec.replication.primary.podIndex`); kured then reboots the node with only the replica on
+    it. "Due for a reboot" is kured's metric; the primary's node also needs kured's mark (kured
+    is in its window and blocked there). It switches only while the MariaDB and the other pod are
+    Ready and that pod is not terminating, on a node neither cordoned (kured cordons before it
+    drains) nor due itself: when both are due, kured reboots the replica's node first (it is not
+    blocked), the replica moves to another node, and the switch follows once it sits on one that
+    is not due - so after a kernel update for every node, the primary's node usually reboots
+    last, and on a tight night only the next one. Its Role may only read the MariaDB and its two pods and patch
+    the MariaDB; a ClusterRole lets it read nodes; Prometheus's NetworkPolicy admits its pods by
+    label. Without an answer from Prometheus it goes by the mark alone and says so in its log: a
+    needless switch is a clean one, a reboot blocked all night is not.
   - **A node drained by hand** gets the same treatment first: switch the primary away
     (`kubectl --context d3strukt0r-prod-admin -n mariadb patch mariadb mariadb --type=merge -p '{"spec":{"replication":{"primary":{"podIndex":<other>}}}}'`),
     wait until `kubectl get mariadb` shows the new primary, then drain.

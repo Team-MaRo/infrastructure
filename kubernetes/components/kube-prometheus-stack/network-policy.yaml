@@ -1,9 +1,11 @@
 ---
 # Prometheus accepts remote write (values.yaml) without a login, so only the pods that need it
 # may reach it: anything in this namespace (Grafana, the operator, Prometheus itself), Tempo
-# (the metrics generator writes) and KubeElasti (reads, for scale-to-zero). Traefik, which serves
-# prometheus.d3strukt0r.dev from the nodes' host network, is admitted by one NetworkPolicy per
-# node, which the GeneratingPolicy below keeps in step with the nodes - NetworkPolicies add up.
+# (the metrics generator writes), KubeElasti (reads, for scale-to-zero) and mariadb's CronJob
+# mariadb-primary-off-rebooting-node (reads kured_reboot_required) - its pods only, not MariaDB.
+# Traefik, which serves prometheus.d3strukt0r.dev from the nodes' host network, is admitted by
+# one NetworkPolicy per node, which the GeneratingPolicy below keeps in step with the nodes -
+# NetworkPolicies add up.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -24,6 +26,12 @@ spec:
         - namespaceSelector:
             matchLabels:
               kubernetes.io/metadata.name: kubeelasti
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: mariadb
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: mariadb-primary-off-rebooting-node
       ports:
         - port: 9090
 ---

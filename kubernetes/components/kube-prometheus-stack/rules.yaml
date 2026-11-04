@@ -22,7 +22,8 @@ spec:
               Check the upgrade Job in system-upgrade and kured's log in kube-system, fix the
               cause, then kubectl uncordon {{ $labels.node }}.
         # kured skips a node that runs the MariaDB primary until mariadb's CronJob has moved the
-        # primary away; if that cannot happen (the other MariaDB pod not ready), the node waits
+        # primary away; if that cannot happen (the other MariaDB pod not ready or terminating, its
+        # node cordoned or due for a reboot itself - the job's last line says which), the node waits
         # without being cordoned, so NodeCordonedTooLong does not see it. A day covers one missed
         # window plus the next.
         - alert: NodeRebootPending
@@ -33,9 +34,9 @@ spec:
           annotations:
             summary: "Node {{ $labels.node }} has been waiting for its reboot for over a day."
             description: >-
-              Check kured's log on the node ("blocked") and the job log of
-              mariadb-primary-off-rebooting-node in the mariadb namespace - see
-              kubernetes/components/kured/README.md.
+              Check kured's log on the node ("blocked") and the last line of the job log of
+              mariadb-primary-off-rebooting-node in the mariadb namespace, which says why it
+              did not switch - see kubernetes/components/kured/README.md.
 
         # Every server uploads a snapshot at 00:00 and 12:00 UTC. The age of each node's newest
         # snapshot in S3 comes from k3s's own records (ETCDSnapshotFile, through kube-state-

@@ -5,6 +5,9 @@
 # backup (mariadb-operator#1948; night of 2026-11-03). kured marks a node waiting for a reboot
 # with an annotation; this switches the primary to the other pod, the planned switchover the
 # operator does cleanly, and kured reboots the node on its next round. Checks every 5 minutes.
+# kured removes the mark only after a reboot it did itself, so the switch also needs kured's own
+# metric kured_reboot_required at 1 in Prometheus - a node rebooted otherwise (a resize) keeps a
+# stale mark.
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -74,6 +77,10 @@ spec:
       backoffLimit: 1
       activeDeadlineSeconds: 120
       template:
+        metadata:
+          labels:
+            # Prometheus admits exactly these pods (kube-prometheus-stack's network-policy.yaml).
+            app.kubernetes.io/name: mariadb-primary-off-rebooting-node
         spec:
           serviceAccountName: mariadb-primary-off-rebooting-node
           restartPolicy: Never
@@ -90,30 +97,58 @@ spec:
                 # kubectl keeps its discovery cache under $HOME.
                 - name: HOME
                   value: /tmp
-              # Two pods, so the other one is 1 - the primary's index. A switch only while the
-              # MariaDB is Ready, no switch is already under way and the other pod is Ready;
-              # otherwise kured simply keeps waiting (NodeRebootPending reports it after a day).
+              # Two pods, so the other one is 1 - the primary's index. A node is due for a reboot
+              # when kured_reboot_required is 1 (Prometheus). The primary's node also needs kured's
+              # mark - kured is in its window and blocked there; without an answer from Prometheus
+              # the mark alone counts. The switch needs the MariaDB Ready, no switch under way, and
+              # the other pod Ready, not terminating, on a node neither cordoned (kured cordons
+              # before it drains) nor due itself - then kured reboots that node first, the replica
+              # moves on, and the switch follows once it sits on a node that is not due.
+              # Otherwise kured keeps waiting (NodeRebootPending after a day).
               command:
                 - sh
                 - -euc
                 - |
                   get() { kubectl -n mariadb get "$1" -o jsonpath="$2"; }
+                  due() {
+                    metric=$(wget -T 10 -qO- "http://kube-prometheus-stack-prometheus.monitoring.svc:9090/api/v1/query?query=max(kured_reboot_required%7Bnode%3D%22$1%22%7D)" 2>&1) || true
+                    case "$metric" in
+                      *'"value":['*',"1"]'*) echo yes ;;
+                      *'"value":['*',"0"]'*) echo no ;;
+                      *) echo unknown ;;
+                    esac
+                  }
                   current=$(get mariadb/mariadb '{.status.currentPrimaryPodIndex}')
                   wanted=$(get mariadb/mariadb '{.spec.replication.primary.podIndex}')
                   ready=$(get mariadb/mariadb '{.status.conditions[?(@.type=="Ready")].status}')
                   node=$(get pod/mariadb-"$current" '{.spec.nodeName}')
-                  needed=$(kubectl get node "$node" -o jsonpath='{.metadata.annotations.weave\.works/kured-most-recent-reboot-needed}')
-                  if [ -z "$needed" ]; then
-                    echo "Primary mariadb-$current on $node, no reboot pending there."
+                  mark=$(kubectl get node "$node" -o jsonpath='{.metadata.annotations.weave\.works/kured-reboot-in-progress}')
+                  if [ -z "$mark" ]; then
+                    echo "Primary mariadb-$current on $node, kured wants no reboot there now."
                     exit 0
                   fi
+                  node_due=$(due "$node")
+                  if [ "$node_due" = no ]; then
+                    echo "$node carries kured's mark but needs no reboot - rebooted outside kured, stale mark; no switch."
+                    exit 0
+                  fi
+                  [ "$node_due" = yes ] || echo "No answer from Prometheus for $node - going by kured's mark alone."
                   other=$((1 - current))
-                  other_ready=$(get pod/mariadb-"$other" '{.status.conditions[?(@.type=="Ready")].status}')
-                  if [ "$ready" != True ] || [ "$other_ready" != True ] || [ "${wanted:-$current}" != "$current" ]; then
-                    echo "$node waits for a reboot (since $needed), but no switch now: MariaDB Ready=$ready, mariadb-$other Ready=$other_ready, podIndex $wanted, current $current."
+                  other_node=$(get pod/mariadb-"$other" '{.spec.nodeName}')
+                  if [ -z "$other_node" ]; then
+                    echo "$node waits for a reboot, but no switch now: mariadb-$other is not scheduled on any node."
                     exit 0
                   fi
-                  echo "$node waits for a reboot (since $needed): switching the primary from mariadb-$current to mariadb-$other."
+                  other_ready=$(get pod/mariadb-"$other" '{.status.conditions[?(@.type=="Ready")].status}')
+                  other_deleting=$(get pod/mariadb-"$other" '{.metadata.deletionTimestamp}')
+                  other_cordoned=$(kubectl get node "$other_node" -o jsonpath='{.spec.unschedulable}')
+                  other_due=$(due "$other_node")
+                  if [ "$ready" != True ] || [ "${wanted:-$current}" != "$current" ] || [ "$other_ready" != True ] \
+                    || [ -n "$other_deleting" ] || [ "$other_cordoned" = true ] || [ "$other_due" = yes ]; then
+                    echo "$node waits for a reboot, but no switch now: MariaDB Ready=$ready, podIndex $wanted, current $current; mariadb-$other on $other_node Ready=$other_ready, terminating=${other_deleting:-no}, cordoned=${other_cordoned:-false}, due for a reboot=$other_due."
+                    exit 0
+                  fi
+                  echo "$node waits for a reboot: switching the primary from mariadb-$current to mariadb-$other on $other_node (due for a reboot there: $other_due)."
                   kubectl -n mariadb patch mariadb mariadb --type=merge \
                     -p "{\"spec\":{\"replication\":{\"primary\":{\"podIndex\":$other}}}}"
               securityContext:
