@@ -48,7 +48,9 @@ port-forwards stay the break-glass way in. The status page and alerting heartbea
   Kyverno is back. `kubectl port-forward` is not affected by any of it. Anything else that
   should read Prometheus needs an entry in `network-policy.yaml`: its namespace, or - where that
   namespace holds anything else - its namespace and its pods' label together, as for mariadb's
-  CronJob, so nothing else there can remote-write.
+  CronJob, so nothing else there can remote-write. A new pod is admitted only a few seconds after
+  it starts (kube-router programs its IP then; "connection refused" until then, measured
+  2026-11-05) - a short-lived job retries its first request.
 - **Checking it**:
   `kubectl --context d3strukt0r-prod-admin -n monitoring get networkpolicy` lists `prometheus`
   and one `prometheus-from-<node>` per ingress node.

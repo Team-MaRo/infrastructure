@@ -110,8 +110,13 @@ spec:
                 - -euc
                 - |
                   get() { kubectl -n mariadb get "$1" -o jsonpath="$2"; }
+                  # kube-router admits a new pod's IP to Prometheus's NetworkPolicy only seconds
+                  # after it starts (connection refused until then), so the query is retried.
                   due() {
-                    metric=$(wget -T 10 -qO- "http://kube-prometheus-stack-prometheus.monitoring.svc:9090/api/v1/query?query=max(kured_reboot_required%7Bnode%3D%22$1%22%7D)" 2>&1) || true
+                    for attempt in 1 2 3 4; do
+                      metric=$(wget -T 5 -qO- "http://kube-prometheus-stack-prometheus.monitoring.svc:9090/api/v1/query?query=max(kured_reboot_required%7Bnode%3D%22$1%22%7D)" 2>&1) && break
+                      sleep 3
+                    done
                     case "$metric" in
                       *'"value":['*',"1"]'*) echo yes ;;
                       *'"value":['*',"0"]'*) echo no ;;
