@@ -71,18 +71,20 @@ What it sets, and why (measured 2026-10-06):
   k3s or etcd. The two disk values are k3s's, repeated because the map is replaced.
 - **`kubeReserved: 1536Mi` and `systemReserved: 256Mi`** take memory k3s itself and the OS use
   out of the node's allocatable, so the scheduler stops placing pods into it: allocatable drops
-  from 7.6 GiB to about 5.6 GiB. Measured: k3s (API server, etcd, controllers, kubelet,
-  containerd) holds 1.9-2.7 GiB, the rest of the OS including the kernel about 0.2 GiB. 1.5 GiB is
-  k3s's baseline with embedded etcd ([resource profiling](https://docs.k3s.io/reference/resource-profiling));
+  from 7.6 GiB to about 5.6 GiB on a cx33 (on `prod-01`, a cx43 since 2026-11-05: from 15.3 GiB
+  to about 13.3 GiB). Measured: k3s (API server, etcd, controllers, kubelet, containerd) holds
+  1.9-2.7 GiB, the rest of the OS including the kernel about 0.2 GiB. 1.5 GiB is k3s's baseline
+  with embedded etcd ([resource profiling](https://docs.k3s.io/reference/resource-profiling));
   above that it grows mostly with the CRDs - 133 here, whose schemas the API server keeps parsed
   several times over - and the controllers watching them. Less than measured, so the largest
   node's pod requests keep fitting; raise it once oversized requests are trimmed.
 
 **What is capped and what is not.** The kubelet's default `enforceNodeAllocatable: [pods]`
 turns the reservation into a hard limit **for the pods together**: their cgroup
-(`kubepods.slice`) gets `memory.max` = capacity minus both reservations, 5965 MiB per node.
-k3s and the OS get **no** limit - enforcing `kubeReserved`/`systemReserved` would put one on
-k3s and etcd, so the role does not. Three things can then happen as memory fills up, per node:
+(`kubepods.slice`) gets `memory.max` = capacity minus both reservations, 5965 MiB on a cx33
+(13829 MiB on `prod-01`). k3s and the OS get **no** limit - enforcing `kubeReserved`/`systemReserved`
+would put one on k3s and etcd, so the role does not. Three things can then happen as memory fills
+up, per node (the figures for a cx33):
 
 | What | When | Effect |
 |---|---|---|

@@ -17,7 +17,7 @@ locals {
   servers = {
     "prod-01" = {
       id          = 166653369
-      server_type = "cx33"
+      server_type = "cx43"
       private_ip  = "10.0.0.101"
       role        = "server"
     }

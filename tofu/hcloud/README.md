@@ -13,8 +13,13 @@ The Hetzner resources predate this repo; they were clicked together in the conso
 `tofu/hcloud/imports.tf` adopts each one by its live ID. The config therefore describes
 reality rather than an ideal, which is why some values look arbitrary:
 
-- The three servers are `cx33`. `prod-03` was created as `cx23` and resized in the console
-  (2026-10-02, CPU and RAM only, so its disk stayed at 40 GB and a downgrade stays possible).
+- `prod-01` is a `cx43` since 2026-11-05 (the first step towards bigger servers, once the type
+  was orderable again in nbg1); `prod-02`, `prod-03` and the worker `prod-04` are `cx33`.
+  Resizing `prod-02` the same morning failed with `resource_unavailable`: Hetzner had no CX43
+  left, and the resize had already powered the server off (power it on again:
+  `hcloud --context d3strukt0r-infrastructure server poweron <node>`). `prod-03` was created as
+  `cx23` and resized in the console (2026-10-02, CPU and RAM only, so its disk stayed at 40 GB
+  and a downgrade stays possible).
   Every server now has `keep_disk = true`, so a `server_type` change in `locals.tf` does the
   same: CPU and RAM only, the disk keeps its size and the server can be scaled down again. The
   change powers the server off and on - drain it first.

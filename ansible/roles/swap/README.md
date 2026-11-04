@@ -58,7 +58,8 @@ nominal size, so it is not a round number:
 | Node | Reported RAM | `min_free_kbytes` |
 |---|---|---|
 | a cx23 | 3826 MB | 117534 (~115 MiB) |
-| `prod-01`, `prod-02`, `prod-03` (cx33) | 7757 MB | 238295 (~233 MiB) |
+| `prod-02`, `prod-03`, `prod-04` (cx33) | 7757 MB | 238295 (~233 MiB) |
+| `prod-01` (cx43 since 2026-11-05) | about 15620 MB | about 479800 (~469 MiB), computed, not read on the node |
 
 Check it against the node rather than a fixed figure:
 
