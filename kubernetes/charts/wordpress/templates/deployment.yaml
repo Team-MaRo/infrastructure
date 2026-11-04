@@ -180,6 +180,9 @@ spec:
                 {{- if .Values.pageCache.enabled }}
                 wp plugin activate varnish-http-purge
                 {{- end }}
+                # Query Monitor records every visitor's request while it is active, so a measurement
+                # ends at the next start at the latest (README "Measuring a request").
+                if wp plugin is-active query-monitor; then wp plugin deactivate query-monitor; fi
                 {{- with .Values.languages }}
                 for l in {{ join " " . }}; do
                   wp language core install "$l" || echo "warning: $l for core not installed"

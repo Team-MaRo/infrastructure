@@ -13,6 +13,8 @@ data:
     {{- range .Values.plugins }}
     plugin {{ . }}
     {{- end }}
+    # On every site, active only for a measurement (README "Measuring a request").
+    plugin query-monitor
     {{- if .Values.oidc.clientId }}
     plugin daggerhart-openid-connect-generic
     {{- end }}

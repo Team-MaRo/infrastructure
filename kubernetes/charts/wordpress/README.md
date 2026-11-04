@@ -20,7 +20,7 @@ named after the site:
 | Container | Image | Does |
 |---|---|---|
 | init `core` | `wordpress:7-php8.5-fpm` | writes the CA bundle, copies WordPress core and writes `wp-config.php` into `html`, a directory it creates itself in the emptyDir - the image's `tar` exits 2 when it cannot set the target's permissions, as in the root-owned volume; the other containers mount `html` as a `subPath` |
-| init `plugins` | `wordpress:cli-2-php8.5` | installs the plugins and themes of the values and S3-Uploads; once the database holds the site, `wp core update-db` and the language packs |
+| init `plugins` | `wordpress:cli-2-php8.5` | installs the plugins and themes of the values, S3-Uploads and Query Monitor; once the database holds the site, `wp core update-db`, the language packs, and Query Monitor deactivated ("Measuring a request") |
 | `php-fpm` | `wordpress:7-php8.5-fpm` | runs WordPress |
 | `varnish` (with `pageCache`) | `varnish:9.1` | the page cache on 6081, in front of nginx (`files/default.vcl`, "Page cache") |
 | `nginx` | `nginxinc/nginx-unprivileged:stable` | serves it on 8081 (`files/default.conf`), and php-fpm's pool figures on 9253 for Prometheus |
@@ -714,6 +714,27 @@ running pods stay. A renamed or removed value changes in the same commit as ever
   restarts by itself when the site's user appears (Reloader).
 - **The pod hangs in an init container**: its log says which download failed
   (`kubectl --context d3strukt0r-prod-admin -n <site> logs deploy/web -c plugins`).
+
+### Measuring a request
+
+Query Monitor (`query-monitor`) is installed on every site and is inactive unless someone is
+measuring. It shows, for one request, every database query with its time and the code that ran
+it (also summed per plugin), the object cache's hits and misses, the total time and the HTTP calls
+the site made - not the PHP time per plugin, which would need a profiler.
+
+1. As an administrator: **Plugins → Query Monitor → Aktivieren**.
+2. Open the page to measure, logged in; Query Monitor's entry in the admin bar holds the panels.
+   To see a request as another role or logged out, set its authentication cookie in its settings
+   first and then switch user or log out - the panels keep showing for that browser.
+3. **Deactivate it afterwards.** While active it records every visitor's request, not only the
+   administrator's; only the display is limited to administrators. The next start of the pod
+   (a deploy, a reboot night) deactivates it anyway (init container `plugins`).
+
+Its database drop-in (`wp-content/db.php`) is missing on purpose: under `DISALLOW_FILE_MODS` the
+plugin does not link it on activation, and the chart does not install it, because the drop-in
+does not check whether the plugin is active - it would record every query of every visitor for
+good. Without it, Query Monitor has no row counts, full call stacks or query errors; times and
+callers are there.
 
 ## Checking it
 
