@@ -8,9 +8,10 @@ paths:
 - Read `tofu/README.md` and the module's own `README.md` before changing a module; update the
   module's README in the same change.
 - **Never run `tofu destroy`.**
-- Never apply a plan that is not clean (`0 to add, 0 to change, 0 to destroy`). `forces
-  replacement`, `must be replaced` or `will be destroyed` is a bug in the config - fix it and
-  re-plan.
+- Never apply a plan that does more than the change made: without one it is `0 to add, 0 to
+  change, 0 to destroy`, with one exactly the edited resources and attributes. Another resource,
+  `forces replacement`, `must be replaced` or `will be destroyed` is a bug in the config - fix it
+  and re-plan.
 - The admin runs `tofu apply`. An agent may run `tofu fmt`, `tofu validate` and `tofu plan`;
   `tofu init -backend=false` needs no credentials.
 - Adopting existing resources goes through `import` blocks in the module's `imports.tf`, never

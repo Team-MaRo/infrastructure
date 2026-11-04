@@ -19,10 +19,11 @@ its own README; this one covers only what they share.
 ## Rules
 
 - **Never run `tofu destroy`.**
-- **Never `tofu apply` a plan that is not clean.** A clean plan is
-  `0 to add, 0 to change, 0 to destroy`. If a plan shows `forces replacement`,
-  `must be replaced` or `will be destroyed`, that is a bug in the config - fix the
-  config and re-plan.
+- **Never `tofu apply` a plan that does more than the change you made.** Without a change it
+  is `0 to add, 0 to change, 0 to destroy`; with one, exactly the resources and attributes you
+  edited (a resize: `1 to change`, the server's `server_type`). Anything else - another
+  resource, `forces replacement`, `must be replaced`, `will be destroyed` - is a bug in the
+  config: fix the config and re-plan.
 - Adoption of existing resources goes through `import` blocks in the module's `imports.tf`,
   not `tofu import` CLI calls, so it stays reviewable in git.
 
