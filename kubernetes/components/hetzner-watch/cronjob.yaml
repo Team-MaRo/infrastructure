@@ -1,5 +1,5 @@
 ---
-# Hourly look at the Hetzner Cloud API; ntfy hears about it only when something changed
+# A look at the Hetzner Cloud API every 15 minutes; ntfy hears about it only when something changed
 # (watch.py, README). A failed run raises kube-prometheus-stack's KubeJobFailed.
 apiVersion: batch/v1
 kind: CronJob
@@ -10,7 +10,7 @@ metadata:
     keel.sh/matchTag: "true"
     keel.sh/trigger: poll
 spec:
-  schedule: "41 * * * *"
+  schedule: "11-59/15 * * * *"
   concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 1
   failedJobsHistoryLimit: 3
@@ -40,7 +40,7 @@ spec:
                 - name: PYTHONDONTWRITEBYTECODE
                   value: "1"
                 - name: WATCH_SERVER_TYPES
-                  value: cx33,cx43
+                  value: cx43
                 - name: WATCH_LOCATION
                   value: nbg1
               envFrom:

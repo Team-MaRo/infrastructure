@@ -52,6 +52,8 @@ def collect():
             continue
         server_type = server_types[0]
         state[f"server-type/{name}/deprecation"] = deprecation_text(server_type["deprecation"])
+        if name not in watched_types:
+            continue
         locations = {entry["name"]: entry for entry in server_type.get("locations", [])}
         entry = locations.get(location)
         state[f"server-type/{name}/{location}"] = (
@@ -155,7 +157,7 @@ def main():
             return
         notify("Hetzner Cloud changed", changes)
 
-    # Saved only after the message went out, so a failed notification is sent again next hour.
+    # Saved only after the message went out, so a failed notification is sent again on the next run.
     save_state(current, previous is not None)
     print("State saved")
 

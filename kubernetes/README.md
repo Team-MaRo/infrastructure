@@ -187,7 +187,7 @@ kubernetes/
     │   ├── namespace.yaml
     │   ├── rbac.yaml              # may only create, read and replace its state ConfigMap
     │   ├── external-secrets.yaml  # the read-only Hetzner token, ntfy
-    │   └── cronjob.yaml           # hourly
+    │   └── cronjob.yaml           # every 15 minutes
     ├── phpmyadmin/
     │   ├── kustomization.yaml
     │   ├── namespace.yaml
@@ -284,7 +284,7 @@ kubernetes/
 | [`traefik`](components/traefik/README.md) | k3s's Traefik on the ingress nodes' host network, the dashboard |
 | [`cert-manager`](components/cert-manager/README.md) | Certificates from Let's Encrypt over DNS-01 |
 | [`gatus`](components/gatus/README.md) | The public status page and the alerting heartbeat |
-| [`hetzner-watch`](components/hetzner-watch/README.md) | Hourly look at the Hetzner Cloud API; tells ntfy only what changed (server type availability, deprecations, blocked IPs, rescue mode, traffic) |
+| [`hetzner-watch`](components/hetzner-watch/README.md) | A look at the Hetzner Cloud API every 15 minutes; tells ntfy only what changed (server type availability, deprecations, blocked IPs, rescue mode, traffic) |
 | [`kube-prometheus-stack`](components/kube-prometheus-stack/README.md) | Prometheus, Alertmanager, Grafana; the cluster's own alerts |
 | [`loki`](components/loki/README.md) | Log storage in Object Storage, 30 days |
 | [`tempo`](components/tempo/README.md) | Trace storage in Object Storage, 30 days; metrics from traces into Prometheus |

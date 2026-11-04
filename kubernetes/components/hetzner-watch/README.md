@@ -1,8 +1,9 @@
 # Hetzner watch
 
-An hourly look at the Hetzner Cloud API that tells ntfy when something there **changed** - and
-nothing as long as it stays the same (`kubernetes/clusters/prod/hetzner-watch.yaml`, plain
-manifests in this directory, namespace `hetzner-watch`). How the cluster's manifests fit together
+A look at the Hetzner Cloud API every 15 minutes that tells ntfy when something there
+**changed** - and nothing as long as it stays the same
+(`kubernetes/clusters/prod/hetzner-watch.yaml`, plain manifests in this directory, namespace
+`hetzner-watch`). How the cluster's manifests fit together
 is in [`kubernetes/README.md`](../../README.md).
 
 ## What it watches, and why
@@ -11,8 +12,8 @@ Signals that no other part of the cluster sees:
 
 | Key | Values | Why |
 |---|---|---|
-| `server-type/<type>/nbg1` | `orderable`, `not orderable`, `not offered` | Whether a server of that type can be created in Nuremberg - for a new node, a replacement after a delete, or a resize. The watched types are `WATCH_SERVER_TYPES` (`cx33`, the type the nodes run, and `cx43`, the planned upgrade) plus every type a server currently uses. |
-| `server-type/<type>/deprecation` | `none` or the announced dates | Hetzner announcing the end of a server type before a rebuild runs into it. |
+| `server-type/<type>/nbg1` | `orderable`, `not orderable`, `not offered` | Whether a server of that type can be created in Nuremberg - for a resize waiting on it, or a new node. Only for the types in `WATCH_SERVER_TYPES` - today `cx43`, the type `prod-01` runs and the others wait for. `cx33` (`prod-02..04`) is left out since 2026-11-05: its availability flips several times a day and nothing waits for it - so nothing warns that a rebuilt or replaced cx33 node could not be created right now; check by hand first (`hcloud server-type describe cx33`). |
+| `server-type/<type>/deprecation` | `none` or the announced dates | Hetzner announcing the end of a server type before a rebuild runs into it - for the types in `WATCH_SERVER_TYPES` and every type a server currently uses. |
 | `image/<image>/deprecation` | `none` or the announced dates | The same for the image the servers were created from. |
 | `primary-ip/<ip>/blocked` | `yes`, `no` | Hetzner blocking an address for abuse - since 2026-11-01 outbound mail ports are open, so a compromised app could send spam from them. |
 | `server/<name>/rescue` | `on`, `off` | Rescue mode switched on - someone working in the console, or not us. |
@@ -32,11 +33,14 @@ the server type (`GET /v1/server_types?name=…` → `locations[].available`).
   values above as `key: value` lines, compares them with the previous run's and sends one ntfy
   message listing every line that changed (`old -> new`). The first run sends "Hetzner watch
   started" with the current values, so a working setup is visible once.
-- **Only changes are sent.** An unchanged hour prints "No changes" in the job's log and nothing
+- **Only changes are sent.** An unchanged run prints "No changes" in the job's log and nothing
   else - Alertmanager would repeat a firing alert every few hours instead.
-- **The message goes out before the state is saved**, so a failed notification is sent again an
-  hour later rather than being lost. Any error (API, ntfy, Kubernetes) fails the job, which raises
-  kube-prometheus-stack's `KubeJobFailed`, and nothing is saved.
+- **The message goes out before the state is saved**, so a failed notification is sent again 15
+  minutes later rather than being lost. Any error (API, ntfy, Kubernetes) fails the job, which
+  raises kube-prometheus-stack's `KubeJobFailed`, and nothing is saved.
+- **Every 15 minutes, off the full hour** (`:11`, `:26`, `:41`, `:56`): server types sell out
+  within the hour (CX43 in nbg1, 2026-11-05), so a slower look misses the window. A run makes a
+  handful of API calls, far below Hetzner's 3600 an hour.
 - **The same ntfy topic as Alertmanager and Gatus** (OpenBao `secret/ntfy`), priority 3.
 
 ## The state
@@ -88,7 +92,9 @@ values).
 ### Watch another server type or location
 
 Add it to `WATCH_SERVER_TYPES` (or change `WATCH_LOCATION`) in `cronjob.yaml`. The next run
-reports the new keys as changes from `(not watched)`.
+reports the new keys as changes from `(not watched)`. Taking a type off the list does the
+reverse once: its availability line is reported as `-> (gone)`, which means no longer watched,
+not gone from Hetzner (cx33 on 2026-11-05).
 
 ### Test the script locally
 
@@ -96,5 +102,5 @@ With a token in `HCLOUD_TOKEN`, a state file instead of the ConfigMap and the me
 instead of sent:
 
 ```shell
-docker run --rm -e HCLOUD_TOKEN -e WATCH_SERVER_TYPES=cx33,cx43 -e STATE_FILE=/tmp/state.json -e DRY_RUN=1 -v "$PWD/kubernetes/components/hetzner-watch:/app:ro" python:3.14-alpine python /app/watch.py
+docker run --rm -e HCLOUD_TOKEN -e WATCH_SERVER_TYPES=cx43 -e STATE_FILE=/tmp/state.json -e DRY_RUN=1 -v "$PWD/kubernetes/components/hetzner-watch:/app:ro" python:3.14-alpine python /app/watch.py
 ```

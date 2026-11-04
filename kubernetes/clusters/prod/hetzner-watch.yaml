@@ -1,5 +1,5 @@
-# The Hetzner watch for this cluster, from kubernetes/components/hetzner-watch: an hourly look at
-# the Hetzner Cloud API that reports changes to ntfy.
+# The Hetzner watch for this cluster, from kubernetes/components/hetzner-watch: a look every 15
+# minutes at the Hetzner Cloud API that reports changes to ntfy.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
