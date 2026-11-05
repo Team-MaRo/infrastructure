@@ -30,7 +30,12 @@ Traefik plugin exists, nothing calls clamd.
   carries no signatures - the tags that do are rebuilt every day, which would restart clamd every
   day. So an init container downloads them at every start into the shared folder (an emptyDir,
   about 110 MB, 3 s in a test); the mirrors limit downloads per address, which a pod starting a
-  few times a month stays far below.
+  few times a month stays far below. **The mirror's limit is strict**: on 2026-11-06 the first
+  start downloaded four times (the init container was OOM-killed at 128Mi) and the node's
+  address was blocked for six hours; freshclam then exited 0 without `main.cvd`. So the init
+  container checks that all three files exist before clamd starts, and freshclam has 768Mi
+  (376 MiB peak for `main.cvd`). A start during such a cool-down waits in the init container
+  (`ClamavDown`) until it ends.
 - **One replica** (user decision 2026-11-06): a second would cost another ~1 GiB of memory. While
   the pod restarts - a node reboot, a resize, a drain - nothing can be scanned; clamd answers
   about 10 s after it starts.

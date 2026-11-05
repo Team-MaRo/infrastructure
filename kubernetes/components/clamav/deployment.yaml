@@ -36,13 +36,28 @@ spec:
           # signatures are rebuilt every day, which would restart clamd every day through Keel.
           image: clamav/clamav:stable_base
           imagePullPolicy: Always
-          command: [freshclam, --foreground]
+          # freshclam exits 0 even when the mirror refused a file (rate limit, 2026-11-06), so the
+          # three files are checked: without them clamd would start missing signatures. A retry
+          # does not ask the mirror again before its cool-down ends (freshclam.dat in the folder).
+          command:
+            - sh
+            - -c
+            - >-
+              freshclam --foreground &&
+              ls /var/lib/clamav/main.c?d /var/lib/clamav/daily.c?d /var/lib/clamav/bytecode.c?d
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
             capabilities:
               drop:
                 - ALL
+          # A whole set of signatures in memory while it is checked: 376 MiB peak for main.cvd
+          # (Docker, 2026-11-06); the LimitRange's 128Mi got it OOM-killed four times.
+          resources:
+            requests:
+              memory: 64Mi
+            limits:
+              memory: 768Mi
           volumeMounts:
             - name: config
               mountPath: /etc/clamav/freshclam.conf
@@ -114,11 +129,12 @@ spec:
             capabilities:
               drop:
                 - ALL
+          # Like the first download when main.cvd changes (376 MiB peak); idle a few MiB.
           resources:
             requests:
               memory: 64Mi
             limits:
-              memory: 512Mi
+              memory: 768Mi
           volumeMounts:
             - name: config
               mountPath: /etc/clamav/clamd.conf
