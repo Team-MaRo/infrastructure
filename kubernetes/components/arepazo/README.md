@@ -15,12 +15,13 @@ in the shared MariaDB, the uploads are in the bucket `d3strukt0r-prod-arepazo`
 
 - **Private files never reach the proxy.** WooCommerce and its plugins keep files under uploads
   that must not be public: the invoice PDFs (`wpo_wcpdf_*`), protected downloads
-  (`woocommerce_uploads`), logs (`wc-logs`), Facebook's product catalog exports
-  (`facebook_for_woocommerce`), Contact Form 7's temporary uploads (`wpcf7_uploads`), WPForms'
-  cache (`wpforms/cache`) and a removed file manager's leftovers. Their `.htaccess` files work
-  only under Apache - prod-old's nginx ignored them; here nginx refuses them (403) before the
-  proxy sees the request. WordPress reads them itself through S3-Uploads. A plugin that adds
-  such a directory needs it added to `nginx.deniedUploadPaths` in `values.yaml`.
+  (`woocommerce_uploads`), Contact Form 7's temporary uploads (`wpcf7_uploads`) and WPForms'
+  cache (`wpforms/cache`). WooCommerce's logs no longer go there (chart README "WooCommerce"), and
+  the old server's leftovers (Facebook's catalog exports from 2017, a removed file manager's
+  folder, old logs and GeoIP files) were deleted from the bucket on 2026-11-05. Their `.htaccess`
+  files work only under Apache - prod-old's nginx ignored them; here nginx refuses them (403)
+  before the proxy sees the request. WordPress reads them itself through S3-Uploads. A plugin that
+  adds such a directory needs it added to `nginx.deniedUploadPaths` in `values.yaml`.
 - **More memory.** prod-old's php-fpm was OOM-killed at 280M: PHP gets `memory_limit 256M`, the
   php-fpm container a 1280Mi limit (336Mi requested; real-memory p95 324 MiB, working set p95 361
   MiB, peak 493 MiB over 2026-10-23..11-02). Under real traffic all workers (`pm.max_children`) run

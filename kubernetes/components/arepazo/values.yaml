@@ -120,14 +120,10 @@ nginx:
   # and a frame-src list would have to follow theirs.
   #
   # Private files WooCommerce and its plugins keep under uploads: invoice PDFs with customer data,
-  # protected downloads, logs, a removed file manager's leftovers, Facebook's product catalog
-  # exports, Contact Form 7's temporary uploads and WPForms' cache.
+  # protected downloads, Contact Form 7's temporary uploads and WPForms' cache.
   deniedUploadPaths:
     - wpo_wcpdf_[^/]*
     - woocommerce_uploads
-    - wc-logs
-    - wp-file-manager-pro
-    - facebook_for_woocommerce
     - wpcf7_uploads
     - wpforms/cache
 
