@@ -28,39 +28,39 @@ kubernetes/
 │       ├── argocd.yaml        # Argo CD managing its own installation
 │       ├── argocd-integrations.yaml  # its webhook secret, private repository access, monitors
 │       ├── hcloud-csi.yaml    # persistent volumes
-│       ├── openbao.yaml       # the secret store: Helm chart pinned here, values in components/
+│       ├── openbao.yaml       # the secret store: Helm chart (patch range) here, values in components/
 │       ├── external-secrets.yaml  # delivers OpenBao values as Kubernetes Secrets
 │       ├── system-upgrade-controller.yaml  # upgrades k3s on the nodes
 │       ├── kured.yaml             # reboots nodes after kernel updates
-│       ├── kyverno.yaml           # policies: chart pinned here, values and policies in components/
+│       ├── kyverno.yaml           # policies: chart (patch range) here, values and policies in components/
 │       ├── cert-manager.yaml      # certificates from Let's Encrypt
 │       ├── traefik.yaml           # k3s's Traefik: DaemonSet on the ingress nodes' host network
 │       ├── gatus.yaml             # the public status page and the alerting heartbeat
 │       ├── hetzner-watch.yaml     # reports changes in the Hetzner Cloud API to ntfy
-│       ├── kube-prometheus-stack.yaml  # metrics and alerts: chart pinned here, values in components/
-│       ├── loki.yaml              # log storage: chart pinned here, values in components/
-│       ├── tempo.yaml             # trace storage: chart pinned here, values in components/
-│       ├── alloy.yaml             # log collection and traces' entry on every node: chart pinned here
+│       ├── kube-prometheus-stack.yaml  # metrics and alerts: chart (patch range) here, values in components/
+│       ├── loki.yaml              # log storage: chart (patch range) here, values in components/
+│       ├── tempo.yaml             # trace storage: chart (patch range) here, values in components/
+│       ├── alloy.yaml             # log collection and traces' entry on every node: chart (patch range) here
 │       ├── mariadb-operator-crds.yaml  # the operator's CRDs - never pruned
 │       ├── mariadb-operator.yaml  # the operator running the app database
 │       ├── mariadb.yaml           # the app database itself
-│       ├── cloudnative-pg.yaml    # the PostgreSQL operator and its backup plugin: charts pinned here
+│       ├── cloudnative-pg.yaml    # the PostgreSQL operator and its backup plugin: charts (patch ranges) here
 │       ├── postgres.yaml          # the shared PostgreSQL itself
 │       ├── zitadel.yaml           # the identity provider (SSO)
 │       ├── oauth2-proxy.yaml      # the Zitadel login gate for UIs without a login of their own
 │       ├── phpmyadmin.yaml        # the shared MariaDB's web UI
 │       ├── pgadmin.yaml           # the shared PostgreSQL's web UI
-│       ├── reloader.yaml          # restarts apps on changed Secrets: chart pinned here, values in components/
-│       ├── trust-manager.yaml     # the databases' CAs in the apps' namespaces: chart pinned here
-│       ├── keel.yaml              # rolls out new images under floating tags: chart pinned here
+│       ├── reloader.yaml          # restarts apps on changed Secrets: chart (patch range) here, values in components/
+│       ├── trust-manager.yaml     # the databases' CAs in the apps' namespaces: chart (patch range) here
+│       ├── keel.yaml              # rolls out new images under floating tags: chart (patch range) here
 │       ├── valkey-cache.yaml      # the shared cache, a database per app
 │       ├── valkey-state.yaml      # the shared state (sessions, locks) on a volume, a database per app
-│       ├── zot.yaml               # the container registry: chart pinned here, values in components/
+│       ├── zot.yaml               # the container registry: chart (patch range) here, values in components/
 │       ├── wedding-manuele-robine.yaml  # the wedding website
 │       ├── robines-portfolio.yaml  # the old WordPress portfolio: the WordPress chart and its values
 │       ├── arepazo.yaml       # the WooCommerce shop: the WordPress chart and its values
 │       ├── matomo.yaml            # web analytics for every site
-│       ├── kubeelasti.yaml        # scale to zero: chart pinned here, values in components/
+│       ├── kubeelasti.yaml        # scale to zero: chart (patch range) here, values in components/
 │       ├── cluster-rbac.yaml      # cluster-wide rights for kubectl logins through Zitadel
 │       ├── priority-classes.yaml  # the cluster's PriorityClasses - no finalizer
 │       ├── etcd-snapshots.yaml    # syncs the subdirectory below
@@ -313,8 +313,9 @@ kubernetes/
 | [`clusters/prod/etcd-snapshots`](clusters/prod/etcd-snapshots/README.md) | prod-only: the S3 settings k3s uploads etcd snapshots with; restore |
 
 Components are Kustomize over a pinned upstream manifest where upstream publishes one.
-Where upstream ships only a Helm chart (OpenBao), the cluster's Application pins the chart
-and reads its values from `components/<app>/values.yaml` through a second source.
+Where upstream ships only a Helm chart (OpenBao), the cluster's Application names the chart
+with a patch range (`~X.Y.Z`, "Chart versions" in `components/argocd/README.md`) and reads its
+values from `components/<app>/values.yaml` through a second source.
 An app type with several instances gets a chart of our own under `charts/`, rendered from
 `master` for each instance's Application, with its values from `components/<app>/values.yaml`
 the same way ([`charts/wordpress/README.md`](charts/wordpress/README.md)).

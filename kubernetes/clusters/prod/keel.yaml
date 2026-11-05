@@ -12,11 +12,12 @@ metadata:
 spec:
   project: default
   sources:
-    # Pinned: bumping the version is the upgrade. 1.2.3 deploys Keel 0.22.4 (from ghcr.io; the
-    # Docker Hub image is no longer published).
+    # Patch releases arrive by themselves (the `~` range, components/argocd/README.md "Chart
+    # versions"); raising the range is the upgrade. Keel comes from ghcr.io; the Docker Hub image is
+    # no longer published.
     - repoURL: https://charts.keel.sh
       chart: keel
-      targetRevision: 1.2.3
+      targetRevision: "~1.2.3"
       helm:
         valueFiles:
           - $repo/kubernetes/components/keel/values.yaml

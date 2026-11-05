@@ -41,7 +41,7 @@ updated when the CA rotates, instead of a copy per app.
   bundle during a rotation. The copy follows within External Secrets' refresh (an hour),
   trust-manager at once, and a mounted ConfigMap reaches running pods within about a minute
   (not with `subPath`).
-- Chart v0.25.0 meets the restricted Pod Security Standard as it is; the debian default-CA package
+- Chart v0.25.x meets the restricted Pod Security Standard as it is; the debian default-CA package
   is off. Metrics through `service-monitor.yaml`. The webhook's certificate comes from a
   self-signed Issuer the chart creates.
 - **Memory 48Mi / 96Mi** (`resources`; real-memory p95 33 MiB; working set p95 48 MiB, peak

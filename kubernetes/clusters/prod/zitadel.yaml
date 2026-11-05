@@ -18,11 +18,12 @@ metadata:
 spec:
   project: default
   sources:
-    # Pinned: bumping the version is the upgrade. Its init and setup jobs run on every sync
+    # Patch releases arrive by themselves (the `~` range, components/argocd/README.md "Chart
+    # versions"); raising the range is the upgrade. Its init and setup jobs run on every sync
     # (idempotent), ordered by sync waves (values.yaml).
     - repoURL: https://charts.zitadel.com
       chart: zitadel
-      targetRevision: 10.1.0
+      targetRevision: "~10.1.0"
       helm:
         valueFiles:
           - $repo/kubernetes/components/zitadel/values.yaml

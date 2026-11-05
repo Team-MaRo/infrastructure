@@ -17,10 +17,11 @@ metadata:
 spec:
   project: default
   sources:
-    # Pinned: bumping the version is the upgrade. 1.13.0 deploys Alloy 1.20.0.
+    # Patch releases arrive by themselves (the `~` range, components/argocd/README.md "Chart
+    # versions"); raising the range is the upgrade.
     - repoURL: https://grafana.github.io/helm-charts
       chart: alloy
-      targetRevision: 1.13.0
+      targetRevision: "~1.13.0"
       helm:
         valueFiles:
           - $repo/kubernetes/components/alloy/values.yaml

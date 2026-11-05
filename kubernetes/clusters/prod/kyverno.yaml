@@ -13,10 +13,11 @@ metadata:
 spec:
   project: default
   sources:
-    # Pinned: bumping the version is the upgrade. Chart 3.9.1 deploys Kyverno v1.19.1.
+    # Patch releases arrive by themselves (the `~` range, components/argocd/README.md "Chart
+    # versions"); raising the range is the upgrade.
     - repoURL: https://kyverno.github.io/kyverno
       chart: kyverno
-      targetRevision: 3.9.1
+      targetRevision: "~3.9.1"
       helm:
         valueFiles:
           - $repo/kubernetes/components/kyverno/values.yaml

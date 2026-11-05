@@ -174,9 +174,14 @@ rule, 2026-10-02). Where a name cannot hold a hyphen, the hyphens become undersc
 - **`kubernetes/clusters/<name>/` decides what runs where; `kubernetes/components/<app>/`
   holds how**, shared by clusters. A cluster that needs something different gets a Kustomize
   overlay in its own directory, not a copy of the component. Components are Kustomize over a
-  pinned upstream manifest; a Helm-only upstream gets its chart pinned in the cluster's
-  Application and its values from `components/<app>/` as a second source (a third for extra
-  manifests). **An app type with several instances gets a chart of our own** in
+  pinned upstream manifest; a Helm-only upstream gets its chart in the cluster's Application and
+  its values from `components/<app>/` as a second source (a third for extra manifests).
+  **A chart follows its patch releases by itself** (`targetRevision: "~X.Y.Z"`, user decision
+  2026-11-06 - no update commits in git); a minor or major is a deliberate change after reading
+  its changelog and rendering it. Upstream manifests and exact image tags stay pinned; the
+  running chart version is in Argo CD, not git ("Chart versions" in
+  [`kubernetes/components/argocd/README.md`](kubernetes/components/argocd/README.md)).
+  **An app type with several instances gets a chart of our own** in
   `kubernetes/charts/<name>/` (today `wordpress`): Argo CD renders it from git on `master` (no
   tags, no chart registry) and each instance's Application reads its values from
   `components/<app>/values.yaml`, so a chart change reaches every instance at once - render and

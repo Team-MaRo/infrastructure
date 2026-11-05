@@ -10,18 +10,19 @@ metadata:
 spec:
   project: default
   sources:
-    # Pinned: bumping a version is the upgrade. The CRDs come with the operator chart and carry
+    # Patch releases arrive by themselves (the `~` range, components/argocd/README.md "Chart
+    # versions"); raising the range is the upgrade. The CRDs come with the operator chart and carry
     # helm.sh/resource-policy: keep, so Argo CD never deletes them - that would delete every
     # PostgreSQL cluster with them.
     - repoURL: https://cloudnative-pg.github.io/charts
       chart: cloudnative-pg
-      targetRevision: 0.29.1
+      targetRevision: "~0.29.1"
       helm:
         valueFiles:
           - $repo/kubernetes/components/cloudnative-pg/values.yaml
     - repoURL: https://cloudnative-pg.github.io/charts
       chart: plugin-barman-cloud
-      targetRevision: 0.8.0
+      targetRevision: "~0.8.0"
       helm:
         valueFiles:
           - $repo/kubernetes/components/cloudnative-pg/plugin-values.yaml

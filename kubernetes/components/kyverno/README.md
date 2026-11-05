@@ -2,8 +2,8 @@
 
 Back to [`kubernetes/README.md`](../../README.md).
 
-`kubernetes/clusters/prod/kyverno.yaml` deploys the `kyverno` Helm chart (pinned, 3.9.1 =
-Kyverno v1.19.1) with `kubernetes/components/kyverno/` as values and extra resources - the
+`kubernetes/clusters/prod/kyverno.yaml` deploys the `kyverno` Helm chart (patch range 3.9.x =
+Kyverno v1.19) with `kubernetes/components/kyverno/` as values and extra resources - the
 same two-source pattern as OpenBao, plus a third source for the directory's manifests. It holds
 two policies: `default-resources` (`default-resources.yaml`) gives every namespace but a few
 system ones a LimitRange, so a container without `resources` of its own still has requests and
@@ -16,7 +16,7 @@ registries. `rbac-limitranges.yaml` lets Kyverno create LimitRanges.
   (huge CRDs), `ServerSideDiff=true,IncludeMutationWebhook=true` on the Application,
   `config.preserve: false` (the default marks Kyverno's ConfigMap `helm.sh/resource-policy:
   keep`, which would orphan it when the Application is removed; Kyverno's notes still
-  describe an older post-delete hook, which chart 3.9.1 no longer renders),
+  describe an older post-delete hook, which the 3.9 charts no longer render),
   and `ignoreAggregatedRoles: true` in `argocd-cm`, since aggregated ClusterRoles never
   match git. Argo CD's own defaults already exclude Kyverno's report kinds.
 - Kyverno is scraped through its chart's `serviceMonitor.enabled` per controller.

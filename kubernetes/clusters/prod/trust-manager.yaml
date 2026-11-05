@@ -12,10 +12,11 @@ metadata:
 spec:
   project: default
   sources:
-    # Pinned: bumping the version is the upgrade.
+    # Patch releases arrive by themselves (the `~` range, components/argocd/README.md "Chart
+    # versions"); raising the range is the upgrade.
     - repoURL: https://charts.jetstack.io
       chart: trust-manager
-      targetRevision: v0.25.0
+      targetRevision: "~v0.25.0"
       helm:
         valueFiles:
           - $repo/kubernetes/components/trust-manager/values.yaml

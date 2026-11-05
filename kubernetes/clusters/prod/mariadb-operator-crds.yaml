@@ -11,10 +11,11 @@ metadata:
 spec:
   project: default
   source:
-    # Pinned: bump together with the operator in mariadb-operator.yaml.
+    # The same patch range as the operator in mariadb-operator.yaml, so both move together; raise
+    # both ranges together.
     repoURL: https://mariadb-operator.github.io/mariadb-operator
     chart: mariadb-operator-crds
-    targetRevision: 26.10.2
+    targetRevision: "~26.10.2"
   destination:
     server: https://kubernetes.default.svc
     namespace: mariadb-operator

@@ -195,6 +195,32 @@ push. It upgrades every cluster that runs the shared component. **One minor vers
 time** - Argo CD does not support skipping minors, and each one's upgrade notes may require
 a step. Patch releases within a minor need nothing special.
 
+## Chart versions
+
+Every Helm chart from an upstream repository follows its patch releases by itself: its
+`targetRevision` in `kubernetes/clusters/<name>/` is a range, `"~X.Y.Z"` (`>=X.Y.Z <X.(Y+1).0`),
+and Argo CD installs the newest chart in it the next time it refreshes the Application - no commit,
+so git holds no stream of version bumps (user decision 2026-11-06). Charts of our own
+(`kubernetes/charts/`) and Kustomize components come from `master` as before; the upstream
+manifests in Kustomize URLs and exact image tags stay pinned (floating tags go through Keel,
+`components/keel`).
+
+- **What runs** is in Argo CD, not git:
+  `kubectl --context d3strukt0r-prod-admin -n argocd get application <app> -o jsonpath='{.status.sync.revisions}'`
+  (or `.status.sync.revision` for a single source), or the Application in the UI.
+- **A minor or major** is a deliberate change: read the chart's and the app's changelog, render it
+  with the component's values (`helm template … --version <new>`, diff against the current one),
+  then raise the range in the Application. Charts with CRDs and a separate CRD chart
+  (mariadb-operator and mariadb-operator-crds) keep the same range.
+- **A patch release that breaks something**: put the last good exact version into
+  `targetRevision` and push; back to the range once upstream has fixed it.
+- **What reports a problem**: a repository Argo CD cannot reach or a range nothing matches leaves
+  the Application Unknown (`ArgoCDApplicationOutOfSync` after 30 minutes); a release that does not
+  come up leaves it Degraded or Progressing (`ArgoCDApplicationUnhealthy`), both in
+  `components/argocd-integrations`.
+- **Some charts count app minors as chart patches** - zot's chart `0.1.x` covers zot 2.1.x, so its
+  range also brings zot's minor releases.
+
 ## How quickly a push arrives
 
 At once: **a push arrives through a GitHub webhook** - GitHub sends every push to

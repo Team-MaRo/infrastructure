@@ -16,8 +16,11 @@ paths:
   that brings CRDs, holds a volume, or is foundation (root, private, argocd, hcloud-csi, traefik),
   and never on `priority-classes` (a pod naming a missing class is refused). See
   "Pruning and the finalizer" in `kubernetes/components/argocd/README.md`.
-- Pin every chart and manifest version. A Helm-only upstream: chart pinned in the Application,
-  values from `components/<app>/` as a second source, its manifests as a third. A chart of our
+- A chart gets a patch range (`targetRevision: "~X.Y.Z"`) and follows its patch releases by
+  itself; raising the range (a minor or major) is a deliberate change after reading the changelog
+  and rendering it. Upstream manifests and exact image tags stay pinned. A Helm-only upstream:
+  chart in the Application, values from `components/<app>/` as a second source, its manifests as
+  a third. A chart of our
   own (`kubernetes/charts/`) comes from `master`, like its values (Argo CD refuses a `$values`
   source at another revision of the same repository); a chart change reaches every site at once
   (`kubernetes/charts/wordpress/README.md`).

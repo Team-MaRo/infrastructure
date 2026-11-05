@@ -14,10 +14,11 @@ metadata:
 spec:
   project: default
   sources:
-    # Pinned: bumping the version is the upgrade. 0.1.128 deploys zot v2.1.22.
+    # Patch releases arrive by themselves (the `~` range, components/argocd/README.md "Chart
+    # versions"); raising the range is the upgrade.
     - repoURL: https://zotregistry.dev/helm-charts
       chart: zot
-      targetRevision: 0.1.128
+      targetRevision: "~0.1.128"
       helm:
         # The chart's test pods (alpine, as root) are not wanted; Argo CD skips them anyway.
         skipTests: true

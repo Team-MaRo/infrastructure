@@ -8,7 +8,7 @@ is in [`kubernetes/README.md`](../../README.md).
 
 ## Design
 
-- **One single-binary Tempo** (chart 3.2.0, Tempo 3.1.0): distributor, live-store, querier and
+- **One single-binary Tempo** (chart 3.2.x, Tempo 3.1): distributor, live-store, querier and
   backend worker in one pod, no Kafka - Tempo 3's distributed mode needs one, the single binary
   does not. The chart moved from grafana/helm-charts to grafana-community.
 - **Traces in Object Storage**, bucket `d3strukt0r-prod-tempo` (`tofu/objectstorage/tempo.tf`),

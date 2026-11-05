@@ -54,10 +54,10 @@ the digest behind one changes.
   audit log) lives on an emptyDir, so the root filesystem stays read-only. No CPU limit; memory
   48Mi / 160Mi (real-memory p95 47 MiB; working set p95 66 MiB, peak 71 MiB over
   2026-10-23..11-02).
-- **Chart 1.2.3, Keel 0.22.4**, from `ghcr.io/keel-hq/keel` - the Docker Hub image is no longer
+- **Chart 1.2.x, Keel 0.22**, from `ghcr.io/keel-hq/keel` - the Docker Hub image is no longer
   published. The 0.22 line has needed several fixes in a row (RBAC for nodes in 0.22.2, API
-  throttling in 0.22.4) and Keel has essentially one maintainer: read the release notes before an
-  upgrade.
+  throttling in 0.22.4) and Keel has essentially one maintainer: read the release notes before
+  raising the chart's range.
 
 ## Opting an app in
 

@@ -6,8 +6,8 @@ Workloads never talk to OpenBao. External Secrets reads values from it and write
 Kubernetes Secrets, through one `ClusterSecretStore` named `openbao` - OpenBao's `secret/`
 engine, logged into with the operator's own service account (role `external-secrets` in
 `tofu/openbao`, see [`tofu/openbao/README.md`](../../../tofu/openbao/README.md)).
-`kubernetes/clusters/prod/external-secrets.yaml` deploys the chart `external-secrets` 2.11.0
-(pinned) plus this directory: its values (`values.yaml`, memory and the ServiceMonitors), the
+`kubernetes/clusters/prod/external-secrets.yaml` deploys the chart `external-secrets` 2.11.x
+(a patch range) plus this directory: its values (`values.yaml`, memory and the ServiceMonitors), the
 store (`cluster-secret-store.yaml`) and the alert (`rules.yaml`).
 
 ## How it is set up

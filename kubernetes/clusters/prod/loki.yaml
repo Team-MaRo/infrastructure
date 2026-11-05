@@ -10,11 +10,12 @@ metadata:
 spec:
   project: default
   sources:
-    # Pinned: bumping the version is the upgrade. The chart moved from grafana/helm-charts to
-    # grafana-community; 18.13.7 deploys Loki 3.7.8.
+    # Patch releases arrive by themselves (the `~` range, components/argocd/README.md "Chart
+    # versions"); raising the range is the upgrade. The chart moved from grafana/helm-charts to
+    # grafana-community.
     - repoURL: https://grafana-community.github.io/helm-charts
       chart: loki
-      targetRevision: 18.13.7
+      targetRevision: "~18.13.7"
       helm:
         valueFiles:
           - $repo/kubernetes/components/loki/values.yaml

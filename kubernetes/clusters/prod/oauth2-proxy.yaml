@@ -13,10 +13,11 @@ metadata:
 spec:
   project: default
   sources:
-    # Pinned: bumping the version is the upgrade. 10.7.0 deploys oauth2-proxy 7.15.3.
+    # Patch releases arrive by themselves (the `~` range, components/argocd/README.md "Chart
+    # versions"); raising the range is the upgrade.
     - repoURL: https://oauth2-proxy.github.io/manifests
       chart: oauth2-proxy
-      targetRevision: 10.7.0
+      targetRevision: "~10.7.0"
       helm:
         valueFiles:
           - $repo/kubernetes/components/oauth2-proxy/values.yaml

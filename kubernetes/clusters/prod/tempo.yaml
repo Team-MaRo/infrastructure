@@ -14,11 +14,12 @@ metadata:
 spec:
   project: default
   sources:
-    # Pinned: bumping the version is the upgrade. The chart moved from grafana/helm-charts to
-    # grafana-community; 3.2.0 deploys Tempo 3.1.0.
+    # Patch releases arrive by themselves (the `~` range, components/argocd/README.md "Chart
+    # versions"); raising the range is the upgrade. The chart moved from grafana/helm-charts to
+    # grafana-community.
     - repoURL: https://grafana-community.github.io/helm-charts
       chart: tempo
-      targetRevision: 3.2.0
+      targetRevision: "~3.2.0"
       helm:
         valueFiles:
           - $repo/kubernetes/components/tempo/values.yaml

@@ -10,10 +10,11 @@ metadata:
 spec:
   project: default
   sources:
-    # Pinned: bumping the version is the upgrade.
+    # Patch releases arrive by themselves (the `~` range, components/argocd/README.md "Chart
+    # versions"); raising the range is the upgrade.
     - repoURL: https://prometheus-community.github.io/helm-charts
       chart: kube-prometheus-stack
-      targetRevision: 91.8.1
+      targetRevision: "~91.8.1"
       helm:
         valueFiles:
           - $repo/kubernetes/components/kube-prometheus-stack/values.yaml

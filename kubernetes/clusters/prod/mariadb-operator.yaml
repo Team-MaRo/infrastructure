@@ -10,10 +10,12 @@ metadata:
 spec:
   project: default
   sources:
-    # Pinned: bumping the version is the upgrade, together with mariadb-operator-crds.yaml.
+    # Patch releases arrive by themselves (the `~` range, components/argocd/README.md "Chart
+    # versions"); raising the range is the upgrade. Raise it together with
+    # mariadb-operator-crds.yaml, which has the same range.
     - repoURL: https://mariadb-operator.github.io/mariadb-operator
       chart: mariadb-operator
-      targetRevision: 26.10.2
+      targetRevision: "~26.10.2"
       helm:
         valueFiles:
           - $repo/kubernetes/components/mariadb-operator/values.yaml
