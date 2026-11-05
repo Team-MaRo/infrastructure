@@ -143,6 +143,10 @@ spec:
               # measures (README "Measuring a request").
               cp /config/query-monitor-panels.php mu-plugins/
               cp /config/query-monitor-db.php db.php
+              {{- if include "wordpress.woocommerce" . }}
+              # WooCommerce's log entries into php-fpm's log, not the bucket (README "WooCommerce").
+              cp /config/woocommerce-logs.php mu-plugins/
+              {{- end }}
               {{- if .Values.oidc.clientId }}
               cp /config/oidc.php mu-plugins/
               # Its translations, one per language, in a directory of their own: every .php

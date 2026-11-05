@@ -63,6 +63,10 @@ data:
     {{- .Files.Get "files/query-monitor-db.php" | nindent 4 }}
   query-monitor-panels.php: |
     {{- .Files.Get "files/query-monitor-panels.php" | nindent 4 }}
+  {{- if include "wordpress.woocommerce" . }}
+  woocommerce-logs.php: |
+    {{- .Files.Get "files/woocommerce-logs.php" | nindent 4 }}
+  {{- end }}
   {{- if .Values.oidc.clientId }}
   oidc.php: |
     {{- tpl (.Files.Get "files/oidc.php") . | nindent 4 }}

@@ -633,6 +633,21 @@ kubectl --context d3strukt0r-prod-admin -n <site> exec deploy/web -c php-fpm -- 
 kubectl --context d3strukt0r-prod-admin -n <site> exec deploy/web -c nginx -- curl -s localhost:9253/wordpress
 ```
 
+## WooCommerce
+
+On a site whose plugins include `woocommerce`, the chart adds what only a shop needs:
+
+- **Its logs go to the container log** (`files/woocommerce-logs.php`): every entry WooCommerce
+  logs, fatal errors included, as `woocommerce <level> [<source>] <message>` in php-fpm's log, so in
+  Loki. By default WooCommerce writes files under the uploads, which S3-Uploads puts in the bucket -
+  a write to S3 per entry, and its log viewer and 30-day pruning cannot list `s3://`, so the files
+  were never shown nor deleted. `WC_LOG_DIR` points into the pod (`/tmp/wc-logs/`) for the few
+  files WooCommerce still creates there. WooCommerce → Status → Protokolle therefore stays empty;
+  its threshold setting ("Schwellenwert für Schweregrad") still decides which levels are logged.
+  To read them:
+  `kubectl --context d3strukt0r-prod-admin -n <site> logs deploy/web -c php-fpm | grep 'woocommerce '`,
+  or in Grafana `{namespace="<site>", container="php-fpm"} |= "woocommerce "`.
+
 ## Sizing the pool
 
 `pm.max_children = (limit - opcache (256 MB) and master - headroom) / memory per worker`, with one

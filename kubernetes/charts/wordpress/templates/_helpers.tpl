@@ -47,6 +47,14 @@ d3strukt0r-prod-{{ .Release.Name }}
 {{- end -}}
 
 {{/*
+"true" when the site's plugins include WooCommerce (a pinned "woocommerce <version>" too), else
+empty - for the parts only a shop needs.
+*/}}
+{{- define "wordpress.woocommerce" -}}
+{{- range .Values.plugins }}{{ if eq (first (splitList " " .)) "woocommerce" }}true{{ end }}{{ end }}
+{{- end -}}
+
+{{/*
 The environment of every container that loads WordPress: wp-config.php reads every WORDPRESS_*
 variable at runtime, so each one carries the same set.
 */}}
