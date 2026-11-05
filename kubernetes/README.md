@@ -38,6 +38,7 @@ kubernetes/
 │       ├── gatus.yaml             # the public status page and the alerting heartbeat
 │       ├── hetzner-watch.yaml     # reports changes in the Hetzner Cloud API to ntfy
 │       ├── domain-redirects.yaml  # d3st.dev, d3st.org, d3strukt0r.me to d3strukt0r.dev
+│       ├── clamav.yaml            # the shared virus scanner for uploads
 │       ├── kube-prometheus-stack.yaml  # metrics and alerts: chart (patch range) here, values in components/
 │       ├── loki.yaml              # log storage: chart (patch range) here, values in components/
 │       ├── tempo.yaml             # trace storage: chart (patch range) here, values in components/
@@ -195,6 +196,14 @@ kubernetes/
     │   ├── certificate.yaml       # the redirected names, so Cloudflare can leave flexible
     │   ├── middleware-redirect.yaml  # 302 to d3strukt0r.dev, path kept
     │   └── ingress-route.yaml     # one route for HTTPS, one for HTTP; no pods
+    ├── clamav/
+    │   ├── kustomization.yaml     # clamd.conf and freshclam.conf become the ConfigMap clamav
+    │   ├── namespace.yaml
+    │   ├── deployment.yaml        # clamd, freshclam and the exporter; signatures from the image
+    │   ├── service.yaml
+    │   ├── network-policy.yaml    # only Traefik (per ingress node, Kyverno) and Prometheus
+    │   ├── pod-monitor.yaml
+    │   └── rules.yaml             # clamd down, signatures stale
     ├── phpmyadmin/
     │   ├── kustomization.yaml
     │   ├── namespace.yaml
@@ -292,6 +301,7 @@ kubernetes/
 | [`cert-manager`](components/cert-manager/README.md) | Certificates from Let's Encrypt over DNS-01 |
 | [`gatus`](components/gatus/README.md) | The public status page and the alerting heartbeat |
 | [`hetzner-watch`](components/hetzner-watch/README.md) | A look at the Hetzner Cloud API every 15 minutes; tells ntfy only what changed (server type availability, deprecations, blocked IPs, rescue mode, traffic) |
+| [`clamav`](components/clamav/README.md) | The shared virus scanner that Traefik hands uploads to |
 | [`domain-redirects`](components/domain-redirects/README.md) | Whole domains redirected to another by Traefik (`d3st.dev`, `d3st.org`, `d3strukt0r.me` to `d3strukt0r.dev`) |
 | [`kube-prometheus-stack`](components/kube-prometheus-stack/README.md) | Prometheus, Alertmanager, Grafana; the cluster's own alerts |
 | [`loki`](components/loki/README.md) | Log storage in Object Storage, 30 days |

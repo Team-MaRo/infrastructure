@@ -1,0 +1,163 @@
+---
+# One clamd for the whole cluster (README). One replica: a second one would cost another 1 GiB of
+# memory; while the pod restarts, scans fail (user decision 2026-11-06).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: clamav
+  annotations:
+    # Floating tags (components/keel): a new ClamAV or exporter release rolls the pod.
+    keel.sh/policy: force
+    keel.sh/matchTag: "true"
+    keel.sh/trigger: poll
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: clamav
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: clamav
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        # The image's user clamav (Alpine image).
+        runAsUser: 100
+        runAsGroup: 101
+        fsGroup: 101
+        seccompProfile:
+          type: RuntimeDefault
+      # clamd does not start without signatures: the first download, into the folder clamd and
+      # freshclam share (about 110 MB, seconds).
+      initContainers:
+        - name: signatures
+          # stable_base: ClamAV's current stable release, without signatures (README). The tags with
+          # signatures are rebuilt every day, which would restart clamd every day through Keel.
+          image: clamav/clamav:stable_base
+          imagePullPolicy: Always
+          command: [freshclam, --foreground]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: config
+              mountPath: /etc/clamav/freshclam.conf
+              subPath: freshclam.conf
+              readOnly: true
+            - name: signatures
+              mountPath: /var/lib/clamav
+            - name: tmp
+              mountPath: /tmp
+      containers:
+        # Started directly, past the image's entrypoint, which runs clamd and freshclam in the
+        # background and stays up when clamd dies.
+        - name: clamd
+          image: clamav/clamav:stable_base
+          imagePullPolicy: Always
+          command: [clamd, --foreground]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          ports:
+            - name: clamd
+              containerPort: 3310
+          # The image's own check: PING over 3310 answers PONG.
+          startupProbe:
+            exec:
+              command: [clamdcheck.sh]
+            periodSeconds: 10
+            failureThreshold: 30
+          readinessProbe:
+            exec:
+              command: [clamdcheck.sh]
+            periodSeconds: 10
+          livenessProbe:
+            exec:
+              command: [clamdcheck.sh]
+            periodSeconds: 30
+            # A reload holds clamd for seconds.
+            timeoutSeconds: 10
+          # The signatures in memory: about 1.04 GiB after start and after a reload (Docker,
+          # 2026-11-06). To be measured on the cluster (README).
+          resources:
+            requests:
+              memory: 1088Mi
+            limits:
+              memory: 2176Mi
+          volumeMounts:
+            - name: config
+              mountPath: /etc/clamav/clamd.conf
+              subPath: clamd.conf
+              readOnly: true
+            - name: signatures
+              mountPath: /var/lib/clamav
+            # Where clamd spools each stream while scanning it.
+            - name: tmp
+              mountPath: /tmp
+        # Fetches new signatures (12 checks a day, freshclam's default) into the shared folder and
+        # tells clamd to reload, over clamd.conf's TCPSocket on localhost. Only here: the first
+        # download runs before clamd, and would log an error for each failed notice.
+        - name: freshclam
+          image: clamav/clamav:stable_base
+          imagePullPolicy: Always
+          command: [freshclam, --daemon, --foreground, --daemon-notify=/etc/clamav/clamd.conf]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          resources:
+            requests:
+              memory: 64Mi
+            limits:
+              memory: 512Mi
+          volumeMounts:
+            - name: config
+              mountPath: /etc/clamav/clamd.conf
+              subPath: clamd.conf
+              readOnly: true
+            - name: config
+              mountPath: /etc/clamav/freshclam.conf
+              subPath: freshclam.conf
+              readOnly: true
+            - name: signatures
+              mountPath: /var/lib/clamav
+            - name: tmp
+              mountPath: /tmp
+        # clamd's figures for Prometheus (pod-monitor.yaml): up, threads, queue, memory and the
+        # signatures' age, from clamd on localhost:3310.
+        - name: exporter
+          image: rekzi/clamav-prometheus-exporter:latest
+          imagePullPolicy: Always
+          securityContext:
+            # The image's own user.
+            runAsUser: 1000
+            runAsGroup: 1000
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          ports:
+            - name: metrics
+              containerPort: 9810
+      volumes:
+        - name: config
+          configMap:
+            name: clamav
+        - name: signatures
+          emptyDir:
+            sizeLimit: 512Mi
+        # clamd's spool: up to 10 scans at once (MaxThreads) of at most 100 MB each
+        # (StreamMaxLength) - not a limit per file.
+        - name: tmp
+          emptyDir:
+            sizeLimit: 1Gi

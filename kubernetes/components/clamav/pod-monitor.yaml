@@ -1,0 +1,12 @@
+---
+# clamd's figures from the exporter beside it (deployment.yaml). The job is clamav/clamav.
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: clamav
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: clamav
+  podMetricsEndpoints:
+    - port: metrics

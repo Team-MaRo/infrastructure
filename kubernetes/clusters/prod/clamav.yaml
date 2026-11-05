@@ -1,0 +1,27 @@
+# ClamAV for this cluster, from kubernetes/components/clamav: one clamd that scans uploads for
+# malware.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: clamav
+  namespace: argocd
+  # Removing this file removes everything it deployed, namespace included; the signatures come
+  # back by themselves.
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Team-MaRo/infrastructure.git
+    targetRevision: master
+    path: kubernetes/components/clamav
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: clamav
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      # Not required here (no large CRDs); used for consistency.
+      - ServerSideApply=true

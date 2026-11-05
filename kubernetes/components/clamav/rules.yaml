@@ -1,0 +1,35 @@
+---
+# Alerts for clamav. Its memory is kube-prometheus-stack's ContainerMemoryNearLimit.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: clamav
+spec:
+  groups:
+    - name: clamav
+      rules:
+        # The exporter cannot reach clamd, or the pod is not scraped at all.
+        - alert: ClamavDown
+          expr: clamav_up{job="clamav/clamav"} == 0 or absent(up{job="clamav/clamav"} == 1)
+          for: 5m
+          labels:
+            severity: warning
+            namespace: clamav
+          annotations:
+            summary: "clamd does not answer."
+            description: >-
+              Nothing can be scanned. Check the pod (kubectl -n clamav get pods) and the logs of
+              its containers clamd and freshclam (README, "Checking it").
+        # The daily signatures are published several times a day.
+        - alert: ClamavSignaturesStale
+          expr: clamav_database_age{job="clamav/clamav"} > 2 * 86400
+          for: 1h
+          labels:
+            severity: warning
+            namespace: clamav
+          annotations:
+            summary: "clamd's signatures are {{ $value | humanizeDuration }} old."
+            description: >-
+              freshclam does not get new ones - usually the mirror refusing our address for too
+              many downloads, or a network problem. Its log says which (README, "Signatures
+              stale").

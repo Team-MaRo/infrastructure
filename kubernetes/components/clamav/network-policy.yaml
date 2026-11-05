@@ -1,0 +1,75 @@
+---
+# clamd has no login, so only Traefik reaches it, and Prometheus the exporter. Traefik runs on the
+# host network: on clamav's own node kube-router admits it anyway, from another node it arrives
+# from that node's .0 address - the NetworkPolicies clamav-from-<node> below admit those
+# (components/kube-prometheus-stack, "the node allowances maintain themselves").
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: clamav
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: clamav
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+      ports:
+        - port: metrics
+---
+# A NetworkPolicy clamav-from-<node> for every ingress node, admitting its .0 address on 3310 -
+# the same way and with the same Kyverno rights as prometheus-from-nodes
+# (components/kube-prometheus-stack/network-policy.yaml).
+apiVersion: policies.kyverno.io/v1
+kind: GeneratingPolicy
+metadata:
+  name: clamav-from-nodes
+  annotations:
+    # The CRD comes with Kyverno, another Application.
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  evaluation:
+    generateExisting:
+      enabled: true
+    synchronize:
+      enabled: true
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: [v1]
+        operations: [CREATE, UPDATE]
+        resources: [nodes]
+  matchConditions:
+    - name: has-pod-range
+      expression: has(object.spec.podCIDR) && object.spec.podCIDR != ''
+    - name: ingress-node
+      expression: >-
+        has(object.metadata.labels) &&
+        object.metadata.labels[?'node-role.kubernetes.io/ingress'].orValue('') == 'true'
+  variables:
+    - name: networkPolicy
+      expression: >-
+        [
+          {
+            "apiVersion": dyn("networking.k8s.io/v1"),
+            "kind": dyn("NetworkPolicy"),
+            "metadata": dyn({
+              "name": "clamav-from-" + object.metadata.name,
+              "namespace": "clamav"
+            }),
+            "spec": dyn({
+              "podSelector": {"matchLabels": {"app.kubernetes.io/name": "clamav"}},
+              "policyTypes": ["Ingress"],
+              "ingress": [{
+                "from": [{"ipBlock": {"cidr": object.spec.podCIDR.split("/")[0] + "/32"}}],
+                "ports": [{"port": 3310}]
+              }]
+            })
+          }
+        ]
+  generate:
+    - expression: generator.Apply("clamav", variables.networkPolicy)

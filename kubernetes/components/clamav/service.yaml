@@ -1,0 +1,13 @@
+---
+# clamav.clamav.svc:3310 for Traefik (README).
+apiVersion: v1
+kind: Service
+metadata:
+  name: clamav
+spec:
+  selector:
+    app.kubernetes.io/name: clamav
+  ports:
+    - name: clamd
+      port: 3310
+      targetPort: clamd
