@@ -50,3 +50,6 @@ matomo_access_key_id = ""
 # 1Password "Hetzner | S3 | prod zot"
 #   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=iiiac6kigz57va4kxpfk2c2tc4&h=my.1password.com
 zot_access_key_id = ""
+# 1Password "Hetzner | S3 | prod clamav"
+#   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=b4q73ophzc3gdk36l4djg4d2eu&h=my.1password.com
+clamav_access_key_id = ""

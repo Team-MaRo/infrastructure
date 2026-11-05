@@ -5,6 +5,7 @@ kind: Kustomization
 
 resources:
   - namespace.yaml
+  - external-secrets.yaml
   - deployment.yaml
   - service.yaml
   - network-policy.yaml
@@ -18,6 +19,8 @@ configMapGenerator:
       - clamd.conf
       - freshclam.conf
 
-# The sync option for every monitor and rule (shared/).
+# Shared settings (shared/): the openbao store and refresh for every ExternalSecret, the sync
+# option for every monitor and rule.
 components:
+  - ../../shared/external-secret-defaults
   - ../../shared/monitoring-sync-options

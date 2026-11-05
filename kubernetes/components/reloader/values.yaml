@@ -22,6 +22,7 @@ reloader:
   namespaces:
     - arepazo
     - argocd
+    - clamav
     - gatus
     - loki
     - matomo

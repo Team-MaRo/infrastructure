@@ -10,6 +10,8 @@ metadata:
     keel.sh/policy: force
     keel.sh/matchTag: "true"
     keel.sh/trigger: poll
+    # The bucket's key is read at start (restore, backup); a new one restarts the pod.
+    secret.reloader.stakater.com/reload: clamav-s3
 spec:
   replicas: 1
   selector:
@@ -28,9 +30,44 @@ spec:
         fsGroup: 101
         seccompProfile:
           type: RuntimeDefault
-      # clamd does not start without signatures: the first download, into the folder clamd and
-      # freshclam share (about 110 MB, seconds).
       initContainers:
+        # The last good signatures from the bucket, which backup below keeps current (README):
+        # freshclam then only fetches what changed since, and when ClamAV's mirror refuses this
+        # address, clamd still starts with them. Without a copy (the first start) freshclam
+        # downloads everything.
+        - name: restore
+          image: curlimages/curl:latest
+          imagePullPolicy: Always
+          command:
+            - sh
+            - -ec
+            - |
+              if curl -fsS --retry 3 --aws-sigv4 "aws:amz:nbg1:s3" --user "$S3_KEY:$S3_SECRET" \
+                -H "x-amz-content-sha256: UNSIGNED-PAYLOAD" -o /tmp/signatures.tar \
+                https://d3strukt0r-prod-clamav.nbg1.your-objectstorage.com/signatures.tar; then
+                tar -xf /tmp/signatures.tar -C /var/lib/clamav
+                rm /tmp/signatures.tar
+                echo "restored from the bucket: $(ls /var/lib/clamav | tr '\n' ' ')"
+              else
+                rm -f /tmp/signatures.tar
+                echo "WARNING: no copy in the bucket - freshclam downloads everything"
+              fi
+          envFrom:
+            - secretRef:
+                name: clamav-s3
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: signatures
+              mountPath: /var/lib/clamav
+            - name: tmp
+              mountPath: /tmp
+        # clamd does not start without signatures: whatever changed since the bucket's copy, or
+        # everything (about 110 MB, seconds), into the folder clamd and freshclam share.
         - name: signatures
           # stable_base: ClamAV's current stable release, without signatures (README). The tags with
           # signatures are rebuilt every day, which would restart clamd every day through Keel.
@@ -148,6 +185,48 @@ spec:
               mountPath: /var/lib/clamav
             - name: tmp
               mountPath: /tmp
+        # Uploads the signatures to the bucket as one archive (about 115 MB) when they changed,
+        # checking every 6 hours; restore above reads it. A day-old copy is plenty: it only
+        # matters for a start while ClamAV's mirror refuses this address.
+        - name: backup
+          image: curlimages/curl:latest
+          imagePullPolicy: Always
+          command:
+            - sh
+            - -c
+            - |
+              cd /var/lib/clamav
+              while true; do
+                if [ ! -f /backup/uploaded ] || [ -n "$(find . -maxdepth 1 -name '*.c[lv]d' -newer /backup/uploaded)" ]; then
+                  touch /backup/started
+                  if tar -cf /backup/signatures.tar $(ls | grep -E '\.(cvd|cld|sign)$') &&
+                    curl -fsS --retry 3 --aws-sigv4 "aws:amz:nbg1:s3" --user "$S3_KEY:$S3_SECRET" \
+                      -H "x-amz-content-sha256: UNSIGNED-PAYLOAD" -T /backup/signatures.tar \
+                      https://d3strukt0r-prod-clamav.nbg1.your-objectstorage.com/signatures.tar; then
+                    mv /backup/started /backup/uploaded
+                    echo "uploaded to the bucket: $(ls | grep -E '\.(cvd|cld)$' | tr '\n' ' ')"
+                  else
+                    echo "WARNING: upload to the bucket failed - next try in 6 hours"
+                  fi
+                  rm -f /backup/signatures.tar
+                fi
+                sleep 21600
+              done
+          envFrom:
+            - secretRef:
+                name: clamav-s3
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: signatures
+              mountPath: /var/lib/clamav
+              readOnly: true
+            - name: backup
+              mountPath: /backup
         # clamd's figures for Prometheus (pod-monitor.yaml): up, threads, queue, memory and the
         # signatures' age, from clamd on localhost:3310.
         - name: exporter
@@ -172,6 +251,10 @@ spec:
         - name: signatures
           emptyDir:
             sizeLimit: 512Mi
+        # backup's archive while it uploads.
+        - name: backup
+          emptyDir:
+            sizeLimit: 256Mi
         # clamd's spool: up to 10 scans at once (MaxThreads) of at most 100 MB each
         # (StreamMaxLength) - not a limit per file.
         - name: tmp

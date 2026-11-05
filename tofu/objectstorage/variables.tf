@@ -170,3 +170,15 @@ variable "zot_access_key_id" {
     error_message = "zot_access_key_id must be a 20-character Hetzner access key ID."
   }
 }
+
+# 1Password "Hetzner | S3 | prod clamav"
+#   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=b4q73ophzc3gdk36l4djg4d2eu&h=my.1password.com
+variable "clamav_access_key_id" {
+  description = "Access key ID of the S3 key clamd's pod keeps its last good signatures with (1Password: Hetzner | S3 | prod clamav, username). Set in terraform.tfvars."
+  type        = string
+
+  validation {
+    condition     = can(regex("^[A-Z0-9]{20}$", var.clamav_access_key_id))
+    error_message = "clamav_access_key_id must be a 20-character Hetzner access key ID."
+  }
+}

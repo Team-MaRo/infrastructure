@@ -199,7 +199,8 @@ kubernetes/
     ├── clamav/
     │   ├── kustomization.yaml     # clamd.conf and freshclam.conf become the ConfigMap clamav
     │   ├── namespace.yaml
-    │   ├── deployment.yaml        # clamd, freshclam and the exporter; signatures from the image
+    │   ├── external-secrets.yaml  # the key to its private bucket
+    │   ├── deployment.yaml        # clamd, freshclam, exporter; signatures kept in its bucket
     │   ├── service.yaml
     │   ├── network-policy.yaml    # only Traefik (per ingress node, Kyverno) and Prometheus
     │   ├── pod-monitor.yaml

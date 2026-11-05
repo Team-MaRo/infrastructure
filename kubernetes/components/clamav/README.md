@@ -11,7 +11,7 @@ Traefik plugin exists, nothing calls clamd.
 
 ## Design
 
-- **One pod, three containers** (`deployment.yaml`), each started directly instead of through
+- **One pod, four containers** (`deployment.yaml`), each started directly instead of through
   the image's entrypoint, which runs clamd and freshclam in the background and stays up when
   clamd dies:
   - `clamd` scans, over TCP 3310 (`clamd.conf`);
@@ -20,7 +20,9 @@ Traefik plugin exists, nothing calls clamd.
     - the containers of a pod share its network); without that clamd would find them only at its
     self-check, up to 10 minutes later;
   - `exporter` (`rekzi/clamav-prometheus-exporter`) reports clamd's state and the signatures'
-    age to Prometheus.
+    age to Prometheus;
+  - `backup` keeps the last good signatures in the private bucket `d3strukt0r-prod-clamav`
+    (below).
 - **Floating tags through Keel** (`clamav/clamav:stable_base`, the exporter's `latest`;
   [`keel/README.md`](../keel/README.md)): every new release rolls the pod by itself, a new
   feature release (1.6) included - nothing to change here (user decision 2026-11-06). `stable` is
@@ -35,7 +37,17 @@ Traefik plugin exists, nothing calls clamd.
   address was blocked for six hours; freshclam then exited 0 without `main.cvd`. So the init
   container checks that all three files exist before clamd starts, and freshclam has 768Mi
   (376 MiB peak for `main.cvd`). A start during such a cool-down waits in the init container
-  (`ClamavDown`) until it ends.
+  (`ClamavDown`) until it ends - unless the bucket has a copy.
+- **The last good signatures in a private bucket**, so a start never depends on ClamAV's mirror:
+  `backup` uploads them as one archive (`signatures.tar`, about 115 MB) whenever they changed,
+  checking every 6 hours; the init container `restore` unpacks it before freshclam runs, which
+  then fetches only what changed since. When the mirror refuses this address, clamd starts with
+  the copy (at most a few hours behind) and only freshness suffers (`ClamavSignaturesStale` after
+  two days). The bucket stays private - S3 key `secret/clamav-s3`, its policy in
+  `tofu/objectstorage`. Not a mirror of our own (ClamAV's cvdupdate): freshclam cannot sign S3
+  requests, so a mirror would need the bucket public or a server in front of it, and ClamAV
+  recommends one only from more than ten hosts - here is one clamd for everything (2026-11-06).
+  A failed upload only shows in `backup`'s log; it matters only for a start during a block.
 - **One replica** (user decision 2026-11-06): a second would cost another ~1 GiB of memory. While
   the pod restarts - a node reboot, a resize, a drain - nothing can be scanned; clamd answers
   about 10 s after it starts.
@@ -63,12 +75,20 @@ Traefik plugin exists, nothing calls clamd.
 - **Memory**: about 1.04 GiB after start and after a reload (Docker, 2026-11-06); clamd's request
   1088Mi, limit 2176Mi. To be measured on the cluster over days and set by the repo's rule.
 
+## Secrets
+
+| OpenBao | Fields | 1Password |
+|---|---|---|
+| `secret/clamav-s3` | `access-key`, `secret-key` | [`Hetzner \| S3 \| prod clamav`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=b4q73ophzc3gdk36l4djg4d2eu&h=my.1password.com) |
+
 ## Checking it
 
 ```shell
 kubectl --context d3strukt0r-prod-admin -n clamav get pods,networkpolicies
 kubectl --context d3strukt0r-prod-admin -n clamav logs deploy/clamav -c clamd --tail=20
 kubectl --context d3strukt0r-prod-admin -n clamav logs deploy/clamav -c freshclam --tail=20
+kubectl --context d3strukt0r-prod-admin -n clamav logs deploy/clamav -c restore
+kubectl --context d3strukt0r-prod-admin -n clamav logs deploy/clamav -c backup --tail=5
 kubectl --context d3strukt0r-prod-admin -n clamav exec deploy/clamav -c clamd -- clamdcheck.sh
 ```
 
@@ -79,14 +99,18 @@ kubectl --context d3strukt0r-prod-admin -n clamav exec deploy/clamav -c clamd --
 
 The EICAR test string is not kept in any file here - virus scanners on a developer's machine
 flag it on checkout. Build it in the shell from two halves and send it through clamd's own
-client, from the pod:
+client, from the pod. The client needs `TCPAddr`, which `clamd.conf` leaves out - there it would
+limit clamd to that address - so it gets a config of its own:
 
 ```shell
 kubectl --context d3strukt0r-prod-admin -n clamav exec deploy/clamav -c clamd -- sh -c \
-  'printf "%s%s" "X5O!P%@AP[4\PZX54(P^)7CC)7}\$" "EICAR-STANDARD-ANTIVIRUS-TEST-FILE!\$H+H*" | clamdscan --stream -'
+  'printf "TCPSocket 3310\nTCPAddr 127.0.0.1\n" > /tmp/client.conf;
+   printf "%s%s" "X5O!P%@AP[4\PZX54(P^)7CC)7}\$" "EICAR-STANDARD-ANTIVIRUS-TEST-FILE!\$H+H*" |
+     clamdscan --config-file=/tmp/client.conf --no-summary --stream -'
 ```
 
-The answer names `Eicar-Test-Signature FOUND`; a clean input says `OK`.
+The answer is `stream: Eicar-Test-Signature FOUND` (tested 2026-11-06); a clean input says
+`stream: OK`.
 
 ### Signatures stale
 
