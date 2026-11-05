@@ -49,7 +49,8 @@ objectCache:
 
 # Varnish in front (chart README "Page cache"), the chart's size.
 pageCache:
-  enabled: true
+  # Off while measuring what PHP itself costs (2026-11-05).
+  enabled: false
 
 # Login through Zitadel: the app robines-portfolio in the project of the same name
 # (tofu/zitadel, project_robines_portfolio.tf); its secret below (OIDC_CLIENT_SECRET).

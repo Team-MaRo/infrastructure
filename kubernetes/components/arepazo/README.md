@@ -50,7 +50,8 @@ in the shared MariaDB, the uploads are in the bucket `d3strukt0r-prod-arepazo`
   (WooCommerce, Jetpack, Yoast and a dozen more plugins). Startup and readiness still go
   through WordPress (`/robots.txt`), but wait 10 s and run every 30 s (readiness); the 1 s
   default left nginx not ready. Anonymous visitors get most pages from the chart's page cache
-  (Varnish); cart, checkout and logged-in visitors still wait for PHP.
+  (Varnish); cart, checkout and logged-in visitors still wait for PHP. The page cache is off
+  since 2026-11-05 while PHP's own cost is measured (`pageCache.enabled`).
 - **Plugins**: what the shop uses. prod-old's others were removed on 2026-10-22: the inactive
   ones, plugins closed on wordpress.org (Timber - no theme calls it -, the WooCommerce blocks
   plugin, YITH Advanced Reviews), LiteSpeed Cache (needs a LiteSpeed server), Loginizer (Jetpack's

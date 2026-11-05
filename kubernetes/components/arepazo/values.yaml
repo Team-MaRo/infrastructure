@@ -49,7 +49,8 @@ objectCache:
 # limit holds 96M pages + 64M passed responses = 160M before Varnish's own overhead. It used a
 # working set p95 of 122 MiB, peak 137 MiB over 2026-10-23..11-02 with 128M for pages.
 pageCache:
-  enabled: true
+  # Off while measuring what PHP itself costs (2026-11-05); the rest stays for switching it back on.
+  enabled: false
   size: 96M
   resources:
     requests:
