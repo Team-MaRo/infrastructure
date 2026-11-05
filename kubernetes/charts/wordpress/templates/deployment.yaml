@@ -146,6 +146,27 @@ spec:
               {{- if include "wordpress.woocommerce" . }}
               # WooCommerce's log entries into php-fpm's log, not the bucket (README "WooCommerce").
               cp /config/woocommerce-logs.php mu-plugins/
+              # Geolocation from Cloudflare's header or a country database in the pod (README
+              # "WooCommerce"): the database from the bucket the CronJob geoip fills; if the bucket
+              # has none yet, this or last month's straight from DB-IP. Without either the site
+              # still starts and goes by the header alone.
+              cp /config/woocommerce-geolocation.php mu-plugins/
+              geoip=/var/lib/geoip/dbip-country-lite.mmdb
+              if ! curl -fsS --retry 3 --aws-sigv4 "aws:amz:nbg1:s3" --user "$S3_KEY:$S3_SECRET" \
+                -H "x-amz-content-sha256: UNSIGNED-PAYLOAD" -o "$geoip" \
+                https://{{ include "wordpress.bucket" . }}.nbg1.your-objectstorage.com/geoip/dbip-country-lite.mmdb; then
+                rm -f "$geoip"
+                echo "WARNING: no country database in the bucket - fetching it from DB-IP"
+                year=$(date -u +%Y) month=$(date -u +%m | sed 's/^0//')
+                for m in "$(printf '%04d-%02d' "$year" "$month")" \
+                  "$(if [ "$month" = 1 ]; then printf '%04d-12' $((year - 1)); else printf '%04d-%02d' "$year" $((month - 1)); fi)"; do
+                  if curl -fsSL --retry 3 -o "$geoip.gz" "https://download.db-ip.com/free/dbip-country-lite-$m.mmdb.gz" && gunzip -f "$geoip.gz"; then
+                    break
+                  fi
+                  rm -f "$geoip" "$geoip.gz"
+                done
+                [ -s "$geoip" ] || echo "WARNING: no country database from DB-IP either - geolocation goes by Cloudflare's header alone"
+              fi
               {{- end }}
               {{- if .Values.oidc.clientId }}
               cp /config/oidc.php mu-plugins/
@@ -227,6 +248,10 @@ spec:
               mountPath: /usr/local/etc/php/conf.d/zz-{{ .Release.Name }}.ini
               subPath: php.ini
               readOnly: true
+            {{- if include "wordpress.woocommerce" . }}
+            - name: geoip
+              mountPath: /var/lib/geoip
+            {{- end }}
       containers:
         - name: php-fpm
           image: wordpress:7-php8.5-fpm
@@ -250,6 +275,11 @@ spec:
               subPath: html
             - name: query-monitor
               mountPath: /run/query-monitor
+            {{- if include "wordpress.woocommerce" . }}
+            - name: geoip
+              mountPath: /var/lib/geoip
+              readOnly: true
+            {{- end }}
             - name: tls
               mountPath: /tls
               readOnly: true
@@ -419,6 +449,13 @@ spec:
         - name: query-monitor
           emptyDir:
             sizeLimit: 1Mi
+        {{- if include "wordpress.woocommerce" . }}
+        # DB-IP's country database for WooCommerce's geolocation (files/woocommerce-geolocation.php),
+        # outside the web root; the init container plugins fills it at every start.
+        - name: geoip
+          emptyDir:
+            sizeLimit: 64Mi
+        {{- end }}
         - name: tls
           emptyDir:
             sizeLimit: 1Mi

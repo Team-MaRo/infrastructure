@@ -66,6 +66,8 @@ data:
   {{- if include "wordpress.woocommerce" . }}
   woocommerce-logs.php: |
     {{- .Files.Get "files/woocommerce-logs.php" | nindent 4 }}
+  woocommerce-geolocation.php: |
+    {{- .Files.Get "files/woocommerce-geolocation.php" | nindent 4 }}
   {{- end }}
   {{- if .Values.oidc.clientId }}
   oidc.php: |

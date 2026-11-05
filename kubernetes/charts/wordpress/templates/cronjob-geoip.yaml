@@ -1,0 +1,76 @@
+{{- if include "wordpress.woocommerce" . }}
+---
+# The visitors' countries for WooCommerce (files/woocommerce-geolocation.php, README
+# "WooCommerce"): DB-IP's free country database (CC BY 4.0), fetched once a month into the site's
+# bucket under geoip/ - outside uploads/, so the uploads proxy never serves it - from which every
+# start copies it into the pod.
+# DB-IP publishes a new one at the start of each month. A failed run raises KubeJobFailed; the pod
+# keeps the database it started with.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: geoip
+  annotations:
+    # A new image under the same tag rolls it out (components/keel).
+    keel.sh/policy: force
+    keel.sh/matchTag: "true"
+    keel.sh/trigger: poll
+spec:
+  schedule: "23 6 3 * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      ttlSecondsAfterFinished: 86400
+      backoffLimit: 2
+      activeDeadlineSeconds: 600
+      template:
+        spec:
+          restartPolicy: Never
+          securityContext:
+            runAsNonRoot: true
+            # curl_user in the curl image.
+            runAsUser: 100
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: geoip
+              # Without docker.io/: Keel writes the short form back (components/keel).
+              image: curlimages/curl:latest
+              imagePullPolicy: Always
+              command:
+                - sh
+                - -ec
+                - |
+                  cd /work
+                  curl -fsSL --retry 3 -o db.mmdb.gz "https://download.db-ip.com/free/dbip-country-lite-$(date -u +%Y-%m).mmdb.gz"
+                  gunzip db.mmdb.gz
+                  curl -fsS --retry 3 --aws-sigv4 "aws:amz:nbg1:s3" --user "$S3_KEY:$S3_SECRET" \
+                    -H "x-amz-content-sha256: UNSIGNED-PAYLOAD" -T db.mmdb \
+                    https://{{ include "wordpress.bucket" . }}.nbg1.your-objectstorage.com/geoip/dbip-country-lite.mmdb
+                  echo "DB-IP country lite $(date -u +%Y-%m) uploaded ($(wc -c < db.mmdb) bytes)"
+              env:
+                - name: S3_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: web
+                      key: S3_KEY
+                - name: S3_SECRET
+                  valueFrom:
+                    secretKeyRef:
+                      name: web
+                      key: S3_SECRET
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+              volumeMounts:
+                - name: work
+                  mountPath: /work
+          volumes:
+            - name: work
+              emptyDir:
+                sizeLimit: 64Mi
+{{- end }}

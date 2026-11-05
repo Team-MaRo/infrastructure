@@ -647,6 +647,24 @@ On a site whose plugins include `woocommerce`, the chart adds what only a shop n
   To read them:
   `kubectl --context d3strukt0r-prod-admin -n <site> logs deploy/web -c php-fpm | grep 'woocommerce '`,
   or in Grafana `{namespace="<site>", container="php-fpm"} |= "woocommerce "`.
+- **Geolocation without the bucket and without outside services**
+  (`files/woocommerce-geolocation.php`): WooCommerce looks for a visitor's country (for taxes and shipping before an address is known)
+  in a proxy's country header, then in its MaxMind integration - whose database it keeps under the
+  uploads, so in the bucket: a request to S3 and a read of the file on every lookup, 0.3-0.6 s per
+  request without the header (measured 2026-11-05 against the pod with and without the header) -
+  then at ipinfo.io or api.country.is, handing the visitor's address to a third party. The chart
+  answers first: Cloudflare's `CF-IPCountry` (not `XX`, unknown, or `T1`, Tor), else DB-IP's free
+  country database ("IP to Country Lite", CC BY 4.0) in the pod at `/var/lib/geoip/`, else no
+  country. Requests from inside the cluster (probes, `wp-cron`) and names not proxied through
+  Cloudflare carry no header and use the database. The CronJob `geoip`
+  (`templates/cronjob-geoip.yaml`) fetches it on the 3rd of each month into the site's bucket under
+  `geoip/` (outside `uploads/`, so the uploads proxy never serves it), and every start copies it into
+  the pod; if the bucket has none yet, the start fetches this or last month's straight from DB-IP,
+  and without either the site starts and goes by the header alone. WooCommerce's MaxMind
+  integration is removed, so it no longer downloads its own database into the bucket nor asks for
+  a licence key. DB-IP asks for "IP Geolocation by DB-IP" wherever the data is shown publicly;
+  WooCommerce only uses it internally. To fill the bucket now:
+  `kubectl --context d3strukt0r-prod-admin -n <site> create job --from=cronjob/geoip geoip-manual`.
 
 ## Sizing the pool
 
