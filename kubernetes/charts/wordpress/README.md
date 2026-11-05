@@ -162,6 +162,12 @@ variable, stops the rendering with a message naming it.
   page. `files/complianz.php` sends it to `wp-content/complianz/` in the pod (the init container
   creates it - Complianz would only for an admin); nginx serves it, Varnish keeps it by `?ver=`, and
   after a restart Complianz rebuilds it on the first page. Without Complianz it does nothing.
+  WPConsent checks and reads its file cache (`wpconsent/cache/`, data it fetches from its own
+  servers) under the uploads on every page - four bucket requests, 61 ms (Query Monitor's S3 panel,
+  2026-11-05) - and has no filter for the path. `files/wpconsent-cache.php` changes the uploads'
+  base folder to the pod's `/tmp` only when WPConsent's cache class asks (a look at the call stack
+  in WordPress's `upload_dir` filter); its thumbnails and every other plugin keep the bucket. After
+  a restart WPConsent fetches the cache's data again. Without WPConsent it does nothing.
 - **Complianz under a privacy signal**: with "respect DNT/GPC" on, a browser that sends Global
   Privacy Control (Brave always does) gets no banner and nothing optional - but Complianz also
   leaves it no way to decide otherwise: its "Manage consent" button stays hidden and opens nothing,

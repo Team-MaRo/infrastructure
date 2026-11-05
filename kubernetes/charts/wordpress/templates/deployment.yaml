@@ -128,6 +128,9 @@ spec:
               # creates the directory only for an admin, so a visitor's page could not rebuild it.
               cp /config/complianz.php mu-plugins/
               mkdir -p complianz/css
+              # WPConsent's file cache in the pod too (files/wpconsent-cache.php); it acts only
+              # where WPConsent is installed.
+              cp /config/wpconsent-cache.php mu-plugins/
               # The daily vulnerability check and, in a directory of its own so WordPress does not
               # load it, the script nginx's metrics port runs to report it (README "Vulnerability
               # check").
