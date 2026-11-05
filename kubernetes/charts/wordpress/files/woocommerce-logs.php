@@ -7,9 +7,14 @@
 // WooCommerce's log directory is under the uploads by default, which S3-Uploads puts in the bucket:
 // every entry a write to S3, and WooCommerce's log viewer and its pruning cannot list s3:// (empty,
 // never cleaned up). Defined before WooCommerce does, its own files - the directory's .htaccess -
-// stay in the pod.
+// stay in the pod. WooCommerce creates the directory only now and then, in whichever container
+// runs it (the init container's /tmp is not php-fpm's), so php-fpm creates it itself; otherwise
+// its status page reports the log directory as not writable after every start.
 if ( ! defined( 'WC_LOG_DIR' ) ) {
 	define( 'WC_LOG_DIR', '/tmp/wc-logs/' );
+}
+if ( ! is_dir( WC_LOG_DIR ) ) {
+	wp_mkdir_p( WC_LOG_DIR );
 }
 
 // The only handler: each entry into php-fpm's log, and so into Loki. WooCommerce's threshold
