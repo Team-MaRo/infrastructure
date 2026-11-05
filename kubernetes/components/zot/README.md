@@ -23,9 +23,19 @@ containers, PostgreSQL and Redis - too much for four small nodes (research 2026-
   database 4 (`remoteCache` + `cacheDriver` redis), so a new pod anywhere has everything. zot's
   scale-out mode gives each repository one owner instance, so more replicas would not make it
   highly available; the nodes' embedded registry is the plan for that (Ansible, k3s role).
-- **No deduplication** (`dedupe: false`): with it on S3, garbage collection deleted freshly pushed
-  layers (zot#4550, fixed after v2.1.22). The bucket is versioned for 14 days, so a layer that
-  garbage collection, a bug or a mistake deletes can be restored ("Restoring a deleted layer").
+- **Deduplication and garbage collection as zot ships them** (both on by default): a layer that
+  several repositories share is stored once. From 2026-10 to 2026-11 deduplication was off,
+  because with it on S3 garbage collection deleted freshly pushed layers (zot#4550, fixed in
+  v2.1.23 by #4551). Garbage collection also deletes untagged images - what a rebuilt floating tag
+  leaves behind - after its delay of an hour; no retention rule is set, so that is zot's default.
+  On S3 a duplicate is an empty placeholder, and which copy holds its content is recorded only in
+  the cache (valkey-state database 4, where the users and API keys are too): without that record
+  a shared layer reads as missing. **Should valkey-state's volume ever be lost or come back from
+  an older state, restart zot** once it runs again
+  (`kubectl --context d3strukt0r-prod-admin -n zot rollout restart deploy/zot`): every start walks
+  the bucket and records each placeholder's original again before it deletes anything the cache
+  does not know. The bucket is versioned for 14 days, so a layer that garbage collection, a bug or
+  a mistake deletes can be restored ("Restoring a deleted layer").
 - **Docker-format manifests are accepted** (`http.compat: ["docker2s2"]`): without it a push from
   Docker's classic builder gets 415, and the mirror would convert Docker Hub's images to OCI and
   change their digests, so images pinned by digest would not be found.
