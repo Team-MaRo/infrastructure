@@ -20,7 +20,7 @@ named after the site:
 | Container | Image | Does |
 |---|---|---|
 | init `core` | `wordpress:7-php8.5-fpm` | writes the CA bundle, copies WordPress core and writes `wp-config.php` into `html`, a directory it creates itself in the emptyDir - the image's `tar` exits 2 when it cannot set the target's permissions, as in the root-owned volume; the other containers mount `html` as a `subPath` |
-| init `plugins` | `wordpress:cli-2-php8.5` | installs the plugins and themes of the values, S3-Uploads and Query Monitor; once the database holds the site, `wp core update-db`, the language packs, and Query Monitor deactivated ("Measuring a request") |
+| init `plugins` | `wordpress:cli-2-php8.5` | installs the plugins and themes of the values, S3-Uploads, Query Monitor and the chart's must-use plugins and `db.php`; once the database holds the site, `wp core update-db`, the language packs, and Query Monitor deactivated ("Measuring a request") |
 | `php-fpm` | `wordpress:7-php8.5-fpm` | runs WordPress |
 | `varnish` (with `pageCache`) | `varnish:9.1` | the page cache on 6081, in front of nginx (`files/default.vcl`, "Page cache") |
 | `nginx` | `nginxinc/nginx-unprivileged:stable` | serves it on 8081 (`files/default.conf`), and php-fpm's pool figures on 9253 for Prometheus |
@@ -720,7 +720,15 @@ running pods stay. A renamed or removed value changes in the same commit as ever
 Query Monitor (`query-monitor`) is installed on every site and is inactive unless someone is
 measuring. It shows, for one request, every database query with its time and the code that ran
 it (also summed per plugin), the object cache's hits and misses, the total time and the HTTP calls
-the site made - not the PHP time per plugin, which would need a profiler.
+the site made - not the PHP time per plugin, which would need a profiler. The chart adds two
+panels of its own (`files/query-monitor-panels.php`):
+
+- **S3**: every request to the uploads bucket - S3-Uploads turns file functions on the uploads
+  (`file_exists`, `fopen`, …) into them, so they appear in no other panel - with the operation,
+  the key, the time and the plugin or theme whose code caused it. Recorded by a middleware on
+  S3-Uploads' AWS client, only for a logged-in request while Query Monitor is active.
+- **Valkey**: the round trips to Valkey and their time in this request, which Redis Object Cache
+  counts but its own "Object Cache" panel does not show.
 
 1. As an administrator: **Plugins → Query Monitor → Aktivieren**.
 2. Open the page to measure, logged in; Query Monitor's entry in the admin bar holds the panels.
@@ -730,11 +738,17 @@ the site made - not the PHP time per plugin, which would need a profiler.
    administrator's; only the display is limited to administrators. The next start of the pod
    (a deploy, a reboot night) deactivates it anyway (init container `plugins`).
 
-Its database drop-in (`wp-content/db.php`) is missing on purpose: under `DISALLOW_FILE_MODS` the
-plugin does not link it on activation, and the chart does not install it, because the drop-in
-does not check whether the plugin is active - it would record every query of every visitor for
-good. Without it, Query Monitor has no row counts, full call stacks or query errors; times and
-callers are there.
+**Its database class only while it measures.** Query Monitor's own drop-in `wp-content/db.php`
+(row counts, full call stacks, query errors, the plugin per query) replaces WordPress's database
+class for every request, whether the plugin is active or not; under `DISALLOW_FILE_MODS` it would
+not link it anyway. The chart's `db.php` (`files/query-monitor-db.php`) hands over to it only when
+a marker says Query Monitor is active and the request is logged in; every other request gets
+WordPress's own class, at the cost of one local `file_exists()`. The marker
+(`QUERY_MONITOR_MARKER`, `/run/query-monitor/active` in php-fpm, its own emptyDir outside the web
+root) is created and
+removed by activating and deactivating the plugin in wp-admin, and a start begins without it. With
+several replicas only the pod that handled the click has it - the others measure without these
+details, the S3 panel included.
 
 ## Checking it
 

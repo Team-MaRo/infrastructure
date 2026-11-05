@@ -81,6 +81,9 @@ variable at runtime, so each one carries the same set.
     define( 'AUTOMATIC_UPDATER_DISABLED', true );
     // Scheduled tasks run from the CronJob wp-cron, not on page loads (cronjob.yaml).
     define( 'DISABLE_WP_CRON', true );
+    // Present while Query Monitor is active, outside the web root (files/query-monitor-panels.php,
+    // files/query-monitor-db.php).
+    define( 'QUERY_MONITOR_MARKER', '/run/query-monitor/active' );
     // Mail leaves through mailomat (README): WP Mail SMTP takes its connection from
     // these constants instead of its database settings. Encryption and auth are set
     // because the plugin's defaults for SMTP are none and off. The sender (From) stays

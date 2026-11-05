@@ -139,6 +139,10 @@ spec:
               cp /config/plugin-data.php mu-plugins/
               mkdir -p mu-plugins/plugin-data-languages
               cp /config/plugin-data-*.l10n.php mu-plugins/plugin-data-languages/
+              # Query Monitor's S3 and Valkey panels, and its database class only while it
+              # measures (README "Measuring a request").
+              cp /config/query-monitor-panels.php mu-plugins/
+              cp /config/query-monitor-db.php db.php
               {{- if .Values.oidc.clientId }}
               cp /config/oidc.php mu-plugins/
               # Its translations, one per language, in a directory of their own: every .php
@@ -240,6 +244,8 @@ spec:
             - name: html
               mountPath: /var/www/html
               subPath: html
+            - name: query-monitor
+              mountPath: /run/query-monitor
             - name: tls
               mountPath: /tls
               readOnly: true
@@ -404,6 +410,11 @@ spec:
         - name: html
           emptyDir:
             sizeLimit: 1Gi
+        # Holds only Query Monitor's marker (QUERY_MONITOR_MARKER), outside the web root; a start
+        # begins without it.
+        - name: query-monitor
+          emptyDir:
+            sizeLimit: 1Mi
         - name: tls
           emptyDir:
             sizeLimit: 1Mi

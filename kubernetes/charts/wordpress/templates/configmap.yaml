@@ -59,6 +59,10 @@ data:
     {{- .Files.Get "files/plugin-data-de.l10n.php" | nindent 4 }}
   plugin-data-es.l10n.php: |
     {{- .Files.Get "files/plugin-data-es.l10n.php" | nindent 4 }}
+  query-monitor-db.php: |
+    {{- .Files.Get "files/query-monitor-db.php" | nindent 4 }}
+  query-monitor-panels.php: |
+    {{- .Files.Get "files/query-monitor-panels.php" | nindent 4 }}
   {{- if .Values.oidc.clientId }}
   oidc.php: |
     {{- tpl (.Files.Get "files/oidc.php") . | nindent 4 }}

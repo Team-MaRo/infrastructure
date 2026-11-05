@@ -44,3 +44,6 @@ paths:
   `keel.sh/trigger: poll` on its workload, `imagePullPolicy: Always`, and its Docker Hub image
   without `docker.io/` (`kubernetes/components/keel/README.md`).
 - Every `kubectl` in docs or commands carries `--context d3strukt0r-prod-admin`.
+- Never co-locate pods for speed (no pod affinity to an app's cache or database): a pod runs on
+  any node, and dozens of sites could not share one node anyway. Cut latency in the client
+  (a local cache, a faster driver) - see "Design principles" in `AGENTS.md`.

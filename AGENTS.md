@@ -122,6 +122,11 @@ must stay** until `prod-01..03` are gone, and it must hold no comments - every l
 - **Use the tool's own mechanism** before adding another program: a module's
   `terraform.tfvars`, the backend's AWS profile, a chart value. No sourced env files or extra
   tools just to hold credentials.
+- **Never co-locate pods for speed** (pod affinity to put an app next to its cache or database;
+  user rule, 2026-11-05): a pod must be able to run on any node - tying it to another pod's
+  node defeats what the cluster is for, and it cannot scale, since dozens of sites cannot all
+  share the node of one shared Valkey or database. Latency is cut in the client instead: a local
+  cache, a faster driver.
 
 ## Conventions
 
