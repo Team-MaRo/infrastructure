@@ -15,8 +15,9 @@ resource "cloudflare_dns_record" "d3strukt0r_me_cname_wildcard" {
   }
 }
 
-# On the prod cluster, like every web name; until something serves d3strukt0r.me there,
-# Traefik answers 404. The wildcard follows through its CNAME to the apex.
+# On the prod cluster, like every web name: the apex redirects to d3strukt0r.dev
+# (kubernetes/components/domain-redirects). The wildcard follows through its CNAME to the apex
+# and gets Traefik's 404.
 resource "cloudflare_dns_record" "d3strukt0r_me_cname_apex" {
   provider = cloudflare.personal
 

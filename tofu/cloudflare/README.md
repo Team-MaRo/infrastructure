@@ -42,8 +42,9 @@ Things that will bite:
   SSL/TLS, so `ssl` is the scanner's current result and changes on its own; a plan writing it
   would switch the zone to manual mode. `d3st.dev`, `d3st.org` and `d3strukt0r.me` are on
   `flexible` by the scanner's choice (Cloudflare talks plain HTTP to the origin). That works
-  with the cluster's Traefik, which does not redirect HTTP to HTTPS; once one of them is served
-  there with a cert-manager certificate, the scanner picks `strict` by itself.
+  with the cluster's Traefik, which does not redirect HTTP to HTTPS. Since 2026-11-06 their
+  apexes are served with a cert-manager certificate (`kubernetes/components/domain-redirects`),
+  so the scanner should pick `full` or `strict` by itself at its next run (about monthly).
 - **Destroying a `cloudflare_zone_setting` only removes it from state** - the provider's
   Delete is a no-op and it says so in the plan. Dropping a setting from `local.zone_settings`
   therefore shows as destroys that change nothing in Cloudflare (the switch from `ssl` to
@@ -73,7 +74,8 @@ records are gone (2026-10-04).
 - **A service gets its own record**, a CNAME to `prod.d3strukt0r.dev`. `d3strukt0r.dev` has no
   wildcard, so a name without a record does not resolve.
 - **The apexes of `d3st.dev`, `d3st.org`, `d3strukt0r.me` and `manuele-vaccari.ch`** (and their
-  wildcards, which CNAME to the apex) point at the cluster too, though nothing serves them yet:
+  wildcards, which CNAME to the apex) point at the cluster too. The first three redirect to
+  `d3strukt0r.dev` (`kubernetes/components/domain-redirects`); the rest is served by nothing yet:
   Traefik answers 404 until an Ingress claims a name, which then needs no DNS change.
 - **A zone in the arepazo account cannot CNAME there**: Cloudflare refuses a proxied CNAME to
   a proxied name in another account (error 1014). `arepazo.ch` therefore has its own A and
@@ -125,8 +127,10 @@ DNS-only CNAME to `direct.prod.d3strukt0r.dev` instead):
 | `prod.d3strukt0r.dev` | the nodes themselves; no route, Traefik answers 404 | - | on |
 | `direct.prod.d3strukt0r.dev` | the nodes themselves, **DNS-only** (A/AAAA per node): the entry point for what cannot go through the proxy; publishes the nodes' addresses, so every proxied route admits only Cloudflare (`kubernetes/charts/cloudflare-only`) | - | - |
 | `registry.d3strukt0r.dev` | zot, the container registry - **DNS-only**, CNAME to `direct.prod.d3strukt0r.dev`: a push sends each layer in one request, and the proxy takes at most 100 MB | zot's own | - |
-| `d3st.dev`, `d3st.org` (+ wildcards) | nothing yet, Traefik answers 404 | - | on |
-| `d3strukt0r.me`, `manuele-vaccari.ch` (+ wildcards) | nothing yet, Traefik answers 404 | - | **off** |
+| `d3st.dev`, `d3st.org` | domain-redirects: 302 to `https://d3strukt0r.dev`, path kept | - | on |
+| `d3strukt0r.me` | domain-redirects: 302 to `https://d3strukt0r.dev`, path kept | - | **off** |
+| wildcards of `d3st.dev`, `d3st.org` | nothing yet, Traefik answers 404 | - | on |
+| `manuele-vaccari.ch`, wildcard of `d3strukt0r.me` and `manuele-vaccari.ch` | nothing yet, Traefik answers 404 | - | **off** |
 
 **Not on the cluster** (proxied, never reach Traefik):
 

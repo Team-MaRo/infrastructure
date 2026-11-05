@@ -1,0 +1,16 @@
+---
+# A valid certificate on the three names, so Cloudflare's automatic SSL/TLS scan finds HTTPS
+# working there and can move their zones off flexible (README).
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: domain-redirects-tls
+spec:
+  secretName: domain-redirects-tls
+  dnsNames:
+    - d3st.dev
+    - d3st.org
+    - d3strukt0r.me
+  issuerRef:
+    kind: ClusterIssuer
+    name: letsencrypt

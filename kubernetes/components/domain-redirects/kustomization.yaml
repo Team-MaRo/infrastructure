@@ -1,0 +1,12 @@
+---
+# Redirects of whole domains to another, answered by Traefik itself - no pods.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - namespace.yaml
+  - certificate.yaml
+  - middleware-redirect.yaml
+  - ingress-route.yaml
+  # Only Cloudflare reaches its proxied routes (charts/cloudflare-only).
+  - ../../charts/cloudflare-only/files

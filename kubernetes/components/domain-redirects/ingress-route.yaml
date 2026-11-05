@@ -1,0 +1,38 @@
+---
+# HTTPS. noop@internal is Traefik's own empty service: the redirect answers before it is reached,
+# so nothing runs behind these routes.
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: domain-redirects
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: Host(`d3st.dev`) || Host(`d3st.org`) || Host(`d3strukt0r.me`)
+      middlewares:
+        - name: cloudflare-only
+        - name: to-d3strukt0r-dev
+      services:
+        - name: noop@internal
+          kind: TraefikService
+  tls:
+    secretName: domain-redirects-tls
+---
+# HTTP. An IngressRoute's tls covers all its entry points, so plain HTTP needs its own route - and
+# while a zone is on flexible, Cloudflare sends even HTTPS visitors this way.
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: domain-redirects-http
+spec:
+  entryPoints:
+    - web
+  routes:
+    - match: Host(`d3st.dev`) || Host(`d3st.org`) || Host(`d3strukt0r.me`)
+      middlewares:
+        - name: cloudflare-only
+        - name: to-d3strukt0r-dev
+      services:
+        - name: noop@internal
+          kind: TraefikService

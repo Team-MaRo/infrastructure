@@ -37,6 +37,7 @@ kubernetes/
 │       ├── traefik.yaml           # k3s's Traefik: DaemonSet on the ingress nodes' host network
 │       ├── gatus.yaml             # the public status page and the alerting heartbeat
 │       ├── hetzner-watch.yaml     # reports changes in the Hetzner Cloud API to ntfy
+│       ├── domain-redirects.yaml  # d3st.dev, d3st.org, d3strukt0r.me to d3strukt0r.dev
 │       ├── kube-prometheus-stack.yaml  # metrics and alerts: chart (patch range) here, values in components/
 │       ├── loki.yaml              # log storage: chart (patch range) here, values in components/
 │       ├── tempo.yaml             # trace storage: chart (patch range) here, values in components/
@@ -188,6 +189,12 @@ kubernetes/
     │   ├── rbac.yaml              # may only create, read and replace its state ConfigMap
     │   ├── external-secrets.yaml  # the read-only Hetzner token, ntfy
     │   └── cronjob.yaml           # every 15 minutes
+    ├── domain-redirects/
+    │   ├── kustomization.yaml
+    │   ├── namespace.yaml
+    │   ├── certificate.yaml       # the redirected names, so Cloudflare can leave flexible
+    │   ├── middleware-redirect.yaml  # 302 to d3strukt0r.dev, path kept
+    │   └── ingress-route.yaml     # one route for HTTPS, one for HTTP; no pods
     ├── phpmyadmin/
     │   ├── kustomization.yaml
     │   ├── namespace.yaml
@@ -285,6 +292,7 @@ kubernetes/
 | [`cert-manager`](components/cert-manager/README.md) | Certificates from Let's Encrypt over DNS-01 |
 | [`gatus`](components/gatus/README.md) | The public status page and the alerting heartbeat |
 | [`hetzner-watch`](components/hetzner-watch/README.md) | A look at the Hetzner Cloud API every 15 minutes; tells ntfy only what changed (server type availability, deprecations, blocked IPs, rescue mode, traffic) |
+| [`domain-redirects`](components/domain-redirects/README.md) | Whole domains redirected to another by Traefik (`d3st.dev`, `d3st.org`, `d3strukt0r.me` to `d3strukt0r.dev`) |
 | [`kube-prometheus-stack`](components/kube-prometheus-stack/README.md) | Prometheus, Alertmanager, Grafana; the cluster's own alerts |
 | [`loki`](components/loki/README.md) | Log storage in Object Storage, 30 days |
 | [`tempo`](components/tempo/README.md) | Trace storage in Object Storage, 30 days; metrics from traces into Prometheus |

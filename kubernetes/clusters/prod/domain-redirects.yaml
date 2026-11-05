@@ -1,0 +1,27 @@
+# The domain redirects for this cluster, from kubernetes/components/domain-redirects: d3st.dev,
+# d3st.org and d3strukt0r.me to d3strukt0r.dev, answered by Traefik.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: domain-redirects
+  namespace: argocd
+  # Removing this file removes everything it deployed, namespace included; nothing in it needs
+  # keeping.
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Team-MaRo/infrastructure.git
+    targetRevision: master
+    path: kubernetes/components/domain-redirects
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: domain-redirects
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      # Not required here (no large CRDs); used for consistency.
+      - ServerSideApply=true

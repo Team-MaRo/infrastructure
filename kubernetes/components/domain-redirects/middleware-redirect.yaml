@@ -1,0 +1,11 @@
+---
+# Temporary (302): browsers keep a permanent redirect forever, and d3st.dev may serve something
+# of its own later. The path and query go along.
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: to-d3strukt0r-dev
+spec:
+  redirectRegex:
+    regex: ^https?://[^/]+(.*)$
+    replacement: https://d3strukt0r.dev${1}
