@@ -195,6 +195,10 @@ spec:
             - sh
             - -c
             - |
+              # Stops at once when the pod stops, instead of after the grace period: during a
+              # foreground sleep the shell would hold TERM until the sleep ends, while wait returns
+              # as soon as a trapped signal arrives - so the sleep runs in the background.
+              trap 'exit 0' TERM
               cd /var/lib/clamav
               while true; do
                 if [ ! -f /backup/uploaded ] || [ -n "$(find . -maxdepth 1 -name '*.c[lv]d' -newer /backup/uploaded)" ]; then
@@ -210,7 +214,8 @@ spec:
                   fi
                   rm -f /backup/signatures.tar
                 fi
-                sleep 21600
+                sleep 21600 &
+                wait $!
               done
           envFrom:
             - secretRef:
