@@ -106,6 +106,13 @@ k3s_config:
 # requests are trimmed. The pods together are capped at capacity minus both reservations (the
 # kubelet's default enforceNodeAllocatable: [pods]); k3s and the OS are not - enforcing their
 # reservations would put a hard memory limit on k3s and etcd.
+#
+# imageMaximumGCAge deletes images no container has used for that long, however full the disk:
+# old versions from floating tags and chart releases otherwise fill the 37 GiB until the
+# kubelet's 85 % threshold. The kubelet forgets image ages when it restarts and deletes nothing
+# by age until that long after its start, and k3s restarts every few days (upgrades, reboots) -
+# so 3 days, not a week, or it would rarely get to clean. A deleted image comes back from a peer
+# node or zot when a pod needs it.
 k3s_kubelet_config:
   evictionHard:
     memory.available: 200Mi
@@ -115,6 +122,12 @@ k3s_kubelet_config:
     memory: 1536Mi
   systemReserved:
     memory: 256Mi
+  imageMaximumGCAge: 72h
+
+# What a group of nodes sets differently from k3s_kubelet_config, merged into it key by key
+# (group_vars/prod_agents.yml). Not k3s_kubelet_config itself in the group: a variable there
+# replaces the role default as a whole, so every shared field would have to be repeated.
+k3s_kubelet_config_overrides: {}
 
 # containerd's registry settings, written to /etc/rancher/k3s/registries.yaml on every node; a
 # change restarts one node at a time, like k3s_config (README "Pulling through zot"). The five

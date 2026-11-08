@@ -87,7 +87,8 @@
   ansible.builtin.copy:
     content: >-
       {{ {'apiVersion': 'kubelet.config.k8s.io/v1beta1', 'kind': 'KubeletConfiguration'}
-         | combine(k3s_kubelet_config) | to_nice_yaml(indent=2) }}
+         | combine(k3s_kubelet_config, k3s_kubelet_config_overrides, recursive=True)
+         | to_nice_yaml(indent=2) }}
     dest: /var/lib/rancher/k3s/agent/etc/kubelet.conf.d/50-ansible.conf
     mode: "0600"
   register: k3s_kubelet_dropin

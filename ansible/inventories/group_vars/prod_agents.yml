@@ -10,15 +10,9 @@ k3s_agent: true
 k3s_node_labels: {}
 
 # An agent runs no API server or etcd, so it needs far less than a server's 1.5 GiB for k3s
-# itself. The whole map is repeated: a variable replaces the role default as a whole.
-# failSwapOn is here instead of the servers' --kubelet-arg install flag, which agents do not get.
-k3s_kubelet_config:
-  evictionHard:
-    memory.available: 200Mi
-    imagefs.available: 5%
-    nodefs.available: 5%
+# itself. failSwapOn is here instead of the servers' --kubelet-arg install flag, which agents do
+# not get. Merged into the role's k3s_kubelet_config, which holds the rest.
+k3s_kubelet_config_overrides:
   kubeReserved:
     memory: 512Mi
-  systemReserved:
-    memory: 256Mi
   failSwapOn: false

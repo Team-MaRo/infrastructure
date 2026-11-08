@@ -60,7 +60,9 @@ described below.
 as `kubelet-arg` in `k3s_config`: the installer put `--kubelet-arg=fail-swap-on=false` on the
 command line, and k3s lets a command-line flag replace the whole list from its config files. The
 kubelet reads k3s's `00-k3s-defaults.conf` first and ours after it; **every field ours names
-replaces k3s's as a whole**, maps included.
+replaces k3s's as a whole**, maps included. What a group of nodes sets differently goes in
+`k3s_kubelet_config_overrides`, merged into `k3s_kubelet_config` key by key - a group setting
+`k3s_kubelet_config` itself would replace the whole map.
 
 What it sets, and why (measured 2026-10-06):
 
@@ -78,6 +80,16 @@ What it sets, and why (measured 2026-10-06):
   above that it grows mostly with the CRDs - 133 here, whose schemas the API server keeps parsed
   several times over - and the controllers watching them. Less than measured, so the largest
   node's pod requests keep fitting; raise it once oversized requests are trimmed.
+- **`imageMaximumGCAge: 72h`** deletes images no container has used for three days, however full
+  the disk is. Without it only the kubelet's threshold cleans, above 85 % of the 37 GiB, and old
+  versions from floating tags and chart releases pile up: 13.8-18.6 GiB of images per node on
+  2026-11-08, prod-02 at 78 % used. The kubelet does not keep image ages across a restart: after
+  every start it deletes nothing by age until the full period has passed, then every image not
+  used since that start (`freeOldImages` in its source). k3s restarted after 11, 5, 1-2 and 3 days
+  in the 17 days before - with a week, the cleanup would have run once. A deleted image comes back
+  from a peer node or zot when a pod needs it; k3s's pinned pause image is never deleted. The
+  first age-based cleanup comes 72 h after a node's restart; `k3s crictl rmi --prune` on a node
+  frees the space at once (only images no container uses).
 
 **What is capped and what is not.** The kubelet's default `enforceNodeAllocatable: [pods]`
 turns the reservation into a hard limit **for the pods together**: their cgroup
@@ -99,7 +111,7 @@ Checking what a kubelet uses, the nodes' allocatable memory, and the pods' cap:
 
 ```sh
 kubectl --context d3strukt0r-prod-admin get --raw /api/v1/nodes/prod-01/proxy/configz \
-  | jq '.kubeletconfig | {evictionHard, kubeReserved, systemReserved, failSwapOn}'
+  | jq '.kubeletconfig | {evictionHard, kubeReserved, systemReserved, imageMaximumGCAge, failSwapOn}'
 kubectl --context d3strukt0r-prod-admin get nodes \
   -o custom-columns=NAME:.metadata.name,CAPACITY:.status.capacity.memory,ALLOCATABLE:.status.allocatable.memory
 # from ansible/: the pods' cap and what they use now, in bytes
@@ -137,7 +149,7 @@ costs far less memory than a server. A server in Hetzner with the label `role=ag
 - restarts `k3s-agent` instead of `k3s`, and asks `k3s_init_node` whether the node is Ready
   (`tasks/wait_node_ready.yml`), since an agent has no API to ask;
 - reserves less memory (`kubeReserved: 512Mi`) and sets `failSwapOn` in the kubelet drop-in, as
-  agents do not get the servers' install flags;
+  agents do not get the servers' install flags (`k3s_kubelet_config_overrides`);
 - sets no ingress label: workers run no Traefik and have no DNS record.
 
 A dry run of a worker that does not exist yet can only show the drop-ins; the join needs the

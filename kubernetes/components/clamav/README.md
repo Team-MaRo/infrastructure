@@ -83,9 +83,10 @@ today it scans the Traefik dashboard's route; every site comes next.
   decision): beyond it the kubelet evicts the pod (it restarts from the bucket's signatures). That
   protects the node only if it has that much disk free: with less (2026-11-06: 6-14 GiB free,
   images taking most of the rest) the node reaches disk pressure first and the kubelet evicts by
-  usage over request - an age limit for unused images (the kubelet's `imageMaximumGCAge`, not set
-  yet) is what would make the room. Larger uploads would need the plugin to spool to disk,
-  `StreamMaxLength` raised (at most 4 GB) and `/tmp` with it.
+  usage over request - which is why unused images are deleted after 3 days (the kubelet's
+  `imageMaximumGCAge`, [`ansible/roles/k3s/README.md`](../../../ansible/roles/k3s/README.md)).
+  Larger uploads would need the plugin to spool to disk, `StreamMaxLength` raised (at most 4 GB)
+  and `/tmp` with it.
 - **clamd has no login**, so `network-policy.yaml` admits only Prometheus (the exporter's port)
   and Traefik (3310). Traefik runs on the host network: on clamav's own node kube-router admits
   it anyway, and from another node it arrives from that node's `.0` address, so the Kyverno
