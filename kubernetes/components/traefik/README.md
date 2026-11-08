@@ -64,8 +64,9 @@ rebuild) the complete one.
   104 MiB; working set p95 123 MiB, peak 141 MiB over 2026-10-23..11-02). A scanner's burst of
   requests (1249 in a minute, 2026-10-07) pushed the Traefik on prod-02 past the former 256Mi and
   got it OOM-killed; the limit does not hold back scheduling. Every ingress node needs the headroom,
-  since any of them can take such a burst. 1Gi since the upload scan, which holds up to four
-  bodies of 100 MB ("Upload scan"); the chart sets Go's `GOMEMLIMIT` from the limit.
+  since any of them can take such a burst. 1Gi since the upload scan, which holds up to 404 MiB
+  of bodies plus one being joined ("Upload scan"); the chart sets Go's `GOMEMLIMIT` from the
+  limit.
 - **Only through Cloudflare, at most 20 requests a second per visitor** (Middleware
   `cloudflare-only`, [`../../charts/cloudflare-only/README.md`](../../charts/cloudflare-only/README.md)):
   every route of a name Cloudflare proxies puts this chain first. It admits only Cloudflare's IP
@@ -163,50 +164,74 @@ cluster without each app setting something up. Our own plugin does it, `plugins/
   (WordPress' raw media upload needs that header). Nothing is excluded by host or path today
   (`exclude` in the Middleware: a host, or a host with an exact path). Base64 inside small JSON
   stays unscannable (accepted).
-- **Memory**: a body of known length is read straight into one buffer of its size (cutting a
-  multipart body needs it in one piece); a chunked one in 1 MiB pieces, joined at the end, so it
-  briefly needs its size twice. At most 100 MiB per body (about Cloudflare's own limit per
-  request) and 4 x 100 MiB per Traefik, counted until Traefik has passed the body on to the app,
-  then freed. A body reserves its share before it is read, all or nothing - its size, or for a
-  chunked one twice the full 100 MiB, the rest given back after reading. One that fits right away
-  takes it; one that must wait takes nothing until its whole share is free, so a waiting large
-  upload never holds back small ones - and a steady stream of small ones can keep a large one
-  waiting until its time is up. A request that finds no memory or no free clamd session within 10
-  s of waiting (reading a slow body does not count) passes unscanned (`skipped:busy`); a client
-  that hangs up gives up its clamd session, and its wait for one, at once - while it waits for
-  memory, its body still unread, Go notices the hang-up only once reading starts. A body keeps its
-  share while it arrives, so slow senders hold memory until Traefik's read timeout ends them, and
-  a chunked body reserves the full 2 x 100 MiB however small it is - to be settled before every
-  site uses the scan, by reserving as the bytes arrive. Measured 2026-11-06, four 90 MB uploads at
-  once: ~400 MiB peak with a size header (as browsers send), ~590-640 MiB chunked. Larger bodies
-  pass unscanned (`skipped:too-large`).
+- **Memory**: a body is read in pieces of up to 1 MiB (64 KiB first when its length is unknown)
+  and takes one chunk of the memory pool per piece as it arrives, so it holds memory only for what
+  it has sent: a client that announces 100 MiB and stalls holds two chunks, not 100, a small API
+  call one, and an upload that only connects none, since a body asks for memory only once its
+  first byte has arrived. The pool is 404 chunks per Traefik, room for four bodies of 100 MiB
+  (about Cloudflare's own limit per request), shared by however many bodies there are; each piece
+  is counted until Traefik has passed it on to the app - a joined multipart body is one piece, so
+  its memory goes back only once it has been passed on completely. A body is admitted once its
+  announced size (one chunk when it is unknown) fits next to what the bodies being read have set
+  aside. What a body sets aside follows its pace: what it would send in the next 30 s at its rate
+  so far, all of it during its first 3 s - a fast upload keeps its room, a slow or stalled one
+  holds back little, and holding the whole pool takes about 13 MiB/s of real uploads. That is a
+  bet on the pace: room a body held back may have gone to another by the time it needs it, and
+  then both wait. A body takes only chunks not set aside for another; a freed chunk goes
+  first to the bodies being read that wait for one, oldest first, then to the waiting bodies that
+  now fit, so a steady stream of small uploads can keep a large one waiting until its time is up.
+  While two or more bodies being read wait for a chunk, one that has waited a second gives up its
+  scan if it is the one to give way - the newest waiting one that took more than it announced,
+  such as a chunked body, else the newest waiting one - and no other gave way in the last second,
+  so stuck bodies free memory one at a time whoever else holds some; its memory comes back once
+  the app has it. A body waiting alone waits out its time, since memory comes back as the others
+  finish. Waiting - to be admitted, for a chunk, for a clamd session, for the join - takes at most
+  10 s together; reading a slow body does not count. A body that does not get in, or gets no
+  chunk in time, passes unscanned (`skipped:busy`; for a chunked body `bytes` is then what was
+  read so far), the app getting what was read followed by the rest. Cutting a multipart body
+  needs it in one piece, so one with a usable boundary is joined: its pieces are copied into one
+  buffer, one body at a time per Traefik, then cleared, and for a body from 16 MiB their memory is
+  returned to the system at once (`debug.FreeOSMemory`), since a later large buffer could not
+  reuse 1 MiB pieces and would take fresh memory while they wait for the garbage collector. Every
+  other body is scanned and passed on straight from its pieces. A client that hangs up gives up
+  its clamd session, and its wait for one, at once; while its body is still being read, Go
+  notices the hang-up (HTTP/1.1) only at the body's end, so one that disconnects halfway keeps its
+  place until its 10 s of waiting are up. Measured 2026-11-09 in Docker under the cluster's limits
+  (1 GiB, `GOMEMLIMIT` 921 MiB), four 90 MB multipart uploads at once: 535-630 MiB peak with a
+  size header (it varies between runs), about 500 MiB chunked, all scanned (reserving up front
+  before needed 408 MiB with a size header but scanned only two of four chunked ones); two clients
+  trickling chunked uploads no longer make a normal upload `skipped:busy`; and more uploads than
+  fit at once are all scanned, the later ones waiting for room. Larger bodies pass unscanned
+  (`skipped:too-large`).
 - **Time**: at most 10 s waiting plus one budget of 45 s for all files of a request, clamd's
   reload wait (~9 s) included; clamd itself ends one file's scan after 30 s and answers
   `limits-exceeded`, so a single slow file does not use up the request's time unanswered. clamd
   unreachable ends the request's scan after the first attempt. Traefik's own read timeout (300 s
   on `web` and `websecure`, `helmchartconfig.yaml`; its default of 60 s cut off large uploads over
   slow connections) bounds receiving the body, counted from the request's start; the scan after it
-  does not count, since Go lifts that deadline once the body is read. The wait for memory, up to
-  10 s, comes before reading and so counts towards it. Cloudflare passes an upload on as it
+  does not count, since Go lifts that deadline once the body is read. Waits for memory - once the
+  first byte is there, and between pieces - fall inside it. Cloudflare passes an upload on as it
   arrives, apparently after collecting about its first MiB (2026-11-08: 2 MiB sent throttled took
   44 s in the browser and 21 s at the plugin), so a slow sender's time counts here. Cloudflare
   waits up to 125 s for the first bytes of the answer and then between any two (its Proxy Read
   Timeout, fixed below Enterprise), and allows 30 s for writing the request to us (its Proxy Write
   Timeout, fixed; its docs do not say whether per write or in total).
-- **Code**: `config.go` (settings, defaults), `filter.go` (which requests), `body.go` (holding
-  the body, memory, waiting), `check.go` (the request's path), `multipart.go` (cutting a
-  multipart body into what is scanned), `ambiguous.go`, `clamd.go`, `log.go`. Yaegi 0.16 knows no
+- **Code**: `config.go` (settings, defaults), `filter.go` (which requests), `body.go` (reading,
+  holding and joining the body), `pool.go` (memory), `queue.go` (the time a request may wait),
+  `check.go` (the request's path), `multipart.go` (cutting a multipart body into what is
+  scanned), `ambiguous.go`, `clamd.go`, `log.go`; each has its tests in `<name>_test.go`, the fake
+  clamd and the shared helpers in `fakeclamd_test.go` and `setup_test.go`. Yaegi 0.16 knows no
   built-in `min`/`max`, drops the first value of a double assignment with a call on the right and
   loops forever on `for i := 0; ; {` - the code avoids all three.
 - **Report mode** (phase 2): every request passes, also when looking at the read body or scanning
   it fails (logged `error`); one JSON line per upload in Traefik's log - host, path without query,
   number of parts clamd answered, size, verdict (`clean`, `infected` with the signature,
   `limits-exceeded` for a file beyond ClamAV's own limits - `AlertExceedsMax`, not malware found
-  -, `error`, `aborted` when the client stopped sending or sent less than it announced,
-  `incomplete` when time ran out or the client left with parts unscanned, `skipped:time` when that
-  happened before the first part, `skipped:busy`, `skipped:too-large`), why a body was scanned
-  whole or stopped early (`note`), `ambiguous` with its reason, and the milliseconds it took. No
-  client address and no file names. Phase 3 refuses what clamd flags.
+  -, `error`, `aborted` when the client stopped sending, sent less than it announced or left while
+  waiting, `incomplete` when time ran out or the client left with parts unscanned, `skipped:time`
+  when that happened before the first part, `skipped:busy`, `skipped:too-large`), why a body was
+  scanned whole or stopped early (`note`), `ambiguous` with its reason, and the milliseconds it
+  took. No client address and no file names. Phase 3 refuses what clamd flags.
 - **Rolled out in steps**: first loaded with no route using it - while Traefik rolls node by node,
   a node whose Traefik has not restarted yet does not know the plugin and would answer a route
   that uses it with 404, and a plugin that fails to load would take that route down everywhere.

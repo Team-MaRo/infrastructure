@@ -3,16 +3,20 @@ package uploadscan
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 )
+
+// A wait that ended because the client left is logged as aborted, wherever it waited.
+const clientGone = "client gone while waiting"
 
 func (u *UploadScan) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	if !u.wanted(req) {
 		u.next.ServeHTTP(rw, req)
 		return
 	}
-	held := &heldBody{original: req.Body}
+	held := &heldBody{original: req.Body, pool: pool}
 	req.Body = held
 	defer held.release()
 	start := time.Now()
@@ -31,63 +35,80 @@ func (u *UploadScan) check(req *http.Request, held *heldBody) result {
 		return result{Bytes: known, Verdict: "skipped:too-large"}
 	}
 
-	ctx := req.Context()
-	q := &queue{left: u.queueTimeout, ctx: ctx}
-	// An unknown length reserves the most a body may take, twice: its chunks are joined into one
-	// buffer at the end. What it does not use goes back after reading.
-	need := 2 * (chunksFor(maxBytes) + 1)
-	if known > 0 {
-		need = chunksFor(known)
-	}
-	if !q.reserve(need) {
-		size := known
-		if size < 0 {
-			size = 0
-		}
-		return result{Bytes: size, Verdict: "skipped:busy"}
-	}
-	held.setTokens(need)
-
-	got := readBody(held.original, known, maxBytes)
-	held.hold(got.data, known < 0)
+	q := &queue{left: u.queueTimeout, ctx: req.Context()}
+	got := readBody(held.original, known, q, held)
+	held.hold(got.chunks)
 	switch got.verdict {
 	case "aborted":
 		return result{Bytes: got.size, Verdict: got.verdict, Error: got.err.Error()}
 	case "skipped:too-large":
 		return result{Bytes: got.size, Verdict: got.verdict}
+	case "skipped:busy":
+		if req.Context().Err() != nil {
+			return result{Bytes: got.size, Verdict: "aborted", Error: clientGone}
+		}
+		res := result{Bytes: known, Verdict: got.verdict}
+		if known < 0 {
+			res.Bytes = got.size
+			res.note("length unknown: bytes read before memory ran out")
+		}
+		return res
 	}
 
 	if got.size == 0 {
 		return result{}
 	}
-	return u.safeScan(req, q, got)
+	return u.safeScan(req, q, got, held)
 }
 
 // safeScan keeps report mode's promise that every request passes: once the body is held for the
 // app, a fault in looking at it or scanning it is logged instead of failing the request.
-func (u *UploadScan) safeScan(req *http.Request, q *queue, got read) (res result) {
+func (u *UploadScan) safeScan(req *http.Request, q *queue, got read, held *heldBody) (res result) {
 	defer func() {
 		if p := recover(); p != nil {
 			res = result{Bytes: got.size, Verdict: "error", Error: fmt.Sprint("panic: ", p)}
 		}
 	}()
-	return u.scanBody(req, q, got)
+	return u.scanBody(req, q, got, held)
 }
 
-func (u *UploadScan) scanBody(req *http.Request, q *queue, got read) result {
+// scanBody scans a body read in full: a multipart one joined into one buffer, any other straight
+// from its chunks.
+func (u *UploadScan) scanBody(req *http.Request, q *queue, got read, held *heldBody) result {
 	ctx := req.Context()
 	// Before taking a clamd session: looking at the body does not need clamd.
 	res := result{Bytes: got.size}
 	values := req.Header.Values("Content-Type")
 	multipart := isMultipart(values)
+	var body []byte
 	var bounds []string
 	if multipart {
 		bounds = boundaries(values)
-		res.Ambiguous = ambiguous(req.Header, bounds, got.data)
+		// Joined only to be cut: without a boundary the body is scanned whole, from its chunks.
+		if len(bounds) > 0 {
+			joined, ok := join(q, got.chunks, held)
+			if !ok {
+				if ctx.Err() != nil {
+					res.Verdict = "aborted"
+					res.Error = clientGone
+					return res
+				}
+				res.note("no turn to be joined in time")
+				res.Verdict = "skipped:busy"
+				return res
+			}
+			body = joined
+			got.chunks = [][]byte{joined}
+		}
+		res.Ambiguous = ambiguous(req.Header, bounds, body)
 	}
 
-	if !q.session() {
+	if !q.turn(sessions) {
 		res.Verdict = "skipped:busy"
+		if ctx.Err() != nil {
+			res.Verdict = "aborted"
+			res.Error = clientGone
+		}
 		return res
 	}
 	defer func() { <-sessions }()
@@ -95,26 +116,26 @@ func (u *UploadScan) scanBody(req *http.Request, q *queue, got read) result {
 	j := newScanning(ctx, time.Now().Add(u.scanTimeout))
 	switch {
 	case !multipart:
-		u.scanWhole(j, got.data, &res)
+		u.scanWhole(j, &chunkReader{chunks: got.chunks}, &res)
 	case len(bounds) == 0:
 		res.note("multipart without boundary, scanned whole")
-		u.scanWhole(j, got.data, &res)
+		u.scanWhole(j, &chunkReader{chunks: got.chunks}, &res)
 	case !isFormData(values):
 		// What the app gets as it is, then the parts an app may still cut it into.
 		res.note("multipart other than form-data, scanned whole and in parts")
-		if answer := u.scanWhole(j, got.data, &res); !stop(&res, answer) {
-			u.scanMultipart(j, got.data, bounds, &res)
+		if answer := u.scanWhole(j, bytes.NewReader(body), &res); !stop(&res, answer) {
+			u.scanMultipart(j, body, bounds, &res)
 		}
 	default:
-		u.scanMultipart(j, got.data, bounds, &res)
+		u.scanMultipart(j, body, bounds, &res)
 	}
 	res.finish()
 	return res
 }
 
-func (u *UploadScan) scanWhole(j *scanning, body []byte, res *result) scanResult {
+func (u *UploadScan) scanWhole(j *scanning, body io.Reader, res *result) scanResult {
 	res.Files++
-	answer := u.scan(j, bytes.NewReader(body))
+	answer := u.scan(j, body)
 	u.record(res, answer)
 	return answer
 }
