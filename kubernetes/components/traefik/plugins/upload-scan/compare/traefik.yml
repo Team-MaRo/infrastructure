@@ -1,0 +1,17 @@
+# Traefik for the comparison: the plugin on its only entry point, loaded from the mounted source.
+entryPoints:
+  web:
+    address: ":80"
+    http:
+      middlewares:
+        - upload-scan@file
+providers:
+  file:
+    filename: /etc/traefik/dynamic.yml
+experimental:
+  localPlugins:
+    upload-scan:
+      moduleName: github.com/team-maro/uploadscan
+# INFO, so run.sh sees "Plugins loaded".
+log:
+  level: INFO

@@ -130,19 +130,32 @@ spec:
             exec:
               command: [clamdcheck.sh]
             periodSeconds: 10
+            # A busy clamd answers PING late; one slow answer must not drop it from the Service.
+            timeoutSeconds: 5
+            # Nor a full queue: with it, clamd accepts nothing - PING included - until a slot frees
+            # up, 16 streams, 4 at a time, of up to 30 s each (clamd.conf) about 120 s. The only
+            # clamd out of the Service would fail every scan at once instead of letting it wait.
+            failureThreshold: 18
+          # A frozen clamd is restarted, a busy one is not: a full queue holds PING back for
+          # minutes (the Traefiks keep at most 12 sessions open), and a restart reloads the
+          # signatures. 15 minutes without an answer is no longer busy.
           livenessProbe:
             exec:
               command: [clamdcheck.sh]
-            periodSeconds: 30
-            # A reload holds clamd for seconds.
+            periodSeconds: 60
             timeoutSeconds: 10
+            failureThreshold: 15
           # The signatures in memory: about 1.04 GiB after start and after a reload (Docker,
-          # 2026-11-06). To be measured on the cluster (README).
+          # 2026-11-06). To be measured on the cluster (README). Disk: its /tmp may fill to
+          # 3584Mi under load (below); the limit lets the pod's local storage add up to that and
+          # the other folders, which the LimitRange's 1Gi per container would not.
           resources:
             requests:
               memory: 1088Mi
+              ephemeral-storage: 512Mi
             limits:
               memory: 2176Mi
+              ephemeral-storage: 4Gi
           volumeMounts:
             - name: config
               mountPath: /etc/clamav/clamd.conf
@@ -260,8 +273,11 @@ spec:
         - name: backup
           emptyDir:
             sizeLimit: 256Mi
-        # clamd's spool: up to 10 scans at once (MaxThreads) of at most 100 MB each
-        # (StreamMaxLength) - not a limit per file.
+        # clamd's spool (clamd.conf) and freshclam's downloads: 4 scans x (100 MB stream + up to
+        # 400 MB unpacked, MaxScanSize), 8 queued and up to 12 arriving streams x 100 MB and
+        # freshclam's files come to about 4 GiB at worst; the limit stays below (README "Size
+        # limits"). Beyond it the pod is evicted - but a node with less free disk than that
+        # reaches disk pressure first, so the nodes need the room.
         - name: tmp
           emptyDir:
-            sizeLimit: 1Gi
+            sizeLimit: 3584Mi

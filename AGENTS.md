@@ -36,6 +36,14 @@ file.
 
 ## Commands
 
+Once per clone, turn on the repo's git hooks (`.githooks/`; today the pre-commit hook that tests
+Traefik's upload-scan plugin when a commit touches it). It replaces `.git/hooks` - Git LFS's
+hooks there stop running, harmless while the repo has no LFS files:
+
+```sh
+git config core.hooksPath .githooks
+```
+
 No credential is ever exported by hand, and no value belongs in a `.tf` file: each module
 reads its own token from a gitignored `terraform.tfvars`, and every backend reads the Object
 Storage keys from the `d3strukt0r-hetzner` profile in `~/.aws/credentials`. If a plan cannot
@@ -221,7 +229,9 @@ rule, 2026-10-02). Where a name cannot hold a hyphen, the hyphens become undersc
   not fit, and always in `kube-system` and `system-upgrade`, which have no LimitRange: the
   request the p95 of real memory (working set minus active file cache) over a window of days,
   rounded up to 16 MiB; the limit twice the working set's p95 or the highest working set ever
-  seen x 1.1 (rounded up to 32 MiB), whichever is higher
+  seen x 1.1 (rounded up to 32 MiB), whichever is higher. A container that holds data by design
+  (Traefik with the upload scan's bodies) sizes its limit from that design instead, the
+  derivation written next to it
   ([`kubernetes/components/kyverno/README.md`](kubernetes/components/kyverno/README.md)).
 - **Only Cloudflare reaches a proxied name.** Every route of a name Cloudflare proxies puts
   the Middleware `cloudflare-only` first (`<namespace>_cloudflare-only@kubernetescrd`); its app
@@ -248,7 +258,9 @@ rule, 2026-10-02). Where a name cannot hold a hyphen, the hyphens become undersc
 - **An app that reads a Secret or ConfigMap only at start opts in to Reloader**: the annotation
   `secret.reloader.stakater.com/reload: <name>` (or `configmap.`) on its workload and its
   namespace in `reloader.namespaces` - External Secrets updates Secrets in place, so nothing
-  else restarts it after a change in OpenBao. Never on operator-managed databases or OpenBao
+  else restarts it after a change in OpenBao. Never on operator-managed databases or OpenBao;
+  not on Traefik either, whose upload-scan plugin source restarts it through a hash annotation
+  instead (Reloader would need to read Secrets in `kube-system`)
   ([`kubernetes/components/reloader/README.md`](kubernetes/components/reloader/README.md)).
 - **An app on a floating tag** (`:latest`, `:1`) opts in to Keel: `keel.sh/policy: force`,
   `keel.sh/matchTag: "true"` and `keel.sh/trigger: poll` on its workload, `imagePullPolicy:
@@ -363,7 +375,7 @@ component); update it in the same change.
 | [`kubernetes/components/system-upgrade-controller/README.md`](kubernetes/components/system-upgrade-controller/README.md) | k3s upgrades: channel, window, failed Jobs |
 | [`kubernetes/components/kured/README.md`](kubernetes/components/kured/README.md) | Reboots after kernel updates, blocked drains |
 | [`kubernetes/components/kyverno/README.md`](kubernetes/components/kyverno/README.md) | Default resources, allowed registries, routes only through Cloudflare |
-| [`kubernetes/components/traefik/README.md`](kubernetes/components/traefik/README.md) | Ingress on the host network, ingress nodes, the dashboard |
+| [`kubernetes/components/traefik/README.md`](kubernetes/components/traefik/README.md) | Ingress on the host network, ingress nodes, the dashboard; the upload scan plugin, its tests and its comparison with PHP |
 | [`kubernetes/components/cert-manager/README.md`](kubernetes/components/cert-manager/README.md) | DNS-01 issuers, the Cloudflare tokens, requesting a certificate |
 | [`kubernetes/components/cluster-rbac/README.md`](kubernetes/components/cluster-rbac/README.md) | Cluster-wide rights for Zitadel logins, revoking |
 | [`kubernetes/components/priority-classes/README.md`](kubernetes/components/priority-classes/README.md) | `stateful-core`: the databases and OpenBao evicted last |

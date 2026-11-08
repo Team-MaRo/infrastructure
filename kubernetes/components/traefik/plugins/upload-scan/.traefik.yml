@@ -1,0 +1,7 @@
+displayName: Upload scan
+type: middleware
+import: github.com/team-maro/uploadscan
+summary: Hands every uploaded file to clamd before the request reaches the app.
+
+testData:
+  clamd: localhost:3310

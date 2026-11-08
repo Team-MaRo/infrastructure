@@ -57,7 +57,9 @@ registries. `rbac-limitranges.yaml` lets Kyverno create LimitRanges.
   Postgres' `shared_buffers` included) - rounded up to 16 MiB. The limit is twice the working
   set's p95 or the highest working set ever seen x 1.1 rounded up to 32 MiB, whichever is
   higher, so the file cache keeps its room up to the limit. A comment next to the value gives
-  the real-memory p95, the working set's p95 and peak, and the window they come from. An OOM
+  the real-memory p95, the working set's p95 and peak, and the window they come from. A
+  container that holds data by design sizes its limit from that design instead, the derivation
+  in the comment (Traefik: up to four upload bodies of 100 MiB for the upload scan). An OOM
   kill means raising that limit - `kubectl get pod` shows the restarts, `kubectl describe pod`
   the `OOMKilled` reason.
 - **Requests from real memory, not the working set** (user decision, 2026-11-02): file cache

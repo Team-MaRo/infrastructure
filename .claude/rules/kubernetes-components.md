@@ -20,7 +20,9 @@ paths:
 - No CPU limits. Set memory only where Kyverno's defaults (32Mi request, 128Mi limit) do not
   fit, and always in `kube-system` and `system-upgrade`: request the p95 of real memory
   (working set minus active file cache) over a window of days in 16 MiB steps, limit max(2 x the
-  working set's p95, highest working set ever seen x 1.1 in 32 MiB steps).
+  working set's p95, highest working set ever seen x 1.1 in 32 MiB steps). A container that holds
+  data by design (Traefik with the upload scan's bodies) sizes its limit from that design, the
+  derivation in a comment next to it.
 - An app whose Application carries the finalizer brings its own `namespace.yaml` (never in
   `kube-system`); one that brings CRDs or volumes gets no finalizer - see "Pruning and the
   finalizer" in `kubernetes/components/argocd/README.md`.
@@ -40,6 +42,9 @@ paths:
 - An app that reads a Secret or ConfigMap only at start gets
   `secret.reloader.stakater.com/reload: <name>` (or `configmap.`) on its workload, and its
   namespace goes into `reloader.namespaces` in `kubernetes/components/reloader/values.yaml`.
+  Not on operator-managed databases or OpenBao, nor on Traefik, whose upload-scan plugin source
+  restarts it through a hash annotation instead (Reloader would need to read Secrets in
+  `kube-system`).
 - An app on a floating tag gets `keel.sh/policy: force`, `keel.sh/matchTag: "true"`,
   `keel.sh/trigger: poll` on its workload, `imagePullPolicy: Always`, and its Docker Hub image
   without `docker.io/` (`kubernetes/components/keel/README.md`).

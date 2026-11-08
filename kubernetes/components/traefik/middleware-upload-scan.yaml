@@ -1,0 +1,17 @@
+---
+# The upload scan (plugins/upload-scan, README "Upload scan"): hands every uploaded file to the
+# shared clamd and logs the verdict - report mode, nothing is refused yet. Only what differs from
+# the plugin's defaults (CreateConfig in config.go); Traefik applies a change without a restart.
+# The limits that size its memory are in the code (body.go). Matomo's tracker posts its hits as text,
+# often by sendBeacon, which the scan would only slow down.
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: upload-scan
+  namespace: kube-system
+spec:
+  plugin:
+    upload-scan:
+      clamd: clamav.clamav.svc:3310
+      exclude:
+        - matomo.d3strukt0r.dev/matomo.php

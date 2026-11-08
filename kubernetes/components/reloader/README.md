@@ -84,7 +84,8 @@ themselves (Gatus' config, Alertmanager's ntfy secret, Alloy, Argo CD's webhook 
 Deliberately not: OpenBao (its seal key must never change - a restart with a changed key would
 leave it sealed), the databases (CloudNativePG and mariadb-operator
 manage their pods and restart them in their own order - never annotate them), Zitadel's
-masterkey and first-admin password.
+masterkey and first-admin password, Traefik (its upload-scan plugin's source restarts it through
+a hash annotation; Reloader would need to read Secrets in `kube-system`).
 
 ## Opting an app in
 

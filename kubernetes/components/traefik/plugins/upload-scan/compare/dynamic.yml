@@ -1,0 +1,16 @@
+# Everything to PHP, through the plugin, which asks the stand-in clamd.
+http:
+  middlewares:
+    upload-scan:
+      plugin:
+        upload-scan:
+          clamd: clamd:3310
+  routers:
+    all:
+      rule: PathPrefix(`/`)
+      service: php
+  services:
+    php:
+      loadBalancer:
+        servers:
+          - url: http://php:8000

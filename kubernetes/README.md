@@ -96,7 +96,10 @@ kubernetes/
     │   ├── kustomization.yaml
     │   ├── helmchartconfig.yaml   # values merged into k3s's bundled Traefik, the dashboard
     │   ├── certificate.yaml       # traefik.d3strukt0r.dev
-    │   └── middleware-oauth2-proxy.yaml  # the Zitadel gate for the dashboard
+    │   ├── middleware-oauth2-proxy.yaml  # the Zitadel gate for the dashboard
+    │   ├── middleware-upload-scan.yaml   # the upload scan's settings
+    │   └── plugins/upload-scan/   # our Traefik plugin: uploads to clamd (Go, with tests);
+    │                              # compare/ checks it against PHP
     ├── cert-manager/
     │   ├── kustomization.yaml     # pinned release manifest
     │   ├── external-secret.yaml   # the two Cloudflare tokens from OpenBao
