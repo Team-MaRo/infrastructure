@@ -98,9 +98,12 @@ spec:
         matchRule: Host(`traefik.d3strukt0r.dev`)
         entryPoints:
           - websecure
+        # upload-scan's first route (README "Upload scan"), after the login gate: only logged-in
+        # admins can make it buffer and scan.
         middlewares:
           - name: cloudflare-only
           - name: oauth2-proxy
+          - name: upload-scan
         tls:
           secretName: traefik-tls
     # Traefik's own log (start, configuration, backend and TLS errors) as JSON too, so both logs

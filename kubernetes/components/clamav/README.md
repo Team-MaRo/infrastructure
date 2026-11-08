@@ -8,7 +8,7 @@ The goal is that nobody can upload malware to any app on the cluster - WordPress
 wp-admin, the wedding app, apps to come - without each app setting something up: Traefik's
 plugin `upload-scan` hands each uploaded file to `clamav.clamav.svc:3310`
 ([`traefik/README.md`](../traefik/README.md), "Upload scan"). Being rolled out, reporting only:
-Traefik loads it, the dashboard's route comes next, then every site.
+today it scans the Traefik dashboard's route; every site comes next.
 
 ## Design
 

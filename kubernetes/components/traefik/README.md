@@ -221,11 +221,10 @@ The verdicts in Grafana → Explore → Loki:
 {namespace="kube-system", container="traefik"} | json | upload_scan != ""
 ```
 
-A test with the EICAR string (it counts only as a small file of its own), once the dashboard route
-uses the scan (the second step above), where it sits behind the login: logged in at
-`https://traefik.d3strukt0r.dev/`, in the browser's developer console - the string is built in
-memory, so it never lands on the disk, where a virus scanner on the machine would flag it.
-Traefik's log then shows `infected`:
+A test with the EICAR string (it counts only as a small file of its own), through the dashboard
+route, where the scan sits behind the login: logged in at `https://traefik.d3strukt0r.dev/`, in
+the browser's developer console - the string is built in memory, so it never lands on the disk,
+where a virus scanner on the machine would flag it. Traefik's log then shows `infected`:
 
 ```js
 const eicar = 'X5O!P%@AP[4\\PZX54(P^)7CC)7}$' + 'EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*';
