@@ -13,7 +13,7 @@ paths:
 - Pushing to `master` deploys, pruning included: deleting an Application file here deletes
   what it deployed if it carries `resources-finalizer.argocd.argoproj.io`.
 - The finalizer only on apps whose data lives elsewhere or does not matter - never on an app
-  that brings CRDs, holds a volume, or is foundation (root, private, argocd, hcloud-csi, traefik),
+  that brings CRDs, holds a volume, or is foundation (root, private, argocd, hcloud-csi, traefik, coredns),
   and never on `priority-classes` (a pod naming a missing class is refused). See
   "Pruning and the finalizer" in `kubernetes/components/argocd/README.md`.
 - A chart gets a patch range (`targetRevision: "~X.Y.Z"`) and follows its patch releases by

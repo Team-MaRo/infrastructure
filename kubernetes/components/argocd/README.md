@@ -45,7 +45,8 @@ component is deleted.
   system-upgrade-controller, kube-prometheus-stack, kubeelasti, trust-manager. **Never on an
   app with a volume** (openbao, mariadb, postgres, loki, kube-prometheus-stack, valkey-state): a mistakenly
   deleted file must not take its data along. **Never on the foundation**: root, private,
-  argocd, hcloud-csi, traefik. **Never on `priority-classes`**: a pod naming a class that does
+  argocd, hcloud-csi, traefik, coredns (it tracks k3s's CoreDNS Deployment; deleting it with
+  the app would take the cluster's DNS). **Never on `priority-classes`**: a pod naming a class that does
   not exist is refused, so the databases would fail at their next restart.
 - **An app with the finalizer brings its own `namespace.yaml`** instead of `CreateNamespace`,
   since Argo CD never deletes a namespace it created that way; so the namespace, and

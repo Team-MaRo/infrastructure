@@ -1,0 +1,13 @@
+---
+# Only the replica count of the Deployment k3s creates from its own manifest, applied
+# server-side as a partial object (README.md). Prune=false,Delete=false: removing this file or the
+# Application must not delete CoreDNS itself.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: coredns
+  namespace: kube-system
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+spec:
+  replicas: 2

@@ -207,8 +207,8 @@ rule, 2026-10-02). Where a name cannot hold a hyphen, the hyphens become undersc
     cert-manager, external-secrets, kyverno, cloudnative-pg, the mariadb-operator ones,
     system-upgrade-controller, kube-prometheus-stack, kubeelasti, trust-manager. **Never on an
     app with a volume** (openbao, mariadb, postgres, loki, kube-prometheus-stack, valkey-state). **Never on the
-    foundation**: root, private, argocd, hcloud-csi, traefik. **Never on `priority-classes`**: a
-    pod naming a missing class is refused.
+    foundation**: root, private, argocd, hcloud-csi, traefik, coredns (it tracks k3s's CoreDNS
+    Deployment). **Never on `priority-classes`**: a pod naming a missing class is refused.
   - An app with the finalizer brings its own `namespace.yaml` instead of `CreateNamespace`,
     since Argo CD never deletes a namespace it created that way. Apps in `kube-system` get no
     `namespace.yaml`, or removing them would delete `kube-system`.
@@ -374,6 +374,7 @@ component); update it in the same change.
 | [`kubernetes/components/external-secrets/README.md`](kubernetes/components/external-secrets/README.md) | The `openbao` store and writing an ExternalSecret |
 | [`kubernetes/components/system-upgrade-controller/README.md`](kubernetes/components/system-upgrade-controller/README.md) | k3s upgrades: channel, window, failed Jobs |
 | [`kubernetes/components/kured/README.md`](kubernetes/components/kured/README.md) | Reboots after kernel updates, blocked drains |
+| [`kubernetes/components/coredns/README.md`](kubernetes/components/coredns/README.md) | Two replicas and a drain budget for k3s's CoreDNS, the partial-manifest trap |
 | [`kubernetes/components/kyverno/README.md`](kubernetes/components/kyverno/README.md) | Default resources, allowed registries, routes only through Cloudflare |
 | [`kubernetes/components/traefik/README.md`](kubernetes/components/traefik/README.md) | Ingress on the host network, ingress nodes, the dashboard; the upload scan plugin, its tests and its comparison with PHP |
 | [`kubernetes/components/cert-manager/README.md`](kubernetes/components/cert-manager/README.md) | DNS-01 issuers, the Cloudflare tokens, requesting a certificate |

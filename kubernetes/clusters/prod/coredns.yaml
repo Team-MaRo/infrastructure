@@ -1,0 +1,33 @@
+---
+# Two replicas and a disruption budget for k3s's CoreDNS, from kubernetes/components/coredns.
+#
+# No finalizer: Argo CD tracks k3s's CoreDNS Deployment through the partial manifest there, and
+# deleting this Application must never take the cluster's DNS along.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: coredns
+  namespace: argocd
+  annotations:
+    # Compare only the fields this partial manifest sets, not k3s's.
+    argocd.argoproj.io/compare-options: ServerSideDiff=true
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Team-MaRo/infrastructure.git
+    targetRevision: master
+    path: kubernetes/components/coredns
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    # If k3s recreates the Deployment, a sync in the moment it is gone tries to create it from the
+    # partial manifest and fails; without a retry, automated sync never tries that commit again.
+    # Ten attempts at the default backoff span about 17 minutes.
+    retry:
+      limit: 10
+    syncOptions:
+      - ServerSideApply=true
