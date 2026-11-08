@@ -100,7 +100,11 @@ manifests fit together is in [`kubernetes/README.md`](../../README.md).
     binary logs every ten minutes (hardcoded, counted from the agent's start, not the clock). The operator
     rotates only by size, so at low traffic the active file would stay unarchived for weeks; the CronJob `mariadb-flush-binlogs` runs
     `FLUSH BINARY LOGS` on the primary every ten minutes, so a restore loses at most about
-    twenty. The bucket expires archived logs after 35 days; the server itself deletes its local
+    twenty. A failed try is retried three times, after 10, 20 and 40 s (`backoffLimit: 3`),
+    within three minutes (`activeDeadlineSeconds`, room for four tries of up to 10 s connecting
+    each): while kured reboots a node, DNS can fail for some seconds (2026-11-09: both tries of
+    one run failed with "Unknown server host"). A failed Job deletes itself a day later
+    (`ttlSecondsAfterFinished`), so `KubeJobFailed` clears on its own. The bucket expires archived logs after 35 days; the server itself deletes its local
     copies after 7 (`binlog_expire_logs_seconds`, default 0 = never, which would fill the
     volume).
   - `syncBinlog: 1`: every commit's binary log event goes to disk before the commit returns.
