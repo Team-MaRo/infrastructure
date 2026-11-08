@@ -145,16 +145,18 @@ spec:
             periodSeconds: 60
             timeoutSeconds: 10
             failureThreshold: 15
-          # The signatures in memory: about 1.04 GiB after start and after a reload (Docker,
-          # 2026-11-06). To be measured on the cluster (README). Disk: its /tmp may fill to
-          # 3584Mi under load (below); the limit lets the pod's local storage add up to that and
-          # the other folders, which the LimitRange's 1Gi per container would not.
+          # Memory, 2026-11-06..09 on the cluster (nine pods, reloads included): real use p95
+          # 969 MiB, working set p95 999 MiB, highest 1031 MiB; four scans at once (2 x 90 MB, a
+          # zip unpacking to 90 MB, nested zips) peaked at 1108 MiB (README). Request the p95,
+          # limit 2 x the working set's p95 - above the load peak x 1.1. Disk: its /tmp may fill
+          # to 3584Mi under load (below); the limit lets the pod's local storage add up to that
+          # and the other folders, which the LimitRange's 1Gi per container would not.
           resources:
             requests:
-              memory: 1088Mi
+              memory: 976Mi
               ephemeral-storage: 512Mi
             limits:
-              memory: 2176Mi
+              memory: 2016Mi
               ephemeral-storage: 4Gi
           volumeMounts:
             - name: config
@@ -179,10 +181,11 @@ spec:
             capabilities:
               drop:
                 - ALL
-          # Like the first download when main.cvd changes (376 MiB peak); idle a few MiB.
+          # Like the first download when main.cvd changes (376 MiB peak); otherwise at most
+          # 20 MiB (2026-11-06..09), real use p95 5 MiB.
           resources:
             requests:
-              memory: 64Mi
+              memory: 16Mi
             limits:
               memory: 768Mi
           volumeMounts:
