@@ -160,9 +160,9 @@ cluster without each app setting something up. Our own plugin does it, `plugins/
   `+json`) and `application/x-www-form-urlencoded` up to 64 KB of known length - the type is the
   client's word, and never a multipart one (some parsers take `multipart/form-data+json` for
   form-data); a request with any `Content-Disposition` header is scanned whatever its type
-  (WordPress' raw media upload needs that header). And `matomo.d3strukt0r.dev/matomo.php`
-  (exclusions are a host, or a host with an exact path). Base64 inside small JSON stays
-  unscannable (accepted).
+  (WordPress' raw media upload needs that header). Nothing is excluded by host or path today
+  (`exclude` in the Middleware: a host, or a host with an exact path). Base64 inside small JSON
+  stays unscannable (accepted).
 - **Memory**: a body of known length is read straight into one buffer of its size (cutting a
   multipart body needs it in one piece); a chunked one in 1 MiB pieces, joined at the end, so it
   briefly needs its size twice. At most 100 MiB per body (about Cloudflare's own limit per
@@ -183,12 +183,16 @@ cluster without each app setting something up. Our own plugin does it, `plugins/
 - **Time**: at most 10 s waiting plus one budget of 45 s for all files of a request, clamd's
   reload wait (~9 s) included; clamd itself ends one file's scan after 30 s and answers
   `limits-exceeded`, so a single slow file does not use up the request's time unanswered. clamd
-  unreachable ends the request's scan after the first attempt. Traefik's own read timeout (60 s,
-  its default; not set here) bounds receiving the body, counted from the request's start; the
-  scan after it does not count, since Go lifts that deadline once the body is read. The wait for
-  memory, up to 10 s, comes before reading and so eats into it: an upload that needs nearly
-  60 s to arrive can be cut off - to be settled before every site uses the scan. Cloudflare
-  waits 100 s for the answer.
+  unreachable ends the request's scan after the first attempt. Traefik's own read timeout (300 s
+  on `web` and `websecure`, `helmchartconfig.yaml`; its default of 60 s cut off large uploads over
+  slow connections) bounds receiving the body, counted from the request's start; the scan after it
+  does not count, since Go lifts that deadline once the body is read. The wait for memory, up to
+  10 s, comes before reading and so counts towards it. Cloudflare passes an upload on as it
+  arrives, apparently after collecting about its first MiB (2026-11-08: 2 MiB sent throttled took
+  44 s in the browser and 21 s at the plugin), so a slow sender's time counts here. Cloudflare
+  waits up to 125 s for the first bytes of the answer and then between any two (its Proxy Read
+  Timeout, fixed below Enterprise), and allows 30 s for writing the request to us (its Proxy Write
+  Timeout, fixed; its docs do not say whether per write or in total).
 - **Code**: `config.go` (settings, defaults), `filter.go` (which requests), `body.go` (holding
   the body, memory, waiting), `check.go` (the request's path), `multipart.go` (cutting a
   multipart body into what is scanned), `ambiguous.go`, `clamd.go`, `log.go`. Yaegi 0.16 knows no

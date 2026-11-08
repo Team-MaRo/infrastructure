@@ -54,12 +54,22 @@ spec:
     # for X-Forwarded-For - PHP's $_SERVER does) are dropped, so a client cannot slip one past
     # what Traefik sets. Per entry point; "reject" would answer 400 to clients that send them.
     ports:
+      # An upload must arrive in full within the read timeout, counted from the request's start:
+      # 60 s by default cut off large uploads over slow connections, and the upload scan's wait
+      # for memory comes on top (README "Upload scan"). Cloudflare passes uploads on as they
+      # arrive (measured 2026-11-08).
       web:
         port: 80
+        transport:
+          respondingTimeouts:
+            readTimeout: 300s
         http:
           aliasHeadersStrategy: delete
       websecure:
         port: 443
+        transport:
+          respondingTimeouts:
+            readTimeout: 300s
         http:
           aliasHeadersStrategy: delete
           # No entry-point middlewares: the per-visitor rate limit is part of cloudflare-only on
