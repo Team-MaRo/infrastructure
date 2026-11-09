@@ -21,7 +21,8 @@ afterwards. It exits 1 on a miss.
 
 - `run.sh` starts the three containers and runs both checks. Traefik is pinned to the version k3s
   ships - keep it in step.
-- `fakeclamd.py` speaks clamd's `INSTREAM` and prints each stream's SHA-256; it reports EICAR
+- `fakeclamd.py` speaks clamd's `INSTREAM`, alone or in a session (`IDSESSION` ... `END`, each
+  answer numbered) as the plugin sends it, and prints each stream's SHA-256; it reports EICAR
   only at the start of a stream, as ClamAV does.
 - `index.php` answers with what PHP stored: each upload's size, SHA-256 and whether it holds
   EICAR.

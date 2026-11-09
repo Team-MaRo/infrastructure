@@ -33,7 +33,7 @@ var (
 // Shared by every instance in this Traefik (Traefik creates one per router): the memory for the
 // bodies being read and held, counted in units - room for maxParallel bodies of maxBytes and the
 // chunk beyond it that tells a chunked body is too large, shared by however many bodies there
-// are, at most one such body per address - one token per open clamd session, and the uploads
+// are, at most one such body per address - one token per clamd slot, and the uploads
 // each address has being checked.
 var (
 	limitsOnce sync.Once

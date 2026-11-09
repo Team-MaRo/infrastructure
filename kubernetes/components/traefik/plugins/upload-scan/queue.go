@@ -22,7 +22,7 @@ func (q *queue) busy() string {
 	return "skipped:busy"
 }
 
-// turn takes a slot of sem - a clamd session, the join - within the queue's time.
+// turn takes a slot of sem - a clamd slot, the join - within the queue's time.
 func (q *queue) turn(sem chan struct{}) bool {
 	// A free slot first: with the queue's time used up, select below could pick the timer
 	// although a slot is free.

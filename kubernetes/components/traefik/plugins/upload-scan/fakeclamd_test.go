@@ -1,10 +1,12 @@
 package uploadscan
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/binary"
 	"io"
 	"net"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -17,11 +19,29 @@ var eicar = []byte(`X5O!P%@AP[4\PZX54(P^)7CC)7}$` + `EICAR-STANDARD-ANTIVIRUS-TE
 // fakeClamd answers INSTREAM like clamd: FOUND when the stream starts with the EICAR string, as
 // ClamAV's signature requires. A delay makes it slow; it keeps every stream and its size.
 type fakeClamd struct {
-	addr    string
-	delay   time.Duration
-	mu      sync.Mutex
-	sizes   []int
-	streams [][]byte
+	addr  string
+	delay time.Duration
+	// closeAfter makes it close a session after that many streams (0: never).
+	closeAfter int
+	mu         sync.Mutex
+	conns      int
+	sizes      []int
+	streams    [][]byte
+	ended      []string // how each session ended: its last command, or "" when it was closed
+}
+
+// endings is how the sessions so far ended.
+func (c *fakeClamd) endings() []string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return append([]string(nil), c.ended...)
+}
+
+// connections is how many connections clamd accepted.
+func (c *fakeClamd) connections() int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.conns
 }
 
 // scans is how many streams clamd got, and their sizes.
@@ -63,24 +83,59 @@ func startClamd(t *testing.T, delay time.Duration) *fakeClamd {
 	return c
 }
 
+// serve speaks a single INSTREAM, or a session (IDSESSION) of INSTREAMs up to END, answering each
+// with its number in front.
 func (c *fakeClamd) serve(conn net.Conn) {
 	defer conn.Close()
-	cmd := make([]byte, len("zINSTREAM\x00"))
-	if _, err := io.ReadFull(conn, cmd); err != nil || string(cmd) != "zINSTREAM\x00" {
+	c.mu.Lock()
+	c.conns++
+	closeAfter := c.closeAfter
+	c.mu.Unlock()
+	in := bufio.NewReader(conn)
+	cmd, err := in.ReadString(0)
+	if err != nil {
 		return
 	}
+	switch cmd {
+	case "zINSTREAM\x00":
+		if answer, ok := c.stream(in); ok {
+			_, _ = conn.Write([]byte(answer + "\x00"))
+		}
+	case "zIDSESSION\x00":
+		for id := 1; ; id++ {
+			cmd, _ := in.ReadString(0)
+			if cmd != "zINSTREAM\x00" {
+				c.mu.Lock()
+				c.ended = append(c.ended, cmd)
+				c.mu.Unlock()
+				return
+			}
+			answer, ok := c.stream(in)
+			if !ok {
+				return
+			}
+			_, _ = conn.Write([]byte(strconv.Itoa(id) + ": " + answer + "\x00"))
+			if id == closeAfter {
+				return
+			}
+		}
+	}
+}
+
+// stream reads one INSTREAM's chunks, keeps them and gives clamd's answer.
+func (c *fakeClamd) stream(in *bufio.Reader) (string, bool) {
 	var data bytes.Buffer
 	size := make([]byte, 4)
 	for {
-		if _, err := io.ReadFull(conn, size); err != nil {
-			return
+		if _, err := io.ReadFull(in, size); err != nil {
+			return "", false
 		}
 		n := binary.BigEndian.Uint32(size)
 		if n == 0 {
 			break
 		}
-		if _, err := io.CopyN(&data, conn, int64(n)); err != nil {
-			return
+		if _, err := io.CopyN(&data, in, int64(n)); err != nil {
+			return "", false
 		}
 	}
 	c.mu.Lock()
@@ -90,13 +145,11 @@ func (c *fakeClamd) serve(conn net.Conn) {
 	}
 	c.mu.Unlock()
 	time.Sleep(c.delay)
-	if bytes.Contains(data.Bytes(), []byte("BEYOND-LIMITS")) {
-		_, _ = conn.Write([]byte("stream: Heuristics.Limits.Exceeded.MaxFileSize FOUND\x00"))
-		return
+	switch {
+	case bytes.Contains(data.Bytes(), []byte("BEYOND-LIMITS")):
+		return "stream: Heuristics.Limits.Exceeded.MaxFileSize FOUND", true
+	case bytes.HasPrefix(data.Bytes(), eicar):
+		return "stream: Eicar-Test-Signature FOUND", true
 	}
-	if bytes.HasPrefix(data.Bytes(), eicar) {
-		_, _ = conn.Write([]byte("stream: Eicar-Test-Signature FOUND\x00"))
-		return
-	}
-	_, _ = conn.Write([]byte("stream: OK\x00"))
+	return "stream: OK", true
 }
