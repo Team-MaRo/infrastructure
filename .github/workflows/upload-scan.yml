@@ -1,0 +1,39 @@
+---
+# The upload-scan plugin's tests, compiled and under the Go interpreter of Traefik 3.7 (Yaegi), on
+# every push and pull request that touches it - the same paths and runs as .githooks/pre-commit,
+# which only runs where it is enabled (kubernetes/components/traefik/README.md, "Upload scan").
+name: upload-scan
+
+on:
+  push:
+    paths:
+      - kubernetes/components/traefik/plugins/upload-scan/**
+      - kubernetes/components/traefik/helmchartconfig.yaml
+      - kubernetes/components/traefik/kustomization.yaml
+      - kubernetes/components/traefik/middleware-upload-scan.yaml
+      - .github/workflows/upload-scan.yml
+  pull_request:
+    paths:
+      - kubernetes/components/traefik/plugins/upload-scan/**
+      - kubernetes/components/traefik/helmchartconfig.yaml
+      - kubernetes/components/traefik/kustomization.yaml
+      - kubernetes/components/traefik/middleware-upload-scan.yaml
+      - .github/workflows/upload-scan.yml
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: kubernetes/components/traefik/plugins/upload-scan
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: kubernetes/components/traefik/plugins/upload-scan/go.mod
+          cache: false
+      - run: go test -race ./...
+      - run: go run github.com/traefik/yaegi/cmd/yaegi@v0.16.1 test .

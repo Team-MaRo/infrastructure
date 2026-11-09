@@ -37,7 +37,8 @@ file.
 ## Commands
 
 Once per clone, turn on the repo's git hooks (`.githooks/`; today the pre-commit hook that tests
-Traefik's upload-scan plugin when a commit touches it). It replaces `.git/hooks` - Git LFS's
+Traefik's upload-scan plugin when a commit touches it; GitHub Actions runs the same tests on every
+push, `.github/workflows/upload-scan.yml`). It replaces `.git/hooks` - Git LFS's
 hooks there stop running, harmless while the repo has no LFS files:
 
 ```sh
