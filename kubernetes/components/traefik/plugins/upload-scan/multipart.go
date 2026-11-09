@@ -242,7 +242,7 @@ func (u *UploadScan) scanMultipart(j *scanning, body []byte, bounds []string, re
 	} else {
 		res.note("boundary not in the body, scanned whole")
 	}
-	u.scanWhole(j, body, res)
+	u.scanWhole(j, bytes.NewReader(body), res)
 }
 
 type span struct {
