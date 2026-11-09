@@ -23,6 +23,7 @@ configMapGenerator:
       - plugins/upload-scan/ambiguous.go
       - plugins/upload-scan/body.go
       - plugins/upload-scan/check.go
+      - plugins/upload-scan/client.go
       - plugins/upload-scan/clamd.go
       - plugins/upload-scan/config.go
       - plugins/upload-scan/filter.go

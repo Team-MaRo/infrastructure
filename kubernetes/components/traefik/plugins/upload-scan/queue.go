@@ -6,10 +6,20 @@ import (
 )
 
 // queue is the time a request may still spend waiting; it gives up at once when the client is
-// gone.
+// gone. capped: the last wait for memory ended with its address's share held.
 type queue struct {
-	left time.Duration
-	ctx  context.Context
+	left   time.Duration
+	ctx    context.Context
+	capped bool
+}
+
+// busy is the verdict of a body that got no memory in time: its address's share full, or the
+// pool.
+func (q *queue) busy() string {
+	if q.capped {
+		return "skipped:too-many"
+	}
+	return "skipped:busy"
 }
 
 // turn takes a slot of sem - a clamd session, the join - within the queue's time.

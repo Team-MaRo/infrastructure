@@ -20,23 +20,26 @@ const unit = firstChunkSize
 // From this size on, a join hands its chunks' memory back to the system at once.
 const bigJoin = 16 << 20
 
-// The largest body read and scanned (larger ones pass unscanned), and how many such bodies and
-// clamd sessions one Traefik holds at once - together its memory for the scan. Code, not
-// settings: they size memory once per start, and the plugin's source hash is what restarts
-// Traefik.
+// The largest body read and scanned (larger ones pass unscanned), how many such bodies and clamd
+// sessions one Traefik holds at once - together its memory for the scan - and how many uploads
+// one address may have checked at once. Code, not settings: they size memory once per start, and
+// the plugin's source hash is what restarts Traefik.
 var (
-	maxBytes    int64 = 100 << 20 // 100 MiB: << 20 multiplies by 2^20, a MiB
-	maxParallel       = 4
+	maxBytes     int64 = 100 << 20 // 100 MiB: << 20 multiplies by 2^20, a MiB
+	maxParallel        = 4
+	maxPerClient       = 16
 )
 
 // Shared by every instance in this Traefik (Traefik creates one per router): the memory for the
 // bodies being read and held, counted in units - room for maxParallel bodies of maxBytes and the
 // chunk beyond it that tells a chunked body is too large, shared by however many bodies there
-// are - and one token per open clamd session.
+// are, at most one such body per address - one token per open clamd session, and the uploads
+// each address has being checked.
 var (
 	limitsOnce sync.Once
 	pool       *memoryPool
 	sessions   chan struct{}
+	uploads    *clients
 	// One body at a time is copied into one buffer: while it copies, its chunks and the copy
 	// exist together.
 	joining = make(chan struct{}, 1)
@@ -44,8 +47,10 @@ var (
 
 func initLimits() {
 	limitsOnce.Do(func() {
-		pool = &memoryPool{size: maxParallel * unitsFor(maxBytes+chunkSize)}
+		body := unitsFor(maxBytes + chunkSize)
+		pool = &memoryPool{size: maxParallel * body, perClient: body}
 		sessions = make(chan struct{}, maxParallel)
+		uploads = &clients{inFlight: map[string]int{}}
 	})
 }
 
@@ -60,6 +65,7 @@ func unitsFor(size int64) int {
 type heldBody struct {
 	original io.ReadCloser
 	pool     *memoryPool
+	client   string
 	mu       sync.Mutex
 	held     chunkReader
 	units    []int
@@ -83,7 +89,7 @@ func (h *heldBody) Read(p []byte) (int, error) {
 			if u > h.tokens {
 				u = h.tokens
 			}
-			h.pool.give(u)
+			h.pool.give(h.client, u)
 			h.tokens -= u
 		}
 		h.passed++
@@ -99,7 +105,7 @@ func (h *heldBody) Read(p []byte) (int, error) {
 
 // reset gives back the memory still held and forgets the chunks; h.mu is held.
 func (h *heldBody) reset() {
-	h.pool.give(h.tokens)
+	h.pool.give(h.client, h.tokens)
 	h.tokens = 0
 	h.held = chunkReader{}
 	h.units = nil
@@ -167,8 +173,9 @@ func (o *read) add(b []byte, units int) {
 // allocated - so a body holds memory only for what it has sent, a client that sends a byte and
 // stalls 64 KiB, and none before its first byte: an upload that only connects holds nothing. It
 // is admitted first (memoryPool); a body that gets no chunk in time stops being read for the scan
-// (skipped:busy), and the app gets what was read followed by the rest. Only io.EOF is the body's
-// end: a client that breaks off a chunked body gives ErrUnexpectedEOF.
+// (skipped:busy, skipped:too-many when its address's share held it back), and the app gets what
+// was read followed by the rest. Only io.EOF is the body's end: a client that breaks off a chunked
+// body gives ErrUnexpectedEOF.
 func readBody(r io.Reader, known int64, q *queue, held *heldBody) read {
 	var probe [1]byte
 	n, err := fill(r, probe[:])
@@ -203,9 +210,9 @@ func readBody(r io.Reader, known int64, q *queue, held *heldBody) read {
 	if known > 0 {
 		need = unitsFor(known)
 	}
-	in := held.pool.admit(q, need)
+	in := held.pool.admit(q, held.client, need)
 	if in == nil {
-		return read{chunks: [][]byte{first}, units: []int{0}, size: 1, verdict: "skipped:busy"}
+		return read{chunks: [][]byte{first}, units: []int{0}, size: 1, verdict: q.busy()}
 	}
 	held.took(1)
 	defer held.pool.done(in)
@@ -278,7 +285,7 @@ func readKnown(r io.Reader, known int64, first []byte, in *intake, q *queue, hel
 	for out.size < known {
 		chunk, n, units, grown, ok := piece(&out, known-out.size, in, q, held)
 		if !ok {
-			out.verdict = "skipped:busy"
+			out.verdict = q.busy()
 			return out
 		}
 		n += copy(chunk[n:], pending)
@@ -323,7 +330,7 @@ func readChunked(r io.Reader, first []byte, in *intake, q *queue, held *heldBody
 		chunk, n, units, grown, ok := piece(&out, -1, in, q, held)
 		if !ok {
 			out.add(ahead, 0)
-			out.verdict = "skipped:busy"
+			out.verdict = q.busy()
 			return out
 		}
 		n += copy(chunk[n:], ahead)

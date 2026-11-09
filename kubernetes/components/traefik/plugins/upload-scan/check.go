@@ -16,7 +16,7 @@ func (u *UploadScan) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 		u.next.ServeHTTP(rw, req)
 		return
 	}
-	held := &heldBody{original: req.Body, pool: pool}
+	held := &heldBody{original: req.Body, pool: pool, client: clientOf(req)}
 	req.Body = held
 	defer held.release()
 	start := time.Now()
@@ -34,6 +34,15 @@ func (u *UploadScan) check(req *http.Request, held *heldBody) result {
 	if known > maxBytes {
 		return result{Bytes: known, Verdict: "skipped:too-large"}
 	}
+	if !uploads.enter(held.client) {
+		res := result{Verdict: "skipped:too-many"}
+		if known > 0 {
+			res.Bytes = known
+		}
+		res.note(fmt.Sprintf("%d uploads from this address at once", maxPerClient))
+		return res
+	}
+	defer uploads.leave(held.client)
 
 	q := &queue{left: u.queueTimeout, ctx: req.Context()}
 	got := readBody(held.original, known, q, held)
@@ -43,11 +52,14 @@ func (u *UploadScan) check(req *http.Request, held *heldBody) result {
 		return result{Bytes: got.size, Verdict: got.verdict, Error: got.err.Error()}
 	case "skipped:too-large":
 		return result{Bytes: got.size, Verdict: got.verdict}
-	case "skipped:busy":
+	case "skipped:busy", "skipped:too-many":
 		if req.Context().Err() != nil {
 			return result{Bytes: got.size, Verdict: "aborted", Error: clientGone}
 		}
 		res := result{Bytes: known, Verdict: got.verdict}
+		if got.verdict == "skipped:too-many" {
+			res.note("this address's uploads hold its share of the memory")
+		}
 		if known < 0 {
 			res.Bytes = got.size
 			res.note("length unknown: bytes read before memory ran out")

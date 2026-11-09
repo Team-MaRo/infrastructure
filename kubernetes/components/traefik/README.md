@@ -216,6 +216,22 @@ cluster without each app setting something up. Our own plugin does it, `plugins/
   1 MB at once, each growing its first piece through every step, peaked at 97-253 MiB, all
   scanned (the doubling's copies and garbage included). Larger bodies pass unscanned
   (`skipped:too-large`).
+- **Per address** (2026-11-09): one address may have at most 16 uploads checked at once and hold at
+  most one full-size body's memory (1616 units, a quarter of the pool) - taken, and set aside for
+  what its bodies announced, so it cannot announce four bodies of 100 MiB and hold the pool's room
+  with them - so neither many stalled uploads nor a few large ones from one address make every
+  other upload `skipped:busy`. A 17th upload is not read at all; one that would go over the
+  memory waits for the address's own memory to come back, without counting as stuck next to
+  others (it never makes another address's body give way). Both are logged `skipped:too-many`
+  (refused with 429 from phase 3) - the second only when the pool itself had room, else
+  `skipped:busy`. The address is the visitor's that
+  Cloudflare passes on (`CF-Connecting-IP`), else the connection's; IPv6 counts by its `/64`,
+  since one network holds more addresses than could be counted one by one. The header can be
+  trusted because the scan runs only behind `cloudflare-only`, which lets nothing but Cloudflare
+  reach it. Each Traefik counts for itself (Cloudflare spreads a client over them), and a shared
+  address - a household, a venue's Wi-Fi, a mobile carrier - shares these limits. Several
+  addresses together are not held back; memory going to whoever is actually sending would be the
+  answer to that, should it matter.
 - **Time**: at most 10 s waiting plus one budget of 45 s for all files of a request, clamd's
   reload wait (~9 s) included; clamd itself ends one file's scan after 30 s and answers
   `limits-exceeded`, so a single slow file does not use up the request's time unanswered. clamd
@@ -231,9 +247,10 @@ cluster without each app setting something up. Our own plugin does it, `plugins/
   Timeout, fixed; its docs do not say whether per write or in total).
 - **Code**: `config.go` (settings, defaults), `filter.go` (which requests), `body.go` (reading,
   holding and joining the body), `pool.go` (memory), `queue.go` (the time a request may wait),
-  `check.go` (the request's path), `multipart.go` (cutting a multipart body into what is
-  scanned), `ambiguous.go`, `clamd.go`, `log.go`; each has its tests in `<name>_test.go`, the fake
-  clamd and the shared helpers in `fakeclamd_test.go` and `setup_test.go`. Yaegi 0.16 knows no
+  `client.go` (the limits per address), `check.go` (the request's path), `multipart.go` (cutting
+  a multipart body into what is scanned), `ambiguous.go`, `clamd.go`, `log.go`; each has its
+  tests in `<name>_test.go`, the fake clamd and the shared helpers in `fakeclamd_test.go` and
+  `setup_test.go`. Yaegi 0.16 knows no
   built-in `min`/`max`, drops the first value of a double assignment with a call on the right,
   loops forever on `for i := 0; ; {`, and keeps a named result from the function's previous call
   when this call does not set it (2026-11-09: a body's copied first piece reappeared as an offset in
@@ -244,9 +261,10 @@ cluster without each app setting something up. Our own plugin does it, `plugins/
   `limits-exceeded` for a file beyond ClamAV's own limits - `AlertExceedsMax`, not malware found
   -, `error`, `aborted` when the client stopped sending, sent less than it announced or left while
   waiting, `incomplete` when time ran out or the client left with parts unscanned, `skipped:time`
-  when that happened before the first part, `skipped:busy`, `skipped:too-large`), why a body was
-  scanned whole or stopped early (`note`), `ambiguous` with its reason, and the milliseconds it
-  took. No client address and no file names. Phase 3 refuses what clamd flags.
+  when that happened before the first part, `skipped:busy`, `skipped:too-many` when its address
+  was over one of its limits, `skipped:too-large`), why a body was scanned whole or stopped early
+  (`note`), `ambiguous` with its reason, and the milliseconds it took. No client address and no
+  file names. Phase 3 refuses what clamd flags.
 - **Rolled out in steps**: first loaded with no route using it - while Traefik rolls node by node,
   a node whose Traefik has not restarted yet does not know the plugin and would answer a route
   that uses it with 404, and a plugin that fails to load would take that route down everywhere.

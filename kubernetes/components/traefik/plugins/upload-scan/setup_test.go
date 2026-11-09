@@ -37,6 +37,7 @@ func resetLimits() {
 	limitsOnce = sync.Once{}
 	pool = nil
 	sessions = nil
+	uploads = nil
 	joining = make(chan struct{}, 1)
 }
 
@@ -50,7 +51,7 @@ func occupy(t *testing.T, n int) {
 	}
 	pool.used += n
 	pool.mu.Unlock()
-	t.Cleanup(func() { pool.give(n) })
+	t.Cleanup(func() { pool.give("", n) })
 }
 
 // stall holds back a stallingBody until the test ends, also when it fails early.

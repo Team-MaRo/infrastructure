@@ -36,8 +36,8 @@ func TestPromiseFollowsThePace(t *testing.T) {
 func TestSetAsideRoomIsKeptFromOthers(t *testing.T) {
 	p := &memoryPool{size: 10}
 	now := time.Now()
-	known := p.tryAdmit(8, p.promised(now), now)
-	chunked := p.tryAdmit(1, p.promised(now), now)
+	known := p.tryAdmit("", 8, p.promised(now), now)
+	chunked := p.tryAdmit("", 1, p.promised(now), now)
 	if known == nil || chunked == nil {
 		t.Fatal("not admitted")
 	}
@@ -59,15 +59,15 @@ func TestSetAsideRoomIsKeptFromOthers(t *testing.T) {
 func TestStalledBodyStopsHoldingOthersBack(t *testing.T) {
 	p := &memoryPool{size: 10}
 	now := time.Now()
-	large := p.tryAdmit(9, p.promised(now), now)
+	large := p.tryAdmit("", 9, p.promised(now), now)
 	if large == nil {
 		t.Fatal("not admitted")
 	}
-	if p.tryAdmit(2, p.promised(now), now) != nil {
+	if p.tryAdmit("", 2, p.promised(now), now) != nil {
 		t.Fatal("admitted into room set aside for a body that just started")
 	}
 	large.admitted = now.Add(-10 * time.Second)
-	if p.tryAdmit(2, p.promised(now), now) == nil {
+	if p.tryAdmit("", 2, p.promised(now), now) == nil {
 		t.Fatal("still held back by a body that has sent nothing for 10 s")
 	}
 }
@@ -89,8 +89,8 @@ func TestGiverIsBeyondItsAnnouncementElseTheNewest(t *testing.T) {
 	}
 }
 
-// More uploads than fit at once: the later ones wait for room instead of starting and running out
-// halfway, so every one is scanned.
+// More uploads than fit at once, from different addresses: the later ones wait for room instead of
+// starting and running out halfway, so every one is scanned.
 func TestManyUploadsAtOnceAreAllScanned(t *testing.T) {
 	setMaxBytes(t, 8<<20)
 	clamd := startClamd(t, 0)
@@ -101,7 +101,10 @@ func TestManyUploadsAtOnceAreAllScanned(t *testing.T) {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			serve(s, http.MethodPost, "https://site.example.org/upload/"+strconv.Itoa(i), "application/zip", sent)
+			req := httptest.NewRequest(http.MethodPost, "https://site.example.org/upload/"+strconv.Itoa(i), bytes.NewReader(sent))
+			req.Header.Set("Content-Type", "application/zip")
+			req.Header.Set("CF-Connecting-IP", "198.51.100."+strconv.Itoa(i+1))
+			s.handler.ServeHTTP(httptest.NewRecorder(), req)
 		}(i)
 	}
 	wg.Wait()
@@ -120,8 +123,8 @@ func TestManyUploadsAtOnceAreAllScanned(t *testing.T) {
 func TestEveryReaderWaitingGivesUpTheNewest(t *testing.T) {
 	p := &memoryPool{size: 2}
 	q := func() *queue { return &queue{left: 3 * time.Second, ctx: context.Background()} }
-	older := p.admit(q(), 1)
-	newer := p.admit(q(), 1)
+	older := p.admit(q(), "", 1)
+	newer := p.admit(q(), "", 1)
 	if older == nil || newer == nil {
 		t.Fatal("not admitted")
 	}
@@ -137,7 +140,7 @@ func TestEveryReaderWaitingGivesUpTheNewest(t *testing.T) {
 		t.Fatal("the newest got a chunk although none was free")
 	}
 	p.done(newer)
-	p.give(1)
+	p.give("", 1)
 	if !<-got {
 		t.Fatal("the older body did not get the chunk the newest gave back")
 	}
@@ -185,7 +188,7 @@ func TestSmallUploadPassesWhileALargeOneWaits(t *testing.T) {
 func TestLoneWaiterWaitsForMemory(t *testing.T) {
 	p := &memoryPool{size: 2}
 	q := &queue{left: 5 * time.Second, ctx: context.Background()}
-	in := p.admit(q, 2)
+	in := p.admit(q, "", 2)
 	if in == nil {
 		t.Fatal("not admitted")
 	}
@@ -196,7 +199,7 @@ func TestLoneWaiterWaitsForMemory(t *testing.T) {
 	go func() { got <- p.more(in, q, 1) }()
 
 	time.Sleep(2 * patience)
-	p.give(1)
+	p.give("", 1)
 	if !<-got {
 		t.Fatal("the body waiting alone gave way instead of waiting for memory")
 	}
@@ -225,7 +228,7 @@ func TestStuckBodiesGiveWayWhoeverElseHoldsMemory(t *testing.T) {
 		t.Fatalf("the newer body gave way after %v, want about %v", took, patience)
 	}
 	p.done(newer)
-	p.give(3)
+	p.give("", 3)
 	if !<-olderGot {
 		t.Fatal("the older body did not get a chunk once the newer one's came back")
 	}
@@ -236,12 +239,12 @@ func TestStuckBodiesGiveWayWhoeverElseHoldsMemory(t *testing.T) {
 func TestAdmissionFollowsAShrinkingReservation(t *testing.T) {
 	p := &memoryPool{size: 10}
 	now := time.Now()
-	large := p.tryAdmit(9, p.promised(now), now)
+	large := p.tryAdmit("", 9, p.promised(now), now)
 	if large == nil {
 		t.Fatal("not admitted")
 	}
 	admitted := make(chan *intake, 1)
-	go func() { admitted <- p.admit(&queue{left: 3 * time.Second, ctx: context.Background()}, 2) }()
+	go func() { admitted <- p.admit(&queue{left: 3 * time.Second, ctx: context.Background()}, "", 2) }()
 	until(t, "the small body waits to be admitted", func() bool {
 		p.mu.Lock()
 		defer p.mu.Unlock()
@@ -261,8 +264,8 @@ func TestAdmissionFollowsAShrinkingReservation(t *testing.T) {
 func TestOwnRoomIsNotHeldForAnEarlierWaiter(t *testing.T) {
 	p := &memoryPool{size: 80}
 	q := func() *queue { return &queue{left: 3 * time.Second, ctx: context.Background()} }
-	stalled := p.admit(q(), 1)
-	fast := p.admit(q(), 21) // just admitted: its 20 units still to come are set aside
+	stalled := p.admit(q(), "", 1)
+	fast := p.admit(q(), "", 21) // just admitted: its 20 units still to come are set aside
 	if stalled == nil || fast == nil {
 		t.Fatal("not admitted")
 	}
@@ -281,7 +284,7 @@ func TestOwnRoomIsNotHeldForAnEarlierWaiter(t *testing.T) {
 	if !p.more(fast, q(), 16) || time.Since(start) > patience/2 {
 		t.Fatalf("the fast body did not get units from its own room at once (%v)", time.Since(start))
 	}
-	p.give(16)
+	p.give("", 16)
 	if !<-got {
 		t.Fatal("the stalled body did not get its chunk once memory came back")
 	}
