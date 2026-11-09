@@ -37,7 +37,7 @@ func (u *UploadScan) check(req *http.Request, held *heldBody) result {
 
 	q := &queue{left: u.queueTimeout, ctx: req.Context()}
 	got := readBody(held.original, known, q, held)
-	held.hold(got.chunks)
+	held.hold(got.chunks, got.units)
 	switch got.verdict {
 	case "aborted":
 		return result{Bytes: got.size, Verdict: got.verdict, Error: got.err.Error()}

@@ -164,22 +164,33 @@ cluster without each app setting something up. Our own plugin does it, `plugins/
   (WordPress' raw media upload needs that header). Nothing is excluded by host or path today
   (`exclude` in the Middleware: a host, or a host with an exact path). Base64 inside small JSON
   stays unscannable (accepted).
-- **Memory**: a body is read in pieces of up to 1 MiB (64 KiB first when its length is unknown)
-  and takes one chunk of the memory pool per piece as it arrives, so it holds memory only for what
-  it has sent: a client that announces 100 MiB and stalls holds two chunks, not 100, a small API
-  call one, and an upload that only connects none, since a body asks for memory only once its
-  first byte has arrived. The pool is 404 chunks per Traefik, room for four bodies of 100 MiB
-  (about Cloudflare's own limit per request), shared by however many bodies there are; each piece
-  is counted until Traefik has passed it on to the app - a joined multipart body is one piece, so
-  its memory goes back only once it has been passed on completely. A body is admitted once its
-  announced size (one chunk when it is unknown) fits next to what the bodies being read have set
-  aside. What a body sets aside follows its pace: what it would send in the next 30 s at its rate
-  so far, all of it during its first 3 s - a fast upload keeps its room, a slow or stalled one
-  holds back little, and holding the whole pool takes about 13 MiB/s of real uploads. That is a
-  bet on the pace: room a body held back may have gone to another by the time it needs it, and
-  then both wait. A body takes only chunks not set aside for another; a freed chunk goes
-  first to the bodies being read that wait for one, oldest first, then to the waiting bodies that
-  now fit, so a steady stream of small uploads can keep a large one waiting until its time is up.
+- **Memory**: a body is read in pieces of up to 1 MiB, the first one starting at 64 KiB and
+  doubled each time it is full - 128 KiB, 256 KiB, 512 KiB, 1 MiB, copying what it holds (at most
+  960 KiB per body) - so a body with a known length up to 1 MiB stays one piece and is never
+  joined (a chunked one too, unless it ends one byte past a piece); the memory pool counts them in
+  units of 64 KiB (16 for a full piece) as they are allocated, and a piece is asked for only once
+  the one before is full, so a client holds 64 KiB or about twice what it has sent, whichever is
+  more: one that sends one byte and stalls holds one unit, one that stalls after 64 KiB two (one
+  for a chunked body, which reads a byte ahead before it grows), after 1 MiB 32 (what it sent and
+  the piece being filled). One-byte clients fill a pool after about 6,400 connections at almost no
+  cost; what keeps that from one address are the limits per address. A small API call holds one
+  unit, an upload that only connects none, since a body asks for memory only once its first byte
+  has arrived. The pool is 6464 units (404 MiB) per Traefik, room for four bodies of 100 MiB
+  (about Cloudflare's own limit per request) and the chunk that tells a chunked one is too large,
+  shared by however many bodies there are; each piece is counted until Traefik has passed
+  it on to the app - a joined multipart body is one piece, so its memory goes back only once it
+  has been passed on completely. A body is admitted once its announced size (one unit when it is
+  unknown) fits next to what the bodies being read have set aside. What a body sets aside follows
+  its pace: what it would send in the next 30 s at its rate so far, all of it during its first
+  3 s - a fast upload keeps its room, a slow or stalled one holds back little, and holding the
+  whole pool takes about 13 MiB/s of real uploads. That is a bet on the pace: room a body held
+  back may have gone to another by the time it needs it, and then both wait. A body takes only
+  units not set aside for another; freed units go first to the bodies being read that wait for a
+  chunk, oldest first among those they are enough for, then to the waiting bodies that now fit.
+  So a steady stream of small requests can keep a large one - a body waiting to be admitted, or
+  for a full 1 MiB piece while smaller ones get theirs - waiting until its time is up. Accepted:
+  memory mostly comes back a full piece at a time, and then the oldest waiting body gets it; making
+  later bodies wait behind it instead blocked them, and every new upload, while memory was free.
   While two or more bodies being read wait for a chunk, one that has waited a second gives up its
   scan if it is the one to give way - the newest waiting one that took more than it announced,
   such as a chunked body, else the newest waiting one - and no other gave way in the last second,
@@ -198,10 +209,12 @@ cluster without each app setting something up. Our own plugin does it, `plugins/
   notices the hang-up (HTTP/1.1) only at the body's end, so one that disconnects halfway keeps its
   place until its 10 s of waiting are up. Measured 2026-11-09 in Docker under the cluster's limits
   (1 GiB, `GOMEMLIMIT` 921 MiB), four 90 MB multipart uploads at once: 535-630 MiB peak with a
-  size header (it varies between runs), about 500 MiB chunked, all scanned (reserving up front
+  size header (it varies between runs), 480-550 MiB chunked, all scanned (reserving up front
   before needed 408 MiB with a size header but scanned only two of four chunked ones); two clients
   trickling chunked uploads no longer make a normal upload `skipped:busy`; and more uploads than
-  fit at once are all scanned, the later ones waiting for room. Larger bodies pass unscanned
+  fit at once are all scanned, the later ones waiting for room; 300 and 400 multipart uploads of
+  1 MB at once, each growing its first piece through every step, peaked at 97-253 MiB, all
+  scanned (the doubling's copies and garbage included). Larger bodies pass unscanned
   (`skipped:too-large`).
 - **Time**: at most 10 s waiting plus one budget of 45 s for all files of a request, clamd's
   reload wait (~9 s) included; clamd itself ends one file's scan after 30 s and answers
@@ -221,8 +234,10 @@ cluster without each app setting something up. Our own plugin does it, `plugins/
   `check.go` (the request's path), `multipart.go` (cutting a multipart body into what is
   scanned), `ambiguous.go`, `clamd.go`, `log.go`; each has its tests in `<name>_test.go`, the fake
   clamd and the shared helpers in `fakeclamd_test.go` and `setup_test.go`. Yaegi 0.16 knows no
-  built-in `min`/`max`, drops the first value of a double assignment with a call on the right and
-  loops forever on `for i := 0; ; {` - the code avoids all three.
+  built-in `min`/`max`, drops the first value of a double assignment with a call on the right,
+  loops forever on `for i := 0; ; {`, and keeps a named result from the function's previous call
+  when this call does not set it (2026-11-09: a body's copied first piece reappeared as an offset in
+  its later pieces) - the code avoids all four; `safeScan`'s named result is set on every path.
 - **Report mode** (phase 2): every request passes, also when looking at the read body or scanning
   it fails (logged `error`); one JSON line per upload in Traefik's log - host, path without query,
   number of parts clamd answered, size, verdict (`clean`, `infected` with the signature,

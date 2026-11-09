@@ -14,6 +14,9 @@ const chunkSize = 1 << 20 // 1 MiB
 
 const firstChunkSize = 64 << 10
 
+// The pool counts memory in units of a first piece: one per 64 KiB piece, 16 per 1 MiB one.
+const unit = firstChunkSize
+
 // From this size on, a join hands its chunks' memory back to the system at once.
 const bigJoin = 16 << 20
 
@@ -27,8 +30,9 @@ var (
 )
 
 // Shared by every instance in this Traefik (Traefik creates one per router): the memory for the
-// bodies being read and held, counted in chunks - room for maxParallel bodies of maxBytes, shared
-// by however many bodies there are - and one token per open clamd session.
+// bodies being read and held, counted in units - room for maxParallel bodies of maxBytes and the
+// chunk beyond it that tells a chunked body is too large, shared by however many bodies there
+// are - and one token per open clamd session.
 var (
 	limitsOnce sync.Once
 	pool       *memoryPool
@@ -40,13 +44,13 @@ var (
 
 func initLimits() {
 	limitsOnce.Do(func() {
-		pool = &memoryPool{size: maxParallel * (chunksFor(maxBytes) + 1)}
+		pool = &memoryPool{size: maxParallel * unitsFor(maxBytes+chunkSize)}
 		sessions = make(chan struct{}, maxParallel)
 	})
 }
 
-func chunksFor(size int64) int {
-	return int((size + chunkSize - 1) / chunkSize)
+func unitsFor(size int64) int {
+	return int((size + unit - 1) / unit)
 }
 
 // heldBody hands the app the body as it came: the chunks read for the scan, then whatever was
@@ -58,6 +62,7 @@ type heldBody struct {
 	pool     *memoryPool
 	mu       sync.Mutex
 	held     chunkReader
+	units    []int
 	passed   int // chunks the proxy has read past
 	tokens   int
 	released bool
@@ -73,11 +78,15 @@ func (h *heldBody) Read(p []byte) (int, error) {
 	for h.passed < h.held.next {
 		// The scan is done before the proxy reads: a chunk it has passed on is not needed again.
 		h.held.chunks[h.passed] = nil
-		h.passed++
-		if h.passed < len(h.held.chunks) && h.tokens > 1 {
-			h.pool.give(1)
-			h.tokens--
+		if h.passed < len(h.units) {
+			u := h.units[h.passed]
+			if u > h.tokens {
+				u = h.tokens
+			}
+			h.pool.give(u)
+			h.tokens -= u
 		}
+		h.passed++
 	}
 	if errors.Is(err, io.EOF) {
 		h.reset()
@@ -93,6 +102,7 @@ func (h *heldBody) reset() {
 	h.pool.give(h.tokens)
 	h.tokens = 0
 	h.held = chunkReader{}
+	h.units = nil
 	h.passed = 0
 }
 
@@ -101,15 +111,25 @@ func (h *heldBody) Close() error {
 	return h.original.Close()
 }
 
-func (h *heldBody) took() {
+func (h *heldBody) took(n int) {
 	h.mu.Lock()
-	h.tokens++
+	h.tokens += n
 	h.mu.Unlock()
 }
 
-func (h *heldBody) hold(chunks [][]byte) {
+func (h *heldBody) hold(chunks [][]byte, units []int) {
 	h.mu.Lock()
 	h.held = chunkReader{chunks: chunks}
+	h.units = units
+	h.passed = 0
+	h.mu.Unlock()
+}
+
+// holdJoined keeps a joined body in place of its chunks, with all their units.
+func (h *heldBody) holdJoined(b []byte) {
+	h.mu.Lock()
+	h.held = chunkReader{chunks: [][]byte{b}}
+	h.units = []int{h.tokens}
 	h.passed = 0
 	h.mu.Unlock()
 }
@@ -124,28 +144,31 @@ func (h *heldBody) release() {
 	h.mu.Unlock()
 }
 
-// read is the outcome of reading a body for the scan: its chunks, as they came.
+// read is the outcome of reading a body for the scan: its chunks, as they came, and the units each
+// took.
 type read struct {
 	chunks  [][]byte
+	units   []int
 	size    int64
 	verdict string
 	err     error
 }
 
-func (o *read) add(b []byte) {
+func (o *read) add(b []byte, units int) {
 	if len(b) > 0 {
 		o.chunks = append(o.chunks, b)
+		o.units = append(o.units, units)
 		o.size += int64(len(b))
 	}
 }
 
 // readBody reads the body for the scan - one of unknown length up to a chunk beyond maxBytes, to
-// tell that it is too large - in chunks of up to 1 MiB, taking a chunk of the pool for each as it
-// is allocated - so a body holds memory only for what it has sent, and none before its first
-// byte: an upload that only connects holds nothing. It is admitted first (memoryPool); a body that
-// gets no chunk in time stops being read for the scan (skipped:busy), and the app gets what was
-// read followed by the rest. Only io.EOF is the body's end: a client that breaks off a chunked
-// body gives ErrUnexpectedEOF.
+// tell that it is too large - in chunks (piece), taking their units of the pool as each is
+// allocated - so a body holds memory only for what it has sent, a client that sends a byte and
+// stalls 64 KiB, and none before its first byte: an upload that only connects holds nothing. It
+// is admitted first (memoryPool); a body that gets no chunk in time stops being read for the scan
+// (skipped:busy), and the app gets what was read followed by the rest. Only io.EOF is the body's
+// end: a client that breaks off a chunked body gives ErrUnexpectedEOF.
 func readBody(r io.Reader, known int64, q *queue, held *heldBody) read {
 	var probe [1]byte
 	n, err := fill(r, probe[:])
@@ -178,13 +201,13 @@ func readBody(r io.Reader, known int64, q *queue, held *heldBody) read {
 
 	need := 1
 	if known > 0 {
-		need = chunksFor(known)
+		need = unitsFor(known)
 	}
 	in := held.pool.admit(q, need)
 	if in == nil {
-		return read{chunks: [][]byte{first}, size: 1, verdict: "skipped:busy"}
+		return read{chunks: [][]byte{first}, units: []int{0}, size: 1, verdict: "skipped:busy"}
 	}
-	held.took()
+	held.took(1)
 	defer held.pool.done(in)
 	held.pool.arrived(in, 1)
 	r = &paced{r: r, pool: held.pool, in: in}
@@ -194,36 +217,75 @@ func readBody(r io.Reader, known int64, q *queue, held *heldBody) read {
 	return readChunked(r, first, in, q, held)
 }
 
-// nextChunk takes the chunk for a body's next piece; the first came with its admission.
-func nextChunk(out *read, in *intake, q *queue, held *heldBody) bool {
-	if len(out.chunks) == 0 {
-		return true
+// piece allocates the chunk for a body's next piece and takes its units: 64 KiB first, doubled
+// each time it is full up to 1 MiB, then 1 MiB pieces (README "Upload scan", Memory). A doubled
+// first piece is a new chunk holding the old one's bytes (filled of them) that replaces it (grown),
+// taking only the units it adds. left is what the body may still send, -1 when unknown. False
+// when no units came in time; the first piece's unit came with the body's admission.
+func piece(out *read, left int64, in *intake, q *queue, held *heldBody) (
+	[]byte, int, int, bool, bool,
+) {
+	size := int64(chunkSize)
+	grow := false
+	switch {
+	case len(out.chunks) == 0:
+		size = firstChunkSize
+	case len(out.chunks) == 1 && len(out.chunks[0]) < chunkSize:
+		grow = true
+		have := int64(len(out.chunks[0]))
+		if 2*have < size {
+			size = 2 * have
+		}
+		if left >= 0 {
+			left += have
+		}
 	}
-	if !held.pool.more(in, q) {
-		return false
+	if left >= 0 && size > left {
+		size = left
 	}
-	held.took()
-	return true
+	units := unitsFor(size)
+	if len(out.chunks) > 0 {
+		take := units
+		if grow {
+			take -= out.units[0]
+		}
+		if !held.pool.more(in, q, take) {
+			return nil, 0, 0, false, false
+		}
+		held.took(take)
+	}
+	chunk := make([]byte, size)
+	filled := 0
+	if grow {
+		filled = copy(chunk, out.chunks[0])
+	}
+	return chunk, filled, units, grow, true
+}
+
+// put adds a piece's chunk, or puts it in place of the first chunk it grew from.
+func (o *read) put(b []byte, units int, grown bool) {
+	if grown {
+		o.chunks = nil
+		o.units = nil
+		o.size = 0
+	}
+	o.add(b, units)
 }
 
 func readKnown(r io.Reader, known int64, first []byte, in *intake, q *queue, held *heldBody) read {
 	var out read
 	pending := first
 	for out.size < known {
-		if !nextChunk(&out, in, q, held) {
+		chunk, n, units, grown, ok := piece(&out, known-out.size, in, q, held)
+		if !ok {
 			out.verdict = "skipped:busy"
 			return out
 		}
-		size := known - out.size
-		if size > chunkSize {
-			size = chunkSize
-		}
-		chunk := make([]byte, size)
-		n := copy(chunk, pending)
+		n += copy(chunk[n:], pending)
 		pending = nil
 		m, err := fill(r, chunk[n:])
 		n += m
-		out.add(chunk[:n])
+		out.put(chunk[:n], units, grown)
 		if err != nil && !errors.Is(err, io.EOF) {
 			out.verdict = "aborted"
 			out.err = err
@@ -239,9 +301,9 @@ func readKnown(r io.Reader, known int64, first []byte, in *intake, q *queue, hel
 }
 
 // readChunked reads a body of unknown length, starting with its first byte. After a full piece, one
-// byte read ahead tells whether the body goes on before another chunk is taken for it, so a body
-// ending exactly where a piece ends takes none; that byte stays part of the body whatever comes
-// next.
+// byte read ahead tells whether the body goes on before another chunk is taken or the first one
+// grown for it, so a body ending exactly where a piece ends takes none; that byte stays part of
+// the body whatever comes next.
 func readChunked(r io.Reader, first []byte, in *intake, q *queue, held *heldBody) read {
 	var out read
 	ahead := first
@@ -254,23 +316,19 @@ func readChunked(r io.Reader, first []byte, in *intake, q *queue, held *heldBody
 				ahead = append([]byte(nil), probe[0])
 			}
 			if err != nil {
-				out.add(ahead)
+				out.add(ahead, 0)
 				return out.ended(err)
 			}
 		}
-		if !nextChunk(&out, in, q, held) {
-			out.add(ahead)
+		chunk, n, units, grown, ok := piece(&out, -1, in, q, held)
+		if !ok {
+			out.add(ahead, 0)
 			out.verdict = "skipped:busy"
 			return out
 		}
-		size := chunkSize
-		if len(out.chunks) == 0 {
-			size = firstChunkSize
-		}
-		chunk := make([]byte, size)
-		n := copy(chunk, ahead)
+		n += copy(chunk[n:], ahead)
 		m, err := fill(r, chunk[n:])
-		out.add(chunk[:n+m])
+		out.put(chunk[:n+m], units, grown)
 		if out.size > maxBytes {
 			out.verdict = "skipped:too-large"
 			return out
@@ -294,11 +352,12 @@ func (o read) ended(err error) read {
 }
 
 // join copies a body's chunks into one buffer, which cutting a multipart body needs, gives it to
-// held in their place - it keeps their memory in the pool - and clears them. One body at a time
-// per Traefik: while it copies, the chunks and the copy exist together. Cleared because Yaegi keeps
-// values it has handed around reachable; a large body's chunks also go back to the system before
-// the next body may copy, since its buffer cannot reuse 1 MiB pieces and would take fresh memory.
-// False when its turn does not come within the queue's time, or the client leaves meanwhile.
+// held in their place - it keeps their units in the pool - and clears them. One body at a time
+// per Traefik: while it copies, the chunks and the copy exist together; a body up to 1 MiB is one
+// chunk (piece) and never copied. Cleared because Yaegi keeps values it has handed around
+// reachable; a large body's chunks also go back to the system before the next body may copy,
+// since its buffer cannot reuse 1 MiB pieces and would take fresh memory. False when its turn does
+// not come within the queue's time, or the client leaves meanwhile.
 func join(q *queue, chunks [][]byte, held *heldBody) ([]byte, bool) {
 	if len(chunks) == 1 {
 		return chunks[0], true
@@ -308,7 +367,7 @@ func join(q *queue, chunks [][]byte, held *heldBody) ([]byte, bool) {
 	}
 	defer func() { <-joining }()
 	out := bytes.Join(chunks, nil)
-	held.hold([][]byte{out})
+	held.holdJoined(out)
 	for i := range chunks {
 		chunks[i] = nil
 	}

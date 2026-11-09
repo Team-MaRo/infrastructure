@@ -40,13 +40,13 @@ func resetLimits() {
 	joining = make(chan struct{}, 1)
 }
 
-// occupy takes n chunks of the pool for the rest of the test.
+// occupy takes n units of the pool for the rest of the test.
 func occupy(t *testing.T, n int) {
 	t.Helper()
 	pool.mu.Lock()
 	if pool.used+n > pool.size {
 		pool.mu.Unlock()
-		t.Fatalf("could not take %d chunks", n)
+		t.Fatalf("could not take %d units", n)
 	}
 	pool.used += n
 	pool.mu.Unlock()

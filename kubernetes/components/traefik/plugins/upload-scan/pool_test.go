@@ -20,19 +20,19 @@ func TestPromiseFollowsThePace(t *testing.T) {
 		want int
 	}{
 		"just admitted": {intake{need: 98, admitted: now.Add(-time.Second)}, 98},
-		"1 MiB in 10 s": {intake{need: 98, admitted: now.Add(-10 * time.Second), received: chunkSize}, 3},
+		"1 MiB in 10 s": {intake{need: 98, admitted: now.Add(-10 * time.Second), received: chunkSize}, 48},
 		"stalled":       {intake{need: 98, admitted: now.Add(-10 * time.Second)}, 0},
 		"50 MiB in 5 s": {intake{need: 40, admitted: now.Add(-5 * time.Second), received: 50 * chunkSize}, 40},
 	}
 	for name, c := range cases {
 		if got := c.in.counted(now); got != c.want {
-			t.Errorf("%s: %d chunks set aside, want %d", name, got, c.want)
+			t.Errorf("%s: %d units set aside, want %d", name, got, c.want)
 		}
 	}
 }
 
 // A body admitted because its announced size fitted keeps that room: a chunked body, which
-// announced one chunk, cannot take it.
+// announced one unit, cannot take it.
 func TestSetAsideRoomIsKeptFromOthers(t *testing.T) {
 	p := &memoryPool{size: 10}
 	now := time.Now()
@@ -41,15 +41,15 @@ func TestSetAsideRoomIsKeptFromOthers(t *testing.T) {
 	if known == nil || chunked == nil {
 		t.Fatal("not admitted")
 	}
-	if !p.free(chunked, p.promised(now), now) {
+	if !p.free(chunked, p.promised(now), now, 1) {
 		t.Fatal("the one chunk nobody set aside was not free for the chunked body")
 	}
 	p.used++
-	chunked.took()
-	if p.free(chunked, p.promised(now), now) {
+	chunked.took(1)
+	if p.free(chunked, p.promised(now), now, 1) {
 		t.Fatal("the chunked body could take room set aside for the known one")
 	}
-	if !p.free(known, p.promised(now), now) {
+	if !p.free(known, p.promised(now), now, 1) {
 		t.Fatal("the known body could not take its own room")
 	}
 }
@@ -111,7 +111,7 @@ func TestManyUploadsAtOnceAreAllScanned(t *testing.T) {
 		verdicts[line["verdict"]]++
 	}
 	if verdicts["clean"] != 8 || pool.inUse() != 0 {
-		t.Fatalf("verdicts %v, %d chunks still in use", verdicts, pool.inUse())
+		t.Fatalf("verdicts %v, %d units still in use", verdicts, pool.inUse())
 	}
 }
 
@@ -126,14 +126,14 @@ func TestEveryReaderWaitingGivesUpTheNewest(t *testing.T) {
 		t.Fatal("not admitted")
 	}
 	got := make(chan bool, 1)
-	go func() { got <- p.more(older, q()) }()
+	go func() { got <- p.more(older, q(), 1) }()
 	until(t, "the older body waits", func() bool {
 		p.mu.Lock()
 		defer p.mu.Unlock()
 		return older.waiting
 	})
 
-	if p.more(newer, q()) {
+	if p.more(newer, q(), 1) {
 		t.Fatal("the newest got a chunk although none was free")
 	}
 	p.done(newer)
@@ -193,7 +193,7 @@ func TestLoneWaiterWaitsForMemory(t *testing.T) {
 	p.used++ // a finished body's chunk, not passed on yet
 	p.mu.Unlock()
 	got := make(chan bool, 1)
-	go func() { got <- p.more(in, q) }()
+	go func() { got <- p.more(in, q, 1) }()
 
 	time.Sleep(2 * patience)
 	p.give(1)
@@ -215,8 +215,8 @@ func TestStuckBodiesGiveWayWhoeverElseHoldsMemory(t *testing.T) {
 	olderGot := make(chan bool, 1)
 	newerGot := make(chan bool, 1)
 	start := time.Now()
-	go func() { olderGot <- p.more(older, q()) }()
-	go func() { newerGot <- p.more(newer, q()) }()
+	go func() { olderGot <- p.more(older, q(), 1) }()
+	go func() { newerGot <- p.more(newer, q(), 1) }()
 
 	if <-newerGot {
 		t.Fatal("the newer body got a chunk although none was free")
@@ -253,5 +253,36 @@ func TestAdmissionFollowsAShrinkingReservation(t *testing.T) {
 	p.mu.Unlock()
 	if <-admitted == nil {
 		t.Fatal("not admitted by the pool's timer within the queue time")
+	}
+}
+
+// A body taking units from its own set-aside room is not held back by an earlier one waiting for
+// more: that room was never the earlier one's.
+func TestOwnRoomIsNotHeldForAnEarlierWaiter(t *testing.T) {
+	p := &memoryPool{size: 80}
+	q := func() *queue { return &queue{left: 3 * time.Second, ctx: context.Background()} }
+	stalled := p.admit(q(), 1)
+	fast := p.admit(q(), 21) // just admitted: its 20 units still to come are set aside
+	if stalled == nil || fast == nil {
+		t.Fatal("not admitted")
+	}
+	p.mu.Lock()
+	p.used = 60
+	p.mu.Unlock()
+	got := make(chan bool, 1)
+	go func() { got <- p.more(stalled, q(), 16) }()
+	until(t, "the stalled body waits", func() bool {
+		p.mu.Lock()
+		defer p.mu.Unlock()
+		return stalled.waiting
+	})
+
+	start := time.Now()
+	if !p.more(fast, q(), 16) || time.Since(start) > patience/2 {
+		t.Fatalf("the fast body did not get units from its own room at once (%v)", time.Since(start))
+	}
+	p.give(16)
+	if !<-got {
+		t.Fatal("the stalled body did not get its chunk once memory came back")
 	}
 }

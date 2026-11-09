@@ -34,7 +34,7 @@ func TestTooLargeWhileReadingKeepsTheBody(t *testing.T) {
 func TestBusyWhenNoMemoryIsFreeKeepsTheBody(t *testing.T) {
 	clamd := startClamd(t, 0)
 	s := newSetup(t, clamd.addr, func(c *Config) { c.QueueTimeout = "50ms" })
-	occupy(t, pool.size-1) // one chunk left: the body below needs three
+	occupy(t, pool.size-1) // one unit left: the body below needs more
 	sent := bytes.Repeat([]byte("m"), 2*chunkSize+10)
 
 	serve(s, http.MethodPost, "https://site.example.org/upload", "application/zip", sent)
@@ -44,7 +44,7 @@ func TestBusyWhenNoMemoryIsFreeKeepsTheBody(t *testing.T) {
 		t.Fatalf("unexpected: %v, backend got %d bytes", line, len(*s.got))
 	}
 	if pool.inUse() != pool.size-1 {
-		t.Fatalf("%d chunks in use after the request, want only the occupied %d", pool.inUse(), pool.size-1)
+		t.Fatalf("%d units in use after the request, want only the occupied %d", pool.inUse(), pool.size-1)
 	}
 }
 
@@ -55,7 +55,7 @@ func TestMemoryIsReturnedAfterEveryRequest(t *testing.T) {
 		serve(s, http.MethodPost, "https://site.example.org/upload", "application/zip", bytes.Repeat([]byte("r"), size))
 		s.logLines()
 		if pool.inUse() != 0 {
-			t.Fatalf("after a %d byte body %d chunks are still held", size, pool.inUse())
+			t.Fatalf("after a %d byte body %d units are still held", size, pool.inUse())
 		}
 	}
 }
@@ -134,8 +134,8 @@ func TestKnownLengthTakesExactlyItsMemory(t *testing.T) {
 	serve(s, http.MethodPost, "https://site.example.org/upload", "application/zip", bytes.Repeat([]byte("k"), chunkSize))
 
 	s.logLines()
-	if during != 1 || pool.inUse() != before {
-		t.Fatalf("a 1 MiB body held %d chunks (want 1), %d left after", during, pool.inUse()-before)
+	if during != unitsFor(chunkSize) || pool.inUse() != before {
+		t.Fatalf("a 1 MiB body held %d units (want %d), %d left after", during, unitsFor(chunkSize), pool.inUse()-before)
 	}
 }
 
@@ -166,7 +166,7 @@ func TestPanicDownstreamGivesTheMemoryBack(t *testing.T) {
 	}()
 	s.logLines()
 	if pool.inUse() != 0 {
-		t.Fatalf("%d chunks leaked by a panic", pool.inUse())
+		t.Fatalf("%d units leaked by a panic", pool.inUse())
 	}
 }
 
@@ -201,10 +201,10 @@ func TestEmptyChunkedBodyIsNotScanned(t *testing.T) {
 	}
 }
 
-// A chunked body holds a chunk per piece it sent: a small one a single chunk, 1 MiB two (64 KiB
-// first, then the rest) - never the most a body may take.
+// A chunked body holds the units of the pieces it sent: a small one a single unit, 1 MiB its first
+// 64 KiB grown into one full piece, 16 - never the most a body may take.
 func TestChunkedBodyHoldsWhatItSent(t *testing.T) {
-	for _, c := range []struct{ size, want int }{{2 << 10, 1}, {chunkSize, 2}} {
+	for _, c := range []struct{ size, want int }{{2 << 10, 1}, {chunkSize, 16}} {
 		clamd := startClamd(t, 0)
 		s := newSetup(t, clamd.addr, nil)
 		var during int
@@ -221,7 +221,7 @@ func TestChunkedBodyHoldsWhatItSent(t *testing.T) {
 
 		s.logLines()
 		if during != c.want || pool.inUse() != 0 {
-			t.Fatalf("a chunked %d byte body held %d chunks (want %d), %d left after", c.size, during, c.want, pool.inUse())
+			t.Fatalf("a chunked %d byte body held %d units (want %d), %d left after", c.size, during, c.want, pool.inUse())
 		}
 	}
 }
@@ -243,8 +243,60 @@ func TestChunkedBusyLogsWhatWasRead(t *testing.T) {
 	}
 }
 
-// A client that announces 100 MiB and then stalls holds memory only for what it sent: the chunk
-// it filled and the one being filled - not its announced size.
+// A client that announces 100 MiB, sends one byte and stalls holds a single unit (64 KiB): its first
+// piece is no larger with a known length than with an unknown one.
+func TestOneByteThenStallHoldsOneUnit(t *testing.T) {
+	clamd := startClamd(t, 0)
+	s := newSetup(t, clamd.addr, nil)
+	body := &stallingBody{first: []byte("x"), stalled: make(chan struct{})}
+	release := stall(t, body)
+	req := httptest.NewRequest(http.MethodPost, "https://site.example.org/upload", body)
+	req.ContentLength = maxBytes
+	req.Header.Set("Content-Type", "application/zip")
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		s.handler.ServeHTTP(httptest.NewRecorder(), req)
+	}()
+	until(t, "the upload is admitted", func() bool { return pool.inUse() >= 1 })
+	time.Sleep(50 * time.Millisecond)
+	held := pool.inUse()
+	release()
+	<-done
+
+	if line := onlyLine(t, s); held != 1 || line["verdict"] != "aborted" || pool.inUse() != 0 {
+		t.Fatalf("a stalled upload after one byte held %d units (want 1), %d left after: %v", held, pool.inUse(), line)
+	}
+}
+
+// A client that announces 100 MiB, sends 64 KiB and stalls holds 128 KiB, two units: its first
+// piece doubles once full, it is not followed by a full 1 MiB one.
+func TestStallAfter64KiBHoldsTwiceWhatItSent(t *testing.T) {
+	clamd := startClamd(t, 0)
+	s := newSetup(t, clamd.addr, nil)
+	body := &stallingBody{first: bytes.Repeat([]byte("s"), firstChunkSize), stalled: make(chan struct{})}
+	release := stall(t, body)
+	req := httptest.NewRequest(http.MethodPost, "https://site.example.org/upload", body)
+	req.ContentLength = maxBytes
+	req.Header.Set("Content-Type", "application/zip")
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		s.handler.ServeHTTP(httptest.NewRecorder(), req)
+	}()
+	until(t, "the first piece has doubled", func() bool { return pool.inUse() >= 2 })
+	time.Sleep(50 * time.Millisecond)
+	held := pool.inUse()
+	release()
+	<-done
+
+	if line := onlyLine(t, s); held != 2 || line["verdict"] != "aborted" || pool.inUse() != 0 {
+		t.Fatalf("a stalled upload after 64 KiB held %d units (want 2), %d left after: %v", held, pool.inUse(), line)
+	}
+}
+
+// A client that announces 100 MiB and then stalls holds memory only for what it sent: the 1 MiB it
+// sent (its first piece grown) and the 1 MiB chunk being filled, 32 units - not its announced size.
 func TestSlowSenderHoldsOnlyWhatItSent(t *testing.T) {
 	clamd := startClamd(t, 0)
 	s := newSetup(t, clamd.addr, nil)
@@ -259,14 +311,14 @@ func TestSlowSenderHoldsOnlyWhatItSent(t *testing.T) {
 		s.handler.ServeHTTP(httptest.NewRecorder(), req)
 	}()
 
-	until(t, "the upload holds two chunks", func() bool { return pool.inUse() >= 2 })
+	until(t, "the upload holds its two chunks", func() bool { return pool.inUse() >= 32 })
 	time.Sleep(50 * time.Millisecond)
 	held := pool.inUse()
 	release()
 	<-done
 
-	if line := onlyLine(t, s); held != 2 || line["verdict"] != "aborted" || pool.inUse() != 0 {
-		t.Fatalf("a stalled 100 MiB upload held %d chunks (want 2), %d left after: %v", held, pool.inUse(), line)
+	if line := onlyLine(t, s); held != 32 || line["verdict"] != "aborted" || pool.inUse() != 0 {
+		t.Fatalf("a stalled 100 MiB upload held %d units (want 32), %d left after: %v", held, pool.inUse(), line)
 	}
 }
 
@@ -301,9 +353,9 @@ func TestReadAfterCloseIsSafe(t *testing.T) {
 	occupyRaw(3)
 	h := &heldBody{original: io.NopCloser(strings.NewReader("rest")), pool: pool}
 	for i := 0; i < 3; i++ {
-		h.took()
+		h.took(1)
 	}
-	h.hold([][]byte{bytes.Repeat([]byte("a"), 10), bytes.Repeat([]byte("b"), 10), bytes.Repeat([]byte("c"), 10)})
+	h.hold([][]byte{bytes.Repeat([]byte("a"), 10), bytes.Repeat([]byte("b"), 10), bytes.Repeat([]byte("c"), 10)}, []int{1, 1, 1})
 	buf := make([]byte, 15)
 	if _, err := io.ReadFull(h, buf); err != nil {
 		t.Fatal(err)
@@ -312,25 +364,29 @@ func TestReadAfterCloseIsSafe(t *testing.T) {
 
 	got, err := io.ReadAll(h)
 	if !errors.Is(err, http.ErrBodyReadAfterClose) || len(got) != 0 || pool.inUse() != 0 {
-		t.Fatalf("after Close: %q, %v, %d chunks still in use", got, err, pool.inUse())
+		t.Fatalf("after Close: %q, %v, %d units still in use", got, err, pool.inUse())
 	}
 }
 
 // A chunked body that ends exactly where a chunk ends is complete: no further chunk taken to
 // find its end, so a nearly full pool does not make it busy.
 func TestChunkedBodyEndingOnAChunkBoundary(t *testing.T) {
-	clamd := startClamd(t, 0)
-	s := newSetup(t, clamd.addr, func(c *Config) { c.QueueTimeout = "50ms" })
-	occupy(t, pool.size-2)
-	sent := bytes.Repeat([]byte("e"), firstChunkSize+chunkSize)
-	req := httptest.NewRequest(http.MethodPut, "https://site.example.org/upload", io.NopCloser(bytes.NewReader(sent)))
-	req.ContentLength = -1
-	req.Header.Set("Content-Type", "application/octet-stream")
+	// The grown first piece, and a later full one.
+	for _, pieces := range []int{1, 2} {
+		clamd := startClamd(t, 0)
+		s := newSetup(t, clamd.addr, func(c *Config) { c.QueueTimeout = "50ms" })
+		room := pieces * unitsFor(chunkSize)
+		occupy(t, pool.size-room) // the units of its full pieces, no more
+		sent := bytes.Repeat([]byte("e"), pieces*chunkSize)
+		req := httptest.NewRequest(http.MethodPut, "https://site.example.org/upload", io.NopCloser(bytes.NewReader(sent)))
+		req.ContentLength = -1
+		req.Header.Set("Content-Type", "application/octet-stream")
 
-	s.handler.ServeHTTP(httptest.NewRecorder(), req)
+		s.handler.ServeHTTP(httptest.NewRecorder(), req)
 
-	if line := onlyLine(t, s); line["verdict"] != "clean" || !bytes.Equal(*s.got, sent) || pool.inUse() != pool.size-2 {
-		t.Fatalf("unexpected: %v, %d chunks in use", line, pool.inUse())
+		if line := onlyLine(t, s); line["verdict"] != "clean" || !bytes.Equal(*s.got, sent) || pool.inUse() != pool.size-room {
+			t.Fatalf("%d MiB: %v, %d units in use", pieces, line, pool.inUse())
+		}
 	}
 }
 
@@ -348,8 +404,10 @@ func TestChunksGoBackOneByOne(t *testing.T) {
 	serve(s, http.MethodPost, "https://site.example.org/upload", "application/zip", bytes.Repeat([]byte("g"), 3*chunkSize))
 
 	s.logLines()
-	if halfway != 2 || pool.inUse() != 0 {
-		t.Fatalf("after reading past one of three chunks %d were held (want 2), %d after", halfway, pool.inUse())
+	// 3 MiB in three chunks of 1 MiB (16 units each, the first grown from 64 KiB); 1.5 MiB read is
+	// past the first.
+	if halfway != 32 || pool.inUse() != 0 {
+		t.Fatalf("after reading past one of three chunks %d units were held (want 32), %d after", halfway, pool.inUse())
 	}
 }
 
@@ -371,7 +429,24 @@ func TestChunkedBusyHalfwayKeepsEveryByte(t *testing.T) {
 
 	line := onlyLine(t, s)
 	if line["verdict"] != "skipped:busy" || !bytes.Equal(*s.got, sent) || pool.inUse() != pool.size-1 {
-		t.Fatalf("unexpected: %v, backend got %d of %d bytes, %d chunks in use", line, len(*s.got), len(sent), pool.inUse())
+		t.Fatalf("unexpected: %v, backend got %d of %d bytes, %d units in use", line, len(*s.got), len(sent), pool.inUse())
+	}
+}
+
+// A multipart body up to 1 MiB is one chunk - its first piece grown - and is never joined, so it
+// does not wait for the turn of larger joins.
+func TestSmallMultipartDoesNotWaitForTheJoin(t *testing.T) {
+	clamd := startClamd(t, 0)
+	s := newSetup(t, clamd.addr, func(c *Config) { c.QueueTimeout = "50ms" })
+	joining <- struct{}{}
+	defer func() { <-joining }()
+	file := bytes.Repeat([]byte("p"), 200<<10)
+	body, contentType := multipartBody(t, map[string][]byte{"photo.jpg": file}, nil)
+
+	serve(s, http.MethodPost, "https://site.example.org/upload", contentType, body.Bytes())
+
+	if line := onlyLine(t, s); line["verdict"] != "clean" || !clamd.got(file) {
+		t.Fatalf("a 200 KiB multipart upload was not scanned while a large join ran: %v", line)
 	}
 }
 
@@ -389,7 +464,7 @@ func TestLargeJoinIsCutExactly(t *testing.T) {
 	serve(s, http.MethodPost, "https://site.example.org/upload", "multipart/form-data; boundary=b", []byte(body))
 
 	if line := onlyLine(t, s); line["verdict"] != "clean" || !clamd.got(large) || !bytes.Equal(*s.got, []byte(body)) || pool.inUse() != 0 {
-		t.Fatalf("unexpected: %v, clamd got it exactly: %v, %d chunks in use", line, clamd.got(large), pool.inUse())
+		t.Fatalf("unexpected: %v, clamd got it exactly: %v, %d units in use", line, clamd.got(large), pool.inUse())
 	}
 }
 
@@ -415,6 +490,6 @@ func TestIdleUploadHoldsNoMemory(t *testing.T) {
 	<-done
 
 	if line := onlyLine(t, s); held != 0 || line["verdict"] != "aborted" || pool.inUse() != 0 {
-		t.Fatalf("an upload that sent nothing held %d chunks: %v", held, line)
+		t.Fatalf("an upload that sent nothing held %d units: %v", held, line)
 	}
 }

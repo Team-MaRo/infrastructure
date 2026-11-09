@@ -20,10 +20,11 @@ const (
 	patience = time.Second
 )
 
-// memoryPool hands out chunks as bodies are read: it admits a body once its announced size fits
-// next to what the bodies being read have set aside at their pace, gives freed chunks to the
-// bodies waiting for one, and lets stuck bodies give way one at a time - the rules and their
-// reasons in kubernetes/components/traefik/README.md, "Upload scan", Memory.
+// memoryPool hands out memory in units (64 KiB) as bodies are read: it admits a body once its
+// announced size fits next to what the bodies being read have set aside at their pace, gives freed
+// units to the bodies waiting for a chunk, oldest first, and lets stuck bodies give way one at a
+// time - the rules and their reasons in kubernetes/components/traefik/README.md, "Upload scan",
+// Memory.
 type memoryPool struct {
 	mu        sync.Mutex
 	size      int
@@ -34,10 +35,11 @@ type memoryPool struct {
 	gaveWay   time.Time // when a body last gave way: at most one per patience
 }
 
-// intake is a body being read: the chunks it announced but has not taken yet, what it has sent
-// since it was admitted, the time it spent waiting for the pool, and its wait for a chunk.
+// intake is a body being read: the units it announced but has not taken yet, what it has sent
+// since it was admitted, the time it spent waiting for the pool, and its wait for a chunk's units.
 type intake struct {
 	need      int
+	want      int
 	received  int64
 	admitted  time.Time
 	waited    time.Duration
@@ -51,9 +53,10 @@ type admission struct {
 	grant chan *intake
 }
 
-func (in *intake) took() {
-	if in.need > 0 {
-		in.need--
+func (in *intake) took(units int) {
+	in.need -= units
+	if in.need < 0 {
+		in.need = 0
 	}
 }
 
@@ -65,7 +68,7 @@ func (in *intake) stopWaiting(now time.Time) {
 	}
 }
 
-// counted is how many of its announced chunks a body has set aside at now. Its pace leaves out the
+// counted is how many of its announced units a body has set aside at now. Its pace leaves out the
 // time it waited for the pool: a body held up there is not slow.
 func (in *intake) counted(now time.Time) int {
 	elapsed := now.Sub(in.admitted) - in.waited
@@ -75,7 +78,7 @@ func (in *intake) counted(now time.Time) int {
 	if elapsed < rateGrace {
 		return in.need
 	}
-	soon := chunksFor(int64(float64(in.received) / elapsed.Seconds() * promiseHorizon.Seconds()))
+	soon := unitsFor(int64(float64(in.received) / elapsed.Seconds() * promiseHorizon.Seconds()))
 	if soon > in.need {
 		return in.need
 	}
@@ -97,8 +100,8 @@ func (p *memoryPool) promised(now time.Time) int {
 	return n
 }
 
-// tryAdmit admits a body announcing need chunks if they fit next to what is set aside, with its
-// first chunk; p.mu is held.
+// tryAdmit admits a body announcing need units if they fit next to what is set aside, with the
+// unit of its first piece; p.mu is held.
 func (p *memoryPool) tryAdmit(need, promised int, now time.Time) *intake {
 	if p.used+promised+need > p.size {
 		return nil
@@ -109,12 +112,12 @@ func (p *memoryPool) tryAdmit(need, promised int, now time.Time) *intake {
 	return in
 }
 
-// free reports whether a chunk is free for in, not set aside for another body; p.mu is held.
-func (p *memoryPool) free(in *intake, promised int, now time.Time) bool {
-	return p.used+promised-in.counted(now) < p.size
+// free reports whether units are free for in, not set aside for another body; p.mu is held.
+func (p *memoryPool) free(in *intake, promised int, now time.Time, units int) bool {
+	return p.used+promised-in.counted(now)+units <= p.size
 }
 
-// serve hands free chunks to the bodies being read that wait, oldest first, then admits the
+// serve hands free units to the bodies being read that wait, oldest first, then admits the
 // waiting bodies that fit; p.mu is held.
 func (p *memoryPool) serve() {
 	if !p.waits() {
@@ -123,10 +126,10 @@ func (p *memoryPool) serve() {
 	now := time.Now()
 	promised := p.promised(now)
 	for _, in := range p.reading {
-		if in.waiting && p.free(in, promised, now) {
+		if in.waiting && p.free(in, promised, now, in.want) {
 			before := in.counted(now)
-			p.used++
-			in.took()
+			p.used += in.want
+			in.took(in.want)
 			in.stopWaiting(now)
 			promised += in.counted(now) - before
 			in.grant <- true
@@ -226,7 +229,7 @@ func (p *memoryPool) arrived(in *intake, n int) {
 	p.mu.Unlock()
 }
 
-// admit admits a body announcing need chunks, within the queue's time; nil when it does not get
+// admit admits a body announcing need units, within the queue's time; nil when it does not get
 // in.
 func (p *memoryPool) admit(q *queue, need int) *intake {
 	p.mu.Lock()
@@ -273,19 +276,20 @@ func (p *memoryPool) withdraw(a *admission) *intake {
 	return nil
 }
 
-// more takes a body's next chunk: at once if one is free for it, else in turn behind the bodies
-// read before it, within the queue's time - or until it has waited longer than patience while
-// another body being read waits too, is the one to give way and no other gave way within patience.
-// False when it does not get one.
-func (p *memoryPool) more(in *intake, q *queue) bool {
+// more takes the units of a body's next chunk: at once if they are free for it, else in turn
+// behind the bodies read before it, within the queue's time - or until it has waited longer than
+// patience while another body being read waits too, is the one to give way and no other gave way
+// within patience. False when it does not get them.
+func (p *memoryPool) more(in *intake, q *queue, units int) bool {
 	p.mu.Lock()
 	now := time.Now()
-	if p.free(in, p.promised(now), now) {
-		p.used++
-		in.took()
+	if p.free(in, p.promised(now), now, units) {
+		p.used += units
+		in.took(units)
 		p.mu.Unlock()
 		return true
 	}
+	in.want = units
 	in.waiting = true
 	in.waitStart = now
 	p.tick()
