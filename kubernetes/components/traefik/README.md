@@ -293,7 +293,11 @@ The repo's pre-commit hook (`.githooks/pre-commit`) runs both on the staged vers
 commit touches the plugin, `helmchartconfig.yaml`, `kustomization.yaml` or
 `middleware-upload-scan.yaml` (a test hands its settings to the plugin), so neither the source
 hash, a half-staged plugin nor a setting the plugin refuses goes in unnoticed; a clone turns it
-on once with `git config core.hooksPath .githooks` (`AGENTS.md`).
+on once with `git config core.hooksPath .githooks` (`AGENTS.md`). GitHub runs the same two on
+every push and pull request touching those files (`.github/workflows/upload-scan.yml`, the tests
+under `-race`), also for a clone without the hook; its actions follow their major version (`@v7`).
+Making the job a required check of `master`'s branch protection is a
+setting on GitHub, not in the repo.
 
 ## Checking it
 
