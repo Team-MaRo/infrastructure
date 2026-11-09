@@ -65,6 +65,7 @@ kubernetes/
 │       ├── kubeelasti.yaml        # scale to zero: chart (patch range) here, values in components/
 │       ├── cluster-rbac.yaml      # cluster-wide rights for kubectl logins through Zitadel
 │       ├── priority-classes.yaml  # the cluster's PriorityClasses - no finalizer
+│       ├── coredns.yaml           # two replicas for k3s's CoreDNS - no finalizer
 │       ├── etcd-snapshots.yaml    # syncs the subdirectory below
 │       └── etcd-snapshots/        # prod-only: the S3 settings k3s uploads snapshots with
 ├── charts/                    # charts of our own, rendered from master
@@ -173,6 +174,10 @@ kubernetes/
     ├── priority-classes/
     │   ├── kustomization.yaml
     │   └── stateful-core.yaml     # the databases and OpenBao, evicted last
+    ├── coredns/
+    │   ├── kustomization.yaml
+    │   ├── replicas.yaml          # partial: only k3s's Deployment's replica count
+    │   └── pdb.yaml               # a drain evicts one pod at a time
     ├── alloy/
     │   ├── values.yaml            # Helm values: the collection pipeline
     │   ├── kustomization.yaml
@@ -332,6 +337,7 @@ kubernetes/
 | [`kubeelasti`](components/kubeelasti/README.md) | Scale to zero; letting an app sleep |
 | [`cluster-rbac`](components/cluster-rbac/README.md) | Cluster-wide rights for kubectl logins through Zitadel |
 | [`priority-classes`](components/priority-classes/README.md) | `stateful-core`: the shared databases and OpenBao, evicted last under memory pressure |
+| [`coredns`](components/coredns/README.md) | Two replicas of k3s's CoreDNS on two nodes, and a drain that never evicts both |
 | [`clusters/prod/etcd-snapshots`](clusters/prod/etcd-snapshots/README.md) | prod-only: the S3 settings k3s uploads etcd snapshots with; restore |
 
 Components are Kustomize over a pinned upstream manifest where upstream publishes one.
