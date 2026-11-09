@@ -22,7 +22,7 @@ type Config struct {
 	Clamd string
 	// The whole scan of one request, all its files included - also what bounds a flood of parts.
 	ScanTimeout string
-	// The longest a request waits for memory, its turn to be joined and a clamd session, all waits
+	// The longest a request waits for memory, its turn to be joined and a clamd slot, all waits
 	// together.
 	QueueTimeout string
 	// "host" excludes a host, "host/path" exactly that path on it (the host in any case, the path

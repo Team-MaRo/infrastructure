@@ -196,7 +196,7 @@ cluster without each app setting something up. Our own plugin does it, `plugins/
   such as a chunked body, else the newest waiting one - and no other gave way in the last second,
   so stuck bodies free memory one at a time whoever else holds some; its memory comes back once
   the app has it. A body waiting alone waits out its time, since memory comes back as the others
-  finish. Waiting - to be admitted, for a chunk, for a clamd session, for the join - takes at most
+  finish. Waiting - to be admitted, for a chunk, for a clamd slot, for the join - takes at most
   10 s together; reading a slow body does not count. A body that does not get in, or gets no
   chunk in time, passes unscanned (`skipped:busy`; for a chunked body `bytes` is then what was
   read so far), the app getting what was read followed by the rest. Cutting a multipart body
@@ -205,7 +205,7 @@ cluster without each app setting something up. Our own plugin does it, `plugins/
   returned to the system at once (`debug.FreeOSMemory`), since a later large buffer could not
   reuse 1 MiB pieces and would take fresh memory while they wait for the garbage collector. Every
   other body is scanned and passed on straight from its pieces. A client that hangs up gives up
-  its clamd session, and its wait for one, at once; while its body is still being read, Go
+  its clamd slot, and its wait for one, at once; while its body is still being read, Go
   notices the hang-up (HTTP/1.1) only at the body's end, so one that disconnects halfway keeps its
   place until its 10 s of waiting are up. Measured 2026-11-09 in Docker under the cluster's limits
   (1 GiB, `GOMEMLIMIT` 921 MiB), four 90 MB multipart uploads at once: 535-630 MiB peak with a
@@ -235,9 +235,17 @@ cluster without each app setting something up. Our own plugin does it, `plugins/
 - **Time**: at most 10 s waiting plus one budget of 45 s for all files of a request, clamd's
   reload wait (~9 s) included; clamd itself ends one file's scan after 30 s and answers
   `limits-exceeded`, so a single slow file does not use up the request's time unanswered. clamd
-  unreachable ends the request's scan after the first attempt. Traefik's own read timeout (300 s
-  on `web` and `websecure`, `helmchartconfig.yaml`; its default of 60 s cut off large uploads over
-  slow connections) bounds receiving the body, counted from the request's start; the scan after it
+  unreachable ends the request's scan after the first attempt. A request scans within one of the
+  four clamd slots per Traefik, and all its parts go to clamd over one connection, a session
+  (`IDSESSION`), so a body of many small parts costs one connection and one DNS lookup instead of
+  one each, and its budget goes to scanning (1000 parts against the real clamd in Docker,
+  2026-11-09: 0.7-1.1 s with a session, 1.4-1.5 s with a connection each; the first run after
+  clamd's start took about 7 s either way). A session clamd breaks off fails the part it was on,
+  and the next part opens a new one within the same slot. clamd keeps an open session among the
+  connections it polls, so its `MaxQueue` has to stay above four per Traefik
+  ([`clamav/README.md`](../clamav/README.md)). Traefik's own read timeout (300 s on `web` and
+  `websecure`, `helmchartconfig.yaml`; its default of 60 s cut off large uploads over slow
+  connections) bounds receiving the body, counted from the request's start; the scan after it
   does not count, since Go lifts that deadline once the body is read. Waits for memory - once the
   first byte is there, and between pieces - fall inside it. Cloudflare passes an upload on as it
   arrives, apparently after collecting about its first MiB (2026-11-08: 2 MiB sent throttled took

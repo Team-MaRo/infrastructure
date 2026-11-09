@@ -88,7 +88,7 @@ func (u *UploadScan) safeScan(req *http.Request, q *queue, got read, held *heldB
 // from its chunks.
 func (u *UploadScan) scanBody(req *http.Request, q *queue, got read, held *heldBody) result {
 	ctx := req.Context()
-	// Before taking a clamd session: looking at the body does not need clamd.
+	// Before taking a clamd slot: looking at the body does not need clamd.
 	res := result{Bytes: got.size}
 	values := req.Header.Values("Content-Type")
 	multipart := isMultipart(values)
@@ -126,6 +126,7 @@ func (u *UploadScan) scanBody(req *http.Request, q *queue, got read, held *heldB
 	defer func() { <-sessions }()
 
 	j := newScanning(ctx, time.Now().Add(u.scanTimeout))
+	defer j.end()
 	switch {
 	case !multipart:
 		u.scanWhole(j, &chunkReader{chunks: got.chunks}, &res)

@@ -132,9 +132,10 @@ spec:
             periodSeconds: 10
             # A busy clamd answers PING late; one slow answer must not drop it from the Service.
             timeoutSeconds: 5
-            # Nor a full queue: with it, clamd accepts nothing - PING included - until a slot frees
-            # up, 16 streams, 4 at a time, of up to 30 s each (clamd.conf) about 120 s. The only
-            # clamd out of the Service would fail every scan at once instead of letting it wait.
+            # Nor a long queue: the Traefiks' 12 streams, 4 at a time, of up to 30 s each
+            # (clamd.conf) take about 90 s, and a full one (MaxQueue) would hold PING back
+            # entirely. The only clamd out of the Service would fail every scan at once instead of
+            # letting it wait.
             failureThreshold: 18
           # A frozen clamd is restarted, a busy one is not: a full queue holds PING back for
           # minutes (the Traefiks keep at most 12 sessions open), and a restart reloads the

@@ -54,15 +54,19 @@ today it scans the Traefik dashboard's route; every site comes next.
   about 10 s after it starts.
 - **Settings that differ from ClamAV's defaults** (only these are in the files):
   - `TCPSocket 3310`.
-  - `MaxThreads 4`, `MaxQueue 16`: scans at once (default 10) and streams accepted at once
+  - `MaxThreads 4`, `MaxQueue 24`: scans at once (default 10) and connections clamd keeps polling
     (default 100). Each stream lands in `/tmp` as it arrives and each scan unpacks archives there,
-    and the nodes have only a few GiB of disk free (2026-11-06: 6-14 GiB). With the queue full,
-    clamd accepts nothing, PING included, until a slot frees up - 16 streams, 4 at a time, of up
-    to 30 s each take about 120 s, and longer while streams keep coming. So readiness gives up
-    only after 18 x 10 s, or the only clamd would leave the Service and every scan would fail at
-    once instead of waiting; and the liveness probe restarts clamd only after 15 minutes without
-    an answer: a busy one answers again within minutes, a restart would reload the signatures,
-    and one silent for longer is frozen, not busy ("When `ClamavDown` fires" below).
+    and the nodes have only a few GiB of disk free (2026-11-06: 6-14 GiB); the Traefiks bound the
+    streams, four connections each, one part at a time. Past `MaxQueue` clamd accepts nothing,
+    PING included: a Traefik keeps its scan's connection open for the whole request (a session,
+    `IDSESSION`), and with 16 open sessions a PING got no answer (tested 2026-11-09) - so
+    `MaxQueue` stays above four per Traefik plus room for the probes; **a fourth Traefik needs it
+    raised**. The Traefiks' 12 streams, 4 at a time, of up to 30 s each take about 90 s, so
+    readiness gives up only after 18 x 10 s, or the only clamd would leave the Service and every
+    scan would fail at once instead of waiting; and the liveness probe restarts clamd only after
+    15 minutes without an answer: a busy one answers again within minutes, a restart would reload
+    the signatures, and one silent for longer is frozen, not busy ("When `ClamavDown` fires"
+    below).
   - `MaxScanTime 30000`: a scan ends after 30 s (default 120), well inside the 45 s Traefik
     gives a request, so Traefik still gets the answer (`Heuristics.Limits.Exceeded.MaxScanTime`)
     and a scan nobody waits for any more holds a thread for 30 s at most.
@@ -141,7 +145,7 @@ kubectl --context d3strukt0r-prod-admin -n clamav exec deploy/clamav -c clamd --
 - **Not running** (`CrashLoopBackOff`, `Pending`, restarts climbing): the logs of `restore`
   and `clamd` say why - most often memory (`OOMKilled` in `kubectl describe pod`) or the
   signatures ("Signatures stale" below).
-- **Busy**: in Grafana, `clamav_queue_length` near 16 and `clamav_threads_live` at 4 just
+- **Busy**: in Grafana, `clamav_queue_length` near 12 and `clamav_threads_live` at 4 just
   before it stopped answering, and many `upload_scan` lines in Traefik's log at the same time.
   It answers again once the load drops.
 - **Frozen**: running, no PONG, an empty queue before it went quiet and nothing new in its log.
