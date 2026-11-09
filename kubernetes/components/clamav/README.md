@@ -94,8 +94,17 @@ today it scans the Traefik dashboard's route; every site comes next.
   ingress node - the pattern and Kyverno rights of `prometheus-from-nodes`
   ([`kube-prometheus-stack/README.md`](../kube-prometheus-stack/README.md)).
 - **Restricted Pod Security**: the Alpine image's user `clamav` (100:101), read-only root.
-- **Memory**: about 1.04 GiB after start and after a reload (Docker, 2026-11-06); clamd's request
-  1088Mi, limit 2176Mi. To be measured on the cluster over days and set by the repo's rule.
+- **Memory**: measured on the cluster 2026-11-06..09 (nine clamd pods, signature reloads
+  included): clamd's real use (working set minus active file cache) p95 969 MiB, working set p95
+  999 MiB, highest 1031 MiB. Under load - four scans at once (two 90 MB random files, a zip
+  unpacking to 90 MB, eight nested zips) - it went from 965 to 1108 MiB, `/tmp` to 354 MB; the
+  nested zips ran into `MaxScanTime` (`Heuristics.Limits.Exceeded.MaxScanTime`, as intended). By
+  the repo's rule: request 976Mi (the p95), limit 2016Mi (2 x the working set's p95, above the
+  load peak x 1.1). freshclam: request 16Mi (p95 5 MiB, at most 20 MiB), limit 768Mi for the
+  main.cvd check (376 MiB); exporter and backup fit the LimitRange's defaults. To repeat the load
+  test: port-forward `svc/clamav` 3310, send several `zINSTREAM` scans at once (EICAR built in
+  memory from two halves, never a file), and read `/sys/fs/cgroup/memory.current` minus
+  `inactive_file` from `memory.stat` in the clamd container every second.
 
 ## Secrets
 
