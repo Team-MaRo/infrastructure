@@ -22,7 +22,7 @@ func TestSkippedRequestsAreNotTouched(t *testing.T) {
 		{http.MethodPost, "https://auth.example.org/zitadel.user.v2.UserService/ListUsers", "application/connect+proto"},
 		{http.MethodPost, "https://auth.example.org/zitadel.user.v2.UserService/GetUser", "application/proto"},
 		{http.MethodPut, "https://registry.example.org/v2/x/blobs/uploads/1", "application/octet-stream"},
-		{http.MethodPost, "https://matomo.example.org/matomo.php?idsite=1", "text/plain"},
+		{http.MethodPost, "https://matomo.example.org/matomo.php?idsite=1", "application/octet-stream"},
 	}
 	for _, c := range cases {
 		s := newSetup(t, clamd.addr, nil)
@@ -56,30 +56,70 @@ func TestExclusionsAreExactPerHost(t *testing.T) {
 	}
 }
 
+// Every type skipped when small, by default.
+func skipTypes() []string {
+	return append(CreateConfig().SkipContentTypes, "application/vnd.api+json")
+}
+
+// A small Next.js server action is skipped like a form post; plain text without its header, or a
+// large one, is scanned.
+func TestOnlyASmallServerActionSkipsPlainText(t *testing.T) {
+	clamd := startClamd(t, 0)
+	large := append(append([]byte{}, eicar...), bytes.Repeat([]byte(" "), 70<<10)...)
+	cases := []struct {
+		name    string
+		action  bool
+		body    []byte
+		scanned bool
+	}{
+		{"server action", true, eicar, false},
+		{"plain text file", false, eicar, true},
+		{"large server action", true, large, true},
+	}
+	for _, c := range cases {
+		s := newSetup(t, clamd.addr, nil)
+		req := httptest.NewRequest(http.MethodPost, "https://auth.example.org/ui/v2/login/password", bytes.NewReader(c.body))
+		req.Header.Set("Content-Type", "text/plain;charset=UTF-8")
+		if c.action {
+			req.Header.Set("Next-Action", "7f3a9c")
+		}
+
+		s.handler.ServeHTTP(httptest.NewRecorder(), req)
+
+		if got := len(s.logLines()) == 1; got != c.scanned {
+			t.Errorf("%s: scanned=%v, want %v", c.name, got, c.scanned)
+		}
+	}
+}
+
 func TestSkipTypeDoesNotHideAFile(t *testing.T) {
 	clamd := startClamd(t, 0)
-	s := newSetup(t, clamd.addr, nil)
-	req := httptest.NewRequest(http.MethodPost, "https://site.example.org/wp-json/wp/v2/media", bytes.NewReader(eicar))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Set("Content-Disposition", "attachment; filename=x.pdf")
+	for _, ct := range skipTypes() {
+		s := newSetup(t, clamd.addr, nil)
+		req := httptest.NewRequest(http.MethodPost, "https://site.example.org/wp-json/wp/v2/media", bytes.NewReader(eicar))
+		req.Header.Set("Content-Type", ct)
+		req.Header.Set("Content-Disposition", "attachment; filename=x.pdf")
 
-	s.handler.ServeHTTP(httptest.NewRecorder(), req)
+		s.handler.ServeHTTP(httptest.NewRecorder(), req)
 
-	if line := onlyLine(t, s); line["verdict"] != "infected" {
-		t.Fatalf("unexpected: %v", line)
+		if line := onlyLine(t, s); line["verdict"] != "infected" {
+			t.Fatalf("%s: unexpected: %v", ct, line)
+		}
 	}
 }
 
 func TestLargeSkipTypeBodyIsScanned(t *testing.T) {
 	clamd := startClamd(t, 0)
-	s := newSetup(t, clamd.addr, nil)
 	sent := append([]byte{}, eicar...)
 	sent = append(sent, bytes.Repeat([]byte(" "), 70<<10)...)
+	for _, ct := range skipTypes() {
+		s := newSetup(t, clamd.addr, nil)
 
-	serve(s, http.MethodPost, "https://site.example.org/form", "application/x-www-form-urlencoded", sent)
+		serve(s, http.MethodPost, "https://site.example.org/form", ct, sent)
 
-	if len(s.logLines()) != 1 {
-		t.Fatal("a body larger than a form must be scanned whatever its type")
+		if len(s.logLines()) != 1 {
+			t.Fatalf("%s: a body larger than a form must be scanned whatever its type", ct)
+		}
 	}
 }
 

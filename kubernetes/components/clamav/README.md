@@ -133,7 +133,7 @@ kubectl --context d3strukt0r-prod-admin -n clamav exec deploy/clamav -c clamd --
 ### When `ClamavDown` fires
 
 clamd is busy, frozen or not running. Every body the upload scan reads, on every site Cloudflare
-proxies - uploads, larger form or JSON posts, possibly a login form - is refused meanwhile
+proxies - uploads, form, JSON and server-action posts over 64 KiB - is refused meanwhile
 with 503 - `Retry-After: 30` when clamd cannot be reached or a scan runs out of time (a frozen
 clamd, after 45 s), `10` when a Traefik's own four clamd slots are all held by such scans
 (`skipped:busy`) - and a frozen clamd is restarted by its liveness probe after 15

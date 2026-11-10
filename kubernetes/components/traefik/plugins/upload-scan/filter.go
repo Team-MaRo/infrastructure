@@ -31,6 +31,9 @@ func (u *UploadScan) wanted(req *http.Request) bool {
 	if len(values) == 0 || isMultipart(values) {
 		return true
 	}
+	// A Next.js server action (Zitadel's login) posts its arguments as text/plain, marked by this
+	// header; a text file uploaded on its own is not.
+	serverAction := req.Header.Get("Next-Action") != ""
 	stream := true
 	small := true
 	for _, v := range values {
@@ -39,7 +42,8 @@ func (u *UploadScan) wanted(req *http.Request) bool {
 			return true
 		}
 		stream = stream && matches(mediaType, u.streamTypes)
-		small = small && (matches(mediaType, u.skipTypes) || strings.HasSuffix(mediaType, "+json"))
+		small = small && (matches(mediaType, u.skipTypes) || strings.HasSuffix(mediaType, "+json") ||
+			serverAction && mediaType == "text/plain")
 	}
 	if stream {
 		return false
