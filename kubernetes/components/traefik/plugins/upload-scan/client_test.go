@@ -205,3 +205,111 @@ func TestCappedBodyDoesNotMakeOthersGiveWay(t *testing.T) {
 		t.Fatalf("the body over its share got memory, or was not told so (%s)", aQueue.busy())
 	}
 }
+
+// Two bodies of one address that wait for each other's memory - each held back by the address's
+// share - settle it among themselves: the newest gives way after patience and ends too-many, the
+// older gets its chunk once the newest's memory comes back.
+func TestAddressOwnBodiesGiveWayToEachOther(t *testing.T) {
+	p := &memoryPool{size: 100, perClient: 20}
+	q := func(left time.Duration) *queue { return &queue{left: left, ctx: context.Background()} }
+	older := p.admit(q(time.Second), "a", 1)
+	newer := p.admit(q(time.Second), "a", 1)
+	if older == nil || newer == nil || !p.more(older, q(time.Second), 9) || !p.more(newer, q(time.Second), 9) {
+		t.Fatal("the address did not get its share")
+	}
+	olderGot := make(chan bool, 1)
+	newerGot := make(chan bool, 1)
+	newerQueue := q(5 * time.Second)
+	go func() { olderGot <- p.more(older, q(5*time.Second), 4) }()
+	until(t, "the older body waits", func() bool {
+		p.mu.Lock()
+		defer p.mu.Unlock()
+		return older.waiting
+	})
+	start := time.Now()
+	go func() { newerGot <- p.more(newer, newerQueue, 4) }()
+
+	if <-newerGot || newerQueue.busy() != "skipped:too-many" {
+		t.Fatalf("the newer body did not give way, or was not told why (%s)", newerQueue.busy())
+	}
+	if took := time.Since(start); took < patience/2 || took > 3*patience {
+		t.Fatalf("the newer body gave way after %v, want about %v", took, patience)
+	}
+	p.done(newer)
+	p.give("a", 10) // the app has the newer body's pieces
+	if !<-olderGot {
+		t.Fatal("the older body did not get its chunk once the newer one's memory came back")
+	}
+}
+
+// Bodies of one address held back by its share do not give way while another of its bodies - still
+// being read, scanned or passed on - holds memory that comes back by itself.
+func TestOwnBodiesWaitWhileAnotherHoldsTheMemory(t *testing.T) {
+	p := &memoryPool{size: 100, perClient: 20}
+	q := func(left time.Duration) *queue { return &queue{left: left, ctx: context.Background()} }
+	holder := p.admit(q(time.Second), "a", 1)
+	if holder == nil || !p.more(holder, q(time.Second), 15) {
+		t.Fatal("the first body did not get its memory")
+	}
+	older := p.admit(q(time.Second), "a", 1)
+	newer := p.admit(q(time.Second), "a", 1)
+	if older == nil || newer == nil {
+		t.Fatal("not admitted")
+	}
+	olderGot := make(chan bool, 1)
+	newerGot := make(chan bool, 1)
+	go func() { olderGot <- p.more(older, q(5*time.Second), 4) }()
+	go func() { newerGot <- p.more(newer, q(5*time.Second), 4) }()
+
+	time.Sleep(patience + patience/2)
+	select {
+	case <-newerGot:
+		t.Fatal("a body gave way although another of its address's bodies held the memory")
+	case <-olderGot:
+		t.Fatal("a body gave way although another of its address's bodies held the memory")
+	default:
+	}
+	p.done(holder)
+	p.give("a", 16) // the app has the first body
+	if !<-olderGot || !<-newerGot {
+		t.Fatal("the waiting bodies did not get their memory once it came back")
+	}
+}
+
+// An address's own give-way and the pool's do not hold each other back: each has its own one per
+// patience.
+func TestOwnAndPoolGiveWaysDoNotDelayEachOther(t *testing.T) {
+	now := time.Now()
+	stuck := func() (p *memoryPool, own, pool *intake) {
+		body := func(client string, held int) *intake {
+			stalled := now.Add(-10 * time.Second) // it sets nothing aside
+			return &intake{client: client, held: held, need: 3, want: 1, admitted: stalled, waitStart: now, waiting: true}
+		}
+		a1, a2, b, c := body("a", 25), body("a", 25), body("b", 20), body("c", 20)
+		p = &memoryPool{
+			size: 90, used: 90, perClient: 50,
+			byClient: map[string]int{"a": 50, "b": 20, "c": 20},
+			reading:  []*intake{a1, a2, b, c},
+		}
+		return p, a2, c
+	}
+
+	p, own, pool := stuck()
+	if gives, _ := p.givesWay(own, now); !gives {
+		t.Fatal("the newest body stuck on its address's share did not give way")
+	}
+	if gives, _ := p.givesWay(own, now); gives {
+		t.Fatal("the address gave way twice within patience")
+	}
+	if gives, _ := p.givesWay(pool, now); !gives {
+		t.Fatal("the pool's give-way waited for the address's")
+	}
+
+	p, own, pool = stuck()
+	if gives, _ := p.givesWay(pool, now); !gives {
+		t.Fatal("the newest body stuck on the pool did not give way")
+	}
+	if gives, _ := p.givesWay(own, now); !gives {
+		t.Fatal("the address's give-way waited for the pool's")
+	}
+}

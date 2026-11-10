@@ -35,21 +35,20 @@ func TestPromiseFollowsThePace(t *testing.T) {
 // announced one unit, cannot take it.
 func TestSetAsideRoomIsKeptFromOthers(t *testing.T) {
 	p := &memoryPool{size: 10}
-	now := time.Now()
-	known := p.tryAdmit("", 8, p.promised(now), now)
-	chunked := p.tryAdmit("", 1, p.promised(now), now)
+	known := admitNow(p, 8)
+	chunked := admitNow(p, 1)
 	if known == nil || chunked == nil {
 		t.Fatal("not admitted")
 	}
-	if !p.free(chunked, p.promised(now), now, 1) {
+	if !freeNow(p, chunked, 1) {
 		t.Fatal("the one chunk nobody set aside was not free for the chunked body")
 	}
 	p.used++
 	chunked.took(1)
-	if p.free(chunked, p.promised(now), now, 1) {
+	if freeNow(p, chunked, 1) {
 		t.Fatal("the chunked body could take room set aside for the known one")
 	}
-	if !p.free(known, p.promised(now), now, 1) {
+	if !freeNow(p, known, 1) {
 		t.Fatal("the known body could not take its own room")
 	}
 }
@@ -59,33 +58,60 @@ func TestSetAsideRoomIsKeptFromOthers(t *testing.T) {
 func TestStalledBodyStopsHoldingOthersBack(t *testing.T) {
 	p := &memoryPool{size: 10}
 	now := time.Now()
-	large := p.tryAdmit("", 9, p.promised(now), now)
+	large := admitNow(p, 9)
 	if large == nil {
 		t.Fatal("not admitted")
 	}
-	if p.tryAdmit("", 2, p.promised(now), now) != nil {
+	if admitNow(p, 2) != nil {
 		t.Fatal("admitted into room set aside for a body that just started")
 	}
 	large.admitted = now.Add(-10 * time.Second)
-	if p.tryAdmit("", 2, p.promised(now), now) == nil {
+	if admitNow(p, 2) == nil {
 		t.Fatal("still held back by a body that has sent nothing for 10 s")
 	}
 }
 
-// The body to give way is a waiting one beyond its announcement, even if older, else the newest
-// waiting one; a body not waiting for the pool is never it.
+// admitNow admits a body announcing need units if it fits at once, as admit does before it waits.
+func admitNow(p *memoryPool, need int) *intake {
+	now := time.Now()
+	promised, own := p.setAsideFor("", now)
+	return p.tryAdmit("", need, promised, own, now)
+}
+
+// freeNow reports whether units are free for in at once, as more does before it waits.
+func freeNow(p *memoryPool, in *intake, units int) bool {
+	now := time.Now()
+	promised, own := p.setAsideFor(in.client, now)
+	return p.free(in, promised, own, now, units)
+}
+
+// The body to give way among those stuck alike, newest first, is the one beyond its announcement,
+// even if older, else the newest.
 func TestGiverIsBeyondItsAnnouncementElseTheNewest(t *testing.T) {
-	beyond := &intake{need: 0, waiting: true}
-	older := &intake{need: 3, waiting: true}
-	newer := &intake{need: 3, waiting: true}
-	reading := &intake{need: 0}
-	p := &memoryPool{reading: []*intake{beyond, older, newer, reading}}
-	if p.giver() != beyond {
+	beyond := &intake{need: 0}
+	older := &intake{need: 3}
+	newer := &intake{need: 3}
+	if giver([]*intake{newer, older, beyond}) != beyond {
 		t.Fatal("the body beyond its announcement was not the one to give way")
 	}
-	p.reading = []*intake{older, newer, reading}
-	if p.giver() != newer {
-		t.Fatal("the newest waiting body was not the one to give way")
+	if giver([]*intake{newer, older}) != newer {
+		t.Fatal("the newest body was not the one to give way")
+	}
+}
+
+// A body handed its chunk just as its turn to give way comes no longer waits, and does not give
+// way: the units it was handed would never come back.
+func TestServedBodyDoesNotGiveWay(t *testing.T) {
+	now := time.Now()
+	older := &intake{need: 3, want: 1, admitted: now, waitStart: now, waiting: true}
+	newer := &intake{need: 3, want: 1, admitted: now, waitStart: now}
+	p := &memoryPool{size: 6, used: 6, reading: []*intake{older, newer}}
+	if gives, _ := p.givesWay(newer, now); gives {
+		t.Fatal("a body handed its chunk gave way")
+	}
+	newer.waiting = true
+	if gives, _ := p.givesWay(newer, now); !gives {
+		t.Fatal("the newest of two stuck bodies did not give way")
 	}
 }
 
@@ -238,8 +264,7 @@ func TestStuckBodiesGiveWayWhoeverElseHoldsMemory(t *testing.T) {
 // coming back: the pool's timer looks again.
 func TestAdmissionFollowsAShrinkingReservation(t *testing.T) {
 	p := &memoryPool{size: 10}
-	now := time.Now()
-	large := p.tryAdmit("", 9, p.promised(now), now)
+	large := admitNow(p, 9)
 	if large == nil {
 		t.Fatal("not admitted")
 	}

@@ -219,12 +219,19 @@ cluster without each app setting something up. Our own plugin does it, `plugins/
 - **Per address** (2026-11-09): one address may have at most 16 uploads checked at once and hold at
   most one full-size body's memory (1616 units, a quarter of the pool) - taken, and set aside for
   what its bodies announced, so it cannot announce four bodies of 100 MiB and hold the pool's room
-  with them - so neither many stalled uploads nor a few large ones from one address make every
-  other upload `skipped:busy`. A 17th upload is not read at all; one that would go over the
-  memory waits for the address's own memory to come back, without counting as stuck next to
-  others (it never makes another address's body give way). Both are logged `skipped:too-many`
-  (refused with 429 from phase 3) - the second only when the pool itself had room, else
-  `skipped:busy`. The address is the visitor's that
+  with them; a body takes only what is not set aside for the address's other bodies, as in the
+  pool - so neither many stalled uploads nor a few large ones from one address make every other
+  upload `skipped:busy`. A 17th upload is not read at all, logged `skipped:too-many` (refused with
+  429 from phase 3). A body that would go over the memory waits for the address's own memory to
+  come back, without counting as stuck next to other addresses' bodies (it never makes one give
+  way). Only when all of the address's memory is held by its bodies waiting on its share - none of
+  it with a body still being read, scanned or passed on, which gives it back by itself, or with
+  one waiting on the pool, which the pool's rule settles - do they settle it among themselves like
+  bodies stuck on the pool: after a second the one beyond its announcement, else the newest,
+  gives way, at most one per address per second, apart from the pool's give-ways. The other may
+  still not fit afterwards, or run out of time, and fail too (rare, accepted). Such a body ends
+  `skipped:too-many` (refused with 429 from phase 3, like a 17th upload) when the pool, set-aside
+  room included, had room for it, else `skipped:busy`. The address is the visitor's that
   Cloudflare passes on (`CF-Connecting-IP`), else the connection's; IPv6 counts by its `/64`,
   since one network holds more addresses than could be counted one by one. The header can be
   trusted because the scan runs only behind `cloudflare-only`, which lets nothing but Cloudflare
