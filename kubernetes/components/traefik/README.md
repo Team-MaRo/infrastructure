@@ -311,6 +311,18 @@ cluster without each app setting something up. Our own plugin does it, `plugins/
   was over one of its limits, `skipped:too-large`), why a body was scanned whole or stopped early
   (`note`), `ambiguous` with its reason, `refused` with the status of a refused request, and the
   milliseconds it took. No client address and no file names.
+- **Alerts** (`rules.yaml`): Alloy counts these lines as `loki_process_custom_upload_scan_total`
+  by `verdict` and `refused` ([`../alloy/README.md`](../alloy/README.md)), and Prometheus alerts on
+  the counter like on every other metric - no rule engine in Loki to keep alive. A counter made
+  of log lines starts a series at its first line's count, which `increase()` does not see, so the
+  recording rule `upload_scan:lines:new10m` counts a series new within the last 10 minutes with
+  its whole value, and Alloy keeps a series for 24 hours without lines rather than 5 minutes -
+  the pattern for any alert on log lines. **`UploadScanInfected`** (warning, so it reaches the
+  phone - info goes nowhere): malware found in the last 10 minutes. **`UploadScanRefusing`**
+  (warning): more than 20 refusals in 10 minutes, malware and clients that hung up (`aborted`,
+  499) left out; silenced while `ClamavDown` fires, which explains it
+  ([`../kube-prometheus-stack/README.md`](../kube-prometheus-stack/README.md)). Both resolve by
+  themselves; the thresholds are a start, to be tuned once sites send traffic.
 - **Rolled out in steps**: first loaded with no route using it - while Traefik rolls node by node,
   a node whose Traefik has not restarted yet does not know the plugin and would answer a route
   that uses it with 404, and a plugin that fails to load would take that route down everywhere.
@@ -326,7 +338,7 @@ cluster without each app setting something up. Our own plugin does it, `plugins/
 The verdicts in Grafana → Explore → Loki:
 
 ```logql
-{namespace="kube-system", container="traefik"} | json | upload_scan != ""
+{namespace="kube-system", container="traefik"} |= "upload_scan" | json | upload_scan != ""
 ```
 
 A test with the EICAR string (it counts only as a small file of its own), through the dashboard
@@ -389,12 +401,51 @@ syncs the Middleware and Traefik applies it without a restart. The next upload's
 `"upload_scan":"report"`:
 
 ```logql
-{namespace="kube-system", container="traefik"} | json | upload_scan != ""
+{namespace="kube-system", container="traefik"} |= "upload_scan" | json | upload_scan != ""
 ```
 
 Only one host or path affected (an app whose uploads clamd misreads): put it on `exclude` in the
 same file instead, and block mode stays for every other. Set `mode: block` again once the cause
 is gone.
+
+### When `UploadScanInfected` fires
+
+Someone uploaded a file clamd flags. In block mode it was refused - nothing to undo; in report
+mode it reached the app, which then holds it: find and delete it there. Every such upload since
+the alert started - a later one only keeps the alert firing, it sends no new message - with host,
+path, signature and mode, in Grafana → Explore → Loki:
+
+```logql
+{namespace="kube-system", container="traefik"} |= "upload_scan" | json | verdict="infected"
+```
+
+An EICAR test of your own fires it too. Otherwise look at what the path is (a public form, an
+admin page - the latter means someone was logged in), and whether more came from the same place
+(`refused` lines around it). A signature that looks wrong for an ordinary file (a PDF or a photo a
+person meant to upload) is a false positive: put that host or path on `exclude` for the time
+being, or switch back to report mode (above), and report it to ClamAV.
+
+### When `UploadScanRefusing` fires
+
+Uploads fail for people. The refusals the alert counts, by what they say:
+
+```logql
+sum by (verdict, ambiguous, refused) (count_over_time({namespace="kube-system", container="traefik"} |= "upload_scan" | json | refused != "" | refused != "499" | verdict !~ "infected|aborted" [10m]))
+```
+
+- `ambiguous` set (whatever the verdict) - bodies browsers do not send: a client of an unusual
+  kind, or someone probing the scan.
+- `skipped:busy` - the Traefiks' memory or clamd slots are taken: many large uploads at once, or
+  slow senders holding memory ("Memory" above).
+- `skipped:too-many` - one address over its limits ("Per address" above); one network sending a
+  lot.
+- `error`, `incomplete`, `skipped:time`, `limits-exceeded` of `MaxScanTime` - clamd is down or
+  slow (`ClamavDown`, its memory and CPU in Grafana).
+- `skipped:too-large` (413), `limits-exceeded` of another limit (422) - files beyond what is
+  scanned: over 100 MiB, or beyond ClamAV's own limits. They fail on every retry; a site that
+  needs such files gets its host or path on `exclude`, or the limit raised.
+
+When it is the scan itself and cannot be fixed quickly, switch back to report mode (above).
 
 ## Checking it
 

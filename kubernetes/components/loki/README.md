@@ -27,8 +27,9 @@ Loki as a datasource (`additionalDataSources` in the kube-prometheus-stack value
 - **Retention is the compactor's** (`retention_period: 720h`, `delete_request_store: s3`);
   the bucket's lifecycle rule only clears uploads that never completed.
 - **Its chart's RBAC is not used.** Loki's rules sidecar would bring a ClusterRole reading every
-  Secret; with the ruler (log-based alerting, not used yet) and sidecar off and
-  `rbac.namespaced`, no RBAC is rendered.
+  Secret; with the ruler and sidecar off and `rbac.namespaced`, no RBAC is rendered. Alerts on
+  log lines go through Alloy's metrics and Prometheus instead
+  ([`../alloy/README.md`](../alloy/README.md)).
 - **Labels**: `namespace`, `pod`, `container`, `node`, `app` for containers; `job="node-journal"`,
   `unit`, `node` for the journal; `job="loki.source.kubernetes_events"` for events. Anything
   else is searched in the line, not labelled - Loki stays fast with few labels.

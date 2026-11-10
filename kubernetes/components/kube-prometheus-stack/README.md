@@ -124,6 +124,9 @@ The operator does not resize an existing volume. Grow the volume before pushing 
   are assembled by the ExternalSecret `alertmanager-ntfy` from OpenBao `secret/ntfy` and read
   through `url_file`/`credentials_file`, so the topic - the secret on the free plan - never
   enters git or the Alertmanager config.
+- **Inhibit rules** silence an alert another explains: a higher severity of the same alert the
+  lower ones, a volume's higher usage level its lower ones, and `ClamavDown` the upload scan's
+  `UploadScanRefusing` (clamd down refuses every scanned upload - one page, not two).
 - **The Watchdog heartbeat**: the chart's always-firing `Watchdog` alert is routed to Gatus
   (receiver `watchdog`, the token from OpenBao `secret/gatus` through the ExternalSecret
   `alertmanager-ntfy`). Gatus alerts when it has not heard from it for 5 minutes - Alertmanager

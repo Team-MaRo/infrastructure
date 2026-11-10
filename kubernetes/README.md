@@ -99,6 +99,7 @@ kubernetes/
     │   ├── certificate.yaml       # traefik.d3strukt0r.dev
     │   ├── middleware-oauth2-proxy.yaml  # the Zitadel gate for the dashboard
     │   ├── middleware-upload-scan.yaml   # the upload scan's settings
+    │   ├── rules.yaml             # the upload scan's alerts: malware found, many refused
     │   └── plugins/upload-scan/   # our Traefik plugin: uploads to clamd (Go, with tests);
     │                              # compare/ checks it against PHP
     ├── cert-manager/
@@ -179,7 +180,7 @@ kubernetes/
     │   ├── replicas.yaml          # partial: only k3s's Deployment's replica count
     │   └── pdb.yaml               # a drain evicts one pod at a time
     ├── alloy/
-    │   ├── values.yaml            # Helm values: the collection pipeline
+    │   ├── values.yaml            # Helm values: the collection pipeline, the upload scan's counter
     │   ├── kustomization.yaml
     │   └── clusterrole.yaml       # only what the pipeline reads
     ├── gatus/
@@ -315,7 +316,7 @@ kubernetes/
 | [`kube-prometheus-stack`](components/kube-prometheus-stack/README.md) | Prometheus, Alertmanager, Grafana; the cluster's own alerts |
 | [`loki`](components/loki/README.md) | Log storage in Object Storage, 30 days |
 | [`tempo`](components/tempo/README.md) | Trace storage in Object Storage, 30 days; metrics from traces into Prometheus |
-| [`alloy`](components/alloy/README.md) | Log collection on every node; receives traces and forwards them to Tempo |
+| [`alloy`](components/alloy/README.md) | Log collection on every node; receives traces and forwards them to Tempo; counts the upload scan's lines for its alerts |
 | [`mariadb-operator`](components/mariadb-operator/README.md) | The operator running the app database |
 | [`mariadb`](components/mariadb/README.md) | The shared MariaDB: failover, backups, restore runbooks |
 | [`cloudnative-pg`](components/cloudnative-pg/README.md) | The PostgreSQL operator and its backup plugin |

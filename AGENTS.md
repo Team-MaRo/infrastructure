@@ -377,7 +377,7 @@ component); update it in the same change.
 | [`kubernetes/components/kured/README.md`](kubernetes/components/kured/README.md) | Reboots after kernel updates, blocked drains |
 | [`kubernetes/components/coredns/README.md`](kubernetes/components/coredns/README.md) | Two replicas and a drain budget for k3s's CoreDNS, the partial-manifest trap |
 | [`kubernetes/components/kyverno/README.md`](kubernetes/components/kyverno/README.md) | Default resources, allowed registries, routes only through Cloudflare |
-| [`kubernetes/components/traefik/README.md`](kubernetes/components/traefik/README.md) | Ingress on the host network, ingress nodes, the dashboard; the upload scan plugin, its tests and its comparison with PHP |
+| [`kubernetes/components/traefik/README.md`](kubernetes/components/traefik/README.md) | Ingress on the host network, ingress nodes, the dashboard; the upload scan plugin, its tests, its comparison with PHP, refusing and its alerts |
 | [`kubernetes/components/cert-manager/README.md`](kubernetes/components/cert-manager/README.md) | DNS-01 issuers, the Cloudflare tokens, requesting a certificate |
 | [`kubernetes/components/cluster-rbac/README.md`](kubernetes/components/cluster-rbac/README.md) | Cluster-wide rights for Zitadel logins, revoking |
 | [`kubernetes/components/priority-classes/README.md`](kubernetes/components/priority-classes/README.md) | `stateful-core`: the databases and OpenBao evicted last |
@@ -388,7 +388,7 @@ component); update it in the same change.
 | [`kubernetes/components/kube-prometheus-stack/README.md`](kubernetes/components/kube-prometheus-stack/README.md) | Prometheus, Alertmanager, Grafana, scraping k3s, alerts |
 | [`kubernetes/components/loki/README.md`](kubernetes/components/loki/README.md) | Log storage, retention, searching logs |
 | [`kubernetes/components/tempo/README.md`](kubernetes/components/tempo/README.md) | Trace storage, retention, the metrics generator, searching traces |
-| [`kubernetes/components/alloy/README.md`](kubernetes/components/alloy/README.md) | Log collection on every node; the traces' entry on the way to Tempo |
+| [`kubernetes/components/alloy/README.md`](kubernetes/components/alloy/README.md) | Log collection on every node; the traces' entry on the way to Tempo; the counter behind alerts on log lines |
 | [`kubernetes/components/mariadb-operator/README.md`](kubernetes/components/mariadb-operator/README.md) | The MariaDB operator, its CRDs and webhook |
 | [`kubernetes/components/mariadb/README.md`](kubernetes/components/mariadb/README.md) | The shared MariaDB: failover, backups, PITR, runbooks |
 | [`kubernetes/components/cloudnative-pg/README.md`](kubernetes/components/cloudnative-pg/README.md) | The PostgreSQL operator and the Barman Cloud plugin |

@@ -8,6 +8,7 @@ resources:
   - middleware-oauth2-proxy.yaml
   - middleware-upload-scan.yaml
   - pod-monitor.yaml
+  - rules.yaml
   # Only Cloudflare reaches its proxied routes (charts/cloudflare-only).
   - ../../charts/cloudflare-only/files
 
