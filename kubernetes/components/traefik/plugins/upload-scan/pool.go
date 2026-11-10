@@ -15,8 +15,9 @@ const (
 	promiseHorizon = 30 * time.Second
 	rateGrace      = 3 * time.Second
 	recheckEvery   = 500 * time.Millisecond
-	// A body waiting this long for a chunk while another body being read waits too gives up if it
-	// is the one to give way (giver), so stuck bodies free memory one at a time.
+	// A body waiting this long for a chunk while another body stuck alike waits too - on the pool,
+	// or on its address's share with all of that address's memory held by its waiting bodies -
+	// gives up if it is the one to give way (giver), so stuck bodies free memory one at a time.
 	patience = time.Second
 )
 
@@ -34,14 +35,18 @@ type memoryPool struct {
 	reading   []*intake // oldest first
 	admitting []*admission
 	ticking   bool
-	gaveWay   time.Time // when a body last gave way: at most one per patience
+	// When a body last gave way, among those stuck on the pool and per address among those stuck
+	// on its share: at most one of each per patience.
+	gaveWay    time.Time
+	ownGaveWay map[string]time.Time
 }
 
-// intake is a body being read: its address, the units it announced but has not taken yet, what it
-// has sent since it was admitted, the time it spent waiting for the pool, and its wait for a
-// chunk's units.
+// intake is a body being read: its address, the units it holds and those it announced but has not
+// taken yet, what it has sent since it was admitted, the time it spent waiting for the pool, and
+// its wait for a chunk's units.
 type intake struct {
 	client    string
+	held      int
 	need      int
 	want      int
 	received  int64
@@ -58,36 +63,54 @@ type admission struct {
 	grant  chan *intake
 }
 
-// withinShare reports whether client may take units more; p.mu is held.
-func (p *memoryPool) withinShare(client string, units int) bool {
-	return p.perClient == 0 || p.byClient[client]+units <= p.perClient
+// setAside is what the bodies being read have set aside at now, in all and per address; p.mu is
+// held.
+func (p *memoryPool) setAside(now time.Time) (int, map[string]int) {
+	all, sets := 0, map[string]int{}
+	for _, in := range p.reading {
+		n := in.counted(now)
+		all += n
+		sets[in.client] += n
+	}
+	return all, sets
+}
+
+// setAsideFor is what the bodies being read have set aside at now, in all and of client's bodies;
+// p.mu is held.
+func (p *memoryPool) setAsideFor(client string, now time.Time) (all, own int) {
+	for _, in := range p.reading {
+		n := in.counted(now)
+		all += n
+		if in.client == client {
+			own += n
+		}
+	}
+	return all, own
 }
 
 // shareAdmits reports whether a body from client announcing need units fits within its share,
-// next to what the address's bodies have taken and set aside; p.mu is held.
-func (p *memoryPool) shareAdmits(client string, need int, now time.Time) bool {
-	if p.perClient == 0 {
-		return true
-	}
-	held := p.byClient[client] + need
-	for _, in := range p.reading {
-		if in.client == client {
-			held += in.counted(now)
-		}
-	}
-	return held <= p.perClient
+// next to what the address holds and its bodies have set aside (own); p.mu is held.
+func (p *memoryPool) shareAdmits(client string, need, own int) bool {
+	return p.perClient == 0 || p.byClient[client]+own+need <= p.perClient
+}
+
+// shareFree reports whether in may take units within its address's share, next to what the
+// address holds and its bodies have set aside (own) - as the pool keeps a body's set-aside room
+// from others, the share keeps it from its own address's other bodies; p.mu is held.
+func (p *memoryPool) shareFree(in *intake, own int, now time.Time, units int) bool {
+	return p.perClient == 0 || p.byClient[in.client]+own-in.counted(now)+units <= p.perClient
 }
 
 // overShare reports whether a body waiting for its next chunk is held back by its address's share,
 // so that only that address's own memory coming back can let it on; p.mu is held.
-func (p *memoryPool) overShare(in *intake) bool {
-	return !p.withinShare(in.client, in.want)
+func (p *memoryPool) overShare(in *intake, own int, now time.Time) bool {
+	return !p.shareFree(in, own, now, in.want)
 }
 
 // capped reports whether it is its address's share alone that holds a body back, not the pool as
 // well - the verdict then blames the address; p.mu is held.
-func (p *memoryPool) capped(in *intake) bool {
-	return p.overShare(in) && p.used+in.want <= p.size
+func (p *memoryPool) capped(in *intake, promised, own int, now time.Time) bool {
+	return p.overShare(in, own, now) && p.used+promised-in.counted(now)+in.want <= p.size
 }
 
 // take counts units as used, also for client's share; p.mu is held.
@@ -139,31 +162,33 @@ func (p *memoryPool) inUse() int {
 	return p.used
 }
 
-// promised is what the bodies being read have set aside at now; p.mu is held.
-func (p *memoryPool) promised(now time.Time) int {
-	n := 0
-	for _, in := range p.reading {
-		n += in.counted(now)
-	}
-	return n
-}
-
-// tryAdmit admits a body from client announcing need units if they fit next to what is set aside,
-// and within client's share, with its first piece's unit; p.mu is held.
-func (p *memoryPool) tryAdmit(client string, need, promised int, now time.Time) *intake {
-	if p.used+promised+need > p.size || !p.shareAdmits(client, need, now) {
+// tryAdmit admits a body from client announcing need units if they fit next to what is set aside
+// (promised, own from setAsideFor), and within client's share, with its first piece's unit; p.mu
+// is held.
+func (p *memoryPool) tryAdmit(client string, need, promised, own int, now time.Time) *intake {
+	if p.used+promised+need > p.size || !p.shareAdmits(client, need, own) {
 		return nil
 	}
 	p.take(client, 1)
-	in := &intake{client: client, need: need - 1, admitted: now, grant: make(chan bool, 1)}
+	in := &intake{client: client, held: 1, need: need - 1, admitted: now, grant: make(chan bool, 1)}
 	p.reading = append(p.reading, in)
 	return in
 }
 
-// free reports whether units are free for in: not set aside for another body, and within its
-// address's share; p.mu is held.
-func (p *memoryPool) free(in *intake, promised int, now time.Time, units int) bool {
-	return p.withinShare(in.client, units) && p.used+promised-in.counted(now)+units <= p.size
+// free reports whether units are free for in: not set aside for another body (promised), and
+// within its address's share (own), both from setAsideFor; p.mu is held.
+func (p *memoryPool) free(in *intake, promised, own int, now time.Time, units int) bool {
+	return p.shareFree(in, own, now, units) && p.used+promised-in.counted(now)+units <= p.size
+}
+
+// hand gives in units, returning how much what it has set aside changed; p.mu is held.
+func (p *memoryPool) hand(in *intake, units int, now time.Time) int {
+	before := in.counted(now)
+	p.take(in.client, units)
+	in.held += units
+	in.took(units)
+	in.stopWaiting(now)
+	return in.counted(now) - before
 }
 
 // serve hands free units to the bodies being read that wait, oldest first, then admits the
@@ -173,21 +198,20 @@ func (p *memoryPool) serve() {
 		return
 	}
 	now := time.Now()
-	promised := p.promised(now)
+	promised, sets := p.setAside(now)
 	for _, in := range p.reading {
-		if in.waiting && p.free(in, promised, now, in.want) {
-			before := in.counted(now)
-			p.take(in.client, in.want)
-			in.took(in.want)
-			in.stopWaiting(now)
-			promised += in.counted(now) - before
+		if in.waiting && p.free(in, promised, sets[in.client], now, in.want) {
+			changed := p.hand(in, in.want, now)
+			promised += changed
+			sets[in.client] += changed
 			in.grant <- true
 		}
 	}
 	var still []*admission
 	for _, a := range p.admitting {
-		if in := p.tryAdmit(a.client, a.need, promised, now); in != nil {
+		if in := p.tryAdmit(a.client, a.need, promised, sets[a.client], now); in != nil {
 			promised += in.counted(now)
+			sets[a.client] += in.counted(now)
 			a.grant <- in
 		} else {
 			still = append(still, a)
@@ -232,34 +256,67 @@ func (p *memoryPool) tick() {
 	}()
 }
 
-// giver is the waiting body to give way: the newest beyond its announcement, else the newest -
-// never one its address's share holds back, which waits out its time; p.mu is held.
-func (p *memoryPool) giver() *intake {
-	var newest *intake
+// alike lists the bodies waiting stuck the way in does, in among them, newest first: on the pool,
+// or on the same address's share (sets, from setAside); p.mu is held.
+func (p *memoryPool) alike(in *intake, sets map[string]int, now time.Time) []*intake {
+	own := p.overShare(in, sets[in.client], now)
+	var stuck []*intake
 	for i := len(p.reading) - 1; i >= 0; i-- {
-		in := p.reading[i]
-		if !in.waiting || p.overShare(in) {
+		other := p.reading[i]
+		if !other.waiting || own && other.client != in.client {
 			continue
 		}
+		if p.overShare(other, sets[other.client], now) == own {
+			stuck = append(stuck, other)
+		}
+	}
+	return stuck
+}
+
+// giver is the body to give way among bodies stuck alike, newest first: the newest beyond its
+// announcement, else the newest.
+func giver(stuck []*intake) *intake {
+	for _, in := range stuck {
 		if in.need == 0 {
 			return in
 		}
-		if newest == nil {
-			newest = in
-		}
 	}
-	return newest
+	return stuck[0]
 }
 
-// waitingBesides reports whether a body being read other than in waits for a chunk from the pool -
-// not one its address's share holds back; p.mu is held.
-func (p *memoryPool) waitingBesides(in *intake) bool {
-	for _, other := range p.reading {
-		if other != in && other.waiting && !p.overShare(other) {
-			return true
-		}
+// givesWay reports, and records, whether in gives up its wait now: it waits stuck with others
+// alike and nothing else able to let them on - on its address's share, all of the address's
+// memory held by those bodies, since memory of a body still being read, scanned or passed on comes
+// back by itself - it is the one to give way, and no other body stuck alike gave way within
+// patience. capped is the verdict's, as from capped; p.mu is held.
+func (p *memoryPool) givesWay(in *intake, now time.Time) (gives, capped bool) {
+	if !in.waiting {
+		return false, false
 	}
-	return false
+	promised, sets := p.setAside(now)
+	stuck := p.alike(in, sets, now)
+	if len(stuck) < 2 || giver(stuck) != in {
+		return false, false
+	}
+	if !p.overShare(in, sets[in.client], now) {
+		if now.Sub(p.gaveWay) < patience {
+			return false, false
+		}
+		p.gaveWay = now
+		return true, false
+	}
+	held := 0
+	for _, other := range stuck {
+		held += other.held
+	}
+	if held != p.byClient[in.client] || now.Sub(p.ownGaveWay[in.client]) < patience {
+		return false, false
+	}
+	if p.ownGaveWay == nil {
+		p.ownGaveWay = map[string]time.Time{}
+	}
+	p.ownGaveWay[in.client] = now
+	return true, p.capped(in, promised, sets[in.client], now)
 }
 
 // give hands back n units held for client.
@@ -272,6 +329,7 @@ func (p *memoryPool) give(client string, n int) {
 	if held, ok := p.byClient[client]; ok {
 		if held <= n {
 			delete(p.byClient, client)
+			delete(p.ownGaveWay, client)
 		} else {
 			p.byClient[client] = held - n
 		}
@@ -292,7 +350,8 @@ func (p *memoryPool) arrived(in *intake, n int) {
 func (p *memoryPool) admit(q *queue, client string, need int) *intake {
 	p.mu.Lock()
 	now := time.Now()
-	in := p.tryAdmit(client, need, p.promised(now), now)
+	promised, own := p.setAsideFor(client, now)
+	in := p.tryAdmit(client, need, promised, own, now)
 	if in != nil {
 		p.mu.Unlock()
 		return in
@@ -324,7 +383,9 @@ func (p *memoryPool) withdraw(q *queue, a *admission) *intake {
 		return got
 	default:
 	}
-	q.capped = !p.shareAdmits(a.client, a.need, time.Now()) && p.used+a.need <= p.size
+	now := time.Now()
+	promised, own := p.setAsideFor(a.client, now)
+	q.capped = !p.shareAdmits(a.client, a.need, own) && p.used+promised+a.need <= p.size
 	var still []*admission
 	for _, other := range p.admitting {
 		if other != a {
@@ -337,14 +398,13 @@ func (p *memoryPool) withdraw(q *queue, a *admission) *intake {
 
 // more takes the units of a body's next chunk: at once if they are free for it, else in turn
 // behind the bodies read before it, within the queue's time - or until it has waited longer than
-// patience while another body being read waits too, is the one to give way and no other gave way
-// within patience. False when it does not get them, q.capped when its address's share held it back.
+// patience and gives way (givesWay). False when it does not get them, q.capped when its address's
+// share alone held it back.
 func (p *memoryPool) more(in *intake, q *queue, units int) bool {
 	p.mu.Lock()
 	now := time.Now()
-	if p.free(in, p.promised(now), now, units) {
-		p.take(in.client, units)
-		in.took(units)
+	if promised, own := p.setAsideFor(in.client, now); p.free(in, promised, own, now, units) {
+		p.hand(in, units, now)
 		p.mu.Unlock()
 		return true
 	}
@@ -368,11 +428,10 @@ func (p *memoryPool) more(in *intake, q *queue, units int) bool {
 		case <-turns.C:
 			p.mu.Lock()
 			now := time.Now()
-			if p.giver() == in && p.waitingBesides(in) && now.Sub(p.gaveWay) >= patience {
-				p.gaveWay = now
+			if gives, capped := p.givesWay(in, now); gives {
+				q.capped = capped
 				// Before unlocking: serve grants a chunk only to a body still waiting.
 				in.stopWaiting(now)
-				q.capped = false
 				p.mu.Unlock()
 				return false
 			}
@@ -390,8 +449,10 @@ func (p *memoryPool) more(in *intake, q *queue, units int) bool {
 		return ok
 	default:
 	}
-	in.stopWaiting(time.Now())
-	q.capped = p.capped(in)
+	now = time.Now()
+	promised, own := p.setAsideFor(in.client, now)
+	q.capped = p.capped(in, promised, own, now)
+	in.stopWaiting(now)
 	return false
 }
 
