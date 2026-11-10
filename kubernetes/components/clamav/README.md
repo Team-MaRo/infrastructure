@@ -7,8 +7,8 @@ The cluster's virus scanner: one `clamd` that uploads are handed to before they 
 The goal is that nobody can upload malware to any app on the cluster - WordPress forms and
 wp-admin, the wedding app, apps to come - without each app setting something up: Traefik's
 plugin `upload-scan` hands each uploaded file to `clamav.clamav.svc:3310`
-([`traefik/README.md`](../traefik/README.md), "Upload scan"). Being rolled out, reporting only:
-today it scans the Traefik dashboard's route; every site comes next.
+([`traefik/README.md`](../traefik/README.md), "Upload scan") and refuses what clamd does not
+call clean. Being rolled out: today it scans the Traefik dashboard's route; every site comes next.
 
 ## Design
 
@@ -79,7 +79,7 @@ today it scans the Traefik dashboard's route; every site comes next.
   - freshclam: `DatabaseMirror database.clamav.net` (without one it does not run) and
     `TestDatabases no` (no second copy of the signatures loaded just to test an update).
 - **Size limits**: clamd reads at most 100 MB of a stream (`StreamMaxLength`, its default); the
-  Traefik plugin does not send it larger uploads - they pass unscanned and are logged
+  Traefik plugin does not send it larger uploads - it refuses them (413), logged
   `skipped:too-large`. `/tmp` (3584Mi) is clamd's spool and freshclam's downloads: 4 scans x (100
   MB stream + up to 400 MB unpacked, `MaxScanSize`), 8 streams waiting in the queue and up to 12
   still arriving from the Traefiks x 100 MB, and freshclam's files come to about 4 GiB at worst -
@@ -132,9 +132,13 @@ kubectl --context d3strukt0r-prod-admin -n clamav exec deploy/clamav -c clamd --
 
 ### When `ClamavDown` fires
 
-clamd is busy, frozen or not running. Uploads pass unscanned meanwhile (report mode), and a
-frozen clamd is restarted by its liveness probe after 15 minutes without an answer - waiting is
-fine. To tell which it is:
+clamd is busy, frozen or not running. Uploads the scan would hand to it are refused meanwhile
+with 503 - `Retry-After: 30` when clamd cannot be reached or a scan runs out of time (a frozen
+clamd, after 45 s), `10` when a Traefik's own four clamd slots are all held by such scans
+(`skipped:busy`) - and a frozen clamd is restarted by its liveness probe after 15
+minutes without an answer. When it takes longer than that, let uploads pass unscanned until it is
+fixed: "Switching back to report mode" in
+[`traefik/README.md`](../traefik/README.md#switching-back-to-report-mode). To tell which it is:
 
 ```shell
 kubectl --context d3strukt0r-prod-admin -n clamav get pods

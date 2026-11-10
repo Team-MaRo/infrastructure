@@ -57,7 +57,8 @@ func (j *scanning) drop() {
 }
 
 // record keeps the worst verdict of a request: infected over limits-exceeded over error over
-// clean. Heuristics.Limits.Exceeded is clamd's answer for a file beyond its own limits.
+// clean. Heuristics.Limits.Exceeded is clamd's answer for a file beyond its own limits; of those,
+// one the file exceeds is kept over its scan time running out, which a retry may not hit.
 func (u *UploadScan) record(res *result, s scanResult) {
 	if s.err != nil || s.stopped {
 		res.Unanswered++
@@ -71,7 +72,9 @@ func (u *UploadScan) record(res *result, s scanResult) {
 		res.Sig = s.sig
 	case s.sig != "" && res.Verdict != "infected":
 		res.Verdict = "limits-exceeded"
-		res.Sig = s.sig
+		if res.Sig == "" || timedOut(res.Sig) {
+			res.Sig = s.sig
+		}
 	case s.err != nil && res.Verdict != "infected" && res.Verdict != "limits-exceeded":
 		res.Verdict = "error"
 		res.Error = s.err.Error()

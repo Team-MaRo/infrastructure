@@ -19,17 +19,25 @@ const (
 	maxHeaderBlock = 4096
 )
 
-// ambiguous names why a multipart request is not the plain kind browsers and HTTP libraries send,
-// or returns "". Parsers read such requests differently (PHP, Node, Go and Python each in their own
-// way), so what the scan saw may not be what the app stores; blocking (phase 3) refuses them
-// rather than trying to read each the way every parser would.
-func ambiguous(header http.Header, bounds []string, body []byte) string {
-	// Browsers never compress an upload; a server that inflates it would cut parts the scan did
-	// not.
+// encoded names a request's Content-Encoding, or returns "": browsers never compress an upload, and
+// the scan sees the compressed bytes - a server that inflates the body stores what clamd never saw,
+// and for a multipart body cuts parts the scan did not.
+func encoded(header http.Header) string {
 	for _, e := range header.Values("Content-Encoding") {
-		if !strings.EqualFold(strings.TrimSpace(e), "identity") {
+		if e = strings.TrimSpace(e); e != "" && !strings.EqualFold(e, "identity") {
 			return "Content-Encoding on the request"
 		}
+	}
+	return ""
+}
+
+// ambiguous names why a multipart request is not the plain kind browsers and HTTP libraries send,
+// or returns "". Parsers read such requests differently (PHP, Node, Go and Python each in their own
+// way), so what the scan saw may not be what the app stores; block mode refuses them (refuse.go)
+// rather than trying to read each the way every parser would.
+func ambiguous(header http.Header, bounds []string, body []byte) string {
+	if reason := encoded(header); reason != "" {
+		return reason
 	}
 	values := header.Values("Content-Type")
 	if len(values) != 1 {

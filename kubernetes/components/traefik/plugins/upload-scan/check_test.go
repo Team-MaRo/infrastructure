@@ -132,15 +132,39 @@ func TestStoppedPartwayIsIncomplete(t *testing.T) {
 	}
 }
 
-// A part that hit ClamAV's limits and then the time running out leaves parts unscanned.
-func TestStoppedAfterLimitsExceededIsIncomplete(t *testing.T) {
-	res := result{Files: 1, Verdict: "limits-exceeded", Sig: "Heuristics.Limits.Exceeded.MaxFiles"}
+// A part beyond ClamAV's limits decides the request, also when time then runs out with parts left;
+// a part whose scan time ran out does not, so the request is incomplete.
+func TestStoppedAfterLimitsExceeded(t *testing.T) {
 	u := &UploadScan{}
-	res.Files++
-	u.record(&res, scanResult{stopped: true})
-	res.finish()
-	if res.Verdict != "incomplete" || res.answered() != 1 || !strings.Contains(res.Note, "limits-exceeded") {
-		t.Fatalf("unexpected: %+v", res)
+	for sig, want := range map[string]string{
+		"Heuristics.Limits.Exceeded.MaxFiles":    "limits-exceeded",
+		"Heuristics.Limits.Exceeded.MaxScanTime": "incomplete",
+	} {
+		res := result{Files: 2, Verdict: "limits-exceeded", Sig: sig}
+		u.record(&res, scanResult{stopped: true})
+		res.finish()
+		if res.Verdict != want || res.answered() != 1 || !strings.Contains(res.Note, "time used up") {
+			t.Errorf("%s: %+v, want %s", sig, res, want)
+		}
+	}
+}
+
+// A limit the file itself exceeds outweighs a scan time running out, whichever part came first:
+// a retry would fail on it again.
+func TestExceededLimitOutweighsScanTime(t *testing.T) {
+	u := &UploadScan{}
+	exceeded := scanResult{sig: "Heuristics.Limits.Exceeded.MaxFileSize"}
+	timedOut := scanResult{sig: "Heuristics.Limits.Exceeded.MaxScanTime"}
+	for _, order := range [][]scanResult{{exceeded, timedOut}, {timedOut, exceeded}} {
+		var res result
+		for _, s := range order {
+			res.Files++
+			u.record(&res, s)
+		}
+		res.finish()
+		if res.Verdict != "limits-exceeded" || res.Sig != exceeded.sig {
+			t.Errorf("%s then %s: %+v", order[0].sig, order[1].sig, res)
+		}
 	}
 }
 
@@ -156,6 +180,93 @@ func TestPanicInTheScanStillPasses(t *testing.T) {
 	line := onlyLine(t, s)
 	if line["verdict"] != "error" || !strings.Contains(line["error"].(string), "panic") || !bytes.Equal(*s.got, sent) {
 		t.Fatalf("unexpected: %v, backend got %q", line, *s.got)
+	}
+}
+
+// In block mode a request the scan does not call clean gets its refusal, logged, and never reaches
+// the app; a clean one does.
+func TestBlockModeRefusesWhatIsNotClean(t *testing.T) {
+	clamd := startClamd(t, 0)
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	unreachable := ln.Addr().String()
+	ln.Close()
+	ambiguousBody, ambiguousType := multipartBody(t, map[string][]byte{"a.txt": []byte("hello")}, nil)
+	var manyParts strings.Builder
+	for i := 0; i < 1005; i++ {
+		manyParts.WriteString("--b\r\nContent-Disposition: form-data; name=\"f" + strconv.Itoa(i) + "\"\r\n\r\nx\r\n")
+	}
+	manyParts.WriteString("--b--\r\n")
+	cases := []struct {
+		name, clamd, contentType, encoding string
+		body                               []byte
+		before                             func(t *testing.T)
+		during                             func(t *testing.T)
+		status                             int
+		retryAfter                         string
+	}{
+		{"infected", clamd.addr, "application/pdf", "", eicar, nil, nil, 422, ""},
+		{"clean", clamd.addr, "application/zip", "", []byte("data"), nil, nil, 200, ""},
+		{"clamd unreachable", unreachable, "application/zip", "", []byte("data"), nil, nil, 503, "30"},
+		{"ambiguous", clamd.addr, ambiguousType, "gzip", ambiguousBody.Bytes(), nil, nil, 422, ""},
+		{"compressed raw body", clamd.addr, "application/octet-stream", "br", []byte("data"), nil, nil, 422, ""},
+		{"more parts than scanned", clamd.addr, "multipart/form-data; boundary=b", "", []byte(manyParts.String()), nil, nil, 422, ""},
+		{"too large", clamd.addr, "application/zip", "", bytes.Repeat([]byte("y"), 100), func(t *testing.T) { setMaxBytes(t, 10) }, nil, 413, ""},
+		{"too many", clamd.addr, "application/zip", "", []byte("data"), func(t *testing.T) { setMaxPerClient(t, 0) }, nil, 429, "10"},
+		{"busy", clamd.addr, "application/zip", "", []byte("data"), nil, func(t *testing.T) {
+			for i := 0; i < cap(sessions); i++ {
+				sessions <- struct{}{}
+			}
+		}, 503, "10"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if c.before != nil {
+				c.before(t)
+			}
+			s := newSetup(t, c.clamd, func(config *Config) {
+				config.Mode = "block"
+				config.QueueTimeout = "50ms"
+			})
+			if c.during != nil {
+				c.during(t)
+			}
+			req := httptest.NewRequest(http.MethodPost, "https://site.example.org/upload", bytes.NewReader(c.body))
+			req.Header.Set("Content-Type", c.contentType)
+			if c.encoding != "" {
+				req.Header.Set("Content-Encoding", c.encoding)
+			}
+			rec := httptest.NewRecorder()
+			s.handler.ServeHTTP(rec, req)
+
+			line := onlyLine(t, s)
+			refused := c.status != 200
+			if rec.Code != c.status || rec.Header().Get("Retry-After") != c.retryAfter || *s.reached == refused {
+				t.Errorf("%d, Retry-After %q, app reached %v; log %v", rec.Code, rec.Header().Get("Retry-After"), *s.reached, line)
+			}
+			if line["upload_scan"] != "block" || refused && line["refused"] != float64(c.status) || !refused && line["refused"] != nil {
+				t.Errorf("log line %v", line)
+			}
+		})
+	}
+}
+
+// A client that left before the scan's answer gets the status Traefik gives it, 499, and nothing
+// else; the app is not reached.
+func TestBlockModeClientGoneGets499(t *testing.T) {
+	clamd := startClamd(t, 0)
+	s := newSetup(t, clamd.addr, func(config *Config) { config.Mode = "block" })
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	req := httptest.NewRequest(http.MethodPost, "https://site.example.org/upload", bytes.NewReader(eicar)).WithContext(ctx)
+	req.Header.Set("Content-Type", "application/pdf")
+	rec := httptest.NewRecorder()
+	s.handler.ServeHTTP(rec, req)
+
+	if line := onlyLine(t, s); rec.Code != statusClientGone || rec.Body.Len() != 0 || *s.reached || line["refused"] != 499.0 {
+		t.Fatalf("%d %q, app reached %v, log %v", rec.Code, rec.Body.String(), *s.reached, line)
 	}
 }
 

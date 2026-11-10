@@ -21,8 +21,16 @@ func (u *UploadScan) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	defer held.release()
 	start := time.Now()
 	res := u.check(req, held)
+	var refused *refusal
+	if u.mode == "block" {
+		refused = refuse(res, req.Context().Err() != nil)
+	}
 	if res.Verdict != "" {
-		u.log(req, res, time.Since(start))
+		u.log(req, res, refused, time.Since(start))
+	}
+	if refused != nil {
+		respond(rw, req, refused)
+		return
 	}
 	u.next.ServeHTTP(rw, req)
 }
@@ -73,8 +81,8 @@ func (u *UploadScan) check(req *http.Request, held *heldBody) result {
 	return u.safeScan(req, q, got, held)
 }
 
-// safeScan keeps report mode's promise that every request passes: once the body is held for the
-// app, a fault in looking at it or scanning it is logged instead of failing the request.
+// safeScan turns a fault in looking at a held body or scanning it into the verdict error - passed
+// in report mode, refused as unavailable in block mode - instead of failing the request.
 func (u *UploadScan) safeScan(req *http.Request, q *queue, got read, held *heldBody) (res result) {
 	defer func() {
 		if p := recover(); p != nil {
@@ -113,6 +121,8 @@ func (u *UploadScan) scanBody(req *http.Request, q *queue, got read, held *heldB
 			got.chunks = [][]byte{joined}
 		}
 		res.Ambiguous = ambiguous(req.Header, bounds, body)
+	} else {
+		res.Ambiguous = encoded(req.Header)
 	}
 
 	if !q.turn(sessions) {
@@ -155,10 +165,11 @@ func (u *UploadScan) scanWhole(j *scanning, body io.Reader, res *result) scanRes
 
 // finish gives a scanned request its verdict from what its parts said.
 func (r *result) finish() {
+	decided := r.Verdict == "infected" || r.Verdict == "limits-exceeded" && !timedOut(r.Sig)
 	switch {
-	case r.Stopped && r.Verdict != "infected":
+	case r.Stopped && !decided:
 		// Time used up or client gone with parts left: what was scanned is not the whole, whatever
-		// the parts before said.
+		// the parts before said - unless one of them already decides the request.
 		if r.Verdict != "" {
 			r.note("earlier parts: " + r.Verdict)
 		}

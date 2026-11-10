@@ -93,7 +93,7 @@ def main():
             continue
         got = set(streams()[before:])
         missing = [f for f in php["files"] if f["size"] > 0 and f["error"] == 0 and f["sha"] not in got]
-        # Refused when blocking (phase 3), however a parser reads it.
+        # Refused in block mode, however a parser reads it.
         if missing and ambiguous(path):
             flagged += 1
             continue
