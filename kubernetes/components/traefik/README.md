@@ -154,8 +154,9 @@ cluster without each app setting something up. Our own plugin does it, `plugins/
   parts Go's strict parser accepts and none with a `Content-Transfer-Encoding` (Go decodes
   quoted-printable before an app stores it, PHP does not, so the scan may have seen other bytes).
   A body that departs from that gets `ambiguous` with the reason in its log line (`ambiguous.go`),
-  next to the verdict of the scan above; blocking (phase 3) refuses it, which closes parser
-  differences for every language at once.
+  next to the verdict of the scan above, and is refused (422), which closes parser differences
+  for every language at once. Any other body with a `Content-Encoding` is marked too: clamd saw
+  the compressed bytes, and an app that inflates the body would store what it never saw.
 - **Not scanned**: gRPC, gRPC-web, Connect and `application/proto` (Argo CD's and Zitadel's
   consoles and CLIs) - never read, since a stream that keeps its body open would hang; JSON (and
   `+json`) and `application/x-www-form-urlencoded` up to 64 KB of known length - the type is the
@@ -198,8 +199,9 @@ cluster without each app setting something up. Our own plugin does it, `plugins/
   the app has it. A body waiting alone waits out its time, since memory comes back as the others
   finish. Waiting - to be admitted, for a chunk, for a clamd slot, for the join - takes at most
   10 s together; reading a slow body does not count. A body that does not get in, or gets no
-  chunk in time, passes unscanned (`skipped:busy`; for a chunked body `bytes` is then what was
-  read so far), the app getting what was read followed by the rest. Cutting a multipart body
+  chunk in time, is not scanned (`skipped:busy`; for a chunked body `bytes` is then what was read
+  so far) and refused with 503 - in report mode the app gets what was read followed by the
+  rest. Cutting a multipart body
   needs it in one piece, so one with a usable boundary is joined: its pieces are copied into one
   buffer, one body at a time per Traefik, then cleared, and for a body from 16 MiB their memory is
   returned to the system at once (`debug.FreeOSMemory`), since a later large buffer could not
@@ -214,15 +216,15 @@ cluster without each app setting something up. Our own plugin does it, `plugins/
   trickling chunked uploads no longer make a normal upload `skipped:busy`; and more uploads than
   fit at once are all scanned, the later ones waiting for room; 300 and 400 multipart uploads of
   1 MB at once, each growing its first piece through every step, peaked at 97-253 MiB, all
-  scanned (the doubling's copies and garbage included). Larger bodies pass unscanned
-  (`skipped:too-large`).
+  scanned (the doubling's copies and garbage included). Larger bodies are not scanned
+  (`skipped:too-large`) and refused with 413.
 - **Per address** (2026-11-09): one address may have at most 16 uploads checked at once and hold at
   most one full-size body's memory (1616 units, a quarter of the pool) - taken, and set aside for
   what its bodies announced, so it cannot announce four bodies of 100 MiB and hold the pool's room
   with them; a body takes only what is not set aside for the address's other bodies, as in the
   pool - so neither many stalled uploads nor a few large ones from one address make every other
-  upload `skipped:busy`. A 17th upload is not read at all, logged `skipped:too-many` (refused with
-  429 from phase 3). A body that would go over the memory waits for the address's own memory to
+  upload `skipped:busy`. A 17th upload is not read at all, logged `skipped:too-many` and refused
+  with 429. A body that would go over the memory waits for the address's own memory to
   come back, without counting as stuck next to other addresses' bodies (it never makes one give
   way). Only when all of the address's memory is held by its bodies waiting on its share - none of
   it with a body still being read, scanned or passed on, which gives it back by itself, or with
@@ -230,7 +232,7 @@ cluster without each app setting something up. Our own plugin does it, `plugins/
   bodies stuck on the pool: after a second the one beyond its announcement, else the newest,
   gives way, at most one per address per second, apart from the pool's give-ways. The other may
   still not fit afterwards, or run out of time, and fail too (rare, accepted). Such a body ends
-  `skipped:too-many` (refused with 429 from phase 3, like a 17th upload) when the pool, set-aside
+  `skipped:too-many` (refused with 429, like a 17th upload) when the pool, set-aside
   room included, had room for it, else `skipped:busy`. The address is the visitor's that
   Cloudflare passes on (`CF-Connecting-IP`), else the connection's; IPv6 counts by its `/64`,
   since one network holds more addresses than could be counted one by one. The header can be
@@ -263,23 +265,52 @@ cluster without each app setting something up. Our own plugin does it, `plugins/
 - **Code**: `config.go` (settings, defaults), `filter.go` (which requests), `body.go` (reading,
   holding and joining the body), `pool.go` (memory), `queue.go` (the time a request may wait),
   `client.go` (the limits per address), `check.go` (the request's path), `multipart.go` (cutting
-  a multipart body into what is scanned), `ambiguous.go`, `clamd.go`, `log.go`; each has its
+  a multipart body into what is scanned), `ambiguous.go`, `clamd.go`, `log.go`, `refuse.go`
+  (which verdict is refused how), `negotiate.go` (the answer's format and language), `respond.go`
+  (writing it), `messages.go` (its texts); each has its
   tests in `<name>_test.go`, the fake clamd and the shared helpers in `fakeclamd_test.go` and
   `setup_test.go`. Yaegi 0.16 knows no
   built-in `min`/`max`, drops the first value of a double assignment with a call on the right,
   loops forever on `for i := 0; ; {`, and keeps a named result from the function's previous call
   when this call does not set it (2026-11-09: a body's copied first piece reappeared as an offset in
   its later pieces) - the code avoids all four; `safeScan`'s named result is set on every path.
-- **Report mode** (phase 2): every request passes, also when looking at the read body or scanning
-  it fails (logged `error`); one JSON line per upload in Traefik's log - host, path without query,
-  number of parts clamd answered, size, verdict (`clean`, `infected` with the signature,
-  `limits-exceeded` for a file beyond ClamAV's own limits - `AlertExceedsMax`, not malware found
-  -, `error`, `aborted` when the client stopped sending, sent less than it announced or left while
-  waiting, `incomplete` when time ran out or the client left with parts unscanned, `skipped:time`
+- **Refusing** (`mode: block`, phase 3, 2026-11-10): only `clean` passes - everything else the
+  scan looked at is refused and never reaches the app; a request with nothing to scan (no body, a
+  type not scanned) passes as before. 422 for `infected` and `limits-exceeded` (their text names
+  the signature) and for any body marked `ambiguous` whatever else its scan said (one of more than
+  1,000 parts, whose scan stops at the 1,000th, would otherwise end `incomplete` with a retry);
+  413 for `skipped:too-large`; 429 for `skipped:too-many`
+  and 503 for `skipped:busy`, both with `Retry-After: 10`; 503 with `Retry-After: 30` for
+  `incomplete`, `skipped:time`, `limits-exceeded` of `MaxScanTime` and `error` (clamd
+  unreachable, a fault in the scan); 400 for `aborted`. No `Retry-After` where the same upload
+  would fail again: a limit the file itself exceeds outweighs another part's `MaxScanTime`, and
+  stays the verdict when time runs out afterwards. A client that already left gets 499 without a
+  body, the status Traefik's proxy gives it, so the access log and the metrics count it alike;
+  one that hangs up halfway through its body over HTTP/1.1 is `aborted` with 400 instead, since
+  Go notices the hang-up only as a broken body - an answer it no longer gets. The
+  answer follows the client's `Accept` - JSON (`code`, `message`, `retry_after`; WordPress's REST
+  errors name them so, and its block editor shows `message`) when it prefers
+  `application/json` or a `+json` type, a minimal HTML page (no script, no branding, the same for
+  every site) when it prefers `text/html`, plain text otherwise, `*/*` included - and its
+  `Accept-Language`: English, German (Swiss spelling), French, Italian or Spanish, English for any
+  other (`messages.go`). An answer before the body's end (413 by its size header, busy or too-many
+  partway) leaves the rest unread: Go's server reads up to 256 KiB more, then closes the
+  connection. With one clamd ([`clamav/README.md`](../clamav/README.md)), scanned uploads get 503
+  while it restarts - every body the scan reads, not only files: a JSON or form body over 64 KiB
+  (a long post saved in the block editor) too, since its type is the client's word and an upload
+  labelled JSON must not pass whenever clamd is busy. Report mode (`mode: report`, the plugin's
+  default) lets every request pass, also when looking at the read body or scanning it fails, and
+  only logs - "Switching back to report mode" below.
+- **The log**: one JSON line per upload in Traefik's log - the mode (`upload_scan`), host, path
+  without query, number of parts clamd answered, size, verdict (`clean`, `infected` with the
+  signature, `limits-exceeded` for a file beyond ClamAV's own limits - `AlertExceedsMax`, not
+  malware found -, `error`, `aborted` when the client stopped sending, sent less than it
+  announced or left while waiting, `incomplete` when time ran out or the client left with parts
+  unscanned and none of the scanned ones decided the request already, `skipped:time`
   when that happened before the first part, `skipped:busy`, `skipped:too-many` when its address
   was over one of its limits, `skipped:too-large`), why a body was scanned whole or stopped early
-  (`note`), `ambiguous` with its reason, and the milliseconds it took. No client address and no
-  file names. Phase 3 refuses what clamd flags.
+  (`note`), `ambiguous` with its reason, `refused` with the status of a refused request, and the
+  milliseconds it took. No client address and no file names.
 - **Rolled out in steps**: first loaded with no route using it - while Traefik rolls node by node,
   a node whose Traefik has not restarted yet does not know the plugin and would answer a route
   that uses it with 404, and a plugin that fails to load would take that route down everywhere.
@@ -301,13 +332,15 @@ The verdicts in Grafana → Explore → Loki:
 A test with the EICAR string (it counts only as a small file of its own), through the dashboard
 route, where the scan sits behind the login: logged in at `https://traefik.d3strukt0r.dev/`, in
 the browser's developer console - the string is built in memory, so it never lands on the disk,
-where a virus scanner on the machine would flag it. Traefik's log then shows `infected`:
+where a virus scanner on the machine would flag it. It comes back 422 with the text in the
+browser's language, and Traefik's log shows `infected` with `refused: 422`:
 
 ```js
 const eicar = 'X5O!P%@AP[4\\PZX54(P^)7CC)7}$' + 'EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*';
 const form = new FormData();
 form.append('file', new Blob([eicar]), 'eicar.txt');
-fetch('/', { method: 'POST', body: form }).then(r => console.log(r.status));
+fetch('/', { method: 'POST', body: form, headers: { Accept: 'application/json' } })
+  .then(async r => console.log(r.status, await r.text()));
 ```
 
 Tests of the plugin itself, in `plugins/upload-scan` (a fake clamd; EICAR built at run time,
@@ -333,9 +366,9 @@ was missed. The random bodies found two cases the crafted ones had not (a part w
 starts with a `--boundary` line - PHP treats it as content when the part has a
 `Content-Disposition`, as a delimiter when not); both are unit tests now. The only bodies not
 scanned are the small form and JSON bodies without `Content-Disposition` skipped on purpose,
-which PHP does not store as files. Repeat it before blocking (phase 3) and after every change to
-how the plugin cuts multipart bodies: `plugins/upload-scan/compare/run.sh`
-([`compare/README.md`](plugins/upload-scan/compare/README.md)).
+which PHP does not store as files. Repeat it after every change to how the plugin cuts multipart
+bodies - it runs the plugin in report mode, so every body reaches PHP:
+`plugins/upload-scan/compare/run.sh` ([`compare/README.md`](plugins/upload-scan/compare/README.md)).
 
 The repo's pre-commit hook (`.githooks/pre-commit`) runs both on the staged versions whenever a
 commit touches the plugin, `helmchartconfig.yaml`, `kustomization.yaml` or
@@ -346,6 +379,22 @@ every push and pull request touching those files (`.github/workflows/upload-scan
 under `-race`), also for a clone without the hook; its actions follow their major version (`@v7`).
 Making the job a required check of `master`'s branch protection is a
 setting on GitHub, not in the repo.
+
+### Switching back to report mode
+
+When the scan refuses uploads it should not - a false positive on a real file, or clamd down for
+longer than a restart (`ClamavDown`) - report mode lets every upload pass again while the verdicts
+are still logged. In `middleware-upload-scan.yaml` set `mode: report`, push to `master`; Argo CD
+syncs the Middleware and Traefik applies it without a restart. The next upload's log line says
+`"upload_scan":"report"`:
+
+```logql
+{namespace="kube-system", container="traefik"} | json | upload_scan != ""
+```
+
+Only one host or path affected (an app whose uploads clamd misreads): put it on `exclude` in the
+same file instead, and block mode stays for every other. Set `mode: block` again once the cause
+is gone.
 
 ## Checking it
 

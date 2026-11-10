@@ -7,8 +7,9 @@ PHP 8.3, asking a stand-in clamd that records the SHA-256 of every stream it get
 non-empty file PHP stores must have reached clamd byte for byte**, and an EICAR file PHP stores
 must be logged `infected`. Byte for byte, because clamd also detects files by a hash over the
 whole file: an extra line break or a cut file would slip past it, which the EICAR string - only
-checked at a file's start - does not show. Repeat it before blocking (phase 3) and after every
-change to how the plugin cuts multipart bodies.
+checked at a file's start - does not show. Repeat it after every change to how the plugin cuts
+multipart bodies. The plugin runs here in report mode, so every body reaches PHP; a body it marks
+`ambiguous` counts as caught, since block mode refuses it however a parser reads it.
 
 ```shell
 ./run.sh                          # crafted uploads, then 4 x 400 random bodies

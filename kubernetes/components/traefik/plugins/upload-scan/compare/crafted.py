@@ -115,8 +115,7 @@ def main():
         # not store them as files.
         accepted = (not stored and php["raw_eicar"] and len(data) <= SKIP_MAX_BYTES
                     and content_type.split(";")[0].strip() in ("application/x-www-form-urlencoded", "application/json"))
-        # Bodies the plugin marks ambiguous are refused when blocking (phase 3), however a parser
-        # reads them.
+        # Bodies the plugin marks ambiguous are refused in block mode, however a parser reads them.
         ambiguous = logged[-1].get("ambiguous", "") if logged else ""
         ok = accepted or bool(ambiguous) or (exact and (not php_eicar or verdict == "infected"))
         misses += not ok

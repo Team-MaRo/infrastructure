@@ -20,10 +20,10 @@ const unit = firstChunkSize
 // From this size on, a join hands its chunks' memory back to the system at once.
 const bigJoin = 16 << 20
 
-// The largest body read and scanned (larger ones pass unscanned), how many such bodies and clamd
-// sessions one Traefik holds at once - together its memory for the scan - and how many uploads
-// one address may have checked at once. Code, not settings: they size memory once per start, and
-// the plugin's source hash is what restarts Traefik.
+// The largest body read and scanned (larger ones are skipped:too-large), how many such bodies and
+// clamd sessions one Traefik holds at once - together its memory for the scan - and how many
+// uploads one address may have checked at once. Code, not settings: they size memory once per
+// start, and the plugin's source hash is what restarts Traefik.
 var (
 	maxBytes     int64 = 100 << 20 // 100 MiB: << 20 multiplies by 2^20, a MiB
 	maxParallel        = 4

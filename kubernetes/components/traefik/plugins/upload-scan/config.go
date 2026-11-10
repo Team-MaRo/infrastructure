@@ -16,7 +16,8 @@ import (
 // Config is the Middleware's plugin configuration, filled by field name (Traefik decodes it with
 // mapstructure).
 type Config struct {
-	// Only "report" for now: every request passes, the verdict is logged.
+	// "report": every request passes, the verdict is logged. "block": a request the scan does not
+	// call clean is refused as well (refuse.go).
 	Mode string
 	// clamd's host:port.
 	Clamd string
@@ -59,6 +60,7 @@ func CreateConfig() *Config {
 
 type UploadScan struct {
 	next         http.Handler
+	mode         string
 	clamd        string
 	scanTimeout  time.Duration
 	queueTimeout time.Duration
@@ -70,8 +72,8 @@ type UploadScan struct {
 }
 
 func New(_ context.Context, next http.Handler, config *Config, _ string) (http.Handler, error) {
-	if config.Mode != "report" {
-		return nil, fmt.Errorf("upload-scan: mode %q is not supported, only report", config.Mode)
+	if config.Mode != "report" && config.Mode != "block" {
+		return nil, fmt.Errorf("upload-scan: mode %q is not supported, only report or block", config.Mode)
 	}
 	if config.Clamd == "" {
 		return nil, errors.New("upload-scan: clamd is required")
@@ -88,6 +90,7 @@ func New(_ context.Context, next http.Handler, config *Config, _ string) (http.H
 
 	u := &UploadScan{
 		next:         next,
+		mode:         config.Mode,
 		clamd:        config.Clamd,
 		scanTimeout:  scanTimeout,
 		queueTimeout: queueTimeout,

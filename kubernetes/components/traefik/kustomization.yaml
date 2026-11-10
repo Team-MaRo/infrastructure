@@ -28,9 +28,13 @@ configMapGenerator:
       - plugins/upload-scan/config.go
       - plugins/upload-scan/filter.go
       - plugins/upload-scan/log.go
+      - plugins/upload-scan/messages.go
       - plugins/upload-scan/multipart.go
+      - plugins/upload-scan/negotiate.go
       - plugins/upload-scan/pool.go
       - plugins/upload-scan/queue.go
+      - plugins/upload-scan/refuse.go
+      - plugins/upload-scan/respond.go
     options:
       disableNameSuffixHash: true
 

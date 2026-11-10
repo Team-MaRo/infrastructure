@@ -102,9 +102,11 @@ func TestCompressedMultipartIsAmbiguous(t *testing.T) {
 	if why := ambiguous(header, boundaries(values), body); !strings.Contains(why, "Content-Encoding") {
 		t.Fatalf("%q", why)
 	}
-	header["Content-Encoding"] = []string{"identity"}
-	if why := ambiguous(header, boundaries(values), body); why != "" {
-		t.Fatalf("identity is no encoding: %q", why)
+	for _, none := range []string{"identity", "", " "} {
+		header["Content-Encoding"] = []string{none}
+		if why := ambiguous(header, boundaries(values), body); why != "" {
+			t.Fatalf("%q is no encoding: %q", none, why)
+		}
 	}
 }
 

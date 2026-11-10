@@ -25,7 +25,7 @@ spec:
       # this file and rolls Traefik. go test in plugins/upload-scan fails until it matches
       # (README "Upload scan").
       podAnnotations:
-        upload-scan/source: "9bdaddca804a954d"
+        upload-scan/source: "44b85316ae642f69"
       # The upload-scan plugin's source (kustomization.yaml).
       additionalVolumes:
         - name: upload-scan

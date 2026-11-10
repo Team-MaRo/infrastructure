@@ -18,8 +18,9 @@ spec:
           annotations:
             summary: "clamd does not answer."
             description: >-
-              Nothing can be scanned. Check the pod (kubectl -n clamav get pods) and the logs of
-              its containers clamd and freshclam (README, "Checking it").
+              Nothing can be scanned, so uploads are refused. Check the pod (kubectl --context
+              d3strukt0r-prod-admin -n clamav get pods) and the logs of its containers clamd and
+              freshclam (README, "When ClamavDown fires").
         # The daily signatures are published several times a day.
         - alert: ClamavSignaturesStale
           expr: clamav_database_age{job="clamav/clamav"} > 2 * 86400

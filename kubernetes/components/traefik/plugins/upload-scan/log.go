@@ -34,10 +34,11 @@ func (r *result) note(n string) {
 	r.Note += n
 }
 
-// log writes one JSON line into Traefik's log: no client address and no file names.
-func (u *UploadScan) log(req *http.Request, res result, took time.Duration) {
+// log writes one JSON line into Traefik's log, with the mode and the status of a refusal: no client
+// address and no file names.
+func (u *UploadScan) log(req *http.Request, res result, refused *refusal, took time.Duration) {
 	fields := map[string]interface{}{
-		"upload_scan": "report",
+		"upload_scan": u.mode,
 		"host":        clip(req.Host),
 		"path":        clip(req.URL.Path),
 		"method":      clip(req.Method),
@@ -57,6 +58,9 @@ func (u *UploadScan) log(req *http.Request, res result, took time.Duration) {
 	}
 	if res.Ambiguous != "" {
 		fields["ambiguous"] = res.Ambiguous
+	}
+	if refused != nil {
+		fields["refused"] = refused.status
 	}
 	line, err := json.Marshal(fields)
 	if err != nil {
