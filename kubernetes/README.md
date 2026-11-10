@@ -69,7 +69,7 @@ kubernetes/
 │       ├── etcd-snapshots.yaml    # syncs the subdirectory below
 │       └── etcd-snapshots/        # prod-only: the S3 settings k3s uploads snapshots with
 ├── charts/                    # charts of our own, rendered from master
-│   ├── cloudflare-only/       # the Middleware admitting only Cloudflare: a subchart, and files/ for Kustomize
+│   ├── cloudflare-only/       # what every proxied route needs: only Cloudflare, a rate limit, the upload scan; a subchart, and files/ for Kustomize
 │   └── wordpress/             # every WordPress site; the sites' values are in components/
 ├── shared/                    # Kustomize Components a component lists under components:
 │   ├── external-secret-defaults/  # the openbao store and the 5m refresh for every ExternalSecret
@@ -98,7 +98,6 @@ kubernetes/
     │   ├── helmchartconfig.yaml   # values merged into k3s's bundled Traefik, the dashboard
     │   ├── certificate.yaml       # traefik.d3strukt0r.dev
     │   ├── middleware-oauth2-proxy.yaml  # the Zitadel gate for the dashboard
-    │   ├── middleware-upload-scan.yaml   # the upload scan's settings
     │   ├── rules.yaml             # the upload scan's alerts: malware found, many refused
     │   └── plugins/upload-scan/   # our Traefik plugin: uploads to clamd (Go, with tests);
     │                              # compare/ checks it against PHP

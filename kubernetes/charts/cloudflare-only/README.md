@@ -11,6 +11,12 @@ rate limit was on Traefik's entry point before (2026-10-07, a scanner's burst); 
 because DNS-only routes share that port without a `CF-Connecting-IP`, so their clients would all
 have counted as one visitor.
 
+The same file holds the upload scan's Middleware `upload-scan` (Traefik's plugin, its settings:
+[`../../components/traefik/README.md`](../../components/traefik/README.md), "Upload scan"), so
+every app gets a copy with the same settings - the scan's memory is sized by the first copy
+Traefik builds, and switching it to report mode is one line for all. It is not part of the chain
+yet.
+
 ## Why
 
 DNS-only names - the registry, later Forgejo's web and SSH, a game server - point at the nodes'

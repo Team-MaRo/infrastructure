@@ -10,14 +10,14 @@ on:
       - kubernetes/components/traefik/plugins/upload-scan/**
       - kubernetes/components/traefik/helmchartconfig.yaml
       - kubernetes/components/traefik/kustomization.yaml
-      - kubernetes/components/traefik/middleware-upload-scan.yaml
+      - kubernetes/charts/cloudflare-only/files/middleware.yaml
       - .github/workflows/upload-scan.yml
   pull_request:
     paths:
       - kubernetes/components/traefik/plugins/upload-scan/**
       - kubernetes/components/traefik/helmchartconfig.yaml
       - kubernetes/components/traefik/kustomization.yaml
-      - kubernetes/components/traefik/middleware-upload-scan.yaml
+      - kubernetes/charts/cloudflare-only/files/middleware.yaml
       - .github/workflows/upload-scan.yml
 
 permissions:
