@@ -6,8 +6,8 @@ Traffic enters through Traefik, which k3s ships. Traefik is k3s's own - k3s inst
 upgrades it from its bundled chart - and is configured only through the `HelmChartConfig` in
 `kubernetes/components/traefik/` (`helmchartconfig.yaml`, Application `traefik`), next to the
 dashboard's certificate (`certificate.yaml`), its Zitadel gate
-(`middleware-oauth2-proxy.yaml`), the upload scan (`middleware-upload-scan.yaml`,
-`plugins/upload-scan/`, "Upload scan") and
+(`middleware-oauth2-proxy.yaml`), the upload scan (`plugins/upload-scan/`, its Middleware in
+`charts/cloudflare-only`, "Upload scan") and
 the PodMonitor for its metrics (`pod-monitor.yaml`). It
 runs as a **DaemonSet on every ingress node's host network** and listens on the node's ports 80
 and 443 itself, IPv4 and IPv6. `prod.d3strukt0r.dev` has an A and an AAAA record per ingress
@@ -112,7 +112,10 @@ rebuild) the complete one.
 Every uploaded file is to be handed to the shared clamd before the app gets it
 ([`clamav/README.md`](../clamav/README.md)), so nobody can upload malware to any app on the
 cluster without each app setting something up. Our own plugin does it, `plugins/upload-scan`
-(Go, standard library only, with tests), its settings `middleware-upload-scan.yaml`.
+(Go, standard library only, with tests). Its settings are the Middleware `upload-scan` in
+[`../../charts/cloudflare-only/files/middleware.yaml`](../../charts/cloudflare-only/files/middleware.yaml),
+which every app with a proxied route gets a copy of, so all copies carry the same settings - the
+scan's memory is sized by the first one Traefik builds.
 
 - **Loaded as a local plugin**: `kustomization.yaml` puts its source into the ConfigMap
   `traefik-upload-scan`, `helmchartconfig.yaml` mounts it under `/plugins-local/src/…` and
@@ -383,8 +386,8 @@ bodies - it runs the plugin in report mode, so every body reaches PHP:
 `plugins/upload-scan/compare/run.sh` ([`compare/README.md`](plugins/upload-scan/compare/README.md)).
 
 The repo's pre-commit hook (`.githooks/pre-commit`) runs both on the staged versions whenever a
-commit touches the plugin, `helmchartconfig.yaml`, `kustomization.yaml` or
-`middleware-upload-scan.yaml` (a test hands its settings to the plugin), so neither the source
+commit touches the plugin, `helmchartconfig.yaml`, `kustomization.yaml` or the Middleware's file
+in `charts/cloudflare-only` (a test hands its settings to the plugin), so neither the source
 hash, a half-staged plugin nor a setting the plugin refuses goes in unnoticed; a clone turns it
 on once with `git config core.hooksPath .githooks` (`AGENTS.md`). GitHub runs the same two on
 every push and pull request touching those files (`.github/workflows/upload-scan.yml`, the tests
@@ -396,8 +399,9 @@ setting on GitHub, not in the repo.
 
 When the scan refuses uploads it should not - a false positive on a real file, or clamd down for
 longer than a restart (`ClamavDown`) - report mode lets every upload pass again while the verdicts
-are still logged. In `middleware-upload-scan.yaml` set `mode: report`, push to `master`; Argo CD
-syncs the Middleware and Traefik applies it without a restart. The next upload's log line says
+are still logged. In `../../charts/cloudflare-only/files/middleware.yaml` set `mode: report` -
+one line for every app's copy - and push to `master`; Argo CD syncs the copies and Traefik
+applies them without a restart. The next upload's log line says
 `"upload_scan":"report"`:
 
 ```logql

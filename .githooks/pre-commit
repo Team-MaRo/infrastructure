@@ -1,13 +1,15 @@
 #!/bin/sh
 # Runs the upload-scan plugin's tests - compiled and under Yaegi - when a commit touches the
 # plugin, the HelmChartConfig that carries its source hash, the kustomization that lists its
-# files, or the Middleware with its settings: Traefik loads the plugin only at start, and that
-# hash is what restarts it (kubernetes/components/traefik/README.md, "Upload scan"). It tests the
-# staged versions, taken from the index into a temporary folder, so a partly staged change
-# cannot pass on what is only in the working tree.
+# files, or the Middleware with its settings (charts/cloudflare-only, every app's copy): Traefik
+# loads the plugin only at start, and that hash is what restarts it
+# (kubernetes/components/traefik/README.md, "Upload scan"). It tests the staged versions, taken
+# from the index into a temporary folder, so a partly staged change cannot pass on what is only in
+# the working tree.
 set -e
 traefik=kubernetes/components/traefik
-if ! git diff --cached --name-only | grep -q -E "^$traefik/(plugins/upload-scan/|helmchartconfig\.yaml|kustomization\.yaml|middleware-upload-scan\.yaml)"; then
+middleware=kubernetes/charts/cloudflare-only/files/middleware.yaml
+if ! git diff --cached --name-only | grep -q -E "^($traefik/(plugins/upload-scan/|helmchartconfig\.yaml|kustomization\.yaml)|$middleware$)"; then
   exit 0
 fi
 if ! command -v go >/dev/null 2>&1; then
@@ -21,7 +23,7 @@ git cat-file -e "$tree:$traefik/plugins/upload-scan" 2>/dev/null || exit 0
 staged=$(mktemp -d)
 trap 'rm -rf "$staged"' EXIT
 git archive "$tree" -- "$traefik/helmchartconfig.yaml" "$traefik/kustomization.yaml" \
-  "$traefik/middleware-upload-scan.yaml" "$traefik/plugins/upload-scan" | tar -x -C "$staged"
+  "$middleware" "$traefik/plugins/upload-scan" | tar -x -C "$staged"
 go -C "$staged/$traefik/plugins/upload-scan" test ./...
 # Under the Go interpreter of Traefik 3.7 too, which is what runs the plugin in the cluster.
 cd "$staged/$traefik/plugins/upload-scan"

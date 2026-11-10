@@ -6,10 +6,10 @@ resources:
   - helmchartconfig.yaml
   - certificate.yaml
   - middleware-oauth2-proxy.yaml
-  - middleware-upload-scan.yaml
   - pod-monitor.yaml
   - rules.yaml
-  # Only Cloudflare reaches its proxied routes (charts/cloudflare-only).
+  # Only Cloudflare reaches its proxied routes, and the upload scan's Middleware with its settings
+  # (charts/cloudflare-only).
   - ../../charts/cloudflare-only/files
 
 # The upload-scan plugin's source, mounted into Traefik (helmchartconfig.yaml). A fixed name, as

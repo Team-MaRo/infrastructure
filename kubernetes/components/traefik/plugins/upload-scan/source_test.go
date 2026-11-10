@@ -77,10 +77,13 @@ func TestKustomizationListsEverySourceFile(t *testing.T) {
 	}
 }
 
+// The upload scan's Middleware, one copy per app (kubernetes/charts/cloudflare-only).
+const middlewareFile = "../../../../charts/cloudflare-only/files/middleware.yaml"
+
 // The Middleware's settings must be ones New accepts: Traefik decodes them by field name, in any
 // case, and a value New refuses breaks every route that uses the Middleware.
 func TestMiddlewareSettingsAreAccepted(t *testing.T) {
-	b, err := os.ReadFile("../../middleware-upload-scan.yaml")
+	b, err := os.ReadFile(middlewareFile)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -110,14 +113,14 @@ func TestMiddlewareSettingsAreAccepted(t *testing.T) {
 		field := fields.FieldByNameFunc(func(name string) bool { return strings.EqualFold(name, key) })
 		switch {
 		case !field.IsValid():
-			t.Fatalf("middleware-upload-scan.yaml: %s is no setting of Config", key)
+			t.Fatalf("%s: %s is no setting of Config", middlewareFile, key)
 		case field.Kind() == reflect.Slice:
 			field.Set(reflect.MakeSlice(field.Type(), 0, 0))
 			list = field
 		case field.Kind() == reflect.Int64:
 			n, err := strconv.ParseInt(value, 10, 64)
 			if err != nil {
-				t.Fatalf("middleware-upload-scan.yaml: %s: %v", key, err)
+				t.Fatalf("%s: %s: %v", middlewareFile, key, err)
 			}
 			field.SetInt(n)
 		default:
@@ -125,9 +128,9 @@ func TestMiddlewareSettingsAreAccepted(t *testing.T) {
 		}
 	}
 	if indent < 0 {
-		t.Fatal("middleware-upload-scan.yaml has no upload-scan settings")
+		t.Fatalf("%s has no upload-scan settings", middlewareFile)
 	}
 	if _, err := New(context.Background(), http.NotFoundHandler(), config, "upload-scan"); err != nil {
-		t.Fatalf("middleware-upload-scan.yaml: %v", err)
+		t.Fatalf("%s: %v", middlewareFile, err)
 	}
 }
