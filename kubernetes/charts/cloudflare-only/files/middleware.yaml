@@ -1,9 +1,10 @@
 ---
 # What every route of a name Cloudflare proxies puts first
 # (<namespace>_cloudflare-only@kubernetescrd): only Cloudflare gets in, then the per-visitor rate
-# limit. A chain, so the routes name one
-# middleware. DNS-only routes leave it out and carry the label d3strukt0r.dev/dns-only: "true" -
-# Kyverno refuses any other route without it (components/kyverno, cloudflare-only-routes.yaml).
+# limit, then the upload scan - last, so a client that is not Cloudflare or is over its rate costs
+# no buffering. A chain, so the routes name one middleware. DNS-only routes leave it out and carry
+# the label d3strukt0r.dev/dns-only: "true" - Kyverno refuses any other route without it
+# (components/kyverno, cloudflare-only-routes.yaml).
 # No namespace: Traefik takes a route's middlewares only from the route's own namespace, so every
 # app gets its own copy of this one file - a chart of ours as the subchart cloudflare-only, a
 # Kustomize directory by listing this directory (README).
@@ -16,6 +17,7 @@ spec:
     middlewares:
       - name: cloudflare-allowlist
       - name: cloudflare-rate-limit
+      - name: upload-scan
 ---
 # Only Cloudflare: a client that knows a node's address - DNS-only names like the registry publish
 # them - and talks to it directly gets 403 instead of the site, and so can no longer set
@@ -74,12 +76,13 @@ spec:
     sourceCriterion:
       requestHeaderName: CF-Connecting-IP
 ---
-# The upload scan (components/traefik, README "Upload scan"): hands every uploaded file to the
-# shared clamd, logs the verdict and refuses what it does not call clean (mode: block; report lets
-# everything pass, traefik README "Switching back to report mode"). One file for every app's
-# copy, so all carry the same settings - the scan's memory is sized by the first one Traefik
-# builds. Only what differs from the plugin's defaults (CreateConfig in config.go); Traefik
-# applies a change without a restart. The limits that size its memory are in the code (body.go).
+# The upload scan, last in the chain above (components/traefik, README "Upload scan"): hands every
+# uploaded file to the shared clamd, logs the verdict and refuses what it does not call clean
+# (mode: block; report lets everything pass, traefik README "Switching back to report mode"). One
+# file for every app's copy, so all carry the same settings - the scan's memory is sized by the
+# first one Traefik builds. Only what differs from the plugin's defaults (CreateConfig in
+# config.go); Traefik applies a change without a restart. The limits that size its memory are in
+# the code (body.go).
 apiVersion: traefik.io/v1alpha1
 kind: Middleware
 metadata:

@@ -79,7 +79,7 @@ rebuild) the complete one.
   entry point their clients would all share one bucket. Behind the chain, `CF-Connecting-IP` can
   only come from Cloudflare, which the rate limit, the sites' nginx and the xmlrpc allowlist
   rely on. A route that names the middleware without its namespace's copy existing is switched
-  off (404) - it fails closed.
+  off (404) - it fails closed. The chain's last step is the upload scan ("Upload scan" below).
 - **Every request is traced** (`tracing.otlp` in `helmchartconfig.yaml`, the default sample rate
   1.0): Traefik sends a span per request over OTLP gRPC to the Alloy on its node
   (`alloy.kube-system.svc:4317`, resolved through `ClusterFirstWithHostNet`), which forwards it
@@ -326,17 +326,22 @@ scan's memory is sized by the first one Traefik builds.
   499) left out; silenced while `ClamavDown` fires, which explains it
   ([`../kube-prometheus-stack/README.md`](../kube-prometheus-stack/README.md)). Both resolve by
   themselves; the thresholds are a start, to be tuned once sites send traffic.
-- **Rolled out in steps**: first loaded with no route using it - while Traefik rolls node by node,
-  a node whose Traefik has not restarted yet does not know the plugin and would answer a route
-  that uses it with 404, and a plugin that fails to load would take that route down everywhere.
-  Once every node's Traefik has logged `Plugins loaded`, the dashboard route
-  (`traefik.d3strukt0r.dev`) uses it, after the login gate, so only logged-in admins can make it
-  buffer and scan. Then for every site **inside the `cloudflare-only` chain**
-  (`kubernetes/charts/cloudflare-only`) rather than on the entry points: an entry-point middleware
+- **On every site Cloudflare proxies** (2026-11-10): the last step of the **`cloudflare-only`
+  chain** ([`../../charts/cloudflare-only/README.md`](../../charts/cloudflare-only/README.md)),
+  which every proxied route puts first - so every app is covered without setting anything up,
+  and DNS-only routes (the registry) are not. Not on the entry points: an entry-point middleware
   runs before a route's `cloudflare-only`, so a client talking to a node directly would be
-  buffered and scanned before its 403, and DNS-only routes (the registry) would be scanned too.
-  Traefik takes middlewares only from the route's own namespace, so each site's namespace gets a
-  copy of the `upload-scan` Middleware with the same settings, the way it gets `cloudflare-only`.
+  buffered and scanned before its 403, and DNS-only routes would be scanned too. On the routes
+  behind the Zitadel gate the scan runs before the login, like on any public form. While clamd
+  is down, every scanned body on every site is refused - also a login form the scan reads; the
+  way back needs no login (`ClamavDown` in [`../clamav/README.md`](../clamav/README.md)).
+- **Rolled out in steps**, each one only once the one before was live: the plugin loaded with no
+  route using it (a node whose Traefik has not restarted yet does not know the plugin and would
+  answer a route that uses it with 404; a plugin that fails to load would take that route down
+  everywhere), then the dashboard route, then the Middleware into every app's namespace, and only
+  then into the chain - a chain naming a middleware its namespace does not have yet switches the
+  route off. Likewise a setting only new code knows goes in after every Traefik runs that code
+  (`mode: block` came with its code in one push, accepted while only the dashboard used the scan).
 
 The verdicts in Grafana → Explore → Loki:
 

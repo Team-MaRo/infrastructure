@@ -2,20 +2,24 @@
 
 Back to [`kubernetes/README.md`](../../README.md).
 
-The Traefik Middleware `cloudflare-only` (`files/middleware.yaml`), a `chain` of two:
-`cloudflare-allowlist`, an `ipAllowList` of Cloudflare's IP ranges, and `cloudflare-rate-limit`,
-20 requests a second per visitor (bursts of 100, grouped by `CF-Connecting-IP`). Every route of a
+The Traefik Middleware `cloudflare-only` (`files/middleware.yaml`), a `chain` of three:
+`cloudflare-allowlist`, an `ipAllowList` of Cloudflare's IP ranges, `cloudflare-rate-limit`, 20
+requests a second per visitor (bursts of 100, grouped by `CF-Connecting-IP`), and `upload-scan`,
+which hands every uploaded file to clamd and refuses what it does not call clean. Every route of a
 name that Cloudflare proxies puts it first, so only Cloudflare reaches those sites - anyone
-talking to a node directly gets 403 from Traefik - and a single visitor cannot flood one. The
+talking to a node directly gets 403 from Traefik -, a single visitor cannot flood one, and no app
+gets a file clamd flags - without setting anything up itself. The
 rate limit was on Traefik's entry point before (2026-10-07, a scanner's burst); it moved here
 because DNS-only routes share that port without a `CF-Connecting-IP`, so their clients would all
 have counted as one visitor.
 
-The same file holds the upload scan's Middleware `upload-scan` (Traefik's plugin, its settings:
+The upload scan's Middleware sits in the same file (Traefik's plugin, its settings:
 [`../../components/traefik/README.md`](../../components/traefik/README.md), "Upload scan"), so
 every app gets a copy with the same settings - the scan's memory is sized by the first copy
-Traefik builds, and switching it to report mode is one line for all. It is not part of the chain
-yet.
+Traefik builds, and switching it to report mode is one line for all. It comes last in the chain:
+a client that is not Cloudflare, or is over its rate, costs no buffering. On the routes behind
+the Zitadel gate (oauth2-proxy) it runs before the login, like on any public form; the
+per-address limits and the scan's memory bound what an anonymous client can make it hold.
 
 ## Why
 
