@@ -162,12 +162,16 @@ scan's memory is sized by the first one Traefik builds.
   the compressed bytes, and an app that inflates the body would store what it never saw.
 - **Not scanned**: gRPC, gRPC-web, Connect and `application/proto` (Argo CD's and Zitadel's
   consoles and CLIs) - never read, since a stream that keeps its body open would hang; JSON (and
-  `+json`) and `application/x-www-form-urlencoded` up to 64 KB of known length - the type is the
-  client's word, and never a multipart one (some parsers take `multipart/form-data+json` for
-  form-data); a request with any `Content-Disposition` header is scanned whatever its type
-  (WordPress' raw media upload needs that header). Nothing is excluded by host or path today
-  (`exclude` in the Middleware: a host, or a host with an exact path). Base64 inside small JSON
-  stays unscannable (accepted).
+  `+json`) and `application/x-www-form-urlencoded` up to 64 KiB of known length - the type is
+  the client's word, and never a multipart one (some parsers take `multipart/form-data+json` for
+  form-data); likewise a Next.js server action, `text/plain` marked by a `Next-Action` header,
+  up to 64 KiB. Zitadel's login posts its login name, password and OTP that way: scanned, they
+  cost four scans per login, made every login through Zitadel fail while clamd was down, and sent
+  passwords to clamd (2026-11-10). Other `text/plain` bodies are scanned - a small text file
+  uploaded on its own is a file. A request with any `Content-Disposition` header is scanned
+  whatever its type (WordPress' raw media upload needs that header). Nothing is excluded by host
+  or path today (`exclude` in the Middleware: a host, or a host with an exact path). Base64
+  inside small JSON stays unscannable (accepted).
 - **Memory**: a body is read in pieces of up to 1 MiB, the first one starting at 64 KiB and
   doubled each time it is full - 128 KiB, 256 KiB, 512 KiB, 1 MiB, copying what it holds (at most
   960 KiB per body) - so a body with a known length up to 1 MiB stays one piece and is never
@@ -240,7 +244,9 @@ scan's memory is sized by the first one Traefik builds.
   Cloudflare passes on (`CF-Connecting-IP`), else the connection's; IPv6 counts by its `/64`,
   since one network holds more addresses than could be counted one by one. The header can be
   trusted because the scan runs only behind `cloudflare-only`, which lets nothing but Cloudflare
-  reach it. Each Traefik counts for itself (Cloudflare spreads a client over them), and a shared
+  reach it. Each Traefik counts for itself, though Cloudflare may send all of a client's
+  connections to one of them (2026-11-10: 60 parallel uploads from one address all reached the
+  Traefik on prod-01 - 16 scanned, 44 refused with 429), and a shared
   address - a household, a venue's Wi-Fi, a mobile carrier - shares these limits. Several
   addresses together are not held back; memory going to whoever is actually sending would be the
   answer to that, should it matter.
@@ -264,7 +270,9 @@ scan's memory is sized by the first one Traefik builds.
   44 s in the browser and 21 s at the plugin), so a slow sender's time counts here. Cloudflare
   waits up to 125 s for the first bytes of the answer and then between any two (its Proxy Read
   Timeout, fixed below Enterprise), and allows 30 s for writing the request to us (its Proxy Write
-  Timeout, fixed; its docs do not say whether per write or in total).
+  Timeout, fixed; its docs do not say whether per write or in total). A 10 s stall passed
+  (2026-11-10: a chunked 4 MiB upload pausing 10 s halfway through was scanned clean, in 10.6 s
+  at the plugin).
 - **Code**: `config.go` (settings, defaults), `filter.go` (which requests), `body.go` (reading,
   holding and joining the body), `pool.go` (memory), `queue.go` (the time a request may wait),
   `client.go` (the limits per address), `check.go` (the request's path), `multipart.go` (cutting
@@ -292,15 +300,19 @@ scan's memory is sized by the first one Traefik builds.
   one that hangs up halfway through its body over HTTP/1.1 is `aborted` with 400 instead, since
   Go notices the hang-up only as a broken body - an answer it no longer gets. The
   answer follows the client's `Accept` - JSON (`code`, `message`, `retry_after`; WordPress's REST
-  errors name them so, and its block editor shows `message`) when it prefers
+  errors name them so, and its block editor shows `message`, while its media library shows its
+  own "unexpected response" whatever the answer - 2026-11-10) when it prefers
   `application/json` or a `+json` type, a minimal HTML page (no script, no branding, the same for
   every site) when it prefers `text/html`, plain text otherwise, `*/*` included - and its
   `Accept-Language`: English, German (Swiss spelling), French, Italian or Spanish, English for any
   other (`messages.go`). An answer before the body's end (413 by its size header, busy or too-many
   partway) leaves the rest unread: Go's server reads up to 256 KiB more, then closes the
-  connection. With one clamd ([`clamav/README.md`](../clamav/README.md)), scanned uploads get 503
-  while it restarts - every body the scan reads, not only files: a JSON or form body over 64 KiB
-  (a long post saved in the block editor) too, since its type is the client's word and an upload
+  connection. Through Cloudflare the answer reaches the client (2026-11-10: a 17th upload sent at
+  40 KB/s got the 429 with its text, no Cloudflare error page) - after Cloudflare has collected
+  about its first MiB, 26 s at that rate, though Traefik answered at once. With one clamd
+  ([`clamav/README.md`](../clamav/README.md)), scanned uploads get 503 while it restarts - every
+  body the scan reads, not only files: a JSON, form or server-action body over 64 KiB (a long
+  post saved in the block editor) too, since its type is the client's word and an upload
   labelled JSON must not pass whenever clamd is busy. Report mode (`mode: report`, the plugin's
   default) lets every request pass, also when looking at the read body or scanning it fails, and
   only logs - "Switching back to report mode" below.
