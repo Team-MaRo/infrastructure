@@ -234,8 +234,12 @@ rule, 2026-10-02). Where a name cannot hold a hyphen, the hyphens become undersc
   (Traefik with the upload scan's bodies) sizes its limit from that design instead, the
   derivation written next to it
   ([`kubernetes/components/kyverno/README.md`](kubernetes/components/kyverno/README.md)).
-- **Only Cloudflare reaches a proxied name.** Every route of a name Cloudflare proxies puts
-  the Middleware `cloudflare-only` first (`<namespace>_cloudflare-only@kubernetescrd`); its app
+- **Only Cloudflare reaches a proxied name, and only files clamd calls clean.** Every route of a
+  name Cloudflare proxies puts the Middleware `cloudflare-only` first
+  (`<namespace>_cloudflare-only@kubernetescrd`) - a chain that admits only Cloudflare, limits each
+  visitor and ends with the upload scan
+  ([`kubernetes/components/traefik/README.md`](kubernetes/components/traefik/README.md), "Upload
+  scan"); its app
   brings the namespace's copy - a chart of ours as the subchart `kubernetes/charts/cloudflare-only`,
   a Kustomize directory by listing `kubernetes/charts/cloudflare-only/files` (Traefik takes
   middlewares only from the route's own namespace). DNS-only routes leave it out and carry the

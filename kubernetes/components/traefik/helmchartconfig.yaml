@@ -100,20 +100,17 @@ spec:
       kubernetesCRD:
         safeNaming: true
     # The dashboard (read-only: routers, services, middlewares, certificates) at
-    # traefik.d3strukt0r.dev, only through Cloudflare (charts/cloudflare-only) and behind the
-    # Zitadel login gate (middleware-oauth2-proxy.yaml).
+    # traefik.d3strukt0r.dev, only through Cloudflare with the upload scan (charts/cloudflare-only)
+    # and behind the Zitadel login gate (middleware-oauth2-proxy.yaml).
     ingressRoute:
       dashboard:
         enabled: true
         matchRule: Host(`traefik.d3strukt0r.dev`)
         entryPoints:
           - websecure
-        # upload-scan's first route (README "Upload scan"), after the login gate: only logged-in
-        # admins can make it buffer and scan.
         middlewares:
           - name: cloudflare-only
           - name: oauth2-proxy
-          - name: upload-scan
         tls:
           secretName: traefik-tls
     # Traefik's own log (start, configuration, backend and TLS errors) as JSON too, so both logs

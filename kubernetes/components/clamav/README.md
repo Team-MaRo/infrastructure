@@ -132,13 +132,16 @@ kubectl --context d3strukt0r-prod-admin -n clamav exec deploy/clamav -c clamd --
 
 ### When `ClamavDown` fires
 
-clamd is busy, frozen or not running. Uploads the scan would hand to it are refused meanwhile
+clamd is busy, frozen or not running. Every body the upload scan reads, on every site Cloudflare
+proxies - uploads, larger form or JSON posts, possibly a login form - is refused meanwhile
 with 503 - `Retry-After: 30` when clamd cannot be reached or a scan runs out of time (a frozen
 clamd, after 45 s), `10` when a Traefik's own four clamd slots are all held by such scans
 (`skipped:busy`) - and a frozen clamd is restarted by its liveness probe after 15
 minutes without an answer. When it takes longer than that, let uploads pass unscanned until it is
 fixed: "Switching back to report mode" in
-[`traefik/README.md`](../traefik/README.md#switching-back-to-report-mode). To tell which it is:
+[`traefik/README.md`](../traefik/README.md#switching-back-to-report-mode) - a push to `master`,
+which needs no login through Zitadel, and the admin kubeconfig (`d3strukt0r-prod-admin`) works
+without one too. To tell which it is:
 
 ```shell
 kubectl --context d3strukt0r-prod-admin -n clamav get pods
