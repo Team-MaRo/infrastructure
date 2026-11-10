@@ -49,6 +49,12 @@ forwards them to Tempo ([`../tempo/README.md`](../tempo/README.md)).
 - **Labels**: `namespace`, `pod`, `container`, `node`, `app` for containers; `job="node-journal"`,
   `unit`, `node` for the journal; `job="loki.source.kubernetes_events"` for events. Anything
   else is searched in the line, not labelled - Loki stays fast with few labels.
+- **Traefik's upload scan lines also become a counter**,
+  `loki_process_custom_upload_scan_total` by `verdict` and `refused` (a `stage.match` in
+  `loki.process "pods"`), for the scan's alerts
+  ([`../traefik/README.md`](../traefik/README.md), "Upload scan"). A metric takes the entry's
+  labels, so the two are set for `stage.metrics` and dropped again: Loki's streams keep their
+  labels. Alerts on log lines go this way, through Prometheus, rather than through Loki's ruler.
 - Alloy sends no usage statistics (`enableReporting: false`).
 
 ## Alerts

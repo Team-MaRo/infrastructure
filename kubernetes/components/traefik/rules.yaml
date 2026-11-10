@@ -1,0 +1,50 @@
+---
+# Alerts for the upload scan (README "Upload scan"), on the counter Alloy makes of its log lines
+# (components/alloy/values.yaml). clamd itself is ClamavDown (components/clamav/rules.yaml).
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: upload-scan
+spec:
+  groups:
+    - name: upload-scan
+      rules:
+        # Lines in the last 10 minutes, per series: a counter made of log lines starts a series at
+        # its first line's count, which increase() does not see - so a series new within the
+        # window counts with its whole value.
+        - record: upload_scan:lines:new10m
+          expr: >-
+            (
+              increase(loki_process_custom_upload_scan_total[10m])
+              and loki_process_custom_upload_scan_total offset 10m
+            )
+            or
+            (
+              loki_process_custom_upload_scan_total
+              unless loki_process_custom_upload_scan_total offset 10m
+            )
+        - alert: UploadScanInfected
+          expr: sum(upload_scan:lines:new10m{verdict="infected"}) > 0
+          labels:
+            severity: warning
+            namespace: kube-system
+          annotations:
+            summary: "The upload scan found malware in an upload."
+            description: >-
+              In block mode it was refused (422), in report mode it reached the app - the log
+              line's upload_scan says which: README, "When UploadScanInfected fires".
+        # Uploads failing for people; malware has its own alert, and a client that hung up
+        # (aborted, 499) is no fault here.
+        - alert: UploadScanRefusing
+          expr: >-
+            sum(upload_scan:lines:new10m{
+              refused!="", refused!="499", verdict!~"infected|aborted"
+            }) > 20
+          labels:
+            severity: warning
+            namespace: kube-system
+          annotations:
+            summary: "The upload scan refused {{ $value | printf \"%.0f\" }} uploads in 10 minutes."
+            description: >-
+              Its verdicts say why - memory, one address, clamd, files beyond the limits or odd
+              bodies: README, "When UploadScanRefusing fires".

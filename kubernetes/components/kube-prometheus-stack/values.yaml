@@ -200,6 +200,10 @@ alertmanager:
       - source_matchers: [alertname = "PersistentVolumeUsageCritical"]
         target_matchers: [alertname = "PersistentVolumeUsageHigh"]
         equal: [namespace, persistentvolumeclaim]
+      # clamd down refuses every scanned upload: one page for it, not two
+      # (components/traefik/rules.yaml).
+      - source_matchers: [alertname = "ClamavDown"]
+        target_matchers: [alertname = "UploadScanRefusing"]
     receivers:
       - name: "null"
       - name: watchdog

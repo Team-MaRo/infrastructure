@@ -103,6 +103,35 @@ alloy:
       // Unwraps containerd's log format: timestamp, stream, partial-line flag, message.
       loki.process "pods" {
         stage.cri {}
+
+        // Traefik's upload scan lines become a counter by verdict and refusal status, for its
+        // alerts (components/traefik/rules.yaml). A metric takes the entry's labels, so the two
+        // are labels only for stage.metrics and are dropped before the line goes to Loki. A series
+        // outlives the alerts' 10-minute window: by default it goes after 5 minutes without a
+        // line, and the next line would start it anew, unseen by increase().
+        stage.match {
+          selector = "{namespace=\"kube-system\", container=\"traefik\"} |= \"upload_scan\""
+
+          stage.json {
+            expressions = { verdict = "verdict", refused = "refused" }
+          }
+          stage.labels {
+            values = { verdict = "", refused = "" }
+          }
+          stage.metrics {
+            metric.counter {
+              name              = "upload_scan_total"
+              description       = "Upload scan log lines by verdict and refusal status."
+              match_all         = true
+              action            = "inc"
+              max_idle_duration = "24h"
+            }
+          }
+          stage.label_drop {
+            values = ["verdict", "refused"]
+          }
+        }
+
         forward_to = [loki.write.default.receiver]
       }
 
