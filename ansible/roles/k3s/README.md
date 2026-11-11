@@ -304,6 +304,16 @@ Every node's containerd pulls through the cluster's own registry, zot at
   `api-key`, run `prod.yml` (every node restarts in turn), then delete the old key in zot (zot
   README, "Rotating a key").
 
+## When k3s restarts by itself
+
+A server's k3s exits when its controllers lose their leader leases, and systemd starts it again
+at once (the unit k3s's install script writes). Running containers keep running - the containerd
+shims outlive the unit ("remains running after unit stopped" in the journal) - and the node
+rejoins by itself. A freeze of the VM is enough: on 2026-11-11 07:08, during Hetzner network
+maintenance, prod-03 stood still for ~11.5 s (kernel: `clocksource: Long readout interval`),
+etcd requests took 12-15 s, k3s logged `Error retrieving lease lock` and exited with status 1.
+Nothing to do afterwards; it only restarts the kubelet's image-age count ("Memory" above).
+
 ## Running it
 
 ```shell

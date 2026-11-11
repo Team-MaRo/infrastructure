@@ -21,11 +21,9 @@ spec:
   serviceAccountName: system-upgrade
   upgrade:
     image: rancher/k3s-upgrade
-  # Patch releases of 1.37. Not stable yet: stable is still on 1.36, and k3s-upgrade refuses
-  # to downgrade - the Job fails and leaves the node cordoned. Switch to
-  # https://update.k3s.io/v1-release/channels/stable once stable reaches 1.37. Until then a
-  # minor upgrade is changing this line, never skipping a minor.
-  channel: https://update.k3s.io/v1-release/channels/v1.37
+  # k3s's stable channel: patch releases, and the next minor once k3s promotes it - weeks after
+  # its release, never skipping one. Holding a minor back: README "Moving to the next minor".
+  channel: https://update.k3s.io/v1-release/channels/stable
   # First in the night's order, right after the scheduled etcd snapshot at 00:00 UTC, so
   # every upgrade starts from a fresh one in Object Storage. OS updates follow at 03:30 and
   # kured's reboots at 04:30; Jobs start only inside the window but may run past its end.
@@ -61,7 +59,7 @@ spec:
   upgrade:
     image: rancher/k3s-upgrade
   # Kept in step with the server Plan's channel.
-  channel: https://update.k3s.io/v1-release/channels/v1.37
+  channel: https://update.k3s.io/v1-release/channels/stable
   window:
     days: [monday, tuesday, wednesday, thursday, friday, saturday, sunday]
     startTime: "02:30"
