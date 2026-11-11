@@ -96,7 +96,11 @@ rebuild) the complete one.
   first Ingresses (Zitadel's) blocked their sync that way.
 - **Updates replace one node at a time** (`maxUnavailable: 1`, `maxSurge: 0`): two Traefiks
   cannot hold the same host port. That node's share of requests fails for the seconds in
-  between, as during a kured reboot - DNS keeps pointing at it.
+  between, as during a kured reboot - DNS keeps pointing at it. About every second start logs
+  81 errors `middleware "<namespace>_cloudflare-only@kubernetescrd" does not exist` within its
+  first second, then never again: the Ingress provider delivers its routes before the CRD
+  provider delivers the Middlewares they name, and Traefik leaves those routes out until it
+  does (23 of 42 starts in 30 days, 2026-11-10). Harmless beyond that second of 404s.
 - **Plugins only in local mode**: the source in a volume, not downloaded at start - a failed
   download would break every route that uses its middleware. The one today is our upload scan
   ("Upload scan").

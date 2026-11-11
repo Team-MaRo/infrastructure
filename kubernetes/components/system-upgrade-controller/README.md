@@ -14,12 +14,13 @@ node catches up in the next window. The controller's memory is 112Mi / 224Mi (a 
 
 ## How it upgrades
 
-- **Channel `v1.37`, not `stable` - yet.** `stable` was still 1.36 when the cluster was
-  installed at 1.37.0, and k3s-upgrade refuses to downgrade: the Job fails with
-  `Current … is higher` and leaves the node cordoned. Once `stable` reaches 1.37 the channel
-  switches to `stable`, which makes minor upgrades automatic too. Until then a minor is a
-  one-line change to the channel, **never skipping a minor** (Kubernetes' skew policy).
-  Before any minor, check that the Hetzner CSI driver supports it - its CI lagged by one.
+- **Channel `stable`** (since 2026-11-11): patch releases, and the next minor once k3s
+  promotes it - weeks after its release (1.37.0 came out 2026-09-14 and reached `stable` with
+  1.37.2 on 2026-11-04), one minor at a time, as Kubernetes' skew policy wants. Until then the
+  Plans followed `v1.37`: `stable` was still 1.36 when the cluster was installed at 1.37.0, and
+  k3s-upgrade refuses to downgrade - the Job fails with `Current … is higher` and leaves the
+  node cordoned. A minor now arrives by itself; the Hetzner CSI driver's support for it is
+  checked when `stable` moves ("Moving to the next minor" below) - its CI lagged by one before.
 - **Window 02:30-03:30 Europe/Zurich, daily**, after the scheduled etcd snapshot at
   00:00 UTC, so each upgrade starts with a fresh snapshot in Object Storage, and before the
   OS updates at 03:30 (see "The night's maintenance order" in
@@ -54,11 +55,16 @@ A node left `SchedulingDisabled` after a failed Job: read the Job's log, fix the
 
 ## Moving to the next minor
 
-The channel is `v1.37` until `stable` reaches 1.37, then `stable`:
+It happens by itself, in the night after `stable` moves to it. Which version `stable` is on,
+and which the Plans see:
 
 ```shell
 curl -s https://update.k3s.io/v1-release/channels | jq -r '.data[] | select(.id=="stable") | .latest'
+kubectl --context d3strukt0r-prod-admin -n system-upgrade get plans -o custom-columns=NAME:.metadata.name,CHANNEL:.spec.channel,LATEST:.status.latestVersion
 ```
 
-Until the switch, moving to the next minor is changing the channel to the next one - one
-minor at a time, after checking that the Hetzner CSI driver supports it.
+When a new minor comes out, check before it reaches `stable` that the Hetzner CSI driver
+supports it ([`../hcloud-csi/README.md`](../hcloud-csi/README.md)) and read its release notes. To
+hold it back until then, set both Plans' `channel` to the current minor
+(`https://update.k3s.io/v1-release/channels/v1.<current>`), then back to `stable` once it is
+checked - never to a channel that skips a minor.
