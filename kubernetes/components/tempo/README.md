@@ -18,7 +18,9 @@ is in [`kubernetes/README.md`](../../README.md).
 - **30 days**, as Loki's logs, so a trace link in a log line stays valid as long as the line
   (`tempo.retention: 720h`; the chart renders it into the backend worker's
   `compaction.block_retention`, its default is 24 h). The bucket is unversioned and its lifecycle
-  rule only clears unfinished uploads - Tempo's compactor deletes old blocks itself.
+  rule only clears unfinished uploads - Tempo's compactor deletes old blocks itself. A block
+  goes once its newest span is 30 days old; with a day per block ("Memory" below) its oldest
+  spans stay up to a day longer.
 - **No volume**: the WAL and the blocks not yet in S3 live on an emptyDir at `/var/tempo` - a few
   MB, cleared once uploaded. A deleted pod loses at most the last seconds of spans, which
   tracing can afford, and there is no live-store PVC to go wrong (grafana/tempo#8004). The root
@@ -30,9 +32,11 @@ is in [`kubernetes/README.md`](../../README.md).
   they are reachable inside the cluster only.
 - **What a trace holds**: every request through Traefik and every Zitadel request, with service,
   route, path, status and timings - query parameter names but not their values, and no visitor
-  address or user agent (Alloy removes them, [`../alloy/README.md`](../alloy/README.md)). Only
+  address or user agent. Alloy also removes, from any sender, the text of database queries and of
+  errors (operation, table and error type stay), who the user is and e-mail addresses
+  ([`../alloy/README.md`](../alloy/README.md)). Only
   the admin reads them, in Grafana; they serve finding faults and slow requests, and go after 30
-  days.
+  to 31 days.
 - **The metrics generator is on**: from the spans it computes request rate, errors and duration
   per service and operation (`traces_spanmetrics_*`) and who calls whom
   (`traces_service_graph_*`), and pushes them into Prometheus by remote write
@@ -42,9 +46,27 @@ is in [`kubernetes/README.md`](../../README.md).
   `count({__name__=~"traces_.+"})` after a new sender.
 - **The finalizer is on** (AGENTS.md): Tempo brings no CRDs and no volume, and its traces are in
   the bucket - removing the Application removes the namespace, not the traces.
-- Memory 384Mi / 768Mi, from real-memory p95 373 MiB and working set p95 383 MiB, peak 513 MiB
-  over 2026-10-23..11-02.
-  Restricted Pod Security as the chart ships it plus seccomp, no capabilities, read-only root.
+- **Memory** 384Mi / 864Mi: the request from real-memory p95 373 MiB (working set p95 383 MiB)
+  over 2026-10-23..11-02, the limit from the highest working set seen x 1.1 - 768 MiB, the
+  OOMKill below. Queries add to that: a trace lookup reads every block in the bucket,
+  split into jobs of 30 blocks. On 2026-11-12 the first lookups after a search pushed the pod from
+  404 MiB past its limit within a second (OOMKilled) - too fast for the 30 s memory samples to
+  show; the pod cgroup's `container_memory_max_usage_bytes` caught it. Three settings answer it:
+  - **Fewer blocks.** Compaction merges only blocks of the same window, by default an hour: the
+    bucket held 647 blocks, 576 of them a single hour of about 0.5 MB. With a day as the window
+    (`compaction_window: 24h`) 30 days are about 50 blocks, and a lookup reads about a
+    thirteenth of the files.
+  - **Fewer jobs at once.** The querier works on 20 batches at once by default, and the frontend
+    packs several jobs into one batch (`max_batch_size` 7, a lookup job weighing 2), all run at
+    once. With `max_concurrent_queries: 4` and `max_batch_size: 1` it is 4 jobs. It slows every
+    query alike - searches too - which at a few MB of traces a day is not felt.
+  - **`GOMEMLIMIT`** at 90 % of the limit (777MiB - Go's units; Kubernetes' `Mi` stops Tempo at
+    start) makes Go collect garbage harder before the kernel kills
+    it. Tempo's own `memory.automemlimit_enabled` would do the same from the cgroup's limit, but
+    the chart sets it only by replacing its whole configuration template (`config`), which would
+    then miss the chart's own changes; so `GOMEMLIMIT` is written out, and a new memory limit
+    needs it changed by hand (a note next to the limit says so).
+- Restricted Pod Security as the chart ships it plus seccomp, no capabilities, read-only root.
   Usage reports to Grafana are off.
 
 ## Alerts
