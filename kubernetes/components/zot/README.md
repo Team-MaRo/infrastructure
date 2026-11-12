@@ -93,6 +93,31 @@ zot fails ([`ansible/roles/k3s/README.md`](../../../ansible/roles/k3s/README.md)
 zot"). Docker Hub limits anonymous pulls per address; zot's cache keeps
 that low.
 
+**zot gives up on upstream within seconds**, so containerd's fallback comes quickly - containerd
+waits as long as zot holds a request, it has no response timeout for a mirror. On 2026-11-09,
+with cluster DNS down, zot held CoreDNS's own image request for 3 min 29 s before answering 404,
+and the moved CoreDNS pod waited that long (`../coredns/README.md`). Two settings, measured
+against zot v2.1.23 with every DNS query dropped (2026-11-12):
+
+- **`dnsConfig`** in `values.yaml`: `ndots: 1`, so `registry-1.docker.io` is looked up as it is
+  rather than through the cluster's search list first, and an unanswered query gives up after a
+  second (`timeout: 1`, `attempts: 2`). Its own in-cluster name, Valkey's, is written in full for
+  the same reason.
+- **`maxRetries: 1`, `retryDelay: 2s`** per upstream registry (`external-secrets.yaml`): without
+  a limit, zot's registry client retries inside one attempt; with one, zot answers after the
+  first failed attempt and keeps retrying in the background.
+
+| Without cluster DNS | zot answers |
+|---|---|
+| before (neither setting) | after more than 150 s |
+| DNS options only | 404 after 40 s |
+| retry limit only | 404 after 30 s |
+| both | 404 after 8 s |
+
+With DNS working a pull through zot is unchanged (0.9 s). The cost: a single failed upstream
+request makes zot answer 404 at once, so containerd pulls that image from the origin instead of
+waiting for zot's retry.
+
 ## Secrets
 
 | OpenBao | Fields | 1Password |

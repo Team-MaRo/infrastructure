@@ -287,7 +287,12 @@ Every node's containerd pulls through the cluster's own registry, zot at
   Manifests keep the original names, and Kyverno's allowed registries are unchanged.
 - **Order per pull**: a peer node first (the embedded registry, Spegel, on 5001 and 6443 over the
   private network, which Hetzner's firewall does not filter), then zot, then the origin registry,
-  which k3s always tries last. A broken zot slows pulls down; it does not stop them. Only images
+  which k3s always tries last. A broken zot slows pulls down; it does not stop them - zot gives up
+  on an unreachable upstream within about 8 s, so the origin comes next (zot README "Mirror";
+  before 2026-11-12 it held a pull for minutes). A peer may answer 404 for an image it deleted
+  recently - its announcement outlives the image, as after the one-off prune on 2026-11-08 and
+  after every age-based cleanup ("Memory" above) - and the next source follows within
+  milliseconds. Only images
   of registries under `mirrors` are shared between peers, and **never `latest` tags** (k3s's
   rule) - the Keel apps on floating tags pull from zot or the origin every time.
 - **Our own registry** is listed without an endpoint: pulls go to it directly, and the embedded
