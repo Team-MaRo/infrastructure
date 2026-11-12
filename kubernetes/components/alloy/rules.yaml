@@ -21,7 +21,8 @@ spec:
             summary: "Alloy on {{ $labels.node }} does not answer."
             description: >-
               Logs and traces from this node are not arriving. Check the pod
-              (kubectl -n kube-system get pods -l app.kubernetes.io/name=alloy -o wide) and its log.
+              (kubectl --context d3strukt0r-prod-admin -n kube-system get pods -l
+              app.kubernetes.io/name=alloy -o wide) and its log.
         # Every block of the configuration is a component; one that is not healthy - a bad
         # setting after a change, a source or a sender that failed - does its job no more.
         - alert: AlloyComponentUnhealthy
@@ -33,8 +34,8 @@ spec:
           annotations:
             summary: "Alloy on {{ $labels.node }} has {{ $value }} {{ $labels.health_type }} component(s)."
             description: >-
-              Find the component in Alloy's log (kubectl -n kube-system logs <pod> -c alloy | grep
-              -i error) or its UI (port-forward the pod's 12345).
+              Find the component in Alloy's log (kubectl --context d3strukt0r-prod-admin -n kube-system logs <pod> -c
+              alloy | grep -i error) or its UI (port-forward the pod's 12345).
         # Alloy retries Loki; these lines are given up - queue full, rate limits, Loki's errors.
         - alert: AlloyLogsDropped
           expr: sum by (node, reason) (increase(loki_write_dropped_entries_total[15m])) > 0
@@ -44,10 +45,11 @@ spec:
           annotations:
             summary: "Alloy on {{ $labels.node }} dropped log lines ({{ $labels.reason }})."
             description: >-
-              These lines are missing in Loki. Check Loki (kubectl -n loki get pods) and Alloy's
+              These lines are missing in Loki. Check Loki (kubectl --context d3strukt0r-prod-admin -n loki get pods) and Alloy's
               log for loki.write errors.
-        # Spans refused from a sender, or given up after the exporter's retries or with its queue
-        # full - missing in Tempo.
+        # Spans refused from a sender - a redaction statement that failed refuses the sender's
+        # batch - or given up after the exporter's retries or with its queue full: missing in
+        # Tempo.
         - alert: AlloySpansDropped
           expr: >-
             sum by (node) (increase(otelcol_receiver_refused_spans_total[15m])) > 0
@@ -59,5 +61,6 @@ spec:
           annotations:
             summary: "Alloy on {{ $labels.node }} lost spans."
             description: >-
-              Check Tempo (kubectl -n tempo get pods, logs statefulset/tempo) and Alloy's log for
-              otelcol errors.
+              Check Tempo (kubectl --context d3strukt0r-prod-admin -n tempo get pods, logs
+              statefulset/tempo) and Alloy's log for otelcol errors; "failed to execute statement"
+              is a redaction statement that refused spans (components/alloy/README.md).
