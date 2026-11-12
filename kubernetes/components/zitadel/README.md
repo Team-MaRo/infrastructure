@@ -105,11 +105,19 @@ and registration webhooks stay on the namespace's defaults (real p95 11 / 14 MiB
   through it.
 - **Traces** (`Instrumentation.Trace.Exporter` in `configmapConfig`): every request, as OTLP gRPC
   to the Alloy on the node, which forwards to Tempo ([`../tempo/README.md`](../tempo/README.md)).
-  With `TrustRemoteSpans` at its default, false (a client could otherwise set trace IDs), the
-  OIDC endpoints and the v2 APIs the login page calls ignore the trace context Traefik passes on
-  and start a trace of their own, found next to Traefik's in Tempo by time; the console's v1 API
-  calls (`/zitadel.auth.v1…`, `/zitadel.management.v1…`) continue Traefik's trace anyway
-  (measured 2026-10-18). The login page (Next.js) sends none.
+  `TrustRemoteSpans: true` makes the v2 APIs (`/zitadel.*.v2.*`, what the login page calls)
+  continue the trace Traefik passes on, so such a request is one trace in Tempo, Traefik above
+  Zitadel (tested 2026-11-12). The OIDC endpoints (`/oauth/v2/*`, `/.well-known/*`) still start a
+  trace of their own, found next to Traefik's only by time: in v4.19.2 the setting reaches only
+  the v2 APIs' interceptor (`internal/api/api.go`), and the OIDC handlers' own HTTP tracing never
+  continues an incoming trace. The console's v1 API calls continued Traefik's trace even before
+  (measured 2026-10-18). Zitadel's default
+  guards against a client choosing the trace - but Traefik already continues whatever trace
+  context a visitor sends (tested 2026-11-12: a request with its own `traceparent` ended up in
+  Tempo under that ID, and with the flag `00` it was not recorded at all, Traefik having no
+  setting to ignore it), so trusting Traefik here gives a visitor nothing more. The trace ID is
+  never sent back to the visitor, and failed or slow requests stay in Traefik's access log
+  either way. The login page (Next.js) sends no traces.
 - **Restarted by Reloader** when Secret `zitadel-db` changes in OpenBao (an environment variable
   read at start), and the groups webhook when its ConfigMap changes
   ([`../reloader/README.md`](../reloader/README.md)). Deliberately not for the masterkey, which
