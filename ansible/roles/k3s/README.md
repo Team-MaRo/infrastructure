@@ -88,8 +88,10 @@ What it sets, and why (measured 2026-10-06):
   used since that start (`freeOldImages` in its source). k3s restarted after 11, 5, 1-2 and 3 days
   in the 17 days before - with a week, the cleanup would have run once. A deleted image comes back
   from a peer node or zot when a pod needs it; k3s's pinned pause image is never deleted. The
-  first age-based cleanup comes 72 h after a node's restart; `k3s crictl rmi --prune` on a node
-  frees the space at once (only images no container uses).
+  first age-based cleanup comes 72 h after a node's restart; `k3s crictl --timeout 60s rmi
+  --prune` on a node frees the space at once (only images no container uses). With crictl's
+  default 2 s timeout most removals report `DeadlineExceeded`, although containerd completes them
+  (2026-11-08).
 
 **What is capped and what is not.** The kubelet's default `enforceNodeAllocatable: [pods]`
 turns the reservation into a hard limit **for the pods together**: their cgroup

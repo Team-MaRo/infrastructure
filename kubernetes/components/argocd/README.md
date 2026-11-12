@@ -110,6 +110,13 @@ CLI logs in with `argocd login argocd.d3strukt0r.dev --sso --grpc-web`: gRPC-web
 plain HTTPS, so no h2c route for native gRPC is configured. The local `admin` account and the
 port-forward stay as the break-glass way in.
 
+**Traces**: argocd-server, the application controller and the repo server send theirs to the
+Alloy on their node (`otlp.address` in `argocd-cmd-params-cm`; `otlp.insecure` is true by
+default, plain gRPC), which redacts and forwards them to Tempo
+([`../alloy/README.md`](../alloy/README.md)). Argo CD records every trace it starts
+(`AlwaysSample`) and has no sampling setting; all three read the address at start, so Reloader
+restarts each of them when `argocd-cmd-params-cm` changes.
+
 ## Bootstrap
 
 Argo CD cannot deploy itself the first time, so `ansible/argocd.yml` installs it once from

@@ -1,9 +1,13 @@
 ---
-# TLS ends at Traefik (ingress.yaml), so argocd-server serves plain HTTP instead of its own
-# self-signed certificate. Read at start: argocd-server needs a restart after a change.
+# Read at start; Reloader restarts the components that read it (patches/reloader.yaml).
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: argocd-cmd-params-cm
 data:
+  # TLS ends at Traefik (ingress.yaml), so argocd-server serves plain HTTP instead of its own
+  # self-signed certificate.
   server.insecure: "true"
+  # Traces from the server, the application controller and the repo server to the Alloy on
+  # the node, plain gRPC (README).
+  otlp.address: alloy.kube-system.svc:4317

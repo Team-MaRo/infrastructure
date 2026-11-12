@@ -1,7 +1,7 @@
 ---
-# Settings Argo CD reads only at start (components/reloader): argocd-server takes
-# server.insecure from argocd-cmd-params-cm, the application controller and the repo server the
-# polling interval from argocd-cm. Reloader restarts them when one of these changes.
+# Settings Argo CD reads only at start (components/reloader): all three take otlp.address from
+# argocd-cmd-params-cm, argocd-server also server.insecure, the application controller and the
+# repo server the polling interval from argocd-cm. Reloader restarts them when one changes.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -14,11 +14,11 @@ kind: Deployment
 metadata:
   name: argocd-repo-server
   annotations:
-    configmap.reloader.stakater.com/reload: argocd-cm
+    configmap.reloader.stakater.com/reload: argocd-cm,argocd-cmd-params-cm
 ---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: argocd-application-controller
   annotations:
-    configmap.reloader.stakater.com/reload: argocd-cm
+    configmap.reloader.stakater.com/reload: argocd-cm,argocd-cmd-params-cm
