@@ -27,12 +27,22 @@ tempo:
   metricsGenerator:
     enabled: true
     remoteWriteUrl: http://kube-prometheus-stack-prometheus.monitoring.svc:9090/api/v1/write
+  # Span metrics only from the requests a service answers, and at most 5000 series (README).
   overrides:
     defaults:
       metrics_generator:
         processors:
           - service-graphs
           - span-metrics
+        max_active_series: 5000
+        processor:
+          span_metrics:
+            filter_policies:
+              - include:
+                  match_type: strict
+                  attributes:
+                    - key: kind
+                      value: SPAN_KIND_SERVER
   # A trace lookup reads every block, so fewer, larger blocks (README, "Memory"): compaction
   # merges a day's blocks instead of an hour's.
   backendScheduler:
