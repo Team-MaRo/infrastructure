@@ -167,8 +167,9 @@ alloy:
       }
 
       // Traces: Traefik and Zitadel send OTLP to the Alloy on their node (the Service's
-      // trafficDistribution below); Alloy drops the visitor's browser, batches the spans and
-      // forwards them to Tempo, keeping them in a queue and retrying while Tempo restarts.
+      // trafficDistribution below); Alloy drops the visitor's browser and address, redacts
+      // values that can be personal data, batches the spans and forwards them to Tempo, keeping
+      // them in a queue and retrying while Tempo restarts.
       otelcol.receiver.otlp "default" {
         grpc {
           endpoint = "0.0.0.0:4317"
@@ -185,7 +186,6 @@ alloy:
       // needs - path, status, timings - and loses the visitor's user agent and address (the
       // current and the older attribute names). Hosts not proxied by Cloudflare would otherwise
       // keep the visitor's real IP; the access log still has both for failed and slow requests.
-      // Query values never get here, Traefik replaces them with REDACTED in spans.
       otelcol.processor.attributes "redact" {
         action {
           key    = "user_agent.original"
@@ -211,6 +211,70 @@ alloy:
           key    = "net.peer.ip"
           action = "delete"
         }
+        action {
+          key    = "net.sock.peer.addr"
+          action = "delete"
+        }
+        output {
+          traces = [otelcol.processor.transform.redact_values.input]
+        }
+      }
+
+      {{- $email := `[A-Za-z0-9._+!#*^{|}~&'-]+(?:@|%40)[A-Za-z0-9-]+(?:\\.[A-Za-z0-9-]+)*\\.[A-Za-z]{2,}` }}
+      {{- $urlValue := `([?&#;][^=&#;]*)=[^?&#;]*` }}
+      {{- $urlValueInName := `([?&#;][^=&#;\\s]*)=[^?&#;\\s]*` }}
+      {{- $userinfo := `://[^/?#@\\s]+@` }}
+      {{- $nameValue := `(^|&)([^=&#]*)=[^&#]*` }}
+      // Values that can be anyone's data, from any sender (README). A statement that fails drops
+      // the sender's batch rather than letting it through.
+      otelcol.processor.transform "redact_values" {
+        error_mode = "propagate"
+
+        trace_statements {
+          context = "span"
+          statements = [
+            // Free text: a database query's and an error's. The operation, the table, the status
+            // code and the error's type stay.
+            `delete_key(span.attributes, "db.statement")`,
+            `delete_key(span.attributes, "db.query.text")`,
+            `delete_matching_keys(span.attributes, "^db\\.(query|operation)\\.parameter\\.")`,
+            `delete_key(span.attributes, "graphql.document")`,
+            `delete_key(span.attributes, "error.message")`,
+            `delete_key(span.attributes, "error_msg")`,
+            `set(span.status.message, "")`,
+            // Who the user is (enduser.id, user.email, user.full_name, ...).
+            `delete_matching_keys(span.attributes, "^(enduser|user)\\.")`,
+            // URLs: after each ?, &, # or ;, name=value becomes name=REDACTED, and a user and
+            // password before the host go. In a span's name the value also ends at a space, since
+            // an HTTP client may name its span "GET <url>".
+            `replace_pattern(span.attributes["url.full"], "{{ $urlValue }}", "${1}=REDACTED")`,
+            `replace_pattern(span.attributes["url.full"], "{{ $userinfo }}", "://REDACTED@")`,
+            `replace_pattern(span.attributes["url.original"], "{{ $urlValue }}", "${1}=REDACTED")`,
+            `replace_pattern(span.attributes["url.original"], "{{ $userinfo }}", "://REDACTED@")`,
+            `replace_pattern(span.attributes["http.url"], "{{ $urlValue }}", "${1}=REDACTED")`,
+            `replace_pattern(span.attributes["http.url"], "{{ $userinfo }}", "://REDACTED@")`,
+            `replace_pattern(span.attributes["http.target"], "{{ $urlValue }}", "${1}=REDACTED")`,
+            `replace_pattern(span.name, "{{ $urlValueInName }}", "${1}=REDACTED")`,
+            `replace_pattern(span.name, "{{ $userinfo }}", "://REDACTED@")`,
+            // A query or a fragment alone has no leading ? or #.
+            `replace_pattern(span.attributes["url.query"], "{{ $nameValue }}", "${1}${2}=REDACTED")`,
+            `replace_pattern(span.attributes["url.fragment"], "{{ $nameValue }}", "${1}${2}=REDACTED")`,
+            // E-mail addresses, the @ also as %40.
+            `replace_all_patterns(span.attributes, "value", "{{ $email }}", "REDACTED")`,
+            `replace_pattern(span.name, "{{ $email }}", "REDACTED")`,
+          ]
+        }
+
+        trace_statements {
+          context = "spanevent"
+          statements = [
+            `delete_key(spanevent.attributes, "exception.message")`,
+            `delete_key(spanevent.attributes, "exception.stacktrace")`,
+            `replace_pattern(spanevent.name, "{{ $email }}", "REDACTED")`,
+            `replace_all_patterns(spanevent.attributes, "value", "{{ $email }}", "REDACTED")`,
+          ]
+        }
+
         output {
           traces = [otelcol.processor.batch.default.input]
         }
