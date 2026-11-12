@@ -255,6 +255,10 @@ grafana:
   grafana.ini:
     server:
       root_url: https://grafana.d3strukt0r.dev
+    # Traces of every request to the Alloy on the node, plain gRPC, continuing Traefik's trace
+    # (README).
+    tracing.opentelemetry.otlp:
+      address: alloy.kube-system.svc:4317
     # Login through Zitadel, a public client (PKCE, no secret) from
     # tofu/zitadel/apps_grafana.tf. Only what differs from Grafana's defaults. The local admin
     # login stays as the break-glass way in.
