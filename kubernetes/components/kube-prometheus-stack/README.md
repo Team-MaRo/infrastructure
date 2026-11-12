@@ -234,6 +234,14 @@ The operator does not resize an existing volume. Grow the volume before pushing 
   `role_attribute_strict` refuses everyone else. Sign-out ends the Zitadel session too
   (`signout_redirect_url`). Only settings that differ from Grafana's defaults are written;
   new users are created at their first login (`allow_sign_up`, a default).
+- **Grafana traces its requests** (`tracing.opentelemetry.otlp.address` in `grafana.ini`) to the
+  Alloy on its node, which redacts and forwards them to Tempo
+  ([`../alloy/README.md`](../alloy/README.md)); a request through Traefik is one trace with
+  Traefik's. Only the address is set: Grafana 13's defaults already trace every request (the
+  `const` sampler with 1), over plain gRPC (`insecure`), with W3C propagation - tested in Docker
+  on 2026-11-12. Its spans hold no SQL text (template names such as `resource_list.sql`), API
+  paths and the logged-in user or service account (`subject`). Its start runs the database
+  migrations, about 800 spans once.
 
 Grafana is restarted by Reloader when Secret `grafana-admin` changes in OpenBao (environment
 variables read at start; `grafana.annotations`, which the chart puts on all its Grafana objects -
