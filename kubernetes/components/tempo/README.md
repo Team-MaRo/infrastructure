@@ -43,7 +43,15 @@ is in [`kubernetes/README.md`](../../README.md).
   (`kube-prometheus-stack-prometheus.monitoring.svc:9090/api/v1/write`, which Prometheus accepts
   for it). Grafana's service map is drawn from them. Their number grows with distinct span names:
   a sender that puts IDs or full URLs into span names would multiply them - check with
-  `count({__name__=~"traces_.+"})` after a new sender.
+  `count({__name__=~"traces_.+"})` after a new sender, and per name with
+  `count by (service, span_name) (traces_spanmetrics_calls_total)`.
+  - **Only the requests a service answers** (`SPAN_KIND_SERVER`, `filter_policies`) become span
+    metrics: a service's rate, errors and duration are those of its server spans. Its internal
+    steps and its calls to others stay in the traces, and the calls still draw the service
+    graph (its own processor). On 2026-11-12, 1558 span-metric series came almost all from
+    Zitadel's internal Go function spans; 304 were server spans.
+  - **At most 5000 series** (`max_active_series`), a cap against a sender gone wrong: beyond it
+    new series land in one overflow series, and `TempoSpanMetricsLimited` fires.
 - **The finalizer is on** (AGENTS.md): Tempo brings no CRDs and no volume, and its traces are in
   the bucket - removing the Application removes the namespace, not the traces.
 - **Memory** 384Mi / 864Mi: the request from real-memory p95 373 MiB (working set p95 383 MiB)
@@ -81,6 +89,8 @@ is in [`kubernetes/README.md`](../../README.md).
   never reach the bucket.
 - **`TempoRemoteWriteFailing`**: the metrics generator's samples refused by Prometheus (its
   NetworkPolicy, or remote write switched off).
+- **`TempoSpanMetricsLimited`**: the metrics generator reached its 5000 series; find the span
+  names that multiply (above), fix the sender, or raise the cap if they are legitimate.
 
 ## Checking it
 

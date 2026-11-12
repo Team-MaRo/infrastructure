@@ -23,9 +23,9 @@ spec:
           annotations:
             summary: "Tempo has received no spans for an hour."
             description: >-
-              Check Alloy's log (kubectl -n kube-system logs ds/alloy | grep otelcol), Traefik's
-              and Zitadel's for OTLP export errors, and Tempo's
-              (kubectl -n tempo logs statefulset/tempo).
+              Check Alloy's log (kubectl --context d3strukt0r-prod-admin -n kube-system logs
+              ds/alloy | grep otelcol), Traefik's and Zitadel's for OTLP export errors, and
+              Tempo's (kubectl --context d3strukt0r-prod-admin -n tempo logs statefulset/tempo).
         # Tempo writes blocks and its job list to S3; 403 is the bucket policy or the key, 5xx
         # Hetzner. A 404 is normal (a file Tempo looks for before it exists).
         - alert: TempoBackendErrors
@@ -53,8 +53,8 @@ spec:
           annotations:
             summary: "Tempo fails to flush, finish or compact blocks."
             description: >-
-              Check Tempo's log (kubectl -n tempo logs statefulset/tempo) - usually the bucket, or
-              the emptyDir at its 1 GiB cap.
+              Check Tempo's log (kubectl --context d3strukt0r-prod-admin -n tempo logs
+              statefulset/tempo) - usually the bucket, or the emptyDir at its 1 GiB cap.
         # The metrics generator pushes span metrics and the service graph into Prometheus; failed
         # samples mean Prometheus refuses them (the NetworkPolicy, remote write switched off).
         - alert: TempoRemoteWriteFailing
@@ -68,3 +68,16 @@ spec:
             description: >-
               Check network-policy.yaml and enableRemoteWriteReceiver in
               components/kube-prometheus-stack, and Tempo's log.
+        # The metrics generator stops adding series at max_active_series (values.yaml): new span
+        # names then land in one overflow series and their rates are no longer told apart.
+        - alert: TempoSpanMetricsLimited
+          expr: sum(increase(tempo_metrics_generator_registry_series_limited_total[15m])) > 0
+          labels:
+            severity: warning
+            namespace: tempo
+          annotations:
+            summary: "Tempo's metrics generator reached its series limit."
+            description: >-
+              A sender probably puts IDs or full URLs into span names: count by service and span
+              name (README, "The metrics generator is on"), fix the sender, or raise
+              max_active_series if the names are legitimate.
