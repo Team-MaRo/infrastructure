@@ -86,7 +86,10 @@ rebuild) the complete one.
   to Tempo ([`../tempo/README.md`](../tempo/README.md)). The access log then carries the
   request's `TraceId` (and `trace_id`, the OpenTelemetry name Traefik writes alongside), and
   Grafana links a logged request to its trace. The apps behind Traefik show up in a trace only
-  once they send their own spans (Zitadel does).
+  once they send their own spans (Zitadel does, continuing Traefik's trace). Traefik continues a
+  trace context the visitor sends (`traceparent`) and follows its sampled flag - a request with
+  `00` is not traced at all (tested 2026-11-12); it has no setting to ignore it. The trace ID is
+  never sent back, and the access log keeps failed and slow requests either way.
 - **The dashboard is at `https://traefik.d3strukt0r.dev`** (read-only), switched on through the
   chart's `ingressRoute.dashboard` in the HelmChartConfig - an IngressRoute on `websecure` with
   certificate `traefik-tls` and the Zitadel gate (see [`../oauth2-proxy/README.md`](../oauth2-proxy/README.md)).

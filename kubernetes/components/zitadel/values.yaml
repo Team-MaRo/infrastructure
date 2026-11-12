@@ -10,11 +10,11 @@ zitadel:
     # with the container port, :8080.
     ExternalPort: 443
     # Traces of every request (Zitadel's default fraction, 1.0) over OTLP gRPC to the Alloy on
-    # the node, which forwards them to Tempo (components/alloy). TrustRemoteSpans stays false (a
-    # client could otherwise set trace IDs): OIDC and the v2 APIs then start their own trace, the
-    # console's v1 API calls still continue Traefik's (README).
+    # the node, which forwards them to Tempo (components/alloy), continuing Traefik's trace
+    # (README).
     Instrumentation:
       Trace:
+        TrustRemoteSpans: true
         Exporter:
           Type: grpc
           Endpoint: alloy.kube-system.svc:4317
