@@ -62,6 +62,18 @@ resources:
     memory: 320Mi
     ephemeral-storage: 5Gi
 
+# An upstream name is looked up as it is, not through the cluster's search list first, and an
+# unanswered lookup gives up after a second: with cluster DNS down, zot answers a pull within
+# seconds and containerd falls back to the origin (README "Mirror").
+dnsConfig:
+  options:
+    - name: ndots
+      value: "1"
+    - name: timeout
+      value: "1"
+    - name: attempts
+      value: "2"
+
 # zot reads its configuration only at start (components/reloader).
 deploymentAnnotations:
   secret.reloader.stakater.com/reload: zot-config,zot-s3
