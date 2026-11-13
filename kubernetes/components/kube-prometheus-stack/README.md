@@ -225,7 +225,9 @@ The operator does not resize an existing volume. Grow the volume before pushing 
   - "Memory sizing" - per workload and container the memory request and limit set now next to
     what the sizing rule gives over a chosen window (7, 14 or 21 days; the rule is written down
     in [`../kyverno/README.md`](../kyverno/README.md)), the ratio of the two (red below 0.8,
-    orange above 1.5), the real memory and working set behind them, and one workload over time.
+    orange above 1.5), the VPA recommender's target and bounds as a second opinion
+    ([`../vertical-pod-autoscaler/README.md`](../vertical-pod-autoscaler/README.md)), the real
+    memory and working set behind them, and one workload over time.
     It reads the series of `memory-sizing.yaml`, recording rules that fold a workload's pods into
     one series and map pods to workloads with the chart's kubernetes-mixin rule
     `namespace_workload_pod:kube_pod_owner:relabel`; a p95 over two weeks of the raw join would
@@ -290,7 +292,11 @@ then `http://localhost:3000` (break-glass: user `admin`, password in 1Password [
   info metric, value 1) names the one the MariaDB archives into, so the alert can ignore older,
   frozen ones. The mariadb-operator reports archiving and backups nowhere else. k3s's
   `ETCDSnapshotFile` records become `kube_customresource_etcd_snapshot_created{node, name,
-  bucket}` (creation time; `bucket` only on the S3 copies), for the snapshot alert. Another kind
+  bucket}` (creation time; `bucket` only on the S3 copies), for the snapshot alert. The VPA
+  recommender's figures (VPA objects from Goldilocks) become
+  `kube_customresource_vpa_memory_recommendation{namespace, target_kind, target_name, container,
+  bound}` (bytes; `bound` target, lowerBound or upperBound), for the dashboard "Memory sizing" -
+  kube-state-metrics dropped its own VPA metrics in 2.9. Another kind
   is one more entry there plus its `list`, `watch` in `rbac.extraRules`; the config can be tried
   locally by running the kube-state-metrics image with `--custom-resource-state-only` against the
   admin kubeconfig.
