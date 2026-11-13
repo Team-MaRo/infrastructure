@@ -125,9 +125,10 @@ Pod Security cannot say where an image comes from, so that is Kyverno's:
 `kubernetes/components/kyverno/allowed-registries.yaml`, a `ValidatingPolicy` in `Deny`
 mode. In every namespace, infrastructure included, every container, init
 container and ephemeral container must come from `docker.io`, `ghcr.io`, `quay.io`,
-`registry.k8s.io`, `public.ecr.aws` or our own `registry.d3strukt0r.dev`
+`registry.k8s.io`, `public.ecr.aws`, `us-docker.pkg.dev` or our own `registry.d3strukt0r.dev`
 ([`../zot/README.md`](../zot/README.md)) - whole hosts, not single organisations (user
-decision); anything else is refused when the Deployment - or whichever controller - is
+decision; `us-docker.pkg.dev` is Google's Artifact Registry, where Fairwinds publishes
+Goldilocks and nothing else of ours comes from); anything else is refused when the Deployment - or whichever controller - is
 applied. Kyverno itself is set to pull from `ghcr.io` (`global.image.registry` in its
 values) instead of its default `reg.kyverno.io`.
 

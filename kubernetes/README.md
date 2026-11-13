@@ -450,10 +450,11 @@ Host namespaces, host paths and privileged mode are not allowed at all. Many off
 run as root by default; set `runAsUser` to a non-zero ID or use the image's rootless
 variant.
 
-Images must come from `docker.io`, `ghcr.io`, `quay.io`, `registry.k8s.io`, `public.ecr.aws`
-or our own `registry.d3strukt0r.dev` (zot) (Kyverno policy `allowed-registries`); anything else is refused when the
+Images must come from `docker.io`, `ghcr.io`, `quay.io`, `registry.k8s.io`, `public.ecr.aws`,
+`us-docker.pkg.dev` or our own `registry.d3strukt0r.dev` (zot) (Kyverno policy `allowed-registries`); anything else is refused when the
 Deployment - or whichever controller - is applied. A new registry is one entry in
-`components/kyverno/allowed-registries.yaml`.
+`components/kyverno/allowed-registries.yaml`, one in zot's mirror and one in the nodes'
+`k3s_registries`.
 
 A container that sets no `resources` gets Kyverno's defaults (requests 50m CPU, 32Mi memory,
 limit 128Mi memory, no CPU limit); one that needs more sets its own: the request the p95 of its real

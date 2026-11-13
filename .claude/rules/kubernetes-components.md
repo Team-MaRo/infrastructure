@@ -15,8 +15,8 @@ paths:
   `allowPrivilegeEscalation: false`, `capabilities.drop: [ALL]`, `seccompProfile:
   RuntimeDefault`, no host namespaces, host paths or privileged mode. A namespace that needs
   more goes onto `k3s_psa_exempt_namespaces` in `ansible/roles/k3s/defaults/main.yml`.
-- Images only from `docker.io`, `ghcr.io`, `quay.io`, `registry.k8s.io`, `public.ecr.aws`;
-  write them fully qualified where an operator deploys them.
+- Images only from `docker.io`, `ghcr.io`, `quay.io`, `registry.k8s.io`, `public.ecr.aws`,
+  `us-docker.pkg.dev`; write them fully qualified where an operator deploys them.
 - No CPU limits. Set memory only where Kyverno's defaults (32Mi request, 128Mi limit) do not
   fit, and always in `kube-system` and `system-upgrade`: request the p95 of real memory
   (working set minus active file cache) over a window of days in 16 MiB steps, limit max(2 x the

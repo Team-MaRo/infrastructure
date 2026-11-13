@@ -6,7 +6,7 @@ The container registry at `registry.d3strukt0r.dev` (`kubernetes/clusters/prod/z
 Helm chart pinned there with `values.yaml` and this directory's manifests, namespace `zot`). It
 holds our own images - only here, never pushed to ghcr.io or Docker Hub - and mirrors the
 registries Kyverno allows (`docker.io`, `ghcr.io`, `quay.io`, `registry.k8s.io`,
-`public.ecr.aws`). Its web UI is at `https://registry.d3strukt0r.dev/`, login through Zitadel
+`public.ecr.aws`, `us-docker.pkg.dev`). Its web UI is at `https://registry.d3strukt0r.dev/`, login through Zitadel
 ("Sign in with OpenID Connect", role `infra-admin`).
 
 ## Why zot
@@ -85,7 +85,7 @@ valkey-state's data is lost, they are gone and must be made again.
 
 ## Mirror
 
-zot fetches from the five registries on demand, under a prefix per registry:
+zot fetches from the six registries on demand, under a prefix per registry:
 `registry.d3strukt0r.dev/docker.io/library/busybox` is `docker.io/library/busybox`. The nodes are
 pointed at it in `/etc/rancher/k3s/registries.yaml`, with the `cluster` user's API key, and share
 images among themselves first (embedded registry); they fall back to the origin registry when
