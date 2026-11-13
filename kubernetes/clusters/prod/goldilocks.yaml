@@ -1,0 +1,39 @@
+---
+# Goldilocks for this cluster: the Fairwinds Goldilocks Helm chart with values from
+# kubernetes/components/goldilocks, plus that directory's manifests. Creates a VPA object for every
+# workload and shows the VPA recommender's numbers at goldilocks.d3strukt0r.dev, behind the Zitadel
+# gate.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: goldilocks
+  namespace: argocd
+  # Removing this file removes everything it deployed, namespace included. The VPA objects its
+  # controller created are not among them: README "Removing it".
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  sources:
+    # Patch releases arrive by themselves (the `~` range, components/argocd/README.md "Chart
+    # versions"); raising the range is the upgrade.
+    - repoURL: https://charts.fairwinds.com/stable
+      chart: goldilocks
+      targetRevision: "~11.2.1"
+      helm:
+        valueFiles:
+          - $repo/kubernetes/components/goldilocks/values.yaml
+    - repoURL: https://github.com/Team-MaRo/infrastructure.git
+      targetRevision: master
+      ref: repo
+      path: kubernetes/components/goldilocks
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: goldilocks
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      # Not required here (no large CRDs); used for consistency.
+      - ServerSideApply=true

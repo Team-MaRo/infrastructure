@@ -53,7 +53,7 @@ so every app with a proxied route gets its own copy, all from the one file `file
 - **A Kustomize directory** lists `../../charts/cloudflare-only/files` under `resources:` (its
   `kustomization.yaml` names the same file): traefik, argocd, gatus, matomo, pgadmin, phpmyadmin,
   wedding-manuele-robine, and the Kustomize sources of zitadel, openbao, oauth2-proxy,
-  kube-prometheus-stack.
+  kube-prometheus-stack, goldilocks.
 - **The route** names it first: `traefik.ingress.kubernetes.io/router.middlewares:
   <namespace>_cloudflare-only@kubernetescrd[,<its others>]` on an Ingress (a chart's ingress
   annotations in its values), `middlewares: [{name: cloudflare-only}]` on an IngressRoute.

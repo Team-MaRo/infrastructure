@@ -1,0 +1,47 @@
+# Helm values for Goldilocks; the chart version is pinned in the cluster's Application. Only what
+# differs from the chart's and Goldilocks' defaults is set.
+
+image:
+  # The tag is pinned by the chart, so a cached image is the right one; Always would ask the
+  # registry on every start.
+  pullPolicy: IfNotPresent
+
+controller:
+  flags:
+    # A VPA object (updateMode Off) for every workload in every namespace, without labelling
+    # each namespace.
+    on-by-default: "true"
+    # Their pods are too short-lived for the recommender to keep their history
+    # (kubernetes/autoscaler#10211); the Grafana dashboard "Memory sizing" covers them.
+    ignore-controller-kind: Job,CronJob
+  rbac:
+    # Argo Rollouts is not installed.
+    enableArgoproj: false
+  # Not measured yet: the namespace's defaults (Kyverno's LimitRange) instead of the chart's 256Mi
+  # request; sized by the rule after a week.
+  resources: null
+
+dashboard:
+  replicaCount: 1
+  flags:
+    # Otherwise the page's JavaScript calls insights.fairwinds.com for cost estimates.
+    enable-cost: "false"
+  rbac:
+    enableArgoproj: false
+  resources: null
+  ingress:
+    enabled: true
+    annotations:
+      cert-manager.io/cluster-issuer: letsencrypt
+      # Only Cloudflare reaches it (charts/cloudflare-only), then the Zitadel login gate: the
+      # dashboard has no login of its own.
+      traefik.ingress.kubernetes.io/router.middlewares: goldilocks_cloudflare-only@kubernetescrd,goldilocks_oauth2-proxy@kubernetescrd
+    hosts:
+      - host: goldilocks.d3strukt0r.dev
+        paths:
+          - path: /
+            type: Prefix
+    tls:
+      - secretName: goldilocks-tls
+        hosts:
+          - goldilocks.d3strukt0r.dev

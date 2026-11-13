@@ -1,7 +1,7 @@
 # oauth2-proxy
 
 The login gate: UIs without a Zitadel login of their own - the Traefik dashboard, phpMyAdmin,
-Prometheus and Alertmanager - sit behind oauth2-proxy (`kubernetes/clusters/prod/oauth2-proxy.yaml`, chart pinned, values and extra
+Prometheus, Alertmanager and Goldilocks - sit behind oauth2-proxy (`kubernetes/clusters/prod/oauth2-proxy.yaml`, chart pinned, values and extra
 objects in this directory, namespace `oauth2-proxy`). Traefik asks it about every request (a
 `forwardAuth` Middleware); it never proxies a request itself (`upstreams: static://202`). How the
 cluster's manifests fit together is in [`kubernetes/README.md`](../../README.md).
@@ -24,7 +24,7 @@ cluster's manifests fit together is in [`kubernetes/README.md`](../../README.md)
   by the ExternalSecret `oauth2-proxy` (the client ID, not secret, is written into its
   template).
 - **The Middleware exists once per guarded namespace** (`kube-system`, `phpmyadmin`,
-  `monitoring`) - Traefik only takes middleware from the router's own namespace
+  `monitoring`, `goldilocks`) - Traefik only takes middleware from the router's own namespace
   (`allowCrossNamespace` stays off);
   each points at `http://oauth2-proxy.oauth2-proxy.svc`, drops the client's `X-Forwarded-*`
   headers (`trustForwardHeader: false`) and takes at most 1 MiB as answer

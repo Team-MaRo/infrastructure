@@ -122,6 +122,7 @@ DNS-only CNAME to `direct.prod.d3strukt0r.dev` instead):
 | `prometheus.d3strukt0r.dev` | Prometheus | oauth2-proxy | on |
 | `alertmanager.d3strukt0r.dev` | Alertmanager | oauth2-proxy | on |
 | `phpmyadmin.d3strukt0r.dev` | phpMyAdmin | oauth2-proxy | on |
+| `goldilocks.d3strukt0r.dev` | Goldilocks (VPA's recommended requests) | oauth2-proxy | on |
 | `traefik.d3strukt0r.dev` | Traefik's dashboard (IngressRoute) | oauth2-proxy | on |
 | `oauth2-proxy.d3strukt0r.dev` | oauth2-proxy's own callback | - | on |
 | `prod.d3strukt0r.dev` | the nodes themselves; no route, Traefik answers 404 | - | on |

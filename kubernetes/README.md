@@ -64,6 +64,7 @@ kubernetes/
 │       ├── matomo.yaml            # web analytics for every site
 │       ├── kubeelasti.yaml        # scale to zero: chart (patch range) here, values in components/
 │       ├── vertical-pod-autoscaler.yaml  # VPA's recommendations only: chart (patch range) here - no finalizer
+│       ├── goldilocks.yaml        # a VPA object per workload and their page: chart (patch range) here
 │       ├── cluster-rbac.yaml      # cluster-wide rights for kubectl logins through Zitadel
 │       ├── priority-classes.yaml  # the cluster's PriorityClasses - no finalizer
 │       ├── coredns.yaml           # two replicas for k3s's CoreDNS - no finalizer
@@ -173,6 +174,11 @@ kubernetes/
     │   ├── values.yaml            # Helm values: recommender only, floors, Pod Security
     │   ├── kustomization.yaml
     │   └── namespace.yaml
+    ├── goldilocks/
+    │   ├── values.yaml            # Helm values: on by default, no Jobs, no cost calls, Ingress
+    │   ├── kustomization.yaml
+    │   ├── namespace.yaml
+    │   └── middleware-oauth2-proxy.yaml  # the Zitadel gate's copy for this namespace
     ├── cluster-rbac/
     │   ├── kustomization.yaml
     │   └── infra-admin.yaml       # Zitadel's infra-admin group is cluster-admin
@@ -341,6 +347,7 @@ kubernetes/
 | [`matomo`](components/matomo/README.md) | Web analytics for every site at matomo.d3strukt0r.dev, with its own Zitadel login |
 | [`kubeelasti`](components/kubeelasti/README.md) | Scale to zero; letting an app sleep |
 | [`vertical-pod-autoscaler`](components/vertical-pod-autoscaler/README.md) | VPA's recommended requests per container, a second opinion next to our sizing rule; changes nothing |
+| [`goldilocks`](components/goldilocks/README.md) | A VPA object per workload and the page showing VPA's numbers at goldilocks.d3strukt0r.dev, behind the Zitadel gate |
 | [`cluster-rbac`](components/cluster-rbac/README.md) | Cluster-wide rights for kubectl logins through Zitadel |
 | [`priority-classes`](components/priority-classes/README.md) | `stateful-core`: the shared databases and OpenBao, evicted last under memory pressure |
 | [`coredns`](components/coredns/README.md) | Two replicas of k3s's CoreDNS on two nodes, and a drain that never evicts both |
@@ -420,6 +427,8 @@ way in (a local admin and a port-forward).
   [`components/oauth2-proxy/README.md`](components/oauth2-proxy/README.md)
 - **phpMyAdmin** - `https://phpmyadmin.d3strukt0r.dev`, behind the Zitadel gate, then a MariaDB
   login: [`components/phpmyadmin/README.md`](components/phpmyadmin/README.md)
+- **Goldilocks** - `https://goldilocks.d3strukt0r.dev`, behind the Zitadel gate:
+  [`components/goldilocks/README.md`](components/goldilocks/README.md)
 - **pgAdmin** - `https://pgadmin.d3strukt0r.dev`, "Login with OpenID Connect", then a PostgreSQL role
   (`admin`): [`components/pgadmin/README.md`](components/pgadmin/README.md)
 - **zot (container registry)** - `https://registry.d3strukt0r.dev`, "Sign in with OpenID

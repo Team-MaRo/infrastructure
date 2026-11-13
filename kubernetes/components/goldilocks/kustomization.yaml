@@ -1,0 +1,12 @@
+---
+# Goldilocks, shared by every cluster: a VPA object per workload and a page showing VPA's
+# recommendations at goldilocks.d3strukt0r.dev, behind the Zitadel gate. The Helm chart is pinned in
+# the cluster's Application with values.yaml from here; this is what it needs besides the chart.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - namespace.yaml
+  - middleware-oauth2-proxy.yaml
+  # Only Cloudflare reaches its proxied routes (charts/cloudflare-only).
+  - ../../charts/cloudflare-only/files
