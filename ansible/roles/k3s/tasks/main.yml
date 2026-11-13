@@ -161,6 +161,27 @@
   register: k3s_authn
   when: not k3s_agent
 
+- name: Create the k3s service drop-in directory
+  # Before the install, so the installer's daemon-reload already reads the drop-in below.
+  ansible.builtin.file:
+    path: /etc/systemd/system/k3s.service.d
+    state: directory
+    mode: "0755"
+  when: not k3s_agent
+
+- name: Write the k3s service drop-in
+  # Go's soft memory limit (k3s_gomemlimit). Beside the installer's k3s.service, which a
+  # reinstall rewrites.
+  ansible.builtin.copy:
+    content: |
+      # Managed by Ansible (roles/k3s).
+      [Service]
+      Environment=GOMEMLIMIT={{ k3s_gomemlimit }}
+    dest: /etc/systemd/system/k3s.service.d/50-ansible.conf
+    mode: "0644"
+  register: k3s_service_dropin
+  when: not k3s_agent
+
 - name: Restart k3s to apply the drop-ins and the API server's configuration files
   # Only on a node that already runs k3s; a fresh install reads the files when it first
   # starts. Inline rather than a handler, so the node is back and ready before the play
@@ -168,13 +189,15 @@
   # installer names the service k3s on a server and k3s-agent on an agent.
   when: >-
     (k3s_config_dropin.changed or k3s_kubelet_dropin.changed or k3s_registries_file.changed
-     or k3s_psa.changed or k3s_authn.changed)
+     or k3s_psa.changed or k3s_authn.changed or k3s_service_dropin.changed)
     and k3s_binary.stat.exists
   block:
     - name: Restart k3s
       ansible.builtin.systemd_service:
         name: "{{ 'k3s-agent' if k3s_agent else 'k3s' }}"
         state: restarted
+        # Reads the service drop-in before the restart.
+        daemon_reload: true
 
     - name: Wait for the restarted server to be ready
       ansible.builtin.import_tasks: wait_ready.yml

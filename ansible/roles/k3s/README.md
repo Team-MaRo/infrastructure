@@ -80,6 +80,16 @@ What it sets, and why (measured 2026-10-06):
   above that it grows mostly with the CRDs - 133 here, whose schemas the API server keeps parsed
   several times over - and the controllers watching them. Less than measured, so the largest
   node's pod requests keep fitting; raise it once oversized requests are trimmed.
+- **`GOMEMLIMIT=2304MiB` for k3s on the servers** (`k3s_gomemlimit`), not a kubelet setting: an
+  `Environment=` line in the systemd drop-in `/etc/systemd/system/k3s.service.d/50-ansible.conf`.
+  Go otherwise lets k3s's heap grow to twice what is live before collecting: measured 2026-11-13,
+  2.1-2.4 GiB RSS (peaks 2.8-3.1 GiB in 7 days) for a live heap of 0.6-0.9 GiB, 1.35 GiB at most
+  on the server holding the leaders of etcd, the controller manager and the scheduler - which
+  server that is changes with restarts. The limit is soft: near it Go collects more often, above
+  it Go caps the collector at about half the CPU and lets memory grow, so it never kills k3s. A
+  live heap at the limit would cost that CPU, hence the room above the peak. Agents run no API
+  server or etcd and get none. `kubeReserved` is the scheduler's view of the same memory; it
+  follows once a week with the limit has been measured.
 - **`imageMaximumGCAge: 72h`** deletes images no container has used for three days, however full
   the disk is. Without it only the kubelet's threshold cleans, above 85 % of the 37 GiB, and old
   versions from floating tags and chart releases pile up: 13.8-18.6 GiB of images per node on
@@ -119,6 +129,9 @@ kubectl --context d3strukt0r-prod-admin get nodes \
 # from ansible/: the pods' cap and what they use now, in bytes
 ansible prod -b -m ansible.builtin.shell \
   -a 'cat /sys/fs/cgroup/kubepods.slice/memory.max /sys/fs/cgroup/kubepods.slice/memory.current'
+# from ansible/: GOMEMLIMIT as the running k3s sees it
+ansible 'prod:!prod_agents' -b -m ansible.builtin.shell \
+  -a 'tr "\0" "\n" < /proc/$(systemctl show -p MainPID --value k3s)/environ | grep GOMEMLIMIT'
 ```
 
 ## Kernel parameters and node labels
