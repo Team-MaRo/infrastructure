@@ -201,7 +201,7 @@ rule, 2026-10-02). Where a name cannot hold a hyphen, the hyphens become undersc
   - It is on apps whose data lives elsewhere or does not matter: `gatus`, `zitadel`,
     `oauth2-proxy`, `phpmyadmin`, `pgadmin`, `reloader`, `keel`, `wedding-manuele-robine`,
     `robines-portfolio`, `arepazo`, `matomo`, `kured`, `alloy`, `etcd-snapshots`,
-    `cluster-rbac`, `tempo`, `argocd-integrations`, `valkey-cache`, `hetzner-watch`, `domain-redirects`, `clamav`. A Postgres app's database
+    `cluster-rbac`, `tempo`, `argocd-integrations`, `valkey-cache`, `hetzner-watch`, `domain-redirects`, `clamav`, `goldilocks`. A Postgres app's database
     and role stay when it goes (CloudNativePG's reclaim policies default to `retain`); a MariaDB
     app's objects set `cleanupPolicy: Skip`, since mariadb-operator's default is `Delete`.
   - **Never on an app that brings CRDs** (deleting a CRD deletes every object of its kind):
@@ -418,4 +418,5 @@ component); update it in the same change.
 | [`kubernetes/components/matomo/README.md`](kubernetes/components/matomo/README.md) | Web analytics for every site: Zitadel login, installing, GeoIP, archiving, adding a site |
 | [`kubernetes/components/kubeelasti/README.md`](kubernetes/components/kubeelasti/README.md) | Scale to zero, letting an app sleep |
 | [`kubernetes/components/vertical-pod-autoscaler/README.md`](kubernetes/components/vertical-pod-autoscaler/README.md) | The VPA recommender: its formula, floors, history, open bugs, reading a recommendation |
+| [`kubernetes/components/goldilocks/README.md`](kubernetes/components/goldilocks/README.md) | VPA objects for every workload and the page showing their recommendations; reading it, removing it |
 | [`kubernetes/clusters/prod/etcd-snapshots/README.md`](kubernetes/clusters/prod/etcd-snapshots/README.md) | etcd snapshots to Object Storage, restoring one |
