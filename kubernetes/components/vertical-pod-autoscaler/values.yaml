@@ -1,0 +1,39 @@
+# Helm values for the vertical-pod-autoscaler chart; the chart version is pinned in the cluster's
+# Application. Only what differs from the chart's and VPA's defaults is set.
+
+# The chart sets only runAsNonRoot and the UID; restricted Pod Security wants the rest.
+podSecurityContext:
+  seccompProfile:
+    type: RuntimeDefault
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: [ALL]
+
+# Recommendations only: no updater evicts pods, no admission controller rewrites them.
+admissionController:
+  enabled: false
+updater:
+  enabled: false
+
+recommender:
+  # One is enough for numbers nobody acts on automatically; leader election follows the count.
+  replicas: 1
+  # With one replica a PDB would block every drain.
+  podDisruptionBudget:
+    enabled: false
+  # The chart's 4 is debug output, every minute, into Loki.
+  logLevel: 2
+  extraArgs:
+    # Upstream floors a recommendation at 250 MB and 25m per pod, which would put every small
+    # container at the floor.
+    - --pod-recommendation-min-memory-mb=16
+    - --pod-recommendation-min-cpu-millicores=10
+  # Not measured yet (upstream requests 500Mi for large clusters); sized by the rule after a
+  # week, from the dashboard "Memory sizing".
+  resources:
+    requests:
+      memory: 64Mi
+    limits:
+      memory: 256Mi

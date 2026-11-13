@@ -63,6 +63,7 @@ kubernetes/
 │       ├── arepazo.yaml       # the WooCommerce shop: the WordPress chart and its values
 │       ├── matomo.yaml            # web analytics for every site
 │       ├── kubeelasti.yaml        # scale to zero: chart (patch range) here, values in components/
+│       ├── vertical-pod-autoscaler.yaml  # VPA's recommendations only: chart (patch range) here - no finalizer
 │       ├── cluster-rbac.yaml      # cluster-wide rights for kubectl logins through Zitadel
 │       ├── priority-classes.yaml  # the cluster's PriorityClasses - no finalizer
 │       ├── coredns.yaml           # two replicas for k3s's CoreDNS - no finalizer
@@ -168,6 +169,10 @@ kubernetes/
     │   └── external-secrets.yaml  # client and cookie secret from OpenBao
     ├── kubeelasti/
     │   └── values.yaml            # Helm values: Prometheus address, queue, timeout
+    ├── vertical-pod-autoscaler/
+    │   ├── values.yaml            # Helm values: recommender only, floors, Pod Security
+    │   ├── kustomization.yaml
+    │   └── namespace.yaml
     ├── cluster-rbac/
     │   ├── kustomization.yaml
     │   └── infra-admin.yaml       # Zitadel's infra-admin group is cluster-admin
@@ -335,6 +340,7 @@ kubernetes/
 | [`arepazo`](components/arepazo/README.md) | The WooCommerce shop at www.arepazo.ch (moved from prod-old), from the WordPress chart |
 | [`matomo`](components/matomo/README.md) | Web analytics for every site at matomo.d3strukt0r.dev, with its own Zitadel login |
 | [`kubeelasti`](components/kubeelasti/README.md) | Scale to zero; letting an app sleep |
+| [`vertical-pod-autoscaler`](components/vertical-pod-autoscaler/README.md) | VPA's recommended requests per container, a second opinion next to our sizing rule; changes nothing |
 | [`cluster-rbac`](components/cluster-rbac/README.md) | Cluster-wide rights for kubectl logins through Zitadel |
 | [`priority-classes`](components/priority-classes/README.md) | `stateful-core`: the shared databases and OpenBao, evicted last under memory pressure |
 | [`coredns`](components/coredns/README.md) | Two replicas of k3s's CoreDNS on two nodes, and a drain that never evicts both |
