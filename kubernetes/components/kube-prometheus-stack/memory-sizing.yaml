@@ -1,0 +1,49 @@
+---
+# The series the dashboard "Memory sizing" reads (dashboards/memory-sizing.json): per workload
+# and container, real memory, working set, request and limit, with the pods of one workload folded
+# into one series by max, so replicas and restarts become one row. Recorded rather than queried
+# raw: a p95 over 14 days of the raw join would repeat the join at every step and load Prometheus.
+# They start empty, so the dashboard's window fills over the days after this rule first runs.
+# The pod -> workload mapping is the chart's own recording rule from kubernetes-mixin.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: memory-sizing
+spec:
+  groups:
+    - name: memory-sizing
+      rules:
+        # Real memory: the working set minus the active file cache - what the kernel cannot
+        # reclaim without swap. The request's base (kubernetes/components/kyverno/README.md).
+        - record: workload_container:memory_real:max_bytes
+          expr: >-
+            max by (namespace, workload, workload_type, container) (
+              (
+                container_memory_working_set_bytes{container!=""}
+                - container_memory_total_active_file_bytes{container!=""}
+              )
+              * on (namespace, pod) group_left (workload, workload_type)
+                max by (namespace, pod, workload, workload_type) (namespace_workload_pod:kube_pod_owner:relabel)
+            )
+        # The working set, file cache included: the limit's base, and what the kubelet evicts by.
+        - record: workload_container:memory_working_set:max_bytes
+          expr: >-
+            max by (namespace, workload, workload_type, container) (
+              container_memory_working_set_bytes{container!=""}
+              * on (namespace, pod) group_left (workload, workload_type)
+                max by (namespace, pod, workload, workload_type) (namespace_workload_pod:kube_pod_owner:relabel)
+            )
+        - record: workload_container:memory_request:max_bytes
+          expr: >-
+            max by (namespace, workload, workload_type, container) (
+              kube_pod_container_resource_requests{resource="memory"}
+              * on (namespace, pod) group_left (workload, workload_type)
+                max by (namespace, pod, workload, workload_type) (namespace_workload_pod:kube_pod_owner:relabel)
+            )
+        - record: workload_container:memory_limit:max_bytes
+          expr: >-
+            max by (namespace, workload, workload_type, container) (
+              kube_pod_container_resource_limits{resource="memory"}
+              * on (namespace, pod) group_left (workload, workload_type)
+                max by (namespace, pod, workload, workload_type) (namespace_workload_pod:kube_pod_owner:relabel)
+            )

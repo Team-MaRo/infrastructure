@@ -219,10 +219,21 @@ The operator does not resize an existing volume. Grow the volume before pushing 
   since Grafana's provisioning would read `${...}` as an environment variable.
 - **Dashboards of our own** are JSON files in `dashboards/`, turned into ConfigMaps labelled
   `grafana_dashboard: "1"` by the `configMapGenerator` in `kustomization.yaml`; Grafana's
-  sidecar loads them from every namespace. Today one: "php-fpm" - per app the workers, queued
-  requests, requests per second, slow requests and php-fpm's own log with the slow-log
-  backtraces. A dashboard changed in Grafana's UI is lost on restart: change the JSON instead
-  (Grafana's "Export" gives it).
+  sidecar loads them from every namespace. Today two:
+  - "php-fpm" - per app the workers, queued requests, requests per second, slow requests and
+    php-fpm's own log with the slow-log backtraces.
+  - "Memory sizing" - per workload and container the memory request and limit set now next to
+    what the sizing rule gives over a chosen window (7, 14 or 21 days; the rule is written down
+    in [`../kyverno/README.md`](../kyverno/README.md)), the ratio of the two (red below 0.8,
+    orange above 1.5), the real memory and working set behind them, and one workload over time.
+    It reads the series of `memory-sizing.yaml`, recording rules that fold a workload's pods into
+    one series and map pods to workloads with the chart's kubernetes-mixin rule
+    `namespace_workload_pod:kube_pod_owner:relabel`; a p95 over two weeks of the raw join would
+    load Prometheus. Recorded since 2026-11-13, so until two weeks later the 14-day window holds
+    less than it says.
+
+  A dashboard changed in Grafana's UI is lost on restart: change the JSON instead (Grafana's
+  "Export" gives it).
 - **Grafana's admin** comes from OpenBao `secret/grafana` through the ExternalSecret
   `grafana-admin`; the chart would otherwise generate a new random password on every render.
   It is the break-glass login since Grafana moved to `https://grafana.d3strukt0r.dev`.

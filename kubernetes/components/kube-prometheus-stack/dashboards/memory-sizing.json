@@ -1,0 +1,153 @@
+{
+  "schemaVersion": 39,
+  "uid": "memory-sizing",
+  "title": "Memory sizing",
+  "tags": ["memory", "resources"],
+  "time": { "from": "now-14d", "to": "now" },
+  "refresh": "",
+  "templating": {
+    "list": [
+      {
+        "name": "namespace",
+        "label": "Namespace",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "query": { "query": "label_values(workload_container:memory_real:max_bytes, namespace)", "refId": "namespace" },
+        "refresh": 2,
+        "multi": true,
+        "includeAll": true,
+        "allValue": ".*",
+        "sort": 1,
+        "current": { "text": "All", "value": "$__all" }
+      },
+      {
+        "name": "window",
+        "label": "Window",
+        "type": "custom",
+        "query": "7d,14d,21d",
+        "options": [
+          { "text": "7d", "value": "7d", "selected": false },
+          { "text": "14d", "value": "14d", "selected": true },
+          { "text": "21d", "value": "21d", "selected": false }
+        ],
+        "current": { "text": "14d", "value": "14d" }
+      },
+      {
+        "name": "workload",
+        "label": "Workload",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "query": { "query": "label_values(workload_container:memory_real:max_bytes{namespace=~\"$namespace\"}, workload)", "refId": "workload" },
+        "refresh": 2,
+        "sort": 1
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "text",
+      "title": "How to read this",
+      "gridPos": { "x": 0, "y": 0, "w": 24, "h": 5 },
+      "options": {
+        "mode": "markdown",
+        "content": "Our sizing rule (`kubernetes/components/kyverno/README.md`), per container over **$window**: the **request** is the p95 of real memory (working set minus active file cache), rounded up to 16 MiB; the **limit** is twice the working set's p95 or the highest working set of the last 30 days x 1.1, whichever is higher, rounded up to 32 MiB. Pods of one workload are folded into one row by their maximum. **Now / rule** below 0.8 means the request is too small, above 1.5 that it holds back more than the container uses. The series are recorded since this dashboard was added (`memory-sizing.yaml`), so a window longer than that holds less than it says; the window must be long enough to contain the rare peaks (a nightly job, a weekly cleanup). Containers with no request or limit of their own get Kyverno's defaults (32Mi / 128Mi)."
+      }
+    },
+    {
+      "type": "table",
+      "title": "Request and limit per container",
+      "gridPos": { "x": 0, "y": 5, "w": 24, "h": 20 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "instant": true, "range": false, "format": "table", "expr": "workload_container:memory_request:max_bytes{namespace=~\"$namespace\"}" },
+        { "refId": "B", "instant": true, "range": false, "format": "table", "expr": "ceil(quantile_over_time(0.95, workload_container:memory_real:max_bytes{namespace=~\"$namespace\"}[$window]) / 16777216) * 16777216" },
+        { "refId": "C", "instant": true, "range": false, "format": "table", "expr": "workload_container:memory_request:max_bytes{namespace=~\"$namespace\"} / (ceil(quantile_over_time(0.95, workload_container:memory_real:max_bytes{namespace=~\"$namespace\"}[$window]) / 16777216) * 16777216)" },
+        { "refId": "D", "instant": true, "range": false, "format": "table", "expr": "workload_container:memory_limit:max_bytes{namespace=~\"$namespace\"}" },
+        { "refId": "E", "instant": true, "range": false, "format": "table", "expr": "ceil(((2 * quantile_over_time(0.95, workload_container:memory_working_set:max_bytes{namespace=~\"$namespace\"}[$window])) > (1.1 * max_over_time(workload_container:memory_working_set:max_bytes{namespace=~\"$namespace\"}[30d])) or (1.1 * max_over_time(workload_container:memory_working_set:max_bytes{namespace=~\"$namespace\"}[30d]))) / 33554432) * 33554432" },
+        { "refId": "F", "instant": true, "range": false, "format": "table", "expr": "quantile_over_time(0.95, workload_container:memory_real:max_bytes{namespace=~\"$namespace\"}[$window])" },
+        { "refId": "G", "instant": true, "range": false, "format": "table", "expr": "quantile_over_time(0.95, workload_container:memory_working_set:max_bytes{namespace=~\"$namespace\"}[$window])" },
+        { "refId": "H", "instant": true, "range": false, "format": "table", "expr": "max_over_time(workload_container:memory_working_set:max_bytes{namespace=~\"$namespace\"}[$window])" }
+      ],
+      "transformations": [
+        { "id": "merge", "options": {} },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": { "Time": true },
+            "indexByName": {
+              "namespace": 0, "workload_type": 1, "workload": 2, "container": 3,
+              "Value #A": 4, "Value #B": 5, "Value #C": 6, "Value #D": 7, "Value #E": 8,
+              "Value #F": 9, "Value #G": 10, "Value #H": 11
+            },
+            "renameByName": {
+              "namespace": "Namespace",
+              "workload_type": "Kind",
+              "workload": "Workload",
+              "container": "Container",
+              "Value #A": "Request now",
+              "Value #B": "Request by rule",
+              "Value #C": "Now / rule",
+              "Value #D": "Limit now",
+              "Value #E": "Limit by rule",
+              "Value #F": "Real memory p95",
+              "Value #G": "Working set p95",
+              "Value #H": "Working set peak"
+            }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "bytes", "decimals": 0, "custom": { "align": "auto", "filterable": true } },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "Namespace" }, "properties": [{ "id": "unit", "value": "string" }] },
+          { "matcher": { "id": "byName", "options": "Kind" }, "properties": [{ "id": "unit", "value": "string" }] },
+          { "matcher": { "id": "byName", "options": "Workload" }, "properties": [{ "id": "unit", "value": "string" }] },
+          { "matcher": { "id": "byName", "options": "Container" }, "properties": [{ "id": "unit", "value": "string" }] },
+          {
+            "matcher": { "id": "byName", "options": "Now / rule" },
+            "properties": [
+              { "id": "unit", "value": "none" },
+              { "id": "decimals", "value": 2 },
+              { "id": "custom.cellOptions", "value": { "type": "color-background", "mode": "basic" } },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    { "color": "red", "value": null },
+                    { "color": "transparent", "value": 0.8 },
+                    { "color": "orange", "value": 1.5 }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "sortBy": [{ "displayName": "Now / rule", "desc": false }]
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "$workload over time",
+      "gridPos": { "x": 0, "y": 25, "w": 24, "h": 10 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "workload_container:memory_real:max_bytes{namespace=~\"$namespace\", workload=\"$workload\"}", "legendFormat": "{{container}} real memory" },
+        { "refId": "B", "expr": "workload_container:memory_working_set:max_bytes{namespace=~\"$namespace\", workload=\"$workload\"}", "legendFormat": "{{container}} working set" },
+        { "refId": "C", "expr": "workload_container:memory_request:max_bytes{namespace=~\"$namespace\", workload=\"$workload\"}", "legendFormat": "{{container}} request" },
+        { "refId": "D", "expr": "workload_container:memory_limit:max_bytes{namespace=~\"$namespace\", workload=\"$workload\"}", "legendFormat": "{{container}} limit" }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "bytes", "custom": { "lineWidth": 1, "fillOpacity": 0 } },
+        "overrides": [
+          { "matcher": { "id": "byRegexp", "options": ".* (request|limit)$" }, "properties": [{ "id": "custom.lineStyle", "value": { "fill": "dash", "dash": [10, 10] } }] }
+        ]
+      },
+      "options": { "legend": { "displayMode": "table", "placement": "right", "calcs": ["max", "mean"] }, "tooltip": { "mode": "multi", "sort": "desc" } }
+    }
+  ]
+}
