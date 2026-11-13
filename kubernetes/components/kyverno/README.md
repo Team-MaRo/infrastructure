@@ -56,8 +56,11 @@ registries. `rbac-limitranges.yaml` lets Kyverno create LimitRanges.
   shared and kernel memory, what the kernel cannot reclaim without swap (PHP's OPcache,
   Postgres' `shared_buffers` included) - rounded up to 16 MiB. The limit is twice the working
   set's p95 or the highest working set ever seen x 1.1 rounded up to 32 MiB, whichever is
-  higher, so the file cache keeps its room up to the limit. A comment next to the value gives
-  the real-memory p95, the working set's p95 and peak, and the window they come from. A
+  higher, so the file cache keeps its room up to the limit. Grafana's dashboard "Memory sizing"
+  computes both for every container
+  ([`../kube-prometheus-stack/README.md`](../kube-prometheus-stack/README.md)). A comment next to
+  the value gives the real-memory p95, the working set's p95 and peak, and the window they come
+  from. A
   container that holds data by design sizes its limit from that design instead, the derivation
   in the comment (Traefik: up to 404 MiB of upload bodies for the upload scan, plus one being
   joined). An OOM kill means raising that limit - `kubectl --context d3strukt0r-prod-admin get pod`

@@ -11,6 +11,7 @@ resources:
   - rules.yaml
   - php-fpm.yaml
   - wordpress.yaml
+  - memory-sizing.yaml
   - middleware-oauth2-proxy.yaml
   - network-policy.yaml
   # Only Cloudflare reaches its proxied routes (charts/cloudflare-only).
@@ -21,6 +22,12 @@ configMapGenerator:
   - name: dashboard-php-fpm
     files:
       - dashboards/php-fpm.json
+    options:
+      labels:
+        grafana_dashboard: "1"
+  - name: dashboard-memory-sizing
+    files:
+      - dashboards/memory-sizing.json
     options:
       labels:
         grafana_dashboard: "1"
