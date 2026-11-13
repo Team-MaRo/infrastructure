@@ -23,8 +23,9 @@ recommender:
   # With one replica a PDB would block every drain.
   podDisruptionBudget:
     enabled: false
-  # The chart's 4 is debug output, every minute, into Loki.
-  logLevel: 2
+  # Errors, warnings and plain info only: at 1 and above it logs ~23 lines a minute removing
+  # empty aggregates (V(1) in 1.8.1), into Loki.
+  logLevel: 0
   extraArgs:
     # Upstream floors a recommendation at 250 MB and 25m per pod, which would put every small
     # container at the floor.

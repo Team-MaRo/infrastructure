@@ -141,7 +141,7 @@ k3s_kubelet_config_overrides: {}
 k3s_gomemlimit: 2304MiB
 
 # containerd's registry settings, written to /etc/rancher/k3s/registries.yaml on every node; a
-# change restarts one node at a time, like k3s_config (README "Pulling through zot"). The five
+# change restarts one node at a time, like k3s_config (README "Pulling through zot"). The six
 # registries Kyverno allows are pulled through zot's mirror, each under its own prefix there
 # (rewrite); our own registry is listed without an endpoint, so the embedded registry shares its
 # images too. Order per pull: a peer node (embedded-registry), then zot, then the origin
@@ -165,6 +165,9 @@ k3s_registries:
     public.ecr.aws:
       endpoint: ["{{ k3s_registry_url }}"]
       rewrite: { "^(.*)$": "public.ecr.aws/$1" }
+    us-docker.pkg.dev:
+      endpoint: ["{{ k3s_registry_url }}"]
+      rewrite: { "^(.*)$": "us-docker.pkg.dev/$1" }
     registry.d3strukt0r.dev: {}
   configs:
     registry.d3strukt0r.dev:

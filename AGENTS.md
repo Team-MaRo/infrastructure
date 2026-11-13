@@ -247,8 +247,9 @@ rule, 2026-10-02). Where a name cannot hold a hyphen, the hyphens become undersc
   label `d3strukt0r.dev/dns-only: "true"`; Kyverno refuses any other route without it
   ([`kubernetes/charts/cloudflare-only/README.md`](kubernetes/charts/cloudflare-only/README.md)).
 - **Images come only from `docker.io`, `ghcr.io`, `quay.io`, `registry.k8s.io`,
-  `public.ecr.aws` and our own `registry.d3strukt0r.dev`** (Kyverno's `allowed-registries`); a
-  new registry is one entry there. Our own images are only in `registry.d3strukt0r.dev` (zot),
+  `public.ecr.aws`, `us-docker.pkg.dev` and our own `registry.d3strukt0r.dev`** (Kyverno's
+  `allowed-registries`); a new registry is one entry there, one in zot's mirror and one in the
+  nodes' `k3s_registries` (`ansible/roles/k3s/README.md`, "Pulling through zot"). Our own images are only in `registry.d3strukt0r.dev` (zot),
   never pushed to ghcr.io or Docker Hub ([`kubernetes/components/zot/README.md`](kubernetes/components/zot/README.md)).
 - **Secret values never enter git or OpenTofu state.** They go into OpenBao with
   `bao kv put` (JSON on stdin) and reach workloads through an ExternalSecret against the

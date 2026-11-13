@@ -296,8 +296,8 @@ Every node's containerd pulls through the cluster's own registry, zot at
 `/etc/rancher/k3s/registries.yaml` from `k3s_registries`, plus `embedded-registry: true` in
 `k3s_config`.
 
-- **The five allowed registries** (`docker.io`, `ghcr.io`, `quay.io`, `registry.k8s.io`,
-  `public.ecr.aws`) go through zot's mirror: a `rewrite` puts the name under zot's prefix, so
+- **The six allowed registries** (`docker.io`, `ghcr.io`, `quay.io`, `registry.k8s.io`,
+  `public.ecr.aws`, `us-docker.pkg.dev`) go through zot's mirror: a `rewrite` puts the name under zot's prefix, so
   `docker.io/library/busybox` is fetched as `registry.d3strukt0r.dev/docker.io/library/busybox`.
   Manifests keep the original names, and Kyverno's allowed registries are unchanged.
 - **Order per pull**: a peer node first (the embedded registry, Spegel, on 5001 and 6443 over the

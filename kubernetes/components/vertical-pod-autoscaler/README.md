@@ -30,7 +30,8 @@ it says. How the cluster's manifests fit together is in [`kubernetes/README.md`]
   over a single replica would block every node drain.
 - **Restricted Pod Security** is added in the values: the chart sets only `runAsNonRoot` and the
   UID.
-- **Logs at `-v=2`**: the chart's `4` is debug output every minute, into Loki.
+- **Logs at `-v=0`**: errors, warnings and plain info. From `1` on (the chart sets `4`) it logs
+  ~23 lines a minute removing empty aggregates (`V(1)` in 1.8.1), about 33,000 a day into Loki.
 - **Memory 64Mi / 256Mi, not measured yet** (upstream requests 500Mi for large clusters); size it
   by the rule after a week.
 - **No finalizer**: the chart brings the CRDs `verticalpodautoscalers` and
