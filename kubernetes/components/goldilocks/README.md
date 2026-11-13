@@ -19,8 +19,10 @@ daily peaks + 15 %), not from our rule:
 | Guaranteed | VPA's target | VPA's target |
 | Burstable | VPA's lower bound | VPA's upper bound |
 
-Next to them it shows what is set now. The bounds are wide while the recommender's history is
-short (about 8 days to settle), and it reads the working set, file cache included, so cache-heavy
+Next to them it shows what is set now - **as written in the workload**, so a container that lives
+on the namespace's defaults (Kyverno's LimitRange adds 32Mi / 128Mi when the pod is created)
+shows "Not Set" here; the Grafana dashboard reads the running pods and shows the real values. The
+bounds are wide while the recommender's history is short (about 8 days to settle), and it reads the working set, file cache included, so cache-heavy
 containers come out higher than our rule. Our values still come from the rule; Goldilocks is the
 second opinion.
 
@@ -28,7 +30,10 @@ second opinion.
 
 - **Two parts from one image**: the controller creates a VPA object with `updateMode: Off` for
   every Deployment, StatefulSet and DaemonSet in every namespace (`on-by-default`, no namespace
-  label needed); the dashboard reads them. Jobs and CronJobs get none
+  label needed); the dashboard reads them, and needs `on-by-default` too, or its namespace list
+  stays empty.
+- **The controller logs at `-v0`**: at `2` it reports every namespace's VPA count and every pod
+  added or deleted, ~23,000 lines a day. Errors stay, among them bug #893 below. Jobs and CronJobs get none
   (`ignore-controller-kind`): the recommender loses short-lived pods' history
   (kubernetes/autoscaler#10211), and the Grafana dashboard covers them.
 - **Nothing changes a pod**: `Off` makes VPA only recommend, and the VPA updater and admission

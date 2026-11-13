@@ -14,6 +14,9 @@ controller:
     # Their pods are too short-lived for the recommender to keep their history
     # (kubernetes/autoscaler#10211); the Grafana dashboard "Memory sizing" covers them.
     ignore-controller-kind: Job,CronJob
+  # Errors and plain info only: at 2 it logs every namespace's VPA count and every pod added or
+  # deleted (no messages at 1 in v4.16.3).
+  logVerbosity: "0"
   rbac:
     # Argo Rollouts is not installed.
     enableArgoproj: false
@@ -24,6 +27,9 @@ controller:
 dashboard:
   replicaCount: 1
   flags:
+    # Like the controller; otherwise "List All Namespaces" shows only labelled namespaces, i.e.
+    # none.
+    on-by-default: "true"
     # Otherwise the page's JavaScript calls insights.fairwinds.com for cost estimates.
     enable-cost: "false"
   rbac:
