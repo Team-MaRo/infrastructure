@@ -484,6 +484,51 @@ kube-state-metrics:
                   type: Gauge
                   gauge:
                     path: [status, creationTime]
+          # The VPA recommender's memory figures per container, for the dashboard "Memory sizing"
+          # (Goldilocks creates the VPA objects; kube-state-metrics dropped its own VPA metrics in
+          # 2.9). One series per bound.
+          - groupVersionKind:
+              group: autoscaling.k8s.io
+              version: v1
+              kind: VerticalPodAutoscaler
+            labelsFromPath:
+              namespace: [metadata, namespace]
+              target_kind: [spec, targetRef, kind]
+              target_name: [spec, targetRef, name]
+            metrics:
+              - name: vpa_memory_recommendation
+                help: Memory the VPA recommender suggests for a container, per bound (bytes).
+                commonLabels:
+                  bound: target
+                each:
+                  type: Gauge
+                  gauge:
+                    path: [status, recommendation, containerRecommendations]
+                    labelsFromPath:
+                      container: [containerName]
+                    valueFrom: [target, memory]
+              - name: vpa_memory_recommendation
+                help: Memory the VPA recommender suggests for a container, per bound (bytes).
+                commonLabels:
+                  bound: lowerBound
+                each:
+                  type: Gauge
+                  gauge:
+                    path: [status, recommendation, containerRecommendations]
+                    labelsFromPath:
+                      container: [containerName]
+                    valueFrom: [lowerBound, memory]
+              - name: vpa_memory_recommendation
+                help: Memory the VPA recommender suggests for a container, per bound (bytes).
+                commonLabels:
+                  bound: upperBound
+                each:
+                  type: Gauge
+                  gauge:
+                    path: [status, recommendation, containerRecommendations]
+                    labelsFromPath:
+                      container: [containerName]
+                    valueFrom: [upperBound, memory]
   rbac:
     extraRules:
       - apiGroups: [k8s.mariadb.com]
@@ -491,4 +536,7 @@ kube-state-metrics:
         verbs: [list, watch]
       - apiGroups: [k3s.cattle.io]
         resources: [etcdsnapshotfiles]
+        verbs: [list, watch]
+      - apiGroups: [autoscaling.k8s.io]
+        resources: [verticalpodautoscalers]
         verbs: [list, watch]

@@ -50,7 +50,7 @@
       "gridPos": { "x": 0, "y": 0, "w": 24, "h": 5 },
       "options": {
         "mode": "markdown",
-        "content": "Our sizing rule (`kubernetes/components/kyverno/README.md`), per container over **$window**: the **request** is the p95 of real memory (working set minus active file cache), rounded up to 16 MiB; the **limit** is twice the working set's p95 or the highest working set of the last 30 days x 1.1, whichever is higher, rounded up to 32 MiB. Pods of one workload are folded into one row by their maximum. **Now / rule** below 0.8 means the request is too small, above 1.5 that it holds back more than the container uses. The series are recorded since this dashboard was added (`memory-sizing.yaml`), so a window longer than that holds less than it says; the window must be long enough to contain the rare peaks (a nightly job, a weekly cleanup). Containers with no request or limit of their own get Kyverno's defaults (32Mi / 128Mi)."
+        "content": "Our sizing rule (`kubernetes/components/kyverno/README.md`), per container over **$window**: the **request** is the p95 of real memory (working set minus active file cache), rounded up to 16 MiB; the **limit** is twice the working set's p95 or the highest working set of the last 30 days x 1.1, whichever is higher, rounded up to 32 MiB. Pods of one workload are folded into one row by their maximum. **Now / rule** below 0.8 means the request is too small, above 1.5 that it holds back more than the container uses. The series are recorded since this dashboard was added (`memory-sizing.yaml`), so a window longer than that holds less than it says; the window must be long enough to contain the rare peaks (a nightly job, a weekly cleanup). Containers with no request or limit of their own get Kyverno's defaults (32Mi / 128Mi). **VPA target / lower / upper bound** are the VPA recommender's figures (p90 of daily peaks of the working set + 15 %; Goldilocks shows the same) - a second opinion, wide in its first ~8 days; Jobs and CronJobs have none."
       }
     },
     {
@@ -66,7 +66,10 @@
         { "refId": "E", "instant": true, "range": false, "format": "table", "expr": "ceil(((2 * quantile_over_time(0.95, workload_container:memory_working_set:max_bytes{namespace=~\"$namespace\"}[$window])) > (1.1 * max_over_time(workload_container:memory_working_set:max_bytes{namespace=~\"$namespace\"}[30d])) or (1.1 * max_over_time(workload_container:memory_working_set:max_bytes{namespace=~\"$namespace\"}[30d]))) / 33554432) * 33554432" },
         { "refId": "F", "instant": true, "range": false, "format": "table", "expr": "quantile_over_time(0.95, workload_container:memory_real:max_bytes{namespace=~\"$namespace\"}[$window])" },
         { "refId": "G", "instant": true, "range": false, "format": "table", "expr": "quantile_over_time(0.95, workload_container:memory_working_set:max_bytes{namespace=~\"$namespace\"}[$window])" },
-        { "refId": "H", "instant": true, "range": false, "format": "table", "expr": "max_over_time(workload_container:memory_working_set:max_bytes{namespace=~\"$namespace\"}[$window])" }
+        { "refId": "H", "instant": true, "range": false, "format": "table", "expr": "max_over_time(workload_container:memory_working_set:max_bytes{namespace=~\"$namespace\"}[$window])" },
+        { "refId": "I", "instant": true, "range": false, "format": "table", "expr": "max by (namespace, workload, workload_type, container) (label_replace(kube_customresource_vpa_memory_recommendation{bound=\"target\", namespace=~\"$namespace\"}, \"workload\", \"$1\", \"target_name\", \"(.*)\") * on (namespace, workload, container) group_left (workload_type) (0 * workload_container:memory_request:max_bytes + 1))" },
+        { "refId": "J", "instant": true, "range": false, "format": "table", "expr": "max by (namespace, workload, workload_type, container) (label_replace(kube_customresource_vpa_memory_recommendation{bound=\"lowerBound\", namespace=~\"$namespace\"}, \"workload\", \"$1\", \"target_name\", \"(.*)\") * on (namespace, workload, container) group_left (workload_type) (0 * workload_container:memory_request:max_bytes + 1))" },
+        { "refId": "K", "instant": true, "range": false, "format": "table", "expr": "max by (namespace, workload, workload_type, container) (label_replace(kube_customresource_vpa_memory_recommendation{bound=\"upperBound\", namespace=~\"$namespace\"}, \"workload\", \"$1\", \"target_name\", \"(.*)\") * on (namespace, workload, container) group_left (workload_type) (0 * workload_container:memory_request:max_bytes + 1))" }
       ],
       "transformations": [
         { "id": "merge", "options": {} },
@@ -76,8 +79,9 @@
             "excludeByName": { "Time": true },
             "indexByName": {
               "namespace": 0, "workload_type": 1, "workload": 2, "container": 3,
-              "Value #A": 4, "Value #B": 5, "Value #C": 6, "Value #D": 7, "Value #E": 8,
-              "Value #F": 9, "Value #G": 10, "Value #H": 11
+              "Value #A": 4, "Value #B": 5, "Value #C": 6, "Value #I": 7, "Value #J": 8,
+              "Value #D": 9, "Value #E": 10, "Value #K": 11,
+              "Value #F": 12, "Value #G": 13, "Value #H": 14
             },
             "renameByName": {
               "namespace": "Namespace",
@@ -91,7 +95,10 @@
               "Value #E": "Limit by rule",
               "Value #F": "Real memory p95",
               "Value #G": "Working set p95",
-              "Value #H": "Working set peak"
+              "Value #H": "Working set peak",
+              "Value #I": "VPA target",
+              "Value #J": "VPA lower bound",
+              "Value #K": "VPA upper bound"
             }
           }
         }
