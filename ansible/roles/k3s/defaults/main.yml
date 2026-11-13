@@ -129,6 +129,17 @@ k3s_kubelet_config:
 # replaces the role default as a whole, so every shared field would have to be repeated.
 k3s_kubelet_config_overrides: {}
 
+# Go's soft memory limit for k3s on a server, written as Environment= into a systemd drop-in for
+# the k3s service; a change restarts one server at a time, like k3s_config. Without it Go lets
+# the heap grow to twice what is live before collecting (GOGC=100): measured 2026-11-13, k3s held
+# 2.1-2.4 GiB RSS (peaks 2.8-3.1 GiB in 7 days) for a live heap of 0.6-0.9 GiB (peak 1.35 GiB on
+# the leader of etcd, the controller manager and the scheduler). Near the limit Go collects more
+# often; above it Go caps the collector at about half the CPU and lets memory grow, so it never
+# kills k3s - but a live heap at the limit costs that CPU, hence ~950 MiB of room above the peak
+# for a new leader rebuilding its caches. In Go's units (MiB). Agents run no API server or etcd
+# and get none.
+k3s_gomemlimit: 2304MiB
+
 # containerd's registry settings, written to /etc/rancher/k3s/registries.yaml on every node; a
 # change restarts one node at a time, like k3s_config (README "Pulling through zot"). The five
 # registries Kyverno allows are pulled through zot's mirror, each under its own prefix there
