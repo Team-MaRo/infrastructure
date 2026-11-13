@@ -1,0 +1,36 @@
+---
+# The VPA recommender for this cluster: the Kubernetes autoscaler project's vertical-pod-autoscaler
+# Helm chart with values from kubernetes/components/vertical-pod-autoscaler, plus that directory's
+# manifests. Recommends memory and CPU per container for every VPA object (Goldilocks creates
+# them); nothing acts on the recommendations.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: vertical-pod-autoscaler
+  namespace: argocd
+  # No finalizer: it brings the VerticalPodAutoscaler CRDs, and deleting them would delete every
+  # VPA object with them.
+spec:
+  project: default
+  sources:
+    # Patch releases arrive by themselves (the `~` range, components/argocd/README.md "Chart
+    # versions"); raising the range is the upgrade.
+    - repoURL: https://kubernetes.github.io/autoscaler
+      chart: vertical-pod-autoscaler
+      targetRevision: "~0.16.0"
+      helm:
+        valueFiles:
+          - $repo/kubernetes/components/vertical-pod-autoscaler/values.yaml
+    - repoURL: https://github.com/Team-MaRo/infrastructure.git
+      targetRevision: master
+      ref: repo
+      path: kubernetes/components/vertical-pod-autoscaler
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: vertical-pod-autoscaler
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - ServerSideApply=true

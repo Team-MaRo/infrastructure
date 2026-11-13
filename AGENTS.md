@@ -206,7 +206,8 @@ rule, 2026-10-02). Where a name cannot hold a hyphen, the hyphens become undersc
     app's objects set `cleanupPolicy: Skip`, since mariadb-operator's default is `Delete`.
   - **Never on an app that brings CRDs** (deleting a CRD deletes every object of its kind):
     cert-manager, external-secrets, kyverno, cloudnative-pg, the mariadb-operator ones,
-    system-upgrade-controller, kube-prometheus-stack, kubeelasti, trust-manager. **Never on an
+    system-upgrade-controller, kube-prometheus-stack, kubeelasti, trust-manager,
+    vertical-pod-autoscaler. **Never on an
     app with a volume** (openbao, mariadb, postgres, loki, kube-prometheus-stack, valkey-state). **Never on the
     foundation**: root, private, argocd, hcloud-csi, traefik, coredns (it tracks k3s's CoreDNS
     Deployment). **Never on `priority-classes`**: a pod naming a missing class is refused.
@@ -415,4 +416,5 @@ component); update it in the same change.
 | [`kubernetes/components/arepazo/README.md`](kubernetes/components/arepazo/README.md) | The WooCommerce shop: its values for the WordPress chart (private files, memory, languages) |
 | [`kubernetes/components/matomo/README.md`](kubernetes/components/matomo/README.md) | Web analytics for every site: Zitadel login, installing, GeoIP, archiving, adding a site |
 | [`kubernetes/components/kubeelasti/README.md`](kubernetes/components/kubeelasti/README.md) | Scale to zero, letting an app sleep |
+| [`kubernetes/components/vertical-pod-autoscaler/README.md`](kubernetes/components/vertical-pod-autoscaler/README.md) | The VPA recommender: its formula, floors, history, open bugs, reading a recommendation |
 | [`kubernetes/clusters/prod/etcd-snapshots/README.md`](kubernetes/clusters/prod/etcd-snapshots/README.md) | etcd snapshots to Object Storage, restoring one |
