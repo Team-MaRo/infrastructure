@@ -6,10 +6,6 @@
 schedule: "30 6 * * *"
 timeZone: Europe/Zurich
 
-cmdOptions:
-  # Logs what it would evict, evicts nothing. Removed once a run's log has been checked.
-  dry-run: true
-
 # No CPU limit (they throttle an idle node); memory from the namespace's defaults (Kyverno's
 # LimitRange) instead of the chart's 256Mi; sized by the rule once measured.
 resources: null

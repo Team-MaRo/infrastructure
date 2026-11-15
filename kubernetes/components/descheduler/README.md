@@ -23,8 +23,10 @@ replacements on the empty one.
   counts as one that receives pods.
 - **At most 10 evictions per run** (`maxNoOfPodsToEvictTotal`), should the thresholds ever
   misjudge the nodes.
-- **Dry run for now** (`dry-run: true`): it only logs what it would evict, until a run's log
-  has been checked.
+- **No dry run in the cluster.** In 0.37 a dry run's first cycle often sees no pods - its copy
+  of the cluster is still filling (kubernetes-sigs/descheduler#1943) - and a CronJob runs only
+  that cycle. A dry run runs on the admin's machine instead, in a loop, read from its second
+  cycle on: "Trying a policy change" below.
 
 ## What it never evicts
 
@@ -79,6 +81,25 @@ kubectl --context d3strukt0r-prod-admin -n descheduler delete job descheduler-ma
 
 The last line removes the Job afterwards; the CronJob's own Jobs are cleaned up by its history
 limit.
+
+## Trying a policy change
+
+Before changing thresholds or protections, see what the new policy would evict: build the
+running version, take the policy from the cluster (or edit a copy), and run it in dry-run mode
+every 20 seconds for a minute. The first cycle shows every node at zero (#1943); read the
+second and later ones. It only reads from the cluster - evictions and events go to its copy.
+
+```sh
+git clone --depth 1 --branch v0.37.0 https://github.com/kubernetes-sigs/descheduler.git /tmp/descheduler
+(cd /tmp/descheduler && go build -o /tmp/descheduler/bin/descheduler ./cmd/descheduler)
+kubectl --context d3strukt0r-prod-admin -n descheduler get configmap descheduler -o jsonpath='{.data.policy\.yaml}' > /tmp/descheduler/policy.yaml
+(umask 077 && kubectl config view --minify --flatten --context d3strukt0r-prod-admin > /tmp/descheduler/kubeconfig)
+timeout 75 /tmp/descheduler/bin/descheduler --kubeconfig=/tmp/descheduler/kubeconfig --policy-config-file=/tmp/descheduler/policy.yaml --dry-run=true --descheduling-interval=20s --secure-port=0 --v=3 2>&1 | grep -E 'Resetting|classified|dry run mode'
+rm -rf /tmp/descheduler
+```
+
+`go install` does not work for it (the module has replace directives), hence the clone. The
+last line removes the admin kubeconfig copy with the rest.
 
 ## Removing it
 
