@@ -1,0 +1,63 @@
+# Helm values for the descheduler; the chart version is pinned in the cluster's Application. Only
+# what differs from the chart's and the descheduler's defaults is set.
+
+# Once a morning, after kured's reboot window (04:30-06:00), with room for a drain that started
+# just before 06:00. Never during the day.
+schedule: "30 6 * * *"
+timeZone: Europe/Zurich
+
+cmdOptions:
+  # Logs what it would evict, evicts nothing. Removed once a run's log has been checked.
+  dry-run: true
+
+# No CPU limit (they throttle an idle node); memory from the namespace's defaults (Kyverno's
+# LimitRange) instead of the chart's 256Mi; sized by the rule once measured.
+resources: null
+
+# The restricted Pod Security Standard requires it; the chart's securityContext has the rest.
+podSecurityContext:
+  seccompProfile:
+    type: RuntimeDefault
+
+# A job that runs once a day needs no system-critical priority.
+priorityClassName: ""
+
+deschedulerPolicy:
+  # An upper bound per run, should the thresholds ever misjudge the nodes.
+  maxNoOfPodsToEvictTotal: 10
+  # Replaces the chart's profile: only LowNodeUtilization, none of its other six plugins.
+  profiles:
+    - name: default
+      pluginConfig:
+        - name: DefaultEvictor
+          args:
+            # The shared databases, OpenBao and valkey-state are never evicted: an evicted MariaDB
+            # primary forces an unclean failover and a rebuild (mariadb/README.md).
+            priorityThreshold:
+              name: stateful-core
+            # Only evict a pod that fits on another schedulable node.
+            nodeFit: true
+            podProtections:
+              # Pods with an emptyDir may move - nearly every pod has one.
+              defaultDisabled:
+                - PodsWithLocalStorage
+              # Pods with a volume never move: no volume re-attach.
+              extraEnabled:
+                - PodsWithPVC
+        - name: LowNodeUtilization
+          args:
+            # Below all three: the node is underutilized and receives pods. Requests, not live
+            # usage, as the scheduler counts them.
+            thresholds:
+              cpu: 20
+              memory: 20
+              pods: 20
+            # Above any one: the node is overutilized and gives pods away.
+            targetThresholds:
+              cpu: 50
+              memory: 50
+              pods: 50
+      plugins:
+        balance:
+          enabled:
+            - LowNodeUtilization

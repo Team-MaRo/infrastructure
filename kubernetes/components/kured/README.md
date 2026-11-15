@@ -7,7 +7,9 @@ reboot window in `kustomization.yaml`, in `kube-system`). A kernel update leaves
 `/var/run/reboot-required` behind - written by unattended-upgrades' hook in
 `/etc/kernel/postinst.d/` - and kured, checking every 10 minutes inside its window (04:30-06:00
 Zurich time), takes a lock on its own DaemonSet, cordons and **drains** the node, reboots it and
-uncordons it once it is back; then the next node may take the lock. How that window fits
+uncordons it once it is back; then the next node may take the lock. The pods a drain moved
+stay where they landed, so the last node rebooted comes back nearly empty; the descheduler
+moves some back at 06:30 ([`../descheduler/README.md`](../descheduler/README.md)). How that window fits
 between the k3s upgrades and the OS updates is "The night's maintenance order" in
 [`AGENTS.md`](../../../AGENTS.md).
 

@@ -1,0 +1,9 @@
+---
+# The descheduler, shared by every cluster: rebalances pods once a morning after kured's reboot
+# window. The Helm chart is pinned in the cluster's Application with values.yaml from here; this
+# is what it needs besides the chart.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - namespace.yaml

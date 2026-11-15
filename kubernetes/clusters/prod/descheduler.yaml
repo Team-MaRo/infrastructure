@@ -1,0 +1,38 @@
+---
+# The descheduler for this cluster: the kubernetes-sigs descheduler Helm chart with values from
+# kubernetes/components/descheduler, plus that directory's manifests. Once a morning, after
+# kured's reboot window, it evicts pods from full nodes so the scheduler puts them on the node a
+# drain left empty.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: descheduler
+  namespace: argocd
+  # Removing this file removes everything it deployed, namespace included.
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  sources:
+    # Patch releases arrive by themselves (the `~` range, components/argocd/README.md "Chart
+    # versions"); raising the range is the upgrade.
+    - repoURL: https://kubernetes-sigs.github.io/descheduler/
+      chart: descheduler
+      targetRevision: "~0.37.0"
+      helm:
+        valueFiles:
+          - $repo/kubernetes/components/descheduler/values.yaml
+    - repoURL: https://github.com/Team-MaRo/infrastructure.git
+      targetRevision: master
+      ref: repo
+      path: kubernetes/components/descheduler
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: descheduler
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      # Not required here (no CRDs); used for consistency.
+      - ServerSideApply=true

@@ -32,6 +32,7 @@ kubernetes/
 │       ├── external-secrets.yaml  # delivers OpenBao values as Kubernetes Secrets
 │       ├── system-upgrade-controller.yaml  # upgrades k3s on the nodes
 │       ├── kured.yaml             # reboots nodes after kernel updates
+│       ├── descheduler.yaml       # moves pods back onto emptied nodes: chart (patch range) here
 │       ├── kyverno.yaml           # policies: chart (patch range) here, values and policies in components/
 │       ├── cert-manager.yaml      # certificates from Let's Encrypt
 │       ├── traefik.yaml           # k3s's Traefik: DaemonSet on the ingress nodes' host network
@@ -109,6 +110,10 @@ kubernetes/
     │   └── cluster-issuers.yaml   # letsencrypt-staging and letsencrypt
     ├── kured/
     │   └── kustomization.yaml     # pinned release manifest plus the reboot window
+    ├── descheduler/
+    │   ├── values.yaml            # Helm values: the morning schedule, only LowNodeUtilization, protections
+    │   ├── kustomization.yaml
+    │   └── namespace.yaml
     ├── kyverno/
     │   ├── values.yaml            # Helm values
     │   ├── kustomization.yaml
@@ -316,6 +321,7 @@ kubernetes/
 | [`external-secrets`](components/external-secrets/README.md) | Delivers OpenBao values as Kubernetes Secrets |
 | [`system-upgrade-controller`](components/system-upgrade-controller/README.md) | Upgrades k3s on the nodes |
 | [`kured`](components/kured/README.md) | Reboots nodes after kernel updates |
+| [`descheduler`](components/descheduler/README.md) | Once a morning, moves pods from full nodes onto the one a reboot night left empty |
 | [`kyverno`](components/kyverno/README.md) | Default resources (LimitRange), allowed registries, routes only through Cloudflare |
 | [`traefik`](components/traefik/README.md) | k3s's Traefik on the ingress nodes' host network, the dashboard |
 | [`cert-manager`](components/cert-manager/README.md) | Certificates from Let's Encrypt over DNS-01 |

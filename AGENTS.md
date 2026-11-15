@@ -201,7 +201,7 @@ rule, 2026-10-02). Where a name cannot hold a hyphen, the hyphens become undersc
   - It is on apps whose data lives elsewhere or does not matter: `gatus`, `zitadel`,
     `oauth2-proxy`, `phpmyadmin`, `pgadmin`, `reloader`, `keel`, `wedding-manuele-robine`,
     `robines-portfolio`, `arepazo`, `matomo`, `kured`, `alloy`, `etcd-snapshots`,
-    `cluster-rbac`, `tempo`, `argocd-integrations`, `valkey-cache`, `hetzner-watch`, `domain-redirects`, `clamav`, `goldilocks`. A Postgres app's database
+    `cluster-rbac`, `tempo`, `argocd-integrations`, `valkey-cache`, `hetzner-watch`, `domain-redirects`, `clamav`, `goldilocks`, `descheduler`. A Postgres app's database
     and role stay when it goes (CloudNativePG's reclaim policies default to `retain`); a MariaDB
     app's objects set `cleanupPolicy: Skip`, since mariadb-operator's default is `Delete`.
   - **Never on an app that brings CRDs** (deleting a CRD deletes every object of its kind):
@@ -322,6 +322,7 @@ etcd members at once. All times are Europe/Zurich; the nodes' clocks stay on UTC
 | 03:00 + up to 5 min | package lists fetched (changes nothing on the node) |
 | 03:30 + up to 15 min | OS updates (unattended-upgrades) |
 | 04:30-06:00 | reboots by kured, only where a kernel update asks for one |
+| 06:30 | pods moved back onto a node the reboots left empty (descheduler; moves pods, never touches a node) |
 
 Each window is described with its owner: etcd snapshots in
 [`kubernetes/clusters/prod/etcd-snapshots/README.md`](kubernetes/clusters/prod/etcd-snapshots/README.md),
@@ -381,6 +382,7 @@ component); update it in the same change.
 | [`kubernetes/components/external-secrets/README.md`](kubernetes/components/external-secrets/README.md) | The `openbao` store and writing an ExternalSecret |
 | [`kubernetes/components/system-upgrade-controller/README.md`](kubernetes/components/system-upgrade-controller/README.md) | k3s upgrades: channel, window, failed Jobs |
 | [`kubernetes/components/kured/README.md`](kubernetes/components/kured/README.md) | Reboots after kernel updates, blocked drains |
+| [`kubernetes/components/descheduler/README.md`](kubernetes/components/descheduler/README.md) | Rebalancing pods after the reboot window: what it may evict, its schedule, its log, running it by hand |
 | [`kubernetes/components/coredns/README.md`](kubernetes/components/coredns/README.md) | Two replicas and a drain budget for k3s's CoreDNS, the partial-manifest trap |
 | [`kubernetes/components/kyverno/README.md`](kubernetes/components/kyverno/README.md) | Default resources, allowed registries, routes only through Cloudflare |
 | [`kubernetes/components/traefik/README.md`](kubernetes/components/traefik/README.md) | Ingress on the host network, ingress nodes, the dashboard; the upload scan plugin, its tests, its comparison with PHP, refusing and its alerts |
