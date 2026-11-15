@@ -50,7 +50,7 @@
       "gridPos": { "x": 0, "y": 0, "w": 24, "h": 5 },
       "options": {
         "mode": "markdown",
-        "content": "Our sizing rule (`kubernetes/components/kyverno/README.md`), per container over **$window**: the **request** is the p95 of real memory (working set minus active file cache), rounded up to 16 MiB; the **limit** is twice the working set's p95 or the highest working set of the last 30 days x 1.1, whichever is higher, rounded up to 32 MiB. Pods of one workload are folded into one row by their maximum. **Now / rule** below 0.8 means the request is too small, above 1.5 that it holds back more than the container uses. The series are recorded since this dashboard was added (`memory-sizing.yaml`), so a window longer than that holds less than it says; the window must be long enough to contain the rare peaks (a nightly job, a weekly cleanup). Containers with no request or limit of their own get Kyverno's defaults (32Mi / 128Mi). **VPA target / lower / upper bound** are the VPA recommender's figures (p90 of daily peaks of the working set + 15 %; Goldilocks shows the same) - a second opinion, wide in its first ~8 days; Jobs and CronJobs have none."
+        "content": "Our sizing rule (`kubernetes/components/kyverno/README.md`), per container over **$window**: the **request** is the p95 of real memory (working set minus active file cache), rounded up to 16 MiB; the **limit** is twice the working set's p95 or the highest working set of the last 30 days x 1.1, whichever is higher, rounded up to 32 MiB. Pods of one workload are folded into one row by their maximum; a container that has not run within the window (a Job, a CronJob between runs) has no row. **Now / rule** below 0.8 means the request is too small, above 1.5 that it holds back more than the container uses. The series are recorded since this dashboard was added (`memory-sizing.yaml`), so a window longer than that holds less than it says; the window must be long enough to contain the rare peaks (a nightly job, a weekly cleanup). Containers with no request or limit of their own get Kyverno's defaults (32Mi / 128Mi). **VPA target / lower / upper bound** are the VPA recommender's figures (p90 of daily peaks of the working set + 15 %; Goldilocks shows the same) - a second opinion, wide in its first ~8 days; Jobs and CronJobs have none."
       }
     },
     {
@@ -59,10 +59,10 @@
       "gridPos": { "x": 0, "y": 5, "w": 24, "h": 20 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
-        { "refId": "A", "instant": true, "range": false, "format": "table", "expr": "workload_container:memory_request:max_bytes{namespace=~\"$namespace\"}" },
+        { "refId": "A", "instant": true, "range": false, "format": "table", "expr": "max by (namespace, workload, workload_type, container) (workload_container:memory_request:max_bytes{namespace=~\"$namespace\"})" },
         { "refId": "B", "instant": true, "range": false, "format": "table", "expr": "ceil(quantile_over_time(0.95, workload_container:memory_real:max_bytes{namespace=~\"$namespace\"}[$window]) / 16777216) * 16777216" },
         { "refId": "C", "instant": true, "range": false, "format": "table", "expr": "workload_container:memory_request:max_bytes{namespace=~\"$namespace\"} / (ceil(quantile_over_time(0.95, workload_container:memory_real:max_bytes{namespace=~\"$namespace\"}[$window]) / 16777216) * 16777216)" },
-        { "refId": "D", "instant": true, "range": false, "format": "table", "expr": "workload_container:memory_limit:max_bytes{namespace=~\"$namespace\"}" },
+        { "refId": "D", "instant": true, "range": false, "format": "table", "expr": "max by (namespace, workload, workload_type, container) (workload_container:memory_limit:max_bytes{namespace=~\"$namespace\"})" },
         { "refId": "E", "instant": true, "range": false, "format": "table", "expr": "ceil(((2 * quantile_over_time(0.95, workload_container:memory_working_set:max_bytes{namespace=~\"$namespace\"}[$window])) > (1.1 * max_over_time(workload_container:memory_working_set:max_bytes{namespace=~\"$namespace\"}[30d])) or (1.1 * max_over_time(workload_container:memory_working_set:max_bytes{namespace=~\"$namespace\"}[30d]))) / 33554432) * 33554432" },
         { "refId": "F", "instant": true, "range": false, "format": "table", "expr": "quantile_over_time(0.95, workload_container:memory_real:max_bytes{namespace=~\"$namespace\"}[$window])" },
         { "refId": "G", "instant": true, "range": false, "format": "table", "expr": "quantile_over_time(0.95, workload_container:memory_working_set:max_bytes{namespace=~\"$namespace\"}[$window])" },
@@ -101,6 +101,14 @@
               "Value #K": "VPA upper bound"
             }
           }
+        },
+        {
+          "id": "filterByValue",
+          "options": {
+            "type": "exclude",
+            "match": "any",
+            "filters": [{ "fieldName": "Request by rule", "config": { "id": "isNull", "options": {} } }]
+          }
         }
       ],
       "fieldConfig": {
@@ -116,6 +124,7 @@
               { "id": "unit", "value": "none" },
               { "id": "decimals", "value": 2 },
               { "id": "custom.cellOptions", "value": { "type": "color-background", "mode": "basic" } },
+              { "id": "mappings", "value": [{ "type": "special", "options": { "match": "null", "result": { "text": "-", "color": "transparent", "index": 0 } } }] },
               {
                 "id": "thresholds",
                 "value": {

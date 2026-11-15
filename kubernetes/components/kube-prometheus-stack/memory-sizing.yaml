@@ -33,17 +33,27 @@ spec:
               * on (namespace, pod) group_left (workload, workload_type)
                 max by (namespace, pod, workload, workload_type) (namespace_workload_pod:kube_pod_owner:relabel)
             )
+        # Init containers too: a sidecar (restartPolicy Always, e.g. CloudNativePG's barman
+        # plugin) runs beside the app, but kube-state-metrics reports it as an init container.
+        # Ordinary init containers have finished and have no memory figures, so the dashboard
+        # leaves them out.
         - record: workload_container:memory_request:max_bytes
           expr: >-
             max by (namespace, workload, workload_type, container) (
-              kube_pod_container_resource_requests{resource="memory"}
+              (
+                kube_pod_container_resource_requests{resource="memory"}
+                or kube_pod_init_container_resource_requests{resource="memory"}
+              )
               * on (namespace, pod) group_left (workload, workload_type)
                 max by (namespace, pod, workload, workload_type) (namespace_workload_pod:kube_pod_owner:relabel)
             )
         - record: workload_container:memory_limit:max_bytes
           expr: >-
             max by (namespace, workload, workload_type, container) (
-              kube_pod_container_resource_limits{resource="memory"}
+              (
+                kube_pod_container_resource_limits{resource="memory"}
+                or kube_pod_init_container_resource_limits{resource="memory"}
+              )
               * on (namespace, pod) group_left (workload, workload_type)
                 max by (namespace, pod, workload, workload_type) (namespace_workload_pod:kube_pod_owner:relabel)
             )

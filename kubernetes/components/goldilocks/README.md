@@ -58,7 +58,12 @@ second opinion.
 - FairwindsOps/goldilocks#897: every pod event makes the controller write every VPA in that
   namespace again, even unchanged - watch the API server's load if it ever matters.
 - FairwindsOps/goldilocks#893: for pods owned by a custom resource (the databases' operators) it
-  logs "Error retrieving parent object" and falls back to the StatefulSet - log noise only.
+  logs "Error retrieving parent object" and falls back to the StatefulSet - log noise only. Our
+  fix is in FairwindsOps/controller-utils#124; Goldilocks needs a release with it.
+- The VPAs of the four operator-owned workloads (the MariaDB StatefulSet, `mariadb-metrics`,
+  Alertmanager, Prometheus) never get a recommendation: VPA refuses a target that has a parent
+  controller (condition `ConfigUnsupported`), and the operator objects above them cannot be
+  targets. Only the Grafana dashboard covers them.
 
 ## Removing it
 

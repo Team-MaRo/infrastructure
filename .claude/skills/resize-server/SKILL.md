@@ -1,13 +1,15 @@
 ---
 name: resize-server
 description: Resize (upgrade or downgrade) a prod node's Hetzner server type, e.g. "upgrade prod-02 to cx43", "scale prod-04 down to cx23", "cx43 is available, let's upgrade". Use it for any server_type change of prod-01..04 - it holds the order (database primaries off the node, drain, tofu plan/apply, uncordon) and a one-shot preflight script, so nothing has to be looked up while the admin waits.
+argument-hint: <node> <server-type>
 ---
 
 # Resizing a prod node
 
-The admin wants this done fast: run the preflight once, then hand over **all** commands for the
-whole sequence in one message, in order. Check between steps only where it decides the next step,
-with one command each - no exploration.
+The node and the new server type come from the arguments (`prod-02 cx43`) when given, otherwise
+from the request. The admin wants this done fast: run the preflight once, then hand over **all**
+commands for the whole sequence in one message, in order. Check between steps only where it
+decides the next step, with one command each - no exploration.
 
 ## What a resize is here
 

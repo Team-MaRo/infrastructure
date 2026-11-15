@@ -31,9 +31,9 @@ manifests fit together is in [`kubernetes/README.md`](../../README.md).
   last GTID, which the new primary's binary log does not hold (`log_slave_updates` is off in a
   single cluster) - error 1236, and the operator rebuilds it from a backup
   ([mariadb-operator#1948](https://github.com/mariadb-operator/mariadb-operator/issues/1948),
-  open in 26.10.2). That happened twice in the night of 2026-11-03, when kured's reboot drain
-  evicted the primary. A planned switchover is clean (the operator hands the old primary the
-  new primary's position), so:
+  open in 26.10.2, our fix in PR #2046). That happened twice in the night of 2026-11-03, when
+  kured's reboot drain evicted the primary. A planned switchover is clean (the operator hands the
+  old primary the new primary's position), so:
   - kured skips a node that runs the primary (`--blocking-pod-selector`, see
     [`../kured/README.md`](../kured/README.md)) and marks it as waiting for a reboot;
   - the CronJob `mariadb-primary-off-rebooting-node` (`primary-off-rebooting-node.yaml`, every
@@ -162,13 +162,14 @@ manifests fit together is in [`kubernetes/README.md`](../../README.md).
   `server-<id>/`. Once that server is primary again, the agent finds each name already there,
   skips the upload and still logs "archived"; the index matches by name too, and
   `BinlogsArchived` stays True - nothing reaches the bucket, and `LAST RECOVERABLE TIME` stops at
-  the switch (mariadb-operator#1815, open in 26.10.1). Happened 2026-10-18 to 2026-10-22: recovery
-  of `mariadb-1` on 2026-10-06, primary again after a reboot on 2026-10-18. Again on 2026-11-02:
-  `mariadb-1` rebuilt after a switchover during a resize, moved to `pitr-2026-11-02` while it was
-  still the replica. And in the night of 2026-11-03 both servers, each rebuilt after kured's
-  reboot drain had evicted it as primary; moved to `pitr-2026-11-03` once both were back. The way
-  out is a fresh prefix after every replica recovery (runbook "After a replica recovery"); the old
-  `PointInTimeRecovery` stays for restores up to the switch.
+  the switch (mariadb-operator#1815, open in 26.10.2, our fix in PR #2044). Happened 2026-10-18
+  to 2026-10-22: recovery of `mariadb-1` on 2026-10-06, primary again after a reboot on
+  2026-10-18. Again on 2026-11-02: `mariadb-1` rebuilt after a switchover during a resize, moved
+  to `pitr-2026-11-02` while it was still the replica. And in the night of 2026-11-03 both
+  servers, each rebuilt after kured's reboot drain had evicted it as primary; moved to
+  `pitr-2026-11-03` once both were back. The way out is a fresh prefix after every replica
+  recovery (runbook "After a replica recovery"); the old `PointInTimeRecovery` stays for restores
+  up to the switch.
 - **PITR works only in this replication topology**, not with Galera or a standalone instance.
 
 ## Passwords and Argo CD
