@@ -211,6 +211,10 @@ The operator does not resize an existing volume. Grow the volume before pushing 
 
 ## Grafana
 
+- **The image is pinned above the chart's** (`grafana.image.tag`, 13.2.6 since 2026-11-16): the
+  chart 91.8.x ships 13.2.3, and 13.2.4-13.2.6 fixed 14 CVEs. Remove the tag once the chart's
+  Grafana is at least as new - at the latest with the next major of kube-prometheus-stack - since
+  until then it holds Grafana back. Keep the `-distroless` suffix the chart uses.
 - **Datasources**: the chart's Prometheus and Alertmanager, plus Loki and Tempo
   (`additionalDataSources`), linked both ways. A log line's `TraceId` (Traefik's JSON access
   log) becomes a link to the trace (a derived field on Loki); a trace's spans link to the logs
