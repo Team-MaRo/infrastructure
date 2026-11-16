@@ -29,7 +29,7 @@ the server type (`GET /v1/server_types?name=…` → `locations[].available`).
 
 ## How it works
 
-- **`watch.py`** (stdlib Python in `python:3.14-alpine`, mounted from a ConfigMap) collects the
+- **`watch.py`** (stdlib Python in `python:3.15-slim`, mounted from a ConfigMap) collects the
   values above as `key: value` lines, compares them with the previous run's and sends one ntfy
   message listing every line that changed (`old -> new`). The first run sends "Hetzner watch
   started" with the current values, so a working setup is visible once.
@@ -102,5 +102,5 @@ With a token in `HCLOUD_TOKEN`, a state file instead of the ConfigMap and the me
 instead of sent:
 
 ```shell
-docker run --rm -e HCLOUD_TOKEN -e WATCH_SERVER_TYPES=cx43 -e STATE_FILE=/tmp/state.json -e DRY_RUN=1 -v "$PWD/kubernetes/components/hetzner-watch:/app:ro" python:3.14-alpine python /app/watch.py
+docker run --rm -e HCLOUD_TOKEN -e WATCH_SERVER_TYPES=cx43 -e STATE_FILE=/tmp/state.json -e DRY_RUN=1 -v "$PWD/kubernetes/components/hetzner-watch:/app:ro" python:3.15-slim python /app/watch.py
 ```
