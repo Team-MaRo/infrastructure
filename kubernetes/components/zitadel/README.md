@@ -189,6 +189,31 @@ Still by hand:
 2. Cloudflare dashboard → `d3strukt0r.dev` → Network → **gRPC on**: `tofu/zitadel`'s provider
    speaks gRPC, which Cloudflare refuses otherwise.
 
+## After a database switchover
+
+Every switchover of the shared PostgreSQL (a minor upgrade, a reboot of the primary's node, a
+failover) leaves its Service without a ready primary for a few seconds. Connection attempts
+Zitadel opens in that moment get no answer, and the kernel retries the same unanswered attempt
+for about two minutes even after the new primary is up; while they fill Zitadel's pool
+(10 connections), every query and so every login fails - the login page answers 503.
+Measured 2026-11-16 with a socket watcher in the pod: after the 18.7 upgrade logins were down
+from 19:01 until a restart at 19:15, after a planned switchover at 19:12 for 1 min 50 s, with the
+attempts stuck in `SYN-SENT` while a new connection from the same pod went through at once.
+
+`PGCONNECT_TIMEOUT=5` (`values.yaml`, read by Zitadel's pgx driver) ends such an attempt after five
+seconds, and the retry reaches the new primary - tested with a planned switchover the same
+evening (19:19): the attempts hung for 10 seconds, `/debug/ready` failed once and the login page
+not at all. Zitadel's `MaxConnLifetime`/`MaxConnIdleTime` do
+not help (they never touch a connection being opened), and `Options` passes only server
+parameters. Gatus checks `/debug/ready`, which fails while the database is unreachable, and
+alerts by ntfy after three minutes.
+
+If logins still fail after a switchover, restart Zitadel and its login page:
+
+```shell
+kubectl --context d3strukt0r-prod-admin -n zitadel rollout restart deploy/zitadel deploy/zitadel-login
+```
+
 ## Users
 
 A new user gets a generated first password and the e-mail marked verified (there is no mail

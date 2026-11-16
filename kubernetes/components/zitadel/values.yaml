@@ -96,6 +96,12 @@ env:
       secretKeyRef:
         name: zitadel-admin
         key: password
+  # A database connection attempt gives up after 5 s instead of the kernel's ~2 min: during a
+  # switchover attempts can hang unanswered, and while they fill the pool every login fails
+  # (README "After a database switchover"). Read by the pgx driver itself; Zitadel's own Options
+  # setting only passes server parameters.
+  - name: PGCONNECT_TIMEOUT
+    value: "5"
   # Zitadel's default deny list for outgoing calls (actions, identity providers, SMTP), with
   # 10.0.0.0/8 split so that exactly two addresses are left out: the webhooks' Services,
   # 10.43.255.250 (groups-webhook.yaml) and 10.43.255.251 (registration-webhook.yaml). Setting
