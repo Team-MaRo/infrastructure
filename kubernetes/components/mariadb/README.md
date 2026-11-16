@@ -1,7 +1,9 @@
 # MariaDB
 
 The app database (`kubernetes/clusters/prod/mariadb.yaml`, manifests in this directory, namespace
-`mariadb`): `MariaDB` `mariadb`, image pinned, 2 replicas on 10 GB each, one per node, run by the
+`mariadb`): `MariaDB` `mariadb`, image pinned to the 12.3 long-term support line (supported until
+2029-06; the 13.x rolling releases are skipped, the next long-term line is a deliberate upgrade),
+2 replicas on 10 GB each, one per node, run by the
 mariadb-operator ([`../mariadb-operator/README.md`](../mariadb-operator/README.md)). Apps connect to
 the Service **`mariadb-primary`** (`mariadb-primary.mariadb.svc:3306`), which follows the primary
 through a failover (`mariadb-secondary` reads from the replica). It is backed up every night and its

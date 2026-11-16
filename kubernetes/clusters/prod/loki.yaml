@@ -15,7 +15,7 @@ spec:
     # grafana-community.
     - repoURL: https://grafana-community.github.io/helm-charts
       chart: loki
-      targetRevision: "~18.13.7"
+      targetRevision: "~21.3.0"
       helm:
         valueFiles:
           - $repo/kubernetes/components/loki/values.yaml
