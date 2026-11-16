@@ -230,10 +230,6 @@ alertmanager:
                 credentials_file: /etc/alertmanager/secrets/alertmanager-ntfy/token
 
 grafana:
-  # Above the chart's (91.8.x ships 13.2.3) for 13.2.4-13.2.6's security fixes. Remove once the
-  # chart's Grafana is at least as new (README "Grafana").
-  image:
-    tag: "13.2.6-distroless"
   admin:
     existingSecret: grafana-admin
   # Restarted by Reloader when the admin password changes in OpenBao (read as an environment
