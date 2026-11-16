@@ -11,9 +11,9 @@ One pod (`deployment.yaml`):
 
 | Container | Image | Does |
 |---|---|---|
-| `valkey` | `valkey/valkey:9.1.2` | the cache, configured by `valkey.conf`; its users from the aclfile `acl-sync` builds from the Secret `users` and each app's Secret `db-<n>` |
+| `valkey` | `valkey/valkey:9.1.3` | the cache, configured by `valkey.conf`; its users from the aclfile `acl-sync` builds from the Secret `users` and each app's Secret `db-<n>` |
 | `exporter` | `oliver006/redis_exporter:v1.94.0` | Valkey's figures for Prometheus on port 9121 (`pod-monitor.yaml`), logged in as the user `exporter` |
-| `acl-sync` | `valkey/valkey:9.1.2` | builds Valkey's aclfile from the users Secrets, every line checked, and loads it again when they change ([`../../shared/valkey-acl-sync/README.md`](../../shared/valkey-acl-sync/README.md)); its initContainer `acl-sync-init` writes the first one |
+| `acl-sync` | `valkey/valkey:9.1.3` | builds Valkey's aclfile from the users Secrets, every line checked, and loads it again when they change ([`../../shared/valkey-acl-sync/README.md`](../../shared/valkey-acl-sync/README.md)); its initContainer `acl-sync-init` writes the first one |
 
 ## Design
 
