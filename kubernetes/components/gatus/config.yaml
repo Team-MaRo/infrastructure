@@ -26,9 +26,11 @@ alerting:
 
 # One entry per checked service; they appear on the page in their group.
 endpoints:
+  # /debug/ready, not /debug/healthz: healthz answers 200 even when Zitadel cannot reach its
+  # database, which left every login failing unnoticed after a switchover (2026-11-16).
   - name: Zitadel
     group: Cluster
-    url: https://auth.d3strukt0r.dev/debug/healthz
+    url: https://auth.d3strukt0r.dev/debug/ready
     interval: 1m
     conditions:
       - "[STATUS] == 200"

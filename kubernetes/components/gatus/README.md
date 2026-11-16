@@ -57,7 +57,7 @@ without a restart. A check is one entry:
 endpoints:
   - name: Zitadel
     group: Cluster
-    url: https://auth.d3strukt0r.dev/debug/healthz
+    url: https://auth.d3strukt0r.dev/debug/ready
     interval: 1m
     conditions:
       - "[STATUS] == 200"
