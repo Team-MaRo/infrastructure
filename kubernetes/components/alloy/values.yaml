@@ -132,6 +132,23 @@ alloy:
           }
         }
 
+        // A Valkey user line acl-sync keeps out (shared/valkey-acl-sync) becomes a counter for the
+        // Valkeys' alerts (rules.yaml, acl_sync:failed_lines:new10m). It is logged every round
+        // while it lasts.
+        stage.match {
+          selector = "{container=\"acl-sync\"} |= \"acl-sync: failed\""
+
+          stage.metrics {
+            metric.counter {
+              name              = "acl_sync_failed_total"
+              description       = "Valkey user lines acl-sync could not apply."
+              match_all         = true
+              action            = "inc"
+              max_idle_duration = "24h"
+            }
+          }
+        }
+
         forward_to = [loki.write.default.receiver]
       }
 

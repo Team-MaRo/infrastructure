@@ -18,10 +18,6 @@ spec:
     name: openbao
   target:
     template:
-      metadata:
-        annotations:
-          # A new or changed user restarts Valkey, which reads its users only at start.
-          reloader.stakater.com/match: "true"
       data:
         users.conf: |
           user {{ $.Release.Name }} on #{{ "{{" }} .password | sha256sum {{ "}}" }} resetdbs db={{ . }} resetchannels ~* +@all -@dangerous +flushdb +info

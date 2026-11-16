@@ -102,6 +102,14 @@ that can be personal data, batches them and forwards them to Tempo ([`../tempo/R
   ([`../traefik/README.md`](../traefik/README.md), "Upload scan"). A metric takes the entry's
   labels, so the two are set for `stage.metrics` and dropped again: Loki's streams keep their
   labels. Alerts on log lines go this way, through Prometheus, rather than through Loki's ruler.
+- **The Valkeys' `acl-sync: failed` lines become a counter** too,
+  `loki_process_custom_acl_sync_failed_total`, summed per Valkey by the recording rule
+  `acl_sync:failed_lines:new10m` (`rules.yaml`) for `ValkeyCacheUsersBroken` and
+  `ValkeyStateUsersBroken`
+  ([`../../shared/valkey-acl-sync/README.md`](../../shared/valkey-acl-sync/README.md)). **A log
+  counter's own labels arrive renamed**: Prometheus files the line's `namespace`, `pod` and
+  `container` as `exported_namespace` etc., since `namespace`, `pod` and `container` name the
+  Alloy pod it scraped - filter on the `exported_` ones.
 - Alloy sends no usage statistics (`enableReporting: false`).
 
 ## Alerts

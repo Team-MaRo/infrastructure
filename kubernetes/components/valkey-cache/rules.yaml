@@ -36,3 +36,19 @@ spec:
             description: >-
               Valkey reached maxclients (10000 by default) - an app opening connections without
               closing them. CLIENT LIST as the user exporter shows which one (README).
+        # A users line acl-sync keeps out of Valkey (shared/valkey-acl-sync), counted from its log
+        # by Alloy (components/alloy/rules.yaml). Repeated every 15 seconds while it lasts.
+        - alert: ValkeyCacheUsersBroken
+          expr: acl_sync:failed_lines:new10m{exported_namespace="valkey-cache"} > 0
+          labels:
+            severity: warning
+            namespace: valkey-cache
+          annotations:
+            summary: "valkey-cache refuses an app's user."
+            description: >-
+              That app's user keeps its previous rules until the pod is recreated (a container
+              restart keeps them) - a new app, or any after a new pod, has none and cannot use the
+              cache. Valkey itself and every other app are unaffected. The acl-sync log names the
+              file and Valkey's error (kubectl --context d3strukt0r-prod-admin -n valkey-cache
+              logs deploy/valkey-cache -c acl-sync); fix the app's db-<n> template (README,
+              "Users applied while it runs").

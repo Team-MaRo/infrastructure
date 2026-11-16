@@ -749,8 +749,9 @@ running pods stay. A renamed or removed value changes in the same commit as ever
   phpMyAdmin) - FLUSHDB, on the site's own database only:
   `kubectl --context d3strukt0r-prod-admin -n <site> exec deploy/web -c php-fpm -- php -r 'require "/var/www/html/wp-load.php"; var_dump(wp_cache_flush());'`
 - **Switching the object cache on**: its password (`components/valkey-cache`, "Adding an app"),
-  a free number in its database table, `objectCache.database` in the site's values. valkey-cache
-  restarts by itself when the site's user appears (Reloader).
+  a free number in its database table, `objectCache.database` in the site's values. The site's
+  user reaches valkey-cache within one to two minutes, without a restart (`acl-sync`,
+  `components/valkey-cache`); until then the site runs without the cache.
 - **The pod hangs in an init container**: its log says which download failed
   (`kubectl --context d3strukt0r-prod-admin -n <site> logs deploy/web -c plugins`).
 

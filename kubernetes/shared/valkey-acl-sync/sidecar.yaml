@@ -1,0 +1,78 @@
+# Added to the Valkey workload of every kustomization that lists this Component (README). Kind
+# and name are placeholders: the patch applies to the targets in kustomization.yaml.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: valkey
+spec:
+  template:
+    spec:
+      # Makes acl-sync's own login and the first aclfile before Valkey starts.
+      initContainers:
+        - name: acl-sync-init
+          # Valkey's own image: it checks the lines with the same Valkey that loads them. The tag
+          # comes from the Valkey's kustomization (images:).
+          image: valkey/valkey
+          command:
+            - sh
+            - /scripts/acl-sync.sh
+            - init
+          securityContext:
+            runAsUser: 999
+            runAsGroup: 999
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: acl-sync
+              mountPath: /scripts
+              readOnly: true
+            - name: users
+              mountPath: /etc/valkey/users
+              readOnly: true
+            - name: local-users
+              mountPath: /run/valkey-local
+      containers:
+        # Valkey reads its users only from the aclfile acl-sync builds (aclfile in valkey.conf).
+        - name: valkey
+          volumeMounts:
+            - name: local-users
+              mountPath: /run/valkey-local
+              readOnly: true
+        # Rebuilds and loads the aclfile when the users Secrets change. Memory on the namespace's
+        # defaults.
+        - name: acl-sync
+          image: valkey/valkey
+          command:
+            - sh
+            - /scripts/acl-sync.sh
+            - run
+          securityContext:
+            runAsUser: 999
+            runAsGroup: 999
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: acl-sync
+              mountPath: /scripts
+              readOnly: true
+            - name: users
+              mountPath: /etc/valkey/users
+              readOnly: true
+            - name: local-users
+              mountPath: /run/valkey-local
+      volumes:
+        - name: acl-sync
+          configMap:
+            name: valkey-acl-sync
+        # acl-sync's login and the aclfile, made at each start; in memory, so the password never
+        # touches a disk.
+        - name: local-users
+          emptyDir:
+            medium: Memory
+            sizeLimit: 1Mi

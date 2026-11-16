@@ -12,13 +12,16 @@ One pod (`statefulset.yaml`, `valkey-state-0`) with a 10 GiB Hetzner Volume:
 
 | Container | Image | Does |
 |---|---|---|
-| `valkey` | `valkey/valkey:9.1.2` | the state, configured by `valkey.conf`, its own users from the Secret `users`, each app's from the app's Secret `db-<n>` |
+| `valkey` | `valkey/valkey:9.1.2` | the state, configured by `valkey.conf`; its users from the aclfile `acl-sync` builds from the Secret `users` and each app's Secret `db-<n>` |
 | `exporter` | `oliver006/redis_exporter:v1.94.0` | Valkey's figures for Prometheus on port 9121 (`pod-monitor.yaml`), logged in as the user `exporter` |
+| `acl-sync` | `valkey/valkey:9.1.2` | builds Valkey's aclfile from the users Secrets, every line checked, and loads it again when they change ([`../../shared/valkey-acl-sync/README.md`](../../shared/valkey-acl-sync/README.md)); its initContainer `acl-sync-init` writes the first one |
 
 ## Design
 
 Everything valkey-cache's README says about **a database per app enforced by ACL**, **the
-default user off**, **each app bringing its own user**, **restarts on new users** (Reloader),
+default user off**, **each app bringing its own user**, **users applied while it runs, and never
+able to stop it** (`acl-sync`; a refused line raises `ValkeyStateUsersBroken`), **Reloader
+restarting it only for the Secret `users`**,
 **labelled namespaces only**, **TCP probes**, **pinned images** and **restricted Pod Security**
 holds here as well, with `valkey-state` for `valkey-cache` and the namespace label
 `valkey.d3strukt0r.dev/state: "true"`. What differs:
@@ -143,9 +146,10 @@ kubectl --context d3strukt0r-prod-admin -n valkey-state exec -it valkey-state-0 
 ```shell
 kubectl --context d3strukt0r-prod-admin -n valkey-state get pods,pvc,externalsecrets
 kubectl --context d3strukt0r-prod-admin -n valkey-state logs valkey-state-0 -c valkey
+kubectl --context d3strukt0r-prod-admin -n valkey-state logs valkey-state-0 -c acl-sync
 ```
 
 In Prometheus: `redis_up{job="valkey-state/valkey-state"}`, `redis_memory_used_bytes` against
 `redis_memory_max_bytes`, `redis_aof_last_write_status`, `redis_db_keys`. Alerts (`rules.yaml`):
 `ValkeyStateDown`, `ValkeyStateMemoryHigh`, `ValkeyStateAofWriteFailing`,
-`ValkeyStateRejectedConnections`.
+`ValkeyStateRejectedConnections`, `ValkeyStateUsersBroken`.

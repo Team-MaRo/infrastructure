@@ -414,6 +414,7 @@ component); update it in the same change.
 | [`kubernetes/components/wedding-manuele-robine/README.md`](kubernetes/components/wedding-manuele-robine/README.md) | The wedding website; its two TODOs; moving it from prod-old |
 | [`kubernetes/shared/external-secret-defaults/README.md`](kubernetes/shared/external-secret-defaults/README.md) | The Kustomize Component giving every ExternalSecret its store and refresh interval |
 | [`kubernetes/shared/monitoring-sync-options/README.md`](kubernetes/shared/monitoring-sync-options/README.md) | The Kustomize Component giving every monitor and rule its Argo CD sync option |
+| [`kubernetes/shared/valkey-acl-sync/README.md`](kubernetes/shared/valkey-acl-sync/README.md) | The Kustomize Component with the sidecar scripts that apply both Valkeys' users while they run; when a line is refused |
 | [`kubernetes/charts/wordpress/README.md`](kubernetes/charts/wordpress/README.md) | The WordPress chart every site uses: values, design, rolling out a chart change, adding a site |
 | [`kubernetes/components/robines-portfolio/README.md`](kubernetes/components/robines-portfolio/README.md) | The old WordPress portfolio: its values for the WordPress chart and what is particular to it |
 | [`kubernetes/components/arepazo/README.md`](kubernetes/components/arepazo/README.md) | The WooCommerce shop: its values for the WordPress chart (private files, memory, languages) |

@@ -1,0 +1,23 @@
+---
+# acl-sync, which builds a Valkey's aclfile from its users Secrets and loads it while it runs
+# (README): the script, and the initContainer, sidecar and volumes it adds to the Valkey's
+# workload. A Valkey's kustomization lists this under components:; its workload brings the
+# projected volume `users` and a container named `valkey`.
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+# A hash in the name, so a change to the script rolls the pod.
+configMapGenerator:
+  - name: valkey-acl-sync
+    files:
+      - acl-sync.sh
+
+patches:
+  - path: sidecar.yaml
+    target:
+      kind: Deployment
+      name: valkey-.*
+  - path: sidecar.yaml
+    target:
+      kind: StatefulSet
+      name: valkey-.*

@@ -4,10 +4,9 @@ kind: Deployment
 metadata:
   name: valkey-cache
   annotations:
-    # The users are read at start: a change to any Secret it mounts that is marked
-    # reloader.stakater.com/match - users and every db-<n> - restarts it (components/reloader).
-    # A restart only empties the cache.
-    reloader.stakater.com/search: "true"
+    # The exporter reads its password from users only at start (components/reloader). The apps'
+    # users need no restart: acl-sync applies them while Valkey runs (shared/valkey-acl-sync).
+    secret.reloader.stakater.com/reload: users
 spec:
   replicas: 1
   # Two instances would be two separate caches; the old one stops before the new one starts.
@@ -25,11 +24,11 @@ spec:
         runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
+      # acl-sync's initContainer and sidecar, and their volumes, come from shared/valkey-acl-sync.
       containers:
         - name: valkey
-          # Pinned; bumping the tag is the upgrade. Not a floating tag: `9` and `9.2` already
-          # pointed at 9.2.0-rc1 (2026-10-19). 9.1 or newer for the per-database ACLs.
-          image: valkey/valkey:9.1.2
+          # The tag is pinned in kustomization.yaml (images:), for acl-sync's containers as well.
+          image: valkey/valkey
           # Started directly as the image's user valkey (999), past the entrypoint, which would
           # only change the owner of /data as root.
           command:
@@ -68,9 +67,6 @@ spec:
               mountPath: /etc/valkey/valkey.conf
               subPath: valkey.conf
               readOnly: true
-            - name: users
-              mountPath: /etc/valkey/users
-              readOnly: true
             # Nothing is saved (valkey.conf), but Valkey keeps its working directory here.
             - name: data
               mountPath: /data
@@ -105,8 +101,9 @@ spec:
           configMap:
             name: valkey-cache
         # Valkey's own users, and the user of each app, which the app brings itself as the
-        # Secret db-<n> for its database n (README). A Pod can only mount Secrets by name, so all
-        # fifteen possible databases are listed; those no app has taken are simply absent.
+        # Secret db-<n> for its database n (README); acl-sync reads them and builds Valkey's
+        # aclfile (shared/valkey-acl-sync). A Pod can only mount Secrets by name, so all fifteen
+        # possible databases are listed; those no app has taken are simply absent.
         - name: users
           projected:
             sources:

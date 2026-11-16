@@ -7,6 +7,25 @@ metadata:
   name: alloy
 spec:
   groups:
+    # The counter Alloy makes of the Valkeys' acl-sync failure lines (values.yaml), per Valkey,
+    # for their UsersBroken alerts. Prometheus files the line's namespace as exported_namespace;
+    # namespace is Alloy's own. A series new within the window counts with its whole value,
+    # which increase() does not see.
+    - name: acl-sync
+      rules:
+        - record: acl_sync:failed_lines:new10m
+          expr: >-
+            sum by (exported_namespace) (
+              (
+                increase(loki_process_custom_acl_sync_failed_total[10m])
+                and loki_process_custom_acl_sync_failed_total offset 10m
+              )
+              or
+              (
+                loki_process_custom_acl_sync_failed_total
+                unless loki_process_custom_acl_sync_failed_total offset 10m
+              )
+            )
     - name: alloy
       rules:
         # A pod that does not answer collects nothing either. A pod that does not exist at all

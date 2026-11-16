@@ -11,14 +11,15 @@ One pod (`deployment.yaml`):
 
 | Container | Image | Does |
 |---|---|---|
-| `valkey` | `valkey/valkey:9.1.2` | the cache, configured by `valkey.conf`, its own users from the Secret `users`, each app's from the app's Secret `db-<n>` |
+| `valkey` | `valkey/valkey:9.1.2` | the cache, configured by `valkey.conf`; its users from the aclfile `acl-sync` builds from the Secret `users` and each app's Secret `db-<n>` |
 | `exporter` | `oliver006/redis_exporter:v1.94.0` | Valkey's figures for Prometheus on port 9121 (`pod-monitor.yaml`), logged in as the user `exporter` |
+| `acl-sync` | `valkey/valkey:9.1.2` | builds Valkey's aclfile from the users Secrets, every line checked, and loads it again when they change ([`../../shared/valkey-acl-sync/README.md`](../../shared/valkey-acl-sync/README.md)); its initContainer `acl-sync-init` writes the first one |
 
 ## Design
 
 - **A cache, nothing more.** `maxmemory 64mb` with `allkeys-lru`: when it is full, the least
   recently used keys of any app go. Nothing is written to disk (`save ""`, `appendonly no`) and
-  there is no volume, so a restart - a rollout, a reboot, a changed user - starts empty and the
+  there is no volume, so a restart - a rollout, a reboot - starts empty and the
   apps fill it again. One app's keys can push out another's; that only costs speed. State that
   must survive (sessions, locks) belongs in valkey-state
   ([`../valkey-state/README.md`](../valkey-state/README.md)), with the same database number.
@@ -43,21 +44,29 @@ One pod (`deployment.yaml`):
   `secret/valkey-apps/<app>`, which the app reads as well. For a WordPress site the chart writes
   it from `objectCache.database`. This component names no app: the Deployment mounts `users`
   (`default` and `exporter`, `external-secrets.yaml`) and `db-1` to `db-15`, all optional, as one
-  directory, and `valkey.conf` includes every `*.conf` in it. User lines in included files, not
-  an `aclfile` (Valkey takes only one of the two, and an aclfile is a single file). Two apps
-  claiming the same number would both own `db-<n>`, and Argo CD reports the conflict instead of
-  letting them share a database. Removing an app removes its user with it (its Application's
-  finalizer).
-- **New or changed users restart Valkey** (Reloader's search mode: `reloader.stakater.com/search`
-  on the Deployment, `reloader.stakater.com/match` on every users Secret, and `reloadOnCreate`
-  for a `db-<n>` that appears; `components/reloader`). Valkey reads its users only at start; a
-  restart only empties the cache. A removed app's user stays loaded until the next restart.
+  directory. Two apps claiming the same number would both own `db-<n>`, and Argo CD reports the
+  conflict instead of letting them share a database. Removing an app removes its user with it
+  (its Application's finalizer).
+- **Users applied while it runs, and never able to stop it.** Valkey reads only an `aclfile`
+  that the sidecar `acl-sync` builds from that directory, with every line checked first, and
+  loads again when a Secret changes - a new, changed or removed `db-<n>` takes effect within one
+  to two minutes, without a restart (a removed one after a further five minutes' grace)
+  ([`../../shared/valkey-acl-sync/README.md`](../../shared/valkey-acl-sync/README.md)). A line
+  Valkey refuses stays out: that app keeps its previous user until the pod is recreated (a new
+  app, or any in a new pod, gets none) and
+  `ValkeyCacheUsersBroken` fires, while Valkey and every other app carry on - also at the next
+  start.
+- **Reloader restarts it only for the Secret `users`**
+  (`secret.reloader.stakater.com/reload: users`): the exporter reads its password from it only at
+  start. A restart only empties the cache.
 - **Only labelled namespaces may connect** (`network-policy.yaml`): port 6379 from namespaces
   labelled `valkey.d3strukt0r.dev/cache: "true"` (the WordPress chart sets it with the object
   cache), port 9121 from `monitoring`. The ACLs would refuse anyone else anyway.
 - **Probes on the port only**: with `default` off, a PING without logging in only says NOAUTH.
 - **Pinned images, no floating tag**: `valkey/valkey:9` and `:9.2` already pointed at 9.2.0-rc1
-  (2026-10-19). Bumping the tag is the upgrade; 9.1 or newer is needed for the database ACLs.
+  (2026-10-19). Valkey's tag is set once, in `kustomization.yaml` (`images:`), for Valkey and
+  `acl-sync`'s containers alike, so the lines are checked with the Valkey that loads them.
+  Bumping it is the upgrade; 9.1 or newer is needed for the database ACLs.
 - **Restricted Pod Security**: Valkey runs as the image's user 999, started directly as
   `valkey-server` (the image's entrypoint would only change the owner of `/data` as root), with a
   read-only root and an emptyDir as its working directory; the exporter as its own 59000.
@@ -103,9 +112,10 @@ Valkey has 16 databases by default (`databases` in `valkey.conf` raises it; the 
      'if ($p|length)==0 then error("empty value - 1Password lookup failed") else {password:$p} end' \
    | bao kv put secret/valkey-apps/<app> -
    ```
-3. In the app's own component: the ExternalSecret `db-<n>` with `namespace: valkey-cache` and
-   `reloader.stakater.com/match: "true"` on its target, rendering `users.conf` as
-   `user <app> on #{{ .password | sha256sum }} resetdbs db=<n> resetchannels ~* +@all -@dangerous +flushdb +info`;
+3. In the app's own component: the ExternalSecret `db-<n>` with `namespace: valkey-cache`,
+   rendering `users.conf` as
+   `user <app> on #{{ .password | sha256sum }} resetdbs db=<n> resetchannels ~* +@all -@dangerous +flushdb +info`
+   (no quotes or backslashes: `acl-sync` splits on spaces);
    the label `valkey.d3strukt0r.dev/cache: "true"` on its namespace; and the password in the
    app's own Secret. A WordPress site gets all of it from `objectCache.database`
    (`charts/wordpress/templates/valkey-user.yaml`).
@@ -148,9 +158,16 @@ kubectl --context d3strukt0r-prod-admin -n valkey-cache exec -it deploy/valkey-c
 ```shell
 kubectl --context d3strukt0r-prod-admin -n valkey-cache get pods,externalsecrets
 kubectl --context d3strukt0r-prod-admin -n valkey-cache logs deploy/valkey-cache -c valkey
+kubectl --context d3strukt0r-prod-admin -n valkey-cache logs deploy/valkey-cache -c acl-sync
 ```
+
+`acl-sync` logs `checked <n> users, nothing to change` after a start, `loaded <n> users` on each
+change, and a `failed: ...` line naming the file and Valkey's error every 15 seconds while a line
+is refused. The initContainer `acl-sync-init` logs the first aclfile.
 
 In Prometheus: `redis_up{job="valkey-cache/valkey-cache"}`, `redis_memory_used_bytes`,
 `redis_db_keys`, and the hit rate
 `rate(redis_keyspace_hits_total[5m]) / (rate(redis_keyspace_hits_total[5m]) + rate(redis_keyspace_misses_total[5m]))`.
-Alerts (`rules.yaml`): `ValkeyCacheDown`, `ValkeyCacheRejectedConnections`.
+Alerts (`rules.yaml`): `ValkeyCacheDown`, `ValkeyCacheRejectedConnections`,
+`ValkeyCacheUsersBroken` (an app's user line `acl-sync` keeps out - "Users applied while it
+runs" in Design).

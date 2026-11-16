@@ -76,7 +76,8 @@ kubernetes/
 │   └── wordpress/             # every WordPress site; the sites' values are in components/
 ├── shared/                    # Kustomize Components a component lists under components:
 │   ├── external-secret-defaults/  # the openbao store and the 5m refresh for every ExternalSecret
-│   └── monitoring-sync-options/   # SkipDryRunOnMissingResource for every monitor and rule
+│   ├── monitoring-sync-options/   # SkipDryRunOnMissingResource for every monitor and rule
+│   └── valkey-acl-sync/       # the scripts of both Valkeys' sidecar that applies users while they run
 └── components/                # how each component is deployed, shared by clusters
     ├── argocd/                # pinned upstream install.yaml plus patches
     │   ├── kustomization.yaml
@@ -266,24 +267,24 @@ kubernetes/
     │   ├── external-secrets.yaml  # the ntfy URL for its notifications
     │   └── service-monitor.yaml
     ├── valkey-cache/
-    │   ├── kustomization.yaml     # valkey.conf becomes the ConfigMap valkey-cache
-    │   ├── valkey.conf            # 192 MB, least recently used keys go, nothing on disk
+    │   ├── kustomization.yaml     # valkey.conf becomes the ConfigMap valkey-cache; Valkey's pinned tag; acl-sync
+    │   ├── valkey.conf            # 192 MB, least recently used keys go, nothing on disk, users from acl-sync's aclfile
     │   ├── namespace.yaml
     │   ├── external-secrets.yaml  # the users: default off, the exporter, one per app and database
-    │   ├── deployment.yaml        # one replica, pinned image, read-only, the exporter beside it
+    │   ├── deployment.yaml        # one replica, read-only, the exporter beside it (acl-sync from shared/)
     │   ├── service.yaml
     │   ├── network-policy.yaml    # only labelled namespaces, metrics only from Prometheus
     │   ├── pod-monitor.yaml
-    │   └── rules.yaml             # alerts: down, refused connections
+    │   └── rules.yaml             # alerts: down, refused connections, an app's user refused
     ├── valkey-state/
-    │   ├── kustomization.yaml     # valkey.conf becomes the ConfigMap valkey-state
-    │   ├── valkey.conf            # 128 MB, nothing evicted, every write on disk before it is confirmed
+    │   ├── kustomization.yaml     # valkey.conf becomes the ConfigMap valkey-state; Valkey's pinned tag; acl-sync
+    │   ├── valkey.conf            # 128 MB, nothing evicted, every write on disk before it is confirmed, users from acl-sync's aclfile
     │   ├── external-secrets.yaml  # the users: default off, the exporter; the apps bring their own
-    │   ├── statefulset.yaml       # one replica on a 10 GiB volume, pinned image, the exporter beside it
+    │   ├── statefulset.yaml       # one replica on a 10 GiB volume, the exporter beside it (acl-sync from shared/)
     │   ├── service.yaml
     │   ├── network-policy.yaml    # only labelled namespaces, metrics only from Prometheus
     │   ├── pod-monitor.yaml
-    │   └── rules.yaml             # alerts: down, memory near maxmemory, disk writes failing, refused connections
+    │   └── rules.yaml             # alerts: down, memory near maxmemory, disk writes failing, refused connections, an app's user refused
     ├── wedding-manuele-robine/
     │   ├── kustomization.yaml
     │   ├── namespace.yaml         # exempt from restricted Pod Security (root images, TODO)

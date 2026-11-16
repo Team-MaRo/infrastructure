@@ -19,8 +19,16 @@ configMapGenerator:
     files:
       - valkey.conf
 
+# Valkey's tag for every container that runs it - Valkey and acl-sync's, so acl-sync checks the
+# lines with the same Valkey that loads them. Bumping it is the upgrade. Not a floating tag: `9`
+# and `9.2` already pointed at 9.2.0-rc1 (2026-10-19). 9.1 or newer for the per-database ACLs.
+images:
+  - name: valkey/valkey
+    newTag: 9.1.2
+
 # Shared settings (shared/): the openbao store and refresh for every ExternalSecret, the
-# sync option for every monitor and rule.
+# sync option for every monitor and rule, the acl-sync sidecar's scripts.
 components:
   - ../../shared/external-secret-defaults
   - ../../shared/monitoring-sync-options
+  - ../../shared/valkey-acl-sync
