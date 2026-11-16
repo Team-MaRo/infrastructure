@@ -14,6 +14,19 @@ and 443 itself, IPv4 and IPv6. `prod.d3strukt0r.dev` has an A and an AAAA record
 node; a service on the cluster gets a CNAME to it and an `Ingress` (class `traefik`, the
 default).
 
+## The image
+
+k3s's image (`rancher/mirrored-library-traefik`), with the tag set in `helmchartconfig.yaml`
+above the one k3s bundles: 3.7.18 since 2026-11-16, for six high-severity fixes since 3.7.15
+(ForwardAuth's NTLM identity leaks - our Zitadel gate is a ForwardAuth -, the `/..;x/` path
+bypass, the Compress middleware's memory exhaustion), while k3s v1.37.2+k3s1 still ships 3.7.15.
+On each k3s upgrade compare its tag
+(`kubectl --context d3strukt0r-prod-admin -n kube-system get helmchart traefik -o jsonpath='{.spec.valuesContent}'`)
+and remove the override once k3s's is at least as new; until then it also holds back k3s's.
+Every Traefik version change also moves the Yaegi pin of the plugin tests to the version in that
+Traefik's `go.mod` (`.githooks/pre-commit`, `.github/workflows/upload-scan.yml`,
+`compare/run.sh`; "Upload scan").
+
 ## Why the host network
 
 **Why the host network**: the cluster is single-stack IPv4, and k3s's servicelb only
@@ -389,10 +402,11 @@ Go kept, 2026-11-06):
 
 ```shell
 go test ./...
-go run github.com/traefik/yaegi/cmd/yaegi@v0.16.1 test .
+go run github.com/traefik/yaegi/cmd/yaegi@v0.16.3 test .
 ```
 
-Checked against PHP itself (2026-11-06): Traefik 3.7.15 with the plugin in front of PHP 8.3 and a
+Checked against PHP itself (2026-11-06, again 2026-11-16 with Traefik 3.7.18 and Yaegi 0.16.3,
+same result): Traefik 3.7.15 with the plugin in front of PHP 8.3 and a
 stand-in clamd that records the SHA-256 of every stream it gets. The yardstick is byte-exact:
 every file PHP stores must have reached clamd exactly - an extra line break or a cut file would
 miss clamd's whole-file hash signatures, which EICAR, lenient about trailing bytes, does not

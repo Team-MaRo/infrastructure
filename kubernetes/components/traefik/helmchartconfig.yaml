@@ -17,6 +17,11 @@ metadata:
   namespace: kube-system
 spec:
   valuesContent: |-
+    # Above the version k3s bundles (3.7.15 in v1.37.2+k3s1) for 3.7.18's security fixes, from the
+    # same image k3s uses. Remove once k3s's own tag is at least as new - until then this also
+    # holds back what a k3s upgrade brings (README "The image").
+    image:
+      tag: "3.7.18"
     deployment:
       kind: DaemonSet
       # Resolve cluster names although the pod uses the host's resolver otherwise.
