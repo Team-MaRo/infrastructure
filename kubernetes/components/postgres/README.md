@@ -12,7 +12,7 @@ in the last 30 days. How the cluster's manifests fit together is in
 ## Design
 
 - **Settings that differ from the operator's defaults:**
-  - the image pinned to one dated build (`18.6-<build>-minimal-trixie`), since the plain tag moves
+  - the image pinned to one dated build (`18.7-<build>-minimal-trixie`), since the plain tag moves
     with every rebuild and the two instances could end up on different images;
   - `podAntiAffinityType: required` (the default only prefers separate nodes);
   - `primaryUpdateMethod: switchover` (the default restarts the primary in place);
@@ -70,6 +70,28 @@ in the last 30 days. How the cluster's manifests fit together is in
   adding the Secret to the instances' Role and was refused, and nothing retried it until the
   Secret changed. The label also makes password changes apply at once. The per-app
   ExternalSecret sets it through its template ("Adding an app" below).
+
+## Upgrading PostgreSQL
+
+A minor release is the next dated build of the same line in `imageName` (`cluster.yaml`); the
+newest is the one whose digest matches the plain `18.X-minimal-trixie` tag. The push rolls the
+replica, switches over and rolls the old primary - a write pause of about 10 seconds.
+
+**Read the release's "Migration to Version 18.X" section first**: some releases ask for a REINDEX
+of index types they fixed. Which of them exist here, per database (on the primary):
+
+```sql
+SELECT a.amname, i.indexrelid::regclass
+FROM pg_index i JOIN pg_class c ON c.oid = i.indexrelid JOIN pg_am a ON a.oid = c.relam
+WHERE a.amname IN ('gin', 'gist', 'brin', 'hash');
+```
+
+Rebuild the named ones with `REINDEX INDEX CONCURRENTLY <index>` (no write lock, one statement at a
+time). 18.7 (2026-11-16) needed it for the GIN indexes - the three in `zitadel`
+(`eventstore.unique_constraints_owners_gin`, `queue.river_job_args_index`,
+`queue.river_job_metadata_index`), whose job queue deletes rows constantly, the pattern of its
+GIN VACUUM bug. Its advice about incremental backups does not apply: the Barman Cloud plugin
+takes full base backups and WAL.
 
 ## Failover tests (2026-09-29)
 

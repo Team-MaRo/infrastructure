@@ -9,10 +9,10 @@ kind: Cluster
 metadata:
   name: postgres
 spec:
-  # Pinned to one build: the plain 18.6-minimal-trixie tag moves with every rebuild, which could
+  # Pinned to one build: the plain 18.7-minimal-trixie tag moves with every rebuild, which could
   # give the two instances different images. Minimal: PostgreSQL without extensions nobody here
-  # uses. Bumping the tag is the upgrade (replica first, then a switchover).
-  imageName: ghcr.io/cloudnative-pg/postgresql:18.6-202609281634-minimal-trixie
+  # uses. Bumping the tag is the upgrade (README "Upgrading PostgreSQL").
+  imageName: ghcr.io/cloudnative-pg/postgresql:18.7-202611160820-minimal-trixie
   instances: 2
   # WAL stays on the data volume: a volume of its own per instance would be four in all.
   storage:
