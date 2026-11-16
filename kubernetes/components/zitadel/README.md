@@ -203,7 +203,10 @@ attempts stuck in `SYN-SENT` while a new connection from the same pod went throu
 `PGCONNECT_TIMEOUT=5` (`values.yaml`, read by Zitadel's pgx driver) ends such an attempt after five
 seconds, and the retry reaches the new primary - tested with a planned switchover the same
 evening (19:19): the attempts hung for 10 seconds, `/debug/ready` failed once and the login page
-not at all. Zitadel's `MaxConnLifetime`/`MaxConnIdleTime` do
+not at all. Also with the primary pod deleted (20:06), where the old pod comes back with a new
+address as in an upgrade or a reboot: Zitadel's open connections were closed by the shutdown,
+its new attempts hung for 5 seconds, and it worked again 7 seconds after the failover - the login
+page never failed. Zitadel's `MaxConnLifetime`/`MaxConnIdleTime` do
 not help (they never touch a connection being opened), and `Options` passes only server
 parameters. Gatus checks `/debug/ready`, which fails while the database is unreachable, and
 alerts by ntfy after three minutes.

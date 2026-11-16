@@ -6,9 +6,18 @@ Workloads never talk to OpenBao. External Secrets reads values from it and write
 Kubernetes Secrets, through one `ClusterSecretStore` named `openbao` - OpenBao's `secret/`
 engine, logged into with the operator's own service account (role `external-secrets` in
 `tofu/openbao`, see [`tofu/openbao/README.md`](../../../tofu/openbao/README.md)).
-`kubernetes/clusters/prod/external-secrets.yaml` deploys the chart `external-secrets` 2.11.x
+`kubernetes/clusters/prod/external-secrets.yaml` deploys the chart `external-secrets` 2.15.x
 (a patch range) plus this directory: its values (`values.yaml`, memory and the ServiceMonitors), the
 store (`cluster-secret-store.yaml`) and the alert (`rules.yaml`).
+
+**Upgrading is raising that range by hand**: External Secrets ships fixes in a new minor about
+every two weeks and rarely a patch, so the range alone left 2.11.0 running past three advisories
+(fixed in 2.13 and 2.15; upgraded 2026-11-16). Read each minor's release notes for template
+changes - templates are what a new version refuses (2.12 removed `fail`, 2.15 caps a rendered
+value at 1 MiB) - and a jump over several minors is fine while the stored CRD version stays `v1`.
+A refused template shows as `ExternalSecretNotSynced`; its status carries only a generic error
+since 2.14, the full one is in
+`kubectl --context d3strukt0r-prod-admin -n external-secrets logs deploy/external-secrets`.
 
 ## How it is set up
 

@@ -103,6 +103,11 @@ With a pod writing a row every second through `postgres-rw`:
 | Primary pod deleted | ~8 s | no row lost, pod rejoined as replica |
 | Primary's node powered off, with the active operator on it | ~96 s | no acknowledged row lost; 65 s until the node was NotReady, then 29 s for the failover |
 
+Deleting the primary pod does not fail over at once: CloudNativePG first shuts it down "smart",
+waiting up to `smartShutdownTimeout` (180 s, the default) for clients to disconnect, and clients
+with a connection pool never do - on 2026-11-16 the failover came about 3.5 minutes after the
+`kubectl delete`, while the primary kept serving. The table's pause is the one at the end.
+
 The identity column jumps by up to 32 after each switch: PostgreSQL logs sequence values in
 batches of 32, and a new primary continues after the logged batch - not lost rows. While the
 replica is gone, `synchronous_standby_names` is empty (`dataDurability: preferred`). The
