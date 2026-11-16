@@ -36,25 +36,22 @@ themselves (Gatus' config, Alertmanager's ntfy secret, Alloy, Argo CD's webhook 
   (`resource.customizations.ignoreDifferences.all` in
   [`../argocd/patches/argocd-cm.yaml`](../argocd/patches/argocd-cm.yaml)), so a restart is not
   drift.
-- **New Secrets count too** (`reloadOnCreate: true`): a Secret created after its workload
-  restarts it as well, not only a changed one. valkey-cache needs that - it loads an app's user,
-  the Secret `db-<n>` the app brings, only at start, and the first one appears when the app
-  switches the cache on. **The cost: a Reloader restart can restart some apps.** It is meant to
-  ignore the Secrets it finds at its own start (`syncAfterRestart` off), but apparently it starts
-  watching one namespace after another, and those it watches late report their Secrets as new:
-  its restart with this setting (2026-10-20) restarted wedding-manuele-robine's `api` (twice)
-  and `pwa`, and no other app. Accepted (user decision): Reloader restarts only with its own
-  upgrades, and a restarted app comes back by itself. Deleted Secrets stay ignored
-  (`reloadOnDelete` off): a restart would only make the pod fail on the missing Secret.
-- **Search mode** for a workload that mounts Secrets it cannot name in advance:
-  `reloader.stakater.com/search: "true"` on the workload restarts it for every Secret it mounts
-  that carries `reloader.stakater.com/match: "true"` - projected volumes included (valkey-cache).
+- **Only changed Secrets count, not new ones** (`reloadOnCreate` and `reloadOnDelete` off, the
+  chart's defaults). With `reloadOnCreate` on, **any Reloader restart restarted every annotated
+  app** - and Reloader restarts more often than its upgrades: kured's drains and the descheduler
+  move it too (2026-11-03: 53 restarts, 11-14: 24, 11-15: 21, among them Zitadel, both Valkeys,
+  Loki and Tempo; some restarts none - a race). The cause is in Reloader (v1.4.24 and master,
+  `internal/pkg/controller/controller.go`): with `watchGlobally: false` it runs one Secret
+  controller per namespace, but the flag that tells existing Secrets from new ones is a single
+  global, set by whichever controller syncs first - the namespaces that sync later report their
+  existing Secrets as created (stakater/Reloader#1089). The only app that needed new Secrets,
+  valkey-cache (an app's `db-<n>` appears after Valkey runs), now loads its users itself
+  (`shared/valkey-acl-sync`). A deleted Secret would only make the pod fail on it.
 - **No restart without a real change**: Reloader compares a hash of the data, so External
   Secrets' refresh every five minutes with unchanged values restarts nothing.
 - **Jobs and CronJobs are ignored**: a changed Secret would otherwise start a CronJob's Job at once
-  and recreate Jobs; each run reads its Secrets fresh anyway. `reloadOnCreate` and
-  `syncAfterRestart` stay off - together they restart every annotated app when Reloader itself
-  restarts (stakater/Reloader#1089).
+  and recreate Jobs; each run reads its Secrets fresh anyway. `syncAfterRestart` stays off too:
+  it treats every Secret as changed when Reloader starts.
 - Chart 2.2.x (Reloader v1.4); 3.x is Reloader v2 with an enterprise subchart and still in
   beta. The chart's empty container securityContext is filled in for the restricted standard;
   the root filesystem is read-only. Metrics through a PodMonitor. Memory 48Mi / 160Mi
@@ -80,6 +77,7 @@ themselves (Gatus' config, Alertmanager's ntfy secret, Alloy, Argo CD's webhook 
 | Tempo | Secret `tempo-s3` | environment variables |
 | `argocd-server` | ConfigMap `argocd-cmd-params-cm` | `server.insecure` |
 | `argocd-repo-server`, `argocd-application-controller` | ConfigMap `argocd-cm` | the polling interval |
+| `valkey-cache`, `valkey-state` | Secret `users` | the exporter's password as an environment variable; the apps' users need no restart (`acl-sync`) |
 
 Deliberately not: OpenBao (its seal key must never change - a restart with a changed key would
 leave it sealed), the databases (CloudNativePG and mariadb-operator
