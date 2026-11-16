@@ -36,4 +36,4 @@ jobs:
           go-version-file: kubernetes/components/traefik/plugins/upload-scan/go.mod
           cache: false
       - run: go test -race ./...
-      - run: go run github.com/traefik/yaegi/cmd/yaegi@v0.16.1 test .
+      - run: go run github.com/traefik/yaegi/cmd/yaegi@v0.16.3 test .

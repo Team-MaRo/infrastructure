@@ -27,4 +27,4 @@ git archive "$tree" -- "$traefik/helmchartconfig.yaml" "$traefik/kustomization.y
 go -C "$staged/$traefik/plugins/upload-scan" test ./...
 # Under the Go interpreter of Traefik 3.7 too, which is what runs the plugin in the cluster.
 cd "$staged/$traefik/plugins/upload-scan"
-go run github.com/traefik/yaegi/cmd/yaegi@v0.16.1 test .
+go run github.com/traefik/yaegi/cmd/yaegi@v0.16.3 test .

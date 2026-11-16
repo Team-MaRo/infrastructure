@@ -26,7 +26,7 @@ docker run -d --name "$prefix-php" --network "$prefix" --network-alias php \
 # traefik); keep them in step.
 docker run -d --name "$prefix-traefik" --network "$prefix" -p "127.0.0.1:$port:80" \
   -v "$here/traefik.yml:/etc/traefik/traefik.yml:ro" -v "$here/dynamic.yml:/etc/traefik/dynamic.yml:ro" \
-  -v "$plugin:/plugins-local/src/github.com/team-maro/uploadscan:ro" traefik:v3.7.15 >/dev/null
+  -v "$plugin:/plugins-local/src/github.com/team-maro/uploadscan:ro" traefik:v3.7.18 >/dev/null
 
 tries=0
 until docker logs "$prefix-traefik" 2>&1 | grep -q 'Plugins loaded'; do
