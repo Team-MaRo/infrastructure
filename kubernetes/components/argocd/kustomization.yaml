@@ -17,7 +17,7 @@ resources:
   #
   # A single-file URL rather than the github.com/...//manifests/cluster-install form, which
   # makes Kustomize shell out to git - not installed on the nodes.
-  - https://raw.githubusercontent.com/argoproj/argo-cd/v3.5.3/manifests/install.yaml
+  - https://raw.githubusercontent.com/argoproj/argo-cd/v3.5.7/manifests/install.yaml
   - ingress.yaml
   # Only Cloudflare reaches its proxied routes (charts/cloudflare-only).
   - ../../charts/cloudflare-only/files
