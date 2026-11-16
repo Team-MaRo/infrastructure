@@ -4,6 +4,11 @@ kind: Deployment
 metadata:
   name: pgadmin
   annotations:
+    # A new image under the same tag rolls it out (components/keel): 9 follows every 9.x
+    # release, nearly each with security fixes; 10 is a deliberate change (README "Upgrading").
+    keel.sh/policy: force
+    keel.sh/matchTag: "true"
+    keel.sh/trigger: poll
     # Restarted by Reloader when the Secret changes in OpenBao: pgAdmin's entrypoint reads its
     # *_FILE secrets at start.
     secret.reloader.stakater.com/reload: pgadmin
@@ -30,9 +35,9 @@ spec:
           type: RuntimeDefault
       containers:
         - name: pgadmin
-          # Pinned by tag and digest: pgAdmin re-pushes even version tags. Bumping both is the
-          # upgrade.
-          image: docker.io/dpage/pgadmin4:9.18@sha256:c332c5f6dfba995d9ebc4af261d93506d6876085d712eaaa3defc8dd1a3f26de
+          # Without docker.io/: Keel writes the short form back (components/keel).
+          image: dpage/pgadmin4:9
+          imagePullPolicy: Always
           env:
             # Without this the entrypoint starts postfix (for password-reset mails) through sudo,
             # which cannot work without privilege escalation; Zitadel handles passwords anyway.

@@ -1,8 +1,8 @@
 # pgAdmin
 
 The web UI for the shared PostgreSQL at `https://pgadmin.d3strukt0r.dev`
-(`kubernetes/clusters/prod/pgadmin.yaml`, plain manifests in this directory, image pinned,
-namespace `pgadmin`). How the cluster's manifests fit together is in
+(`kubernetes/clusters/prod/pgadmin.yaml`, plain manifests in this directory, the image's 9.x
+line kept current by Keel, namespace `pgadmin`). How the cluster's manifests fit together is in
 [`kubernetes/README.md`](../../README.md); the database itself is in
 [`../postgres/README.md`](../postgres/README.md).
 
@@ -111,10 +111,14 @@ shows the connection's TLS.
 
 ## Upgrading
 
-Bump the tag and the digest in `deployment.yaml` together (pgAdmin re-pushes even version tags,
-so the digest is what pins). pgAdmin releases about monthly, nearly every release with security
-fixes (https://www.pgadmin.org/news/); read the release notes for changes to the container or to
-OAuth2. The configuration database is migrated on start.
+Every 9.x release arrives by itself: the image is `dpage/pgadmin4:9`, and Keel rolls it out when a
+new image appears under that tag (`../keel/README.md`, since 2026-11-16; before, it was pinned by
+tag and digest and fell a release behind). pgAdmin releases about monthly, nearly every release
+with security fixes (https://www.pgadmin.org/news/). The configuration database is migrated on
+start; `Recreate` stops the old pod first. **If a release breaks it** (its notes warn about
+changes to the container, OAuth2 or server mode), pin the last good version in `deployment.yaml`
+(`dpage/pgadmin4:9.N`, the Keel annotations left as they are - they follow that tag then) until a
+fixed release, then back to `9`. 10.0 is a deliberate change of the tag after reading its notes.
 
 ## Break-glass: without pgAdmin
 
