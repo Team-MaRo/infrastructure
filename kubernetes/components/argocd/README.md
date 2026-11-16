@@ -204,6 +204,11 @@ push. It upgrades every cluster that runs the shared component. **One minor vers
 time** - Argo CD does not support skipping minors, and each one's upgrade notes may require
 a step. Patch releases within a minor need nothing special.
 
+**Redis's tag is overridden** (`images:` in the kustomization): upstream's `install.yaml` pins
+Redis and lags behind its security releases (3.5.7 still ships 8.2.3; 8.2.11 since 2026-11-16).
+On each upgrade compare the two (`grep redis:` in the new `install.yaml`) and remove the override
+once upstream's tag is as new.
+
 ## Chart versions
 
 Every Helm chart from an upstream repository follows its patch releases by itself: its

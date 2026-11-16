@@ -22,6 +22,12 @@ resources:
   # Only Cloudflare reaches its proxied routes (charts/cloudflare-only).
   - ../../charts/cloudflare-only/files
 
+# install.yaml pins Redis and lags behind its patch releases (3.5.7 still ships 8.2.3). Drop
+# this once upstream's own tag is as new (README "Upgrading Argo CD").
+images:
+  - name: public.ecr.aws/docker/library/redis
+    newTag: 8.2.11-alpine
+
 patches:
   - path: patches/dex.yaml
   - path: patches/argocd-cm.yaml
