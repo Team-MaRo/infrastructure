@@ -235,7 +235,10 @@ kubernetes/
     │   ├── namespace.yaml
     │   ├── database.yaml          # its configuration storage and control user, in the mariadb namespace
     │   ├── external-secrets.yaml  # the control user's password
-    │   ├── deployment.yaml        # one replica, pinned image, as www-data
+    │   ├── deployment.yaml        # one replica, php-fpm (Debian) + nginx as www-data, Keel on the 5.x line
+    │   ├── default.conf           # nginx: only the four entry points reach PHP, 100 MB uploads
+    │   ├── php-fpm.conf           # php-fpm beside the image's: stop timeout, worker recycling
+    │   ├── php.ini                # errors into the log, not the page (the image loads no php.ini)
     │   ├── service.yaml
     │   ├── middleware-oauth2-proxy.yaml  # the Zitadel gate
     │   └── ingress.yaml

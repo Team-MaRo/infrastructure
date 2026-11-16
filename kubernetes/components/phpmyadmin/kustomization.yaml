@@ -16,6 +16,14 @@ resources:
   # Only Cloudflare reaches its proxied routes (charts/cloudflare-only).
   - ../../charts/cloudflare-only/files
 
+# Hashed name: nginx and php-fpm read the files at start, so a change rolls the pod.
+configMapGenerator:
+  - name: phpmyadmin
+    files:
+      - default.conf
+      - php-fpm.conf
+      - php.ini
+
 # refreshInterval and the openbao store for every ExternalSecret here (shared/).
 components:
   - ../../shared/external-secret-defaults

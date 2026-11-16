@@ -1,9 +1,16 @@
 ---
+# phpMyAdmin from the stock fpm image (Debian), like Matomo: the init container copies the code
+# into an emptyDir, php-fpm runs it, nginx serves it (README "Design").
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: phpmyadmin
   annotations:
+    # A new image under the same tag rolls it out (components/keel): 5-fpm follows every 5.x
+    # release; 6.0 is a deliberate change (README "Upgrading").
+    keel.sh/policy: force
+    keel.sh/matchTag: "true"
+    keel.sh/trigger: poll
     # Restarted by Reloader when the Secret changes in OpenBao: the entrypoint reads
     # PMA_CONTROLPASS_FILE into the environment at start.
     secret.reloader.stakater.com/reload: phpmyadmin
@@ -20,25 +27,49 @@ spec:
       labels:
         app.kubernetes.io/name: phpmyadmin
     spec:
+      # The preStop pause (10 s) plus php-fpm finishing running requests (up to 20 s).
+      terminationGracePeriodSeconds: 40
       securityContext:
-        # The image starts as root, but everything it writes at start (the session secret, the
-        # sessions, its temp directory) already belongs to www-data, so it runs as www-data.
+        # www-data in the image: the code, /etc/phpmyadmin (where the entrypoint writes the
+        # session secret) and /sessions belong to it. nginx keeps its own user (101), with 33 as
+        # group, as in Matomo.
         runAsUser: 33
         runAsGroup: 33
+        fsGroup: 33
         runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
-        # Apache listens on port 80, which a non-root process may only bind with this. It is
-        # one of the namespaced sysctls the restricted standard allows, and it applies to the
-        # pod's own network namespace only. Changing Apache's port instead (APACHE_PORT) does
-        # not work as www-data: the entrypoint rewrites root-owned files for it.
-        sysctls:
-          - name: net.ipv4.ip_unprivileged_port_start
-            value: "0"
+      initContainers:
+        - name: copy
+          # Without docker.io/: Keel writes the short form back (components/keel).
+          image: phpmyadmin:5-fpm
+          imagePullPolicy: Always
+          # The code for nginx as well: it serves the CSS, JavaScript and images itself. Without
+          # the image's modes: its directories are read-only (555), so cp could not fill them.
+          command:
+            - cp
+            - -R
+            - --no-preserve=mode,ownership,timestamps
+            - /var/www/html/.
+            - /html/
+          securityContext: &restricted
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: html
+              mountPath: /html
       containers:
-        - name: phpmyadmin
-          # Pinned; bumping the tag is the upgrade.
-          image: docker.io/phpmyadmin:5.2.3-apache
+        - name: php-fpm
+          image: phpmyadmin:5-fpm
+          imagePullPolicy: Always
+          # All containers get the stop signal at once, while Traefik still sends requests to the
+          # pod for a moment; each keeps serving 10 s more, so the pod leaves the endpoints first.
+          lifecycle: &drain
+            preStop:
+              sleep:
+                seconds: 10
           env:
             - name: PMA_HOST
               value: mariadb-primary.mariadb.svc
@@ -61,42 +92,77 @@ spec:
             - name: PMA_CONTROLPASS_FILE
               value: /etc/phpmyadmin-secret/password
             # Imports up to 100 MB instead of 2 MB - the most Cloudflare's proxy lets through in
-            # one request on its free plan.
+            # one request on its free plan (nginx's client_max_body_size in default.conf too).
             - name: UPLOAD_LIMIT
               value: 100M
-          ports:
-            - name: http
-              containerPort: 80
-          securityContext:
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop:
-                - ALL
+          securityContext: *restricted
           resources:
             # The request the p95 of real memory, working set minus active file cache (101 MiB;
-            # working set p95 126 MiB, peak 128 MiB over 2026-10-23..11-02); PHP may use up to
-            # 512 MB for one request (MEMORY_LIMIT), which large imports and exports do.
+            # working set p95 126 MiB, peak 128 MiB over 2026-10-23..11-02, still with Apache);
+            # PHP may use up to 512 MB for one request (MEMORY_LIMIT), which large imports and
+            # exports do.
             requests:
               memory: 112Mi
             limits:
               memory: 640Mi
-          readinessProbe:
-            httpGet:
-              path: /
-              port: http
-          livenessProbe:
-            httpGet:
-              path: /
-              port: http
-            periodSeconds: 30
           volumeMounts:
+            - name: html
+              mountPath: /var/www/html
+            - name: config
+              mountPath: /usr/local/etc/php-fpm.d/zz-phpmyadmin.conf
+              subPath: php-fpm.conf
+              readOnly: true
+            - name: config
+              mountPath: /usr/local/etc/php/conf.d/zz-phpmyadmin.ini
+              subPath: php.ini
+              readOnly: true
             - name: mariadb-ca
               mountPath: /etc/mariadb-ca
               readOnly: true
             - name: secret
               mountPath: /etc/phpmyadmin-secret
               readOnly: true
+        - name: nginx
+          image: nginxinc/nginx-unprivileged:stable
+          imagePullPolicy: Always
+          lifecycle: *drain
+          securityContext:
+            runAsUser: 101
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          ports:
+            - name: http
+              containerPort: 8080
+          # The login page, through nginx and php-fpm.
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+          # Liveness asks nginx alone: restarting nginx cannot help a slow PHP.
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 30
+          volumeMounts:
+            - name: html
+              mountPath: /var/www/html
+              readOnly: true
+            - name: config
+              mountPath: /etc/nginx/conf.d/default.conf
+              subPath: default.conf
+              readOnly: true
       volumes:
+        # The code (66 MB), copied at every start; tmp/ inside it is phpMyAdmin's working
+        # directory.
+        - name: html
+          emptyDir:
+            sizeLimit: 256Mi
+        - name: config
+          configMap:
+            name: phpmyadmin
         # mariadb-operator's CA, put here by trust-manager (components/trust-manager).
         - name: mariadb-ca
           configMap:

@@ -1,8 +1,8 @@
 # phpMyAdmin
 
 The web UI for the shared MariaDB at `https://phpmyadmin.d3strukt0r.dev`
-(`kubernetes/clusters/prod/phpmyadmin.yaml`, plain manifests in this directory, image pinned,
-namespace `phpmyadmin`). How the cluster's manifests fit together is in
+(`kubernetes/clusters/prod/phpmyadmin.yaml`, plain manifests in this directory, the image's 5.x
+line kept current by Keel, namespace `phpmyadmin`). How the cluster's manifests fit together is in
 [`kubernetes/README.md`](../../README.md); the database itself is in
 [`../mariadb/README.md`](../mariadb/README.md).
 
@@ -15,18 +15,40 @@ namespace `phpmyadmin`). How the cluster's manifests fit together is in
   decide what each login may do, and no administrator password is stored for phpMyAdmin. For
   full access log in as `root` with the password from 1Password
   [`MariaDB | Prod | Root & replication`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=gsadufiuptw2el3nhww22ub22m&h=my.1password.com).
-- **The official image `docker.io/phpmyadmin`, Apache variant, plain manifests.** There is no
-  maintained chart from the phpMyAdmin team, and Bitnami's image and chart are frozen since
-  2025. The tag is pinned; it is re-pushed when the base image changes, so the same tag can
-  bring newer system packages on a pod restart.
-- **It runs as www-data (uid 33), although the image starts as root.** Everything the
-  entrypoint writes - the session secret in `/etc/phpmyadmin`, the sessions in `/sessions`,
-  `/var/www/html/tmp` - already belongs to www-data. Apache keeps listening on port 80, which a
-  non-root process may bind only with the pod sysctl `net.ipv4.ip_unprivileged_port_start=0`;
-  it is one of the namespaced sysctls the restricted standard allows and applies to the pod's
-  network namespace only. Not `APACHE_PORT` or `HIDE_PHP_VERSION`: for those the entrypoint
-  rewrites root-owned files, which fails as www-data. The root filesystem is not read-only,
-  since the entrypoint writes into the image at start.
+- **The official image `docker.io/phpmyadmin`, fpm variant on Debian, with nginx - as Matomo.**
+  There is no maintained chart from the phpMyAdmin team, and Bitnami's image and chart are frozen
+  since 2025. Three containers: the init container `copy` copies the code (66 MB) from the image
+  into an emptyDir, `php-fpm` runs it, `nginx` (`nginx-unprivileged`, port 8080) serves the
+  static files and passes PHP to php-fpm on `127.0.0.1:9000` (`default.conf`, `php-fpm.conf`).
+  Debian, not Alpine: PHP on musl is measurably slower. Until 2026-11-16 it was the Apache
+  variant, which had to bind port 80 as www-data and needed the pod sysctl
+  `net.ipv4.ip_unprivileged_port_start=0`; nginx on 8080 needs nothing of the kind.
+- **Keel keeps it current** (`phpmyadmin:5-fpm` and `nginx-unprivileged:stable`, both rolled
+  out when a new image appears under the tag - [`../keel/README.md`](../keel/README.md)): `5-fpm`
+  follows every 5.x release and the base image's PHP fixes (PHP2Shell, 2026-10, arrived that way
+  in the other PHP apps). 6.0 is not under that tag.
+- **Only phpMyAdmin's four entry points reach PHP** (`index.php`, `url.php`,
+  `js/messages.php`, `show_config_errors.php`); every other `.php`, its internal directories
+  (`libraries`, `templates`, `vendor`, `tmp`, `sql`, `locale`), dotfiles and the build files
+  answer 403. nginx takes uploads up to 100 MB (`client_max_body_size`, the same as
+  `UPLOAD_LIMIT`) and waits up to 600 s for PHP (`MAX_EXECUTION_TIME`). Tested on kind
+  (2026-11-16): login, a 50 MB import in 8.6 s, a 50 MB export, the 403s.
+- **It runs as www-data (uid 33), nginx as its own user (101) with group 33**, although the image
+  starts as root: everything the entrypoint writes - the session secret in `/etc/phpmyadmin`,
+  the sessions in `/sessions`, `tmp/` in the code - already belongs to www-data. The code is
+  copied without the image's modes (its directories are read-only, so `cp -a` could not fill
+  them). Not `HIDE_PHP_VERSION`: for it the entrypoint rewrites a root-owned file. The root
+  filesystem is not read-only, since the entrypoint writes into `/etc/phpmyadmin` at start.
+- **No errors in the page** (`php.ini`, mounted into `conf.d`): the image loads no `php.ini`, so
+  PHP's defaults would show errors with file paths and internal state in the page
+  (`display_errors`), against phpMyAdmin's "Securing your phpMyAdmin installation"; they go to
+  the container log instead (`log_errors`), as in the WordPress and Matomo images.
+  `expose_php` stays on (the PHP version in `X-Powered-By`), as in the other PHP apps: hiding the
+  version is obscurity, patching is the protection. The rest of that list is covered: `libraries/`, `templates/` and the
+  temp directory denied in nginx, `setup/` removed by the image, cookie login behind an
+  authentication proxy (the Zitadel gate), HTTPS through Cloudflare. HSTS is not sent - a
+  cluster-wide question, not phpMyAdmin's. phpMyAdmin publishes no nginx configuration of its
+  own; `default.conf` follows the layout of the image.
 - **TLS to MariaDB**, verified against mariadb-operator's CA (`PMA_SSL`, `PMA_SSL_VERIFY`,
   `PMA_SSL_CA`), the ConfigMap `mariadb-ca` that trust-manager puts into this namespace (the
   namespace's label, [`../trust-manager/README.md`](../trust-manager/README.md)). It connects to
@@ -80,6 +102,8 @@ that in its own database.
 ```shell
 kubectl --context d3strukt0r-prod-admin -n phpmyadmin get pods,externalsecrets,certificates
 kubectl --context d3strukt0r-prod-admin -n mariadb get databases.k8s.mariadb.com,users.k8s.mariadb.com,grants.k8s.mariadb.com
+kubectl --context d3strukt0r-prod-admin -n phpmyadmin logs deploy/phpmyadmin -c php-fpm
+kubectl --context d3strukt0r-prod-admin -n phpmyadmin logs deploy/phpmyadmin -c nginx
 ```
 
 In phpMyAdmin's SQL tab, `SHOW SESSION STATUS LIKE 'Ssl_cipher'` shows the cipher of the TLS
@@ -87,9 +111,12 @@ connection.
 
 ## Upgrading
 
-Bump the tag in `deployment.yaml`. phpMyAdmin releases are rare (5.2.3 in 2025-10); the
-security announcements are at https://www.phpmyadmin.net/security/. 5.x reaches its end once 6.0
-is out - that upgrade needs its release notes read first.
+Every 5.x release and new base image arrives by itself through Keel (`5-fpm`). **If a feature
+suddenly answers 403 after a new release** (nginx's log shows the path), the release brought a new
+PHP entry point: add it to the entry points in `default.conf` - only those four reach PHP. 6.0 is
+a deliberate change of the tag in `deployment.yaml`, in the init container and in `php-fpm` alike,
+after reading its release notes and checking the entry points. phpMyAdmin releases are rare
+(5.2.3 in 2025-10); the security announcements are at https://www.phpmyadmin.net/security/.
 
 ## Break-glass: without the gate
 
