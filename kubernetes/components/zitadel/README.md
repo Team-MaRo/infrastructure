@@ -18,6 +18,12 @@ and registration webhooks stay on the namespace's defaults (real p95 11 / 14 MiB
 
 ## Design
 
+- **The images are pinned above the chart's version** (`image.tag` and `login.image.tag` in
+  `values.yaml`, v4.20.3 since 2026-11-16): no chart up to 10.5.0 ships more than v4.19.2, and
+  4.19.5 and 4.20.3 fixed account takeovers and Login V2 holes. Both tags hold Zitadel where it
+  is, also against the patch releases the chart range would bring, so remove them as soon as the
+  chart's `appVersion` (`helm show chart zitadel --repo https://charts.zitadel.com`) is at least
+  as new.
 - **Its database** is `database.yaml` (namespace `postgres`, see
   [`../postgres/README.md`](../postgres/README.md));
   the init job runs only `zitadel init zitadel` (`initJob.command`), the schema, so Zitadel never
@@ -80,7 +86,7 @@ and registration webhooks stay on the namespace's defaults (real p95 11 / 14 MiB
     to its login policy) - to everyone created there, staff included. An organisation without
     that entry gets nothing. The call is asynchronous, so the webhook being down blocks nobody's
     creation - but Zitadel calls a target once and drops the event if that fails
-    (`internal/execution/worker.go`, v4.19.2). So the webhook also catches up at start and every
+    (`internal/execution/worker.go`, v4.19.2 and v4.20.3). So the webhook also catches up at start and every
     10 minutes: every human user of the organisations its token sees (only its own) who has no
     role in the project gets the roles. Until then a new customer's first login to a site that
     checks roles is refused (alert `ZitadelRegistrationWebhookDown`, `rules.yaml`). Its log has a
@@ -108,7 +114,7 @@ and registration webhooks stay on the namespace's defaults (real p95 11 / 14 MiB
   `TrustRemoteSpans: true` makes the v2 APIs (`/zitadel.*.v2.*`, what the login page calls)
   continue the trace Traefik passes on, so such a request is one trace in Tempo, Traefik above
   Zitadel (tested 2026-11-12). The OIDC endpoints (`/oauth/v2/*`, `/.well-known/*`) still start a
-  trace of their own, found next to Traefik's only by time: in v4.19.2 the setting reaches only
+  trace of their own, found next to Traefik's only by time: in v4.19.2 and v4.20.3 the setting reaches only
   the v2 APIs' interceptor (`internal/api/api.go`), and the OIDC handlers' own HTTP tracing never
   continues an incoming trace. The console's v1 API calls continued Traefik's trace even before
   (measured 2026-10-18). Zitadel's default
@@ -200,7 +206,7 @@ instance rights and can remove the factor through the API.
 the app's project - the role check refused them. The login page shows the generic message
 because Zitadel sends `Errors.User.GrantRequired` without a text for it (its log:
 `missing translation ... Errors.User.GrantRequired`; open upstream as
-[zitadel/zitadel#11101](https://github.com/zitadel/zitadel/issues/11101), v4.19.2 still).
+[zitadel/zitadel#11101](https://github.com/zitadel/zitadel/issues/11101), v4.20.3 still).
 Zitadel's log names it:
 
 ```shell
