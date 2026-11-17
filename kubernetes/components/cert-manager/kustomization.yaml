@@ -1,48 +1,17 @@
 ---
 # cert-manager, shared by every cluster: issues and renews certificates from Let's Encrypt,
-# proving domain ownership over DNS-01 through the Cloudflare API.
+# proving domain ownership over DNS-01 through the Cloudflare API. cert-manager itself comes from
+# its Helm chart (the cluster's Application, values.yaml); this directory adds its namespace,
+# issuers, tokens and monitoring.
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 resources:
-  # Pinned to a release; bumping this line is the upgrade. The manifest brings its own
-  # namespace, cert-manager.
-  - https://github.com/cert-manager/cert-manager/releases/download/v1.21.2/cert-manager.yaml
+  - namespace.yaml
   - external-secret.yaml
   - cluster-issuers.yaml
   - service-monitor.yaml
   - rules.yaml
-
-patches:
-  # The cainjector holds every certificate, CRD and webhook configuration it patches in memory:
-  # the namespace's LimitRange limit of 128Mi got it OOM-killed when many CRDs arrived at once
-  # (2026-10-02). Over 2026-10-23..11-02: real memory (working set minus active file cache) p95
-  # 127 MiB, the request; working set p95 142 MiB, peak 143 MiB, the limit twice that p95. The
-  # manifest sets no resources.
-  - target:
-      kind: Deployment
-      name: cert-manager-cainjector
-    patch: |-
-      - op: add
-        path: /spec/template/spec/containers/0/resources
-        value:
-          requests:
-            memory: 128Mi
-          limits:
-            memory: 288Mi
-  # The controller: real p95 52 MiB, the request; working set p95 78 MiB, peak 83 MiB, the limit
-  # twice that p95. The webhook (real p95 19 MiB, peak 38 MiB) stays on the LimitRange defaults.
-  - target:
-      kind: Deployment
-      name: cert-manager
-    patch: |-
-      - op: add
-        path: /spec/template/spec/containers/0/resources
-        value:
-          requests:
-            memory: 64Mi
-          limits:
-            memory: 160Mi
 
 # Shared settings (shared/): the openbao store and refresh for every ExternalSecret, the
 # sync option for every monitor and rule.

@@ -1,6 +1,7 @@
 ---
-# Certificates for this cluster, from kubernetes/components/cert-manager. Needs the Cloudflare
-# tokens in OpenBao (secret/cloudflare-dns) before its issuers can solve a challenge.
+# Certificates for this cluster: the jetstack cert-manager Helm chart with values from
+# kubernetes/components/cert-manager, plus that directory's manifests. Needs the Cloudflare tokens
+# in OpenBao (secret/cloudflare-dns) before its issuers can solve a challenge.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -8,10 +9,19 @@ metadata:
   namespace: argocd
 spec:
   project: default
-  source:
-    repoURL: https://github.com/Team-MaRo/infrastructure.git
-    targetRevision: master
-    path: kubernetes/components/cert-manager
+  sources:
+    # Patch releases arrive by themselves (the `~` range, components/argocd/README.md "Chart
+    # versions"); raising the range is the upgrade.
+    - repoURL: https://charts.jetstack.io
+      chart: cert-manager
+      targetRevision: "~v1.21.2"
+      helm:
+        valueFiles:
+          - $repo/kubernetes/components/cert-manager/values.yaml
+    - repoURL: https://github.com/Team-MaRo/infrastructure.git
+      targetRevision: master
+      ref: repo
+      path: kubernetes/components/cert-manager
   destination:
     server: https://kubernetes.default.svc
     namespace: cert-manager

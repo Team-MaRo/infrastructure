@@ -2,8 +2,12 @@
 
 Back to [`kubernetes/README.md`](../../README.md).
 
-`kubernetes/components/cert-manager/` deploys cert-manager (pinned release manifest,
-v1.21.2; `ServerSideApply=true` is required, its CRDs are too large otherwise) and two
+`kubernetes/clusters/prod/cert-manager.yaml` deploys cert-manager from its Helm chart
+(`https://charts.jetstack.io`, a patch range, so its patch releases arrive by themselves; values in
+`values.yaml`; until 2026-11-17 the pinned release manifest; `ServerSideApply=true` is required,
+its CRDs are too large otherwise, and `crds.keep` keeps them if the chart is removed), plus
+`kubernetes/components/cert-manager/`: the namespace (`namespace.yaml` - the chart does not
+create it, and Argo CD would otherwise prune the one the manifest brought) and two
 ClusterIssuers (`cluster-issuers.yaml`): `letsencrypt-staging` (untrusted certificates) for
 trying things, `letsencrypt` for anything serving traffic. `external-secret.yaml` brings the
 two Cloudflare tokens from OpenBao; `service-monitor.yaml` and `rules.yaml` are its metrics and
@@ -45,7 +49,7 @@ The databases' CA certificates are distributed by trust-manager, from the same p
   beta, at an upgrade.
 - **Its pods run restricted** (non-root, seccomp, no capabilities), so `cert-manager` is not
   in `k3s_psa_exempt_namespaces`.
-- **Memory from patches in `kustomization.yaml`**; the manifest sets no resources. The
+- **Memory from `values.yaml`**; the chart sets no resources. The
   cainjector gets 128Mi / 288Mi, since the LimitRange's default limit of 128Mi got it
   OOM-killed; the controller 64Mi / 160Mi. Over 2026-10-23..11-02, the requests from real memory's
   p95 (127 / 52 MiB), the limits from the working set's (142 / 78 MiB). The webhook stays on the

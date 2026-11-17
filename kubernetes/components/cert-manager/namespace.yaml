@@ -1,0 +1,8 @@
+---
+# The chart does not create its namespace. Until 2026-11-17 the release manifest brought it, so
+# Argo CD tracks it: without this file it would prune the namespace, and with it every certificate
+# Secret, the ACME account and the Cloudflare tokens.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cert-manager
