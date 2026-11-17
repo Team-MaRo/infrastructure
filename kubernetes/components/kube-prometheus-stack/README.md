@@ -18,7 +18,12 @@ manifests fit together is in [`kubernetes/README.md`](../../README.md).
 Each monitoring component gets its own namespace, under the restricted Pod Security
 Standard; components that need the host (node-exporter, the log collector) go to
 `kube-system` instead. Their UIs are at their own addresses behind the Zitadel login;
-port-forwards stay the break-glass way in. The status page and alerting heartbeat is
+port-forwards stay the break-glass way in. Their per-visitor rate limit is raised above the
+default to 50 a second with bursts of 300 (`kustomization.yaml`): Grafana sends every panel's
+query at once - a heavy session (2026-11-17) had up to 118 requests in a second, 102 of them
+within 100 ms - and the default refused dashboards and Drilldown views
+([`../../charts/cloudflare-only/README.md`](../../charts/cloudflare-only/README.md), "Raising
+the limit for one app"). The status page and alerting heartbeat is
 [Gatus](../gatus/README.md), the logs are [Loki](../loki/README.md) and
 [Alloy](../alloy/README.md), the traces [Tempo](../tempo/README.md).
 

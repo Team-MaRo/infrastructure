@@ -1,2 +1,12 @@
-{{- /* The file is the one copy of Cloudflare's ranges, also read by the Kustomize directories. */}}
-{{ .Files.Get "files/middleware.yaml" }}
+{{- /* The file is the one copy of Cloudflare's ranges, also read by the Kustomize directories;
+each document is read here so rateLimit (values.yaml) can raise this app's limit. */}}
+{{- range $doc := regexSplit "(?m)^---\\s*$" (.Files.Get "files/middleware.yaml") -1 }}
+{{- $object := fromYaml $doc }}
+{{- if $object }}
+{{- if eq $object.metadata.name "cloudflare-rate-limit" }}
+{{- $_ := mergeOverwrite $object.spec.rateLimit $.Values.rateLimit }}
+{{- end }}
+---
+{{ toYaml $object }}
+{{- end }}
+{{- end }}

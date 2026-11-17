@@ -17,6 +17,23 @@ resources:
   # Only Cloudflare reaches its proxied routes (charts/cloudflare-only).
   - ../../charts/cloudflare-only/files
 
+# This namespace's per-visitor rate limit above the default (charts/cloudflare-only README,
+# "Raising the limit for one app"): Grafana sends every panel's query at once. A heavy session
+# (2026-11-17 19:13, Traefik's spans in Tempo): 1,628 requests, up to 118 in a second and 102
+# within 100 ms; replayed against the default 20/100 it lost 587, against 50/300 none, a third of
+# the burst used. Covers every route here - Grafana, Prometheus and Alertmanager, all behind a login.
+patches:
+  - target:
+      kind: Middleware
+      name: cloudflare-rate-limit
+    patch: |-
+      - op: replace
+        path: /spec/rateLimit/average
+        value: 50
+      - op: replace
+        path: /spec/rateLimit/burst
+        value: 300
+
 # Dashboards of our own, as ConfigMaps Grafana's sidecar loads (label grafana_dashboard).
 configMapGenerator:
   - name: dashboard-php-fpm

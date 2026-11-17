@@ -85,7 +85,9 @@ rebuild) the complete one.
   every route of a name Cloudflare proxies puts this chain first. It admits only Cloudflare's IP
   ranges (anyone else gets 403 - Traefik on the host network sees the connecting Cloudflare
   server as the client, so that check needs no header), then limits each visitor to 20 requests
-  a second on average with bursts of 100, grouped by `CF-Connecting-IP` (429 above it, logged).
+  a second on average with bursts of 100, grouped by `CF-Connecting-IP` (429 above it, logged) -
+  by default; an app whose genuine use needs more raises its own copy (cloudflare-only README,
+  "Raising the limit for one app").
   A scanner's 1249 requests in a minute (2026-10-07) had got the Traefik on prod-02 OOM-killed.
   Both are per route, not on the entry point: names that are not proxied (the registry, later
   Forgejo) share port 443, must stay reachable directly and carry no `CF-Connecting-IP` - on the

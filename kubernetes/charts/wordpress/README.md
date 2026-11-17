@@ -73,6 +73,7 @@ Only what differs between sites; `values.yaml` holds the defaults and says what 
 | `nginx.xmlrpcAllow` | WordPress.com's ranges | who may reach `xmlrpc.php` (Jetpack); empty: nobody |
 | `nginx.deniedUploadPaths` | `[]` | directories under uploads nginx refuses (regular expressions) |
 | `ingress.cloudflareOnly` | `true` | the Middleware `cloudflare-only` first on the site's router: only Cloudflare reaches it, and uploads are scanned; the Middleware comes from the subchart `cloudflare-only` (`Chart.yaml`, [`../cloudflare-only/README.md`](../cloudflare-only/README.md)); `false` only for names Cloudflare does not proxy |
+| `cloudflare-only.rateLimit` | `{}` | the site's own per-visitor rate limit (`average`, `burst`), for a site whose genuine use the default (20 a second, bursts of 100) refuses; empty: the default ([`../cloudflare-only/README.md`](../cloudflare-only/README.md), "Raising the limit for one app") |
 | `ingress.middlewares` | `[]` | Traefik middlewares on the site's router |
 
 ## Secrets

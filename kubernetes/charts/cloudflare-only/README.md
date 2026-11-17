@@ -4,7 +4,8 @@ Back to [`kubernetes/README.md`](../../README.md).
 
 The Traefik Middleware `cloudflare-only` (`files/middleware.yaml`), a `chain` of three:
 `cloudflare-allowlist`, an `ipAllowList` of Cloudflare's IP ranges, `cloudflare-rate-limit`, 20
-requests a second per visitor (bursts of 100, grouped by `CF-Connecting-IP`), and `upload-scan`,
+requests a second per visitor by default (bursts of 100, grouped by `CF-Connecting-IP`; an app
+whose genuine use needs more raises its own, "Raising the limit for one app"), and `upload-scan`,
 which hands every uploaded file to clamd and refuses what it does not call clean. Every route of a
 name that Cloudflare proxies puts it first, so only Cloudflare reaches those sites - anyone
 talking to a node directly gets 403 from Traefik -, a single visitor cannot flood one, and no app
@@ -46,8 +47,9 @@ so every app with a proxied route gets its own copy, all from the one file `file
 - **A chart of ours** imports this chart as a subchart (`dependencies` in its `Chart.yaml`,
   `repository: file://../cloudflare-only`), so its objects come with every release - the
   WordPress chart does, switched by `ingress.cloudflareOnly`
-  ([`../wordpress/README.md`](../wordpress/README.md)). `templates/middleware.yaml` only reads
-  the file (`.Files.Get`). Argo CD finds no `charts/` directory and runs `helm dependency build`
+  ([`../wordpress/README.md`](../wordpress/README.md)). `templates/middleware.yaml` reads the
+  file (`.Files.Get`) document by document, so `rateLimit` (`values.yaml`) can change the rate
+  limit's numbers; everything else comes out as the file has it, without its comments. Argo CD finds no `charts/` directory and runs `helm dependency build`
   itself (it registers only `https`/`oci` repositories; a `file://` one is left to Helm); locally,
   `helm dependency build kubernetes/charts/<chart>` first.
 - **A Kustomize directory** lists `../../charts/cloudflare-only/files` under `resources:` (its
@@ -66,6 +68,47 @@ so every app with a proxied route gets its own copy, all from the one file `file
 
 A route that names it in a namespace without the copy is switched off by Traefik (404, "middleware
 ... does not exist" in its log): it fails closed.
+
+## Raising the limit for one app
+
+The rate limit is there to stop traffic that is not genuine - a scanner's hundreds to thousands
+of requests a minute -, never normal use, heavy use included. The numbers in
+`files/middleware.yaml` are the default; an app whose genuine use they refuse raises its own
+copy, and only its own: each namespace's copy is its own bucket. Today `monitoring` (Grafana:
+average 50, burst 300).
+
+- **When**: people using the app get 429 ("Too Many Requests"). Traefik's access log keeps every
+  429 with the visitor's `CF-Connecting-IP`; one from a real user's address is the sign, a
+  scanner's (probing `.env`, `wp-config.txt`, ...) is the limit working.
+- **How much**: the burst above the largest genuine spike (everything a page or dashboard sends
+  at once), the average above sustained use, a few times over. The access log keeps only errors
+  and slow requests, and Prometheus' 30 s scrapes hide what happens within a second; Traefik's
+  spans in Tempo have every request to the microsecond. Take a heavy session of real use, fetch
+  its spans (Tempo's search API, TraceQL `{ resource.service.name = "traefik" &&
+  span.server.address = "<host>" }`, `limit=5000`, `spss=1`), count them per second and replay
+  their start times against a token bucket (`average` tokens a second, at most `burst`, one per
+  request): the chosen numbers refuse nothing and leave the bucket well above empty.
+- **Where**: a Kustomize directory patches its copy in its `kustomization.yaml`, with the
+  measurement next to it (`components/kube-prometheus-stack`):
+
+  ```yaml
+  patches:
+    - target:
+        kind: Middleware
+        name: cloudflare-rate-limit
+      patch: |-
+        - op: replace
+          path: /spec/rateLimit/average
+          value: 100
+        - op: replace
+          path: /spec/rateLimit/burst
+          value: 500
+  ```
+
+  A chart with the subchart sets `cloudflare-only.rateLimit` (`average`, `burst`) in the app's
+  values - for a WordPress site in its `components/<site>/values.yaml`.
+- It covers every route of the namespace: an app sharing its namespace with a public one raises
+  the public one's too.
 
 ## When Cloudflare's ranges change
 

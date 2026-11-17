@@ -248,7 +248,9 @@ rule, 2026-10-02). Where a name cannot hold a hyphen, the hyphens become undersc
 - **Only Cloudflare reaches a proxied name, and only files clamd calls clean.** Every route of a
   name Cloudflare proxies puts the Middleware `cloudflare-only` first
   (`<namespace>_cloudflare-only@kubernetescrd`) - a chain that admits only Cloudflare, limits each
-  visitor and ends with the upload scan
+  visitor (an app whose genuine use needs more raises its own copy's limit,
+  [`kubernetes/charts/cloudflare-only/README.md`](kubernetes/charts/cloudflare-only/README.md))
+  and ends with the upload scan
   ([`kubernetes/components/traefik/README.md`](kubernetes/components/traefik/README.md), "Upload
   scan"); its app
   brings the namespace's copy - a chart of ours as the subchart `kubernetes/charts/cloudflare-only`,

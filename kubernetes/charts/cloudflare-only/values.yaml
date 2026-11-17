@@ -1,0 +1,4 @@
+# This app's own per-visitor rate limit, for an app whose genuine use the default refuses:
+# `average` (requests a second) and/or `burst`. Empty keeps the defaults in files/middleware.yaml
+# (README "Raising the limit for one app").
+rateLimit: {}

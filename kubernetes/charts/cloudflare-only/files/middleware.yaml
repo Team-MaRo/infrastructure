@@ -61,9 +61,10 @@ spec:
 # backup archives (/corp.zip, /composer.json.zip, ...) and the Traefik on prod-02 was OOM-killed.
 # Grouped by CF-Connecting-IP: the connection comes from Cloudflare, so its address would put many
 # visitors into one bucket - and behind the allowlist the header can only be Cloudflare's. 20
-# requests a second on average with bursts of 100: a page load with its assets and a Grafana
-# dashboard's parallel queries stay well inside; Cloudflare also serves static files from its
-# cache. The bucket is per copy and Traefik node, so a visitor is limited per app, not cluster-wide.
+# requests a second on average with bursts of 100 by default: a page load with its assets stays
+# well inside; Cloudflare also serves static files from its cache. An app whose genuine use needs
+# more raises its own copy's numbers (README "Raising the limit for one app" - Grafana does). The
+# bucket is per copy and Traefik node, so a visitor is limited per app, not cluster-wide.
 apiVersion: traefik.io/v1alpha1
 kind: Middleware
 metadata:
