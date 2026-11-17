@@ -92,7 +92,7 @@ spec:
               type: RuntimeDefault
           containers:
             - name: switch
-              image: docker.io/alpine/kubectl:1.37.1
+              image: docker.io/alpine/kubectl:1.37.2
               env:
                 # kubectl keeps its discovery cache under $HOME.
                 - name: HOME

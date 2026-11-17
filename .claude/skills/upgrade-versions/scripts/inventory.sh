@@ -48,7 +48,13 @@ add_image() { # loc kind repo tag [name]
   c=$(canon "$3")
   echo "$c" >>"$matched"
   if [[ $c == registry.d3strukt0r.dev/* ]]; then src=unrecognised
-  elif [[ $4 == - ]]; then src=unrecognised
+  elif [[ $4 == - ]]; then
+    # A system-upgrade-controller Plan's image takes its tag from the Plan's channel.
+    if grep -q '^kind: Plan' "${1%%:*}" 2>/dev/null && grep -q '^ *channel:' "${1%%:*}"; then
+      src=floating
+    else
+      src=unrecognised
+    fi
   elif [[ $4 != *[0-9]* ]]; then src=floating
   fi
   add "$1" "$2" "${5:-$c}" "$4" "$(running_tags "$c")" "$src" "$c"

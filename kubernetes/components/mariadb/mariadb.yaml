@@ -123,6 +123,13 @@ spec:
   metrics:
     enabled: true
     exporter:
+      # Set here, not as the operator's default: the operator wrote its default (v0.15.1, 2023 -
+      # the chart never moved it) into this object when it was created, so a later default never
+      # reaches it. An exact tag: there is no v0.21, and Keel cannot update an image the operator
+      # sets. 0.21 wants a literal $ in the config's password written as $$ - the operator's
+      # generated password has none (checked 2026-11-17); Prometheus scrapes through
+      # /probe?target=..., which 0.21 keeps.
+      image: quay.io/prometheus/mysqld-exporter:v0.21.0
       # The exporter image names its user (nobody), which runAsNonRoot cannot check.
       podSecurityContext:
         runAsNonRoot: true

@@ -8,7 +8,9 @@ argument-hint: "[component]"
 
 A version here is never listed in one place: `scripts/inventory.sh` finds every location by its
 shape, and each component's README holds what is particular to it. This skill is the method
-around both. One component at a time, each its own commit.
+around both. Upgrades that go out together are one commit (a batch of minors, a batch of
+patches), not one per component; a risky one (a database, OpenBao, Argo CD itself) goes in a
+later push of its own so a problem shows before the next.
 
 ## 1. Inventory
 
@@ -79,8 +81,9 @@ conversion webhooks). Tests that cover the component run now (the repo's hooks r
 
 ## 5. Commit, push, verify
 
-Present the change per file and the message (`fix: upgrade <app> to <version> for its security
-fixes`, or `feat:` for a move to a floating tag); commit and push only on the admin's word, per
+Present the change per file and one message per batch (`fix: upgrade trust-manager, Zitadel,
+Alloy and hcloud-csi`, or `feat:` for a move to a floating tag); a skill or README edit rides
+along, never a commit of its own. Commit and push only on the admin's word, per
 the commit rules. A data-holding component (database, OpenBao) gets a fresh backup or snapshot
 first, asked for.
 
