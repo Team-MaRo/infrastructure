@@ -20,8 +20,10 @@ call clean. Being rolled out: today it scans the Traefik dashboard's route; ever
     day, its default) and tells clamd to reload right away (`--daemon-notify`, over localhost:3310
     - the containers of a pod share its network); without that clamd would find them only at its
     self-check, up to 10 minutes later;
-  - `exporter` (`rekzi/clamav-prometheus-exporter`) reports clamd's state and the signatures'
-    age to Prometheus;
+  - `exporter` ([`sergeymakinen/clamav_exporter`](https://github.com/sergeymakinen/clamav_exporter))
+    reports clamd's state and the signatures' build time to Prometheus - since 2026-11-17; the
+    one before (`rekzi/clamav-prometheus-exporter`) had no release since 2026-01 and left
+    security fixes unmerged;
   - `backup` keeps the last good signatures in the private bucket `d3strukt0r-prod-clamav`
     (below).
 - **Floating tags through Keel** (`clamav/clamav:stable_base`, the exporter's `latest`;
@@ -152,7 +154,7 @@ kubectl --context d3strukt0r-prod-admin -n clamav exec deploy/clamav -c clamd --
 - **Not running** (`CrashLoopBackOff`, `Pending`, restarts climbing): the logs of `restore`
   and `clamd` say why - most often memory (`OOMKilled` in `kubectl describe pod`) or the
   signatures ("Signatures stale" below).
-- **Busy**: in Grafana, `clamav_queue_length` near 12 and `clamav_threads_live` at 4 just
+- **Busy**: in Grafana, `clamav_pool_queue_length` near 12 and `clamav_pool_live_threads` at 4 just
   before it stopped answering, and many `upload_scan` lines in Traefik's log at the same time.
   It answers again once the load drops.
 - **Frozen**: running, no PONG, an empty queue before it went quiet and nothing new in its log.

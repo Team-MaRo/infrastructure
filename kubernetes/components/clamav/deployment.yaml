@@ -250,14 +250,16 @@ spec:
             - name: backup
               mountPath: /backup
         # clamd's figures for Prometheus (pod-monitor.yaml): up, threads, queue, memory and the
-        # signatures' age, from clamd on localhost:3310.
+        # signatures' build time.
         - name: exporter
-          image: rekzi/clamav-prometheus-exporter:latest
+          image: sergeymakinen/clamav_exporter:latest
           imagePullPolicy: Always
+          args:
+            - --clamav.address=tcp://localhost:3310
           securityContext:
-            # The image's own user.
-            runAsUser: 1000
-            runAsGroup: 1000
+            # The image's own user, nobody - by number, which runAsNonRoot needs.
+            runAsUser: 65534
+            runAsGroup: 65534
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
             capabilities:
@@ -265,7 +267,7 @@ spec:
                 - ALL
           ports:
             - name: metrics
-              containerPort: 9810
+              containerPort: 9906
       volumes:
         - name: config
           configMap:

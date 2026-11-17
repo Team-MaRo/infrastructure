@@ -23,7 +23,7 @@ spec:
               freshclam (README, "When ClamavDown fires").
         # The daily signatures are published several times a day.
         - alert: ClamavSignaturesStale
-          expr: clamav_database_age{job="clamav/clamav"} > 2 * 86400
+          expr: time() - clamav_db_timestamp_seconds{job="clamav/clamav"} > 2 * 86400
           for: 1h
           labels:
             severity: warning
