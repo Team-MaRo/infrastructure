@@ -156,7 +156,30 @@ the database password is set up as in "Adding an app" in
      bao kv put secret/zitadel -
    ```
 
+3. The login page's session cookie secret, 64 letters and digits (no comma - the login reads a
+   comma-separated list; at least 32 characters each, or the login reports not ready), added to
+   `secret/zitadel` with `kv patch`, so the masterkey and the admin password stay
+   (1Password [`Zitadel | Prod | Login session cookie secret`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=hs6yyrq3ljvi5uufwxlrrstm4i&h=my.1password.com)):
+
+   ```shell
+   op item create --account my.1password.com --vault Private --category password \
+     --title 'Zitadel | Prod | Login session cookie secret' \
+     "password=$(LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c 64)" >/dev/null
+   jq -n --arg s "$(op item get 'Zitadel | Prod | Login session cookie secret' --account my.1password.com --vault Private --fields password --reveal)" \
+     'if ($s|length)!=64 then error("must be 64 characters - 1Password lookup failed?") else {"login-session-cookie-secret":$s} end' \
+   | bao kv patch secret/zitadel -
+   ```
+
 **The masterkey must never be lost or changed**: it encrypts the secrets in Zitadel's database.
+
+### Rotating the login cookie secret
+
+The login page signs its session cookie and e-mail verification proofs with it (since
+2026-11-17; before, it derived a key from its service key - a deprecated fallback). It accepts a
+comma-separated list: the first entry signs, all verify. To rotate without signing anyone out, set
+the property to `new,old` (Reloader restarts the login), and after a day to `new` alone. Replacing
+it outright only ends the login page's remembered sessions and logins in progress - the apps' own
+sessions stay.
 
 ## After the first start
 

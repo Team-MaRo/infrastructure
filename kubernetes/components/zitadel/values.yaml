@@ -181,12 +181,18 @@ login:
     tag: v4.20.3
   # Our own key pair (certificates.yaml): the chart's would be regenerated on every render.
   loginServiceKeySecretName: zitadel-login-service-key
+  # Signs the login page's session cookie and e-mail verification proofs (external-secrets.yaml);
+  # without it the login derives a key from the service key above, a deprecated fallback.
+  sessionCookieSecretName: zitadel-login-session-cookie
   configMap:
     annotations: *noHelmHook
   serviceAccount:
     annotations: *noHelmHook
   annotations:
     argocd.argoproj.io/sync-wave: "3"
+    # Restarted by Reloader when the cookie secret changes in OpenBao (read as an environment
+    # variable at start).
+    secret.reloader.stakater.com/reload: zitadel-login-session-cookie
   env:
     # Someone who registers confirms their address with a code before they can log in; the login
     # page's default (false) creates them unconfirmed and sends nothing.
