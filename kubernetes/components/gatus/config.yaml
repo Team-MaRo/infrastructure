@@ -77,6 +77,22 @@ endpoints:
     alerts:
       - type: ntfy
 
+  # Its uploads, through the uploads proxy: the bucket's healthcheck.txt (tofu/objectstorage),
+  # from inside the cluster so Cloudflare's cache cannot answer, with nocache= so Varnish passes
+  # it. Red: every image and file of the site is 404 (charts/wordpress README "When uploads are
+  # 404").
+  - name: Robines Portfolio (old) uploads
+    group: Apps
+    url: http://web.robines-portfolio.svc/wp-content/uploads/healthcheck.txt?nocache=1
+    interval: 5m
+    conditions:
+      - "[STATUS] == 200"
+      - "[BODY] == ok"
+    ui:
+      hide-url: true
+    alerts:
+      - type: ntfy
+
   - name: Arepazo
     group: Apps
     # The login page, which the page cache never keeps: the home page would come from Varnish's
@@ -85,6 +101,19 @@ endpoints:
     interval: 5m
     conditions:
       - "[STATUS] == 200"
+    alerts:
+      - type: ntfy
+
+  # Its uploads through the uploads proxy, as for Robines Portfolio above.
+  - name: Arepazo uploads
+    group: Apps
+    url: http://web.arepazo.svc/wp-content/uploads/healthcheck.txt?nocache=1
+    interval: 5m
+    conditions:
+      - "[STATUS] == 200"
+      - "[BODY] == ok"
+    ui:
+      hide-url: true
     alerts:
       - type: ntfy
 

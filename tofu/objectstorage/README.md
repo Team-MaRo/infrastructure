@@ -13,8 +13,8 @@ own docs use.
 | `d3strukt0r-prod-postgres-backups` | bucket, lifecycle, policy | only the PostgreSQL backup key and the admin key |
 | `d3strukt0r-prod-openbao-snapshots` | bucket, object lock, lifecycle, policy | only OpenBao's snapshot key and the admin key; like the etcd bucket, the key cannot bypass the lock or change the bucket's rules |
 | `d3strukt0r-prod-wedding-manuele-robine` | bucket, versioning, lifecycle, policy | only the app's key and the admin key |
-| `d3strukt0r-prod-robines-portfolio` | bucket, versioning, lifecycle, policy | only the app's key, its uploads proxy's key (read only) and the admin key; only the admin key may change the bucket |
-| `d3strukt0r-prod-arepazo` | bucket, versioning, lifecycle, policy | as robines-portfolio's: the app's key, its uploads proxy's key (read only), the admin key |
+| `d3strukt0r-prod-robines-portfolio` | bucket, versioning, lifecycle, policy, `uploads/healthcheck.txt` | only the app's key, its uploads proxy's key (read only) and the admin key; only the admin key may change the bucket |
+| `d3strukt0r-prod-arepazo` | bucket, versioning, lifecycle, policy, `uploads/healthcheck.txt` | as robines-portfolio's: the app's key, its uploads proxy's key (read only), the admin key |
 | `d3strukt0r-prod-matomo` | bucket, versioning, lifecycle, policy | only Matomo's key and the admin key; only the admin key may change the bucket |
 | `d3strukt0r-prod-clamav` | bucket, lifecycle, policy | only clamd's key and the admin key; only the admin key may change the bucket. The last good virus signatures, so clamd starts without ClamAV's mirror ([`kubernetes/components/clamav`](../../kubernetes/components/clamav/README.md)) |
 | `d3strukt0r-prod-zot` | bucket, versioning (old versions kept 14 days), lifecycle, policy | only the registry zot's key and the admin key; only the admin key may change the bucket. Versioned so a layer deleted by zot's garbage collection, a bug or a mistake can be restored: a rebuilt image gets a new digest |
@@ -142,6 +142,10 @@ below). **Whether Hetzner expires current objects depends on versioning**, both 
   `prod arepazo uploads-proxy` (1Password [`Hetzner | S3 | prod arepazo uploads-proxy`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=gs5mn5w3sfbqsljokq3ukhjtjy&h=my.1password.com),
   OpenBao `secret/arepazo-uploads-proxy-s3`). It also holds invoice PDFs with customer data, which
   the site's nginx never hands to the proxy.
+- **Both WordPress buckets hold `uploads/healthcheck.txt`** (`ok`, a `minio_s3_object` next to
+  the bucket): Gatus fetches it through the site's uploads proxy every 5 minutes
+  ([`../../kubernetes/components/gatus/README.md`](../../kubernetes/components/gatus/README.md)).
+  WordPress does not know it; deleting it turns the site's uploads check red.
 - **`d3strukt0r-prod-matomo`: Matomo's files that outlive its pod** - today the DB-IP city
   database, which Matomo's monthly GeoIP job uploads and every pod start copies into Matomo
   (kubernetes/components/matomo). One key, `prod matomo` (1Password

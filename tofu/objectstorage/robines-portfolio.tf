@@ -88,3 +88,13 @@ locals {
     "arn:aws:s3:::${minio_s3_bucket.prod_robines_portfolio.bucket}/*",
   ]
 }
+
+# What Gatus fetches through the site's uploads proxy (kubernetes/components/gatus): proves that
+# signing, the read-only key and the bucket answer. WordPress does not know it, so nothing there
+# deletes it.
+resource "minio_s3_object" "prod_robines_portfolio_healthcheck" {
+  bucket_name  = minio_s3_bucket.prod_robines_portfolio.bucket
+  object_name  = "uploads/healthcheck.txt"
+  content      = "ok"
+  content_type = "text/plain"
+}

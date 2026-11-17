@@ -710,7 +710,9 @@ running pods stay. A renamed or removed value changes in the same commit as ever
 
 ### Adding a site
 
-1. Bucket and its two keys in `tofu/objectstorage`, the DNS records in `tofu/cloudflare`.
+1. Bucket, its two keys and its `uploads/healthcheck.txt` in `tofu/objectstorage`, the DNS
+   records in `tofu/cloudflare`; a Gatus check of its login page and of its uploads
+   (`components/gatus`, "When uploads are 404").
 2. Its secrets in OpenBao, each from a 1Password item.
 3. `kubernetes/components/<site>/values.yaml` (hosts, plugins, the secrets with their 1Password
    items - "Secrets") and a `README.md` with what is particular to it.
@@ -791,6 +793,28 @@ root) is created and
 removed by activating and deactivating the plugin in wp-admin, and a start begins without it. With
 several replicas only the pod that handled the click has it - the others measure without these
 details, the S3 panel included.
+
+### When uploads are 404
+
+Gatus' `<Site> uploads` check is red, or every image and file of a site is 404 while its pages
+load: the uploads proxy reaches the bucket no more. The proxy answers every bucket error as 404,
+so the reason is only in its log:
+
+```shell
+kubectl --context d3strukt0r-prod-admin -n <site> logs deploy/web -c uploads-proxy --since=1h | grep -v 'Network is unreachable\|temporarily disabled'
+```
+
+- `SignatureDoesNotMatch`, or the proxy failing at start: a new image broke signing or its
+  configuration - Keel rolled it out (the proxy is rebuilt weekly). Pin the last good build in
+  `templates/deployment.yaml` (`unprivileged-oss-YYYYMMDD`, the tags in
+  `ghcr.io/nginx/nginx-s3-gateway/nginx-oss-s3-gateway`), push, and report it upstream; go back to
+  `unprivileged-oss` once a fixed build is out.
+- An SSL or certificate error: the proxy verifies Hetzner's certificate against its CA bundle
+  (`S3_TRUSTED_CERT_PATH`) - a new image with a broken bundle, or the endpoint's certificate.
+- `AccessDenied` / 403 in its error log: the read-only key was revoked, or the bucket policy no
+  longer names it (`tofu/objectstorage`); the key is in OpenBao `secret/<site>-uploads-proxy-s3`.
+- Only the check is red, the site's uploads load: `uploads/healthcheck.txt` is gone from the
+  bucket - `tofu apply` in `tofu/objectstorage` puts it back.
 
 ## Checking it
 

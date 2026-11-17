@@ -40,6 +40,13 @@ monitoring component it has its own namespace, under the restricted Pod Security
   Bearer header (anything else is `401`); without one for 5 minutes, Gatus alerts. Alertmanager
   sends every 2 minutes, not every minute: it checks each `group_interval` (1m) but repeats only
   after a full `repeat_interval` (1m), which the check misses by a hair every other time.
+- **Each WordPress site's uploads are checked apart from its pages**: the uploads proxy is
+  rebuilt weekly and rolled out by Keel, and when it breaks every image and file is 404 while
+  the pages still load. The check fetches the bucket's `healthcheck.txt` (`ok`, created by
+  `tofu/objectstorage`) through the proxy - inside the cluster (`web.<site>.svc`), so Cloudflare's
+  cache cannot answer, and with `?nocache=1`, which Varnish passes; the proxy keeps a file at most
+  a minute, the check runs every 5. A file the site references but lacks never turns it red.
+  `hide-url` keeps the in-cluster address off the public page.
 - **It cannot report a dead cluster** while it runs inside it: a complete outage takes the page
   down too. It moves to a machine outside (the home server) later - one binary and this config.
 - **Restarted by Reloader** when Secret `gatus` changes in OpenBao: Gatus reads it as environment
