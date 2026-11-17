@@ -11,8 +11,10 @@ spec:
       initContainers:
         - name: acl-sync-init
           # Valkey's own image: it checks the lines with the same Valkey that loads them. The tag
-          # comes from the Valkey's kustomization (images:).
+          # comes from the Valkey's kustomization (images:); Always, as Valkey's, so a Keel rollout
+          # gets the same build into every container.
           image: valkey/valkey
+          imagePullPolicy: Always
           command:
             - sh
             - /scripts/acl-sync.sh
@@ -45,6 +47,7 @@ spec:
         # defaults.
         - name: acl-sync
           image: valkey/valkey
+          imagePullPolicy: Always
           command:
             - sh
             - /scripts/acl-sync.sh

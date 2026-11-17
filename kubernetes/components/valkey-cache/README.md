@@ -11,9 +11,9 @@ One pod (`deployment.yaml`):
 
 | Container | Image | Does |
 |---|---|---|
-| `valkey` | `valkey/valkey:9.1.3` | the cache, configured by `valkey.conf`; its users from the aclfile `acl-sync` builds from the Secret `users` and each app's Secret `db-<n>` |
-| `exporter` | `oliver006/redis_exporter:v1.94.0` | Valkey's figures for Prometheus on port 9121 (`pod-monitor.yaml`), logged in as the user `exporter` |
-| `acl-sync` | `valkey/valkey:9.1.3` | builds Valkey's aclfile from the users Secrets, every line checked, and loads it again when they change ([`../../shared/valkey-acl-sync/README.md`](../../shared/valkey-acl-sync/README.md)); its initContainer `acl-sync-init` writes the first one |
+| `valkey` | `valkey/valkey:9.1` | the cache, configured by `valkey.conf`; its users from the aclfile `acl-sync` builds from the Secret `users` and each app's Secret `db-<n>` |
+| `exporter` | `oliver006/redis_exporter:latest` | Valkey's figures for Prometheus on port 9121 (`pod-monitor.yaml`), logged in as the user `exporter` |
+| `acl-sync` | `valkey/valkey:9.1` | builds Valkey's aclfile from the users Secrets, every line checked, and loads it again when they change ([`../../shared/valkey-acl-sync/README.md`](../../shared/valkey-acl-sync/README.md)); its initContainer `acl-sync-init` writes the first one |
 
 ## Design
 
@@ -63,10 +63,12 @@ One pod (`deployment.yaml`):
   labelled `valkey.d3strukt0r.dev/cache: "true"` (the WordPress chart sets it with the object
   cache), port 9121 from `monitoring`. The ACLs would refuse anyone else anyway.
 - **Probes on the port only**: with `default` off, a PING without logging in only says NOAUTH.
-- **Pinned images, no floating tag**: `valkey/valkey:9` and `:9.2` already pointed at 9.2.0-rc1
-  (2026-10-19). Valkey's tag is set once, in `kustomization.yaml` (`images:`), for Valkey and
-  `acl-sync`'s containers alike, so the lines are checked with the Valkey that loads them.
-  Bumping it is the upgrade; 9.1 or newer is needed for the database ACLs.
+- **The 9.1 line, kept current by Keel** (since 2026-11-17; `../keel/README.md`): Valkey's tag
+  is set once, in `kustomization.yaml` (`images:`), for Valkey and `acl-sync`'s containers alike,
+  and Keel rolls all three onto a new 9.1 build together, so the lines are checked with the Valkey
+  that loads them. Never a line still in release candidates - `valkey/valkey:9` and `:9.2` already
+  pointed at 9.2.0-rc1 (2026-10-19); moving to 9.2 is a deliberate change once it is released. 9.1
+  or newer is needed for the database ACLs. The exporter runs on `latest` (it has no `v1` tag).
 - **Restricted Pod Security**: Valkey runs as the image's user 999, started directly as
   `valkey-server` (the image's entrypoint would only change the owner of `/data` as root), with a
   read-only root and an emptyDir as its working directory; the exporter as its own 59000.

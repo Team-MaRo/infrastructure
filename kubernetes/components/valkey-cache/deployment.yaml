@@ -4,6 +4,11 @@ kind: Deployment
 metadata:
   name: valkey-cache
   annotations:
+    # A new image under the same tag rolls it out (components/keel): Valkey's 9.1 line
+    # (kustomization.yaml) and the exporter's latest.
+    keel.sh/policy: force
+    keel.sh/matchTag: "true"
+    keel.sh/trigger: poll
     # The exporter reads its password from users only at start (components/reloader). The apps'
     # users need no restart: acl-sync applies them while Valkey runs (shared/valkey-acl-sync).
     secret.reloader.stakater.com/reload: users
@@ -27,8 +32,9 @@ spec:
       # acl-sync's initContainer and sidecar, and their volumes, come from shared/valkey-acl-sync.
       containers:
         - name: valkey
-          # The tag is pinned in kustomization.yaml (images:), for acl-sync's containers as well.
+          # The tag is set in kustomization.yaml (images:), for acl-sync's containers as well.
           image: valkey/valkey
+          imagePullPolicy: Always
           # Started directly as the image's user valkey (999), past the entrypoint, which would
           # only change the owner of /data as root.
           command:
@@ -72,8 +78,10 @@ spec:
               mountPath: /data
         # The figures for Prometheus (pod-monitor.yaml), logged in as the user exporter.
         - name: exporter
-          # Pinned; bumping the tag is the upgrade.
-          image: oliver006/redis_exporter:v1.94.0
+          # Only latest floats (no v1 tag), so it also brings majors - acceptable for an exporter
+          # that holds nothing.
+          image: oliver006/redis_exporter:latest
+          imagePullPolicy: Always
           env:
             - name: REDIS_ADDR
               value: redis://localhost:6379

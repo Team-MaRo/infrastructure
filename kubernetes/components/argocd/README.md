@@ -215,9 +215,10 @@ Every Helm chart from an upstream repository follows its patch releases by itsel
 `targetRevision` in `kubernetes/clusters/<name>/` is a range, `"~X.Y.Z"` (`>=X.Y.Z <X.(Y+1).0`),
 and Argo CD installs the newest chart in it the next time it refreshes the Application - no commit,
 so git holds no stream of version bumps (user decision 2026-11-06). Charts of our own
-(`kubernetes/charts/`) and Kustomize components come from `master` as before; the upstream
-manifests in Kustomize URLs and exact image tags stay pinned (floating tags go through Keel,
-`components/keel`).
+(`kubernetes/charts/`) and Kustomize components come from `master` as before. Upstream manifests
+in Kustomize URLs can't follow a range, so they are kept for upstreams without a chart and for
+Argo CD's own bootstrap; images we set follow their releases on floating tags through Keel
+(`components/keel`), and an exact tag says next to it why it can't float.
 
 - **What runs** is in Argo CD, not git:
   `kubectl --context d3strukt0r-prod-admin -n argocd get application <app> -o jsonpath='{.status.sync.revisions}'`

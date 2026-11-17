@@ -18,9 +18,12 @@ paths:
   "Pruning and the finalizer" in `kubernetes/components/argocd/README.md`.
 - A chart gets a patch range (`targetRevision: "~X.Y.Z"`) and follows its patch releases by
   itself; raising the range (a minor or major) is a deliberate change after reading the changelog
-  and rendering it. Upstream manifests and exact image tags stay pinned. A Helm-only upstream:
-  chart in the Application, values from `components/<app>/` as a second source, its manifests as
-  a third. A chart of our
+  and rendering it. Versions update themselves wherever the tool can: an upstream with a Helm
+  chart gets the chart in the Application (values from `components/<app>/` as a second source, its
+  manifests as a third), a pinned upstream manifest only without a chart or for a reason written
+  next to it (Argo CD's bootstrap); an image we set runs on a `major.minor`/`major` tag with Keel
+  where one exists, an exact tag only where floating is unsafe (database operators, Traefik's
+  plugin) - see AGENTS.md. A chart of our
   own (`kubernetes/charts/`) comes from `master`, like its values (Argo CD refuses a `$values`
   source at another revision of the same repository); a chart change reaches every site at once
   (`kubernetes/charts/wordpress/README.md`).

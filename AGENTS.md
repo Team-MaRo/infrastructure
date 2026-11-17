@@ -187,13 +187,18 @@ rule, 2026-10-02). Where a name cannot hold a hyphen, the hyphens become undersc
   ([`kubernetes/components/argocd/README.md`](kubernetes/components/argocd/README.md)).
 - **`kubernetes/clusters/<name>/` decides what runs where; `kubernetes/components/<app>/`
   holds how**, shared by clusters. A cluster that needs something different gets a Kustomize
-  overlay in its own directory, not a copy of the component. Components are Kustomize over a
-  pinned upstream manifest; a Helm-only upstream gets its chart in the cluster's Application and
-  its values from `components/<app>/` as a second source (a third for extra manifests).
-  **A chart follows its patch releases by itself** (`targetRevision: "~X.Y.Z"`, user decision
-  2026-11-06 - no update commits in git); a minor or major is a deliberate change after reading
-  its changelog and rendering it. Upstream manifests and exact image tags stay pinned; the
-  running chart version is in Argo CD, not git ("Chart versions" in
+  overlay in its own directory, not a copy of the component.
+  **Versions update themselves wherever the tool can** (user decision 2026-11-17): an upstream
+  that publishes a Helm chart gets that chart in the cluster's Application, its values from
+  `components/<app>/` as a second source (a third for extra manifests); Kustomize over a pinned
+  upstream manifest only where there is no chart or a reason demands it (Argo CD's bootstrap),
+  written next to the pin. **A chart follows its patch releases by itself**
+  (`targetRevision: "~X.Y.Z"` - no update commits in git); a minor or major is a deliberate
+  change after reading its changelog and rendering it. An image we set ourselves runs on a
+  `major.minor` or `major` tag with Keel (below) where the image has one; an exact tag only where
+  floating is unsafe - operator-managed database images (both instances must match), Traefik (its
+  plugin runs in Yaegi, tested per version) - or no floating tag exists, with the reason next to
+  it. The running chart version is in Argo CD, not git ("Chart versions" in
   [`kubernetes/components/argocd/README.md`](kubernetes/components/argocd/README.md)).
   **An app type with several instances gets a chart of our own** in
   `kubernetes/charts/<name>/` (today `wordpress`): Argo CD renders it from git on `master` (no

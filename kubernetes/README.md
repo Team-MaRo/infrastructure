@@ -363,10 +363,12 @@ kubernetes/
 | [`coredns`](components/coredns/README.md) | Two replicas of k3s's CoreDNS on two nodes, and a drain that never evicts both |
 | [`clusters/prod/etcd-snapshots`](clusters/prod/etcd-snapshots/README.md) | prod-only: the S3 settings k3s uploads etcd snapshots with; restore |
 
-Components are Kustomize over a pinned upstream manifest where upstream publishes one.
-Where upstream ships only a Helm chart (OpenBao), the cluster's Application names the chart
-with a patch range (`~X.Y.Z`, "Chart versions" in `components/argocd/README.md`) and reads its
-values from `components/<app>/values.yaml` through a second source.
+Where upstream publishes a Helm chart, the cluster's Application names the chart with a patch
+range (`~X.Y.Z`, "Chart versions" in `components/argocd/README.md`), so its patch releases arrive
+by themselves, and reads its values from `components/<app>/values.yaml` through a second source.
+A component is Kustomize over a pinned upstream manifest only where upstream has no chart
+(system-upgrade-controller) or a reason demands it (Argo CD's bootstrap); some still are from
+before this rule (cert-manager, kured, hcloud-csi - moving to their charts).
 An app type with several instances gets a chart of our own under `charts/`, rendered from
 `master` for each instance's Application, with its values from `components/<app>/values.yaml`
 the same way ([`charts/wordpress/README.md`](charts/wordpress/README.md)).
