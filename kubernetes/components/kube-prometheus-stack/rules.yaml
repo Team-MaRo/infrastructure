@@ -219,3 +219,46 @@ spec:
               Every request it served at that moment failed. Check its memory in Grafana and its
               log before the kill, then raise the limit or lower what it may use - see the
               component's README.
+    # The chart's two "failed to send" alerts (defaultRules.disabled in values.yaml), unchanged
+    # except that the receiver watchdog is left out. Its webhook goes to Gatus, which stores in
+    # PostgreSQL, so every Postgres switchover makes one delivery fail - 1 in ~8 over 15 minutes,
+    # far above 1 %, and it paged as critical (2026-11-17). A heartbeat that really stops arriving
+    # is Gatus' own alert (its external endpoint Watchdog, components/gatus/config.yaml).
+    # receiver_name comes from Alertmanager's feature flag receiver-name-in-metrics.
+    - name: alertmanager
+      rules:
+        - alert: AlertmanagerFailedToSendAlerts
+          expr: |-
+            (
+              rate(alertmanager_notifications_failed_total{job="kube-prometheus-stack-alertmanager",container="alertmanager",namespace="monitoring",receiver_name!="watchdog"}[15m])
+            /
+              ignoring (reason) group_left rate(alertmanager_notifications_total{job="kube-prometheus-stack-alertmanager",container="alertmanager",namespace="monitoring",receiver_name!="watchdog"}[15m])
+            )
+            > 0.01
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: An Alertmanager instance failed to send notifications.
+            description: >-
+              Alertmanager {{ $labels.namespace }}/{{ $labels.pod }} failed to send
+              {{ $value | humanizePercentage }} of notifications to {{ $labels.receiver_name }}
+              ({{ $labels.integration }}).
+            runbook_url: https://runbooks.prometheus-operator.dev/runbooks/alertmanager/alertmanagerfailedtosendalerts
+        - alert: AlertmanagerClusterFailedToSendAlerts
+          expr: |-
+            min by (namespace, service, integration, receiver_name) (
+              rate(alertmanager_notifications_failed_total{job="kube-prometheus-stack-alertmanager",container="alertmanager",namespace="monitoring",receiver_name!="watchdog"}[15m])
+            /
+              ignoring (reason) group_left rate(alertmanager_notifications_total{job="kube-prometheus-stack-alertmanager",container="alertmanager",namespace="monitoring",receiver_name!="watchdog"}[15m]) > 0
+            )
+            > 0.01
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: All Alertmanager instances in a cluster failed to send notifications to a critical integration.
+            description: >-
+              The minimum notification failure rate to {{ $labels.receiver_name }}
+              ({{ $labels.integration }}) is {{ $value | humanizePercentage }}.
+            runbook_url: https://runbooks.prometheus-operator.dev/runbooks/alertmanager/alertmanagerclusterfailedtosendalerts

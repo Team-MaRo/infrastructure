@@ -165,6 +165,12 @@ The operator does not resize an existing volume. Grow the volume before pushing 
   ([`../mariadb-operator/README.md`](../mariadb-operator/README.md) "The operator is stuck").
   Not covered, since they do not export it: Kyverno, cert-manager, the Prometheus operator,
   KubeElasti, Reloader and Keel.
+- **"Failed to send" leaves out the heartbeat** (`rules.yaml`, 2026-11-17): the chart's
+  `AlertmanagerFailedToSendAlerts` and `AlertmanagerClusterFailedToSendAlerts` are switched off
+  and replaced by copies with `receiver_name!="watchdog"` (the label comes from Alertmanager's
+  feature flag `receiver-name-in-metrics`). The Watchdog's webhook goes to Gatus, which stores in
+  PostgreSQL; a Postgres switchover fails one delivery, enough for the 1 % threshold, and paged as
+  critical. A heartbeat that really stops is Gatus' own alert.
 - **Volume alerts at three levels** (`rules.yaml`): 80 % warning, 90 % critical, 95 % critical
   again, each a separate alert so every level notifies once; inhibit rules in the
   Alertmanager config let a higher level silence the lower ones for the same PVC. Prometheus'

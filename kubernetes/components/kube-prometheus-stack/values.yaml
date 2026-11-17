@@ -7,6 +7,9 @@
 defaultRules:
   disabled:
     KubePersistentVolumeFillingUp: true
+    # Replaced in rules.yaml by versions that leave out the heartbeat to Gatus.
+    AlertmanagerFailedToSendAlerts: true
+    AlertmanagerClusterFailedToSendAlerts: true
 
 # k3s runs the controller manager, scheduler and proxy inside its one process, with no
 # endpoints of their own to scrape. Their alerts and dashboards go with them.
@@ -150,6 +153,11 @@ alertmanager:
           - alertmanager.d3strukt0r.dev
         secretName: alertmanager-tls
   alertmanagerSpec:
+    # Names the receiver in alertmanager_notifications_*, so the "failed to send" alerts
+    # (rules.yaml) can leave out the heartbeat to Gatus.
+    additionalArgs:
+      - name: enable-feature
+        value: receiver-name-in-metrics
     # The chart would derive http:// from the ingress, unlike for Prometheus.
     externalUrl: https://alertmanager.d3strukt0r.dev
     # Mounted under /etc/alertmanager/secrets/alertmanager-ntfy/, from external-secrets.yaml.
