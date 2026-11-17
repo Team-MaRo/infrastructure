@@ -14,7 +14,7 @@ spec:
     # versions"); raising the range is the upgrade.
     - repoURL: https://charts.hetzner.cloud
       chart: hcloud-csi
-      targetRevision: "~2.23.0"
+      targetRevision: "~2.24.0"
       helm:
         valueFiles:
           - $repo/kubernetes/components/hcloud-csi/values.yaml

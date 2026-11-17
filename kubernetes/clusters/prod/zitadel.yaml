@@ -23,7 +23,7 @@ spec:
     # (idempotent), ordered by sync waves (values.yaml).
     - repoURL: https://charts.zitadel.com
       chart: zitadel
-      targetRevision: "~10.1.0"
+      targetRevision: "~10.5.0"
       helm:
         valueFiles:
           - $repo/kubernetes/components/zitadel/values.yaml

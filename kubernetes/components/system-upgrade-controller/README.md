@@ -3,7 +3,7 @@
 Back to [`kubernetes/README.md`](../../README.md).
 
 k3s upgrades itself. `kubernetes/components/system-upgrade-controller/` deploys Rancher's
-system-upgrade-controller (pinned release manifests, v0.20.2, in `kustomization.yaml`) and two
+system-upgrade-controller (pinned release manifests, v0.21.1, in `kustomization.yaml` - upstream publishes no chart) and two
 Plans in `plan.yaml`: `server` for the three servers and `agent` for the workers (nodes without
 the `control-plane` label). For each node it runs a privileged Job that replaces the k3s binary
 and restarts k3s. Ansible's `k3s_version` is therefore only the
