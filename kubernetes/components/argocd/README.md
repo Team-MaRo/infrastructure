@@ -213,7 +213,9 @@ time** - Argo CD does not support skipping minors, and each one's upgrade notes 
 a step. Patch releases within a minor need nothing special.
 
 **Redis's tag is overridden** (`images:` in the kustomization): upstream's `install.yaml` pins
-Redis and lags behind its security releases (3.5.7 still ships 8.2.3; 8.2.11 since 2026-11-16).
+Redis and lags behind its security releases (3.6.1 ships 8.10.1; 8.10.3 since 2026-11-17).
+Since 3.6, `ServerSideApply=true` also means server-side diff for every Application; one that
+diffs wrongly that way opts out with `argocd.argoproj.io/compare-options: ServerSideDiff=false`.
 On each upgrade compare the two (`grep redis:` in the new `install.yaml`) and remove the override
 once upstream's tag is as new.
 

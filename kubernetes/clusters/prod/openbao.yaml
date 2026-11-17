@@ -18,7 +18,7 @@ spec:
     # versions"); raising the range is the upgrade.
     - repoURL: https://openbao.github.io/openbao-helm
       chart: openbao
-      targetRevision: "~0.29.6"
+      targetRevision: "~0.30.7"
       helm:
         valueFiles:
           - $repo/kubernetes/components/openbao/values.yaml

@@ -4,9 +4,8 @@ Back to [`kubernetes/README.md`](../../README.md).
 
 The secret store: one replica, Raft, a static seal from 1Password.
 `kubernetes/clusters/prod/openbao.yaml` deploys the `openbao/openbao` Helm chart (range
-`~0.29.6`, which ships OpenBao 2.6.3; the image tag in `values.yaml` holds OpenBao at 2.6.5 since
-2026-11-16 for its security fixes - remove it once the chart's `appVersion` is at least as new,
-since until then it also holds back the chart's patch releases) with values from `kubernetes/components/openbao/values.yaml` - a
+`~0.30.7`, OpenBao 2.7 since 2026-11-17 - a minor of OpenBao may change its stored data, so take
+a snapshot first and treat a rollback as a restore) with values from `kubernetes/components/openbao/values.yaml` - a
 two-source Application, because OpenBao publishes only a chart. The pattern for Helm-only
 upstreams: chart pinned in the cluster's Application, values in `components/`. Besides the
 values, this directory holds the snapshot agent's S3 key (`external-secrets.yaml`) and its

@@ -17,16 +17,16 @@ resources:
   #
   # A single-file URL rather than the github.com/...//manifests/cluster-install form, which
   # makes Kustomize shell out to git - not installed on the nodes.
-  - https://raw.githubusercontent.com/argoproj/argo-cd/v3.5.7/manifests/install.yaml
+  - https://raw.githubusercontent.com/argoproj/argo-cd/v3.6.1/manifests/install.yaml
   - ingress.yaml
   # Only Cloudflare reaches its proxied routes (charts/cloudflare-only).
   - ../../charts/cloudflare-only/files
 
-# install.yaml pins Redis and lags behind its patch releases (3.5.7 still ships 8.2.3). Drop
-# this once upstream's own tag is as new (README "Upgrading Argo CD").
+# install.yaml pins Redis and lags behind its patch releases (3.6.1 ships 8.10.1). Drop this once
+# upstream's own tag is as new (README "Upgrading Argo CD").
 images:
   - name: public.ecr.aws/docker/library/redis
-    newTag: 8.2.11-alpine
+    newTag: 8.10.3-alpine
 
 patches:
   - path: patches/dex.yaml

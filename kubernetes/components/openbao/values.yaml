@@ -7,11 +7,6 @@ injector:
   enabled: false
 
 server:
-  # Above the chart's appVersion (0.29.x ships 2.6.3) for 2.6.5's security fixes. Remove once the
-  # chart's appVersion is at least as new - until then it also holds back the patch range
-  # (README).
-  image:
-    tag: "2.6.5"
   # Evicted last when a node runs short of memory (kubernetes/components/priority-classes).
   priorityClassName: stateful-core
   # A changed pod template rolls out by itself. The chart's OnDelete is made for clusters of
