@@ -1,0 +1,71 @@
+# Helm values for Hetzner's CSI driver (chart hcloud-csi); the chart version is the range in the
+# cluster's Application. Only what differs from the chart's defaults is set. The driver reads its
+# API token from Secret kube-system/hcloud (key token), which is not in git - ansible/secrets.yml
+# writes it from 1Password:
+# 1Password "Hetzner | Prod CSI"
+#   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=un5urgife7qtuyxfmqcsmf2otm&h=my.1password.com
+
+# Upstream leaves reclaimPolicy at Delete, so deleting a PVC deletes its Hetzner Volume. Hetzner
+# keeps no backups of volumes, and Argo CD prunes whatever leaves git - one bad commit would take
+# a database with it. With Retain the PV turns Released and the volume stays (and is billed) until
+# it is deleted by hand. reclaimPolicy cannot be changed on an existing StorageClass.
+storageClasses:
+  - name: hcloud-volumes
+    defaultStorageClass: true
+    reclaimPolicy: Retain
+
+# Memory per container; the chart sets none, and kube-system has no LimitRange. From what they
+# used over 2026-10-23..11-02: the request the p95 of real memory (working set minus active file
+# cache), the limit twice the working set's p95.
+controller:
+  resources:
+    # Real p95 15 MiB; working set p95 20 MiB, peak 20 MiB.
+    csiAttacher:
+      requests:
+        memory: 16Mi
+      limits:
+        memory: 64Mi
+    # Real p95 19 MiB; working set p95 29 MiB, peak 29 MiB.
+    csiProvisioner:
+      requests:
+        memory: 32Mi
+      limits:
+        memory: 64Mi
+    # Real p95 26 MiB; working set p95 37 MiB, peak 38 MiB.
+    csiResizer:
+      requests:
+        memory: 32Mi
+      limits:
+        memory: 96Mi
+    # Real p95 13 MiB; working set p95 14 MiB, peak 14 MiB.
+    hcloudCSIDriver:
+      requests:
+        memory: 16Mi
+      limits:
+        memory: 32Mi
+    # Real p95 13 MiB; working set p95 13 MiB, peak 14 MiB.
+    livenessProbe:
+      requests:
+        memory: 16Mi
+      limits:
+        memory: 32Mi
+node:
+  resources:
+    # Real p95 9 MiB; working set p95 17 MiB, peak 19 MiB.
+    csiNodeDriverRegistrar:
+      requests:
+        memory: 16Mi
+      limits:
+        memory: 64Mi
+    # Real p95 16 MiB; working set p95 26 MiB, peak 27 MiB.
+    hcloudCSIDriver:
+      requests:
+        memory: 16Mi
+      limits:
+        memory: 64Mi
+    # Real p95 14 MiB; working set p95 22 MiB, peak 23 MiB.
+    livenessProbe:
+      requests:
+        memory: 16Mi
+      limits:
+        memory: 64Mi

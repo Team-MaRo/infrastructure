@@ -1,6 +1,7 @@
 ---
-# Persistent volumes for this cluster, from kubernetes/components/hcloud-csi. Needs Secret
-# kube-system/hcloud before its controller can do anything; ansible/secrets.yml writes it.
+# Persistent volumes for this cluster: Hetzner's hcloud-csi Helm chart with values from
+# kubernetes/components/hcloud-csi. Needs Secret kube-system/hcloud before its controller can do
+# anything; ansible/secrets.yml writes it.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -8,10 +9,18 @@ metadata:
   namespace: argocd
 spec:
   project: default
-  source:
-    repoURL: https://github.com/Team-MaRo/infrastructure.git
-    targetRevision: master
-    path: kubernetes/components/hcloud-csi
+  sources:
+    # Patch releases arrive by themselves (the `~` range, components/argocd/README.md "Chart
+    # versions"); raising the range is the upgrade.
+    - repoURL: https://charts.hetzner.cloud
+      chart: hcloud-csi
+      targetRevision: "~2.23.0"
+      helm:
+        valueFiles:
+          - $repo/kubernetes/components/hcloud-csi/values.yaml
+    - repoURL: https://github.com/Team-MaRo/infrastructure.git
+      targetRevision: master
+      ref: repo
   destination:
     server: https://kubernetes.default.svc
     namespace: kube-system

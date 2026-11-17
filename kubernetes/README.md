@@ -367,8 +367,7 @@ Where upstream publishes a Helm chart, the cluster's Application names the chart
 range (`~X.Y.Z`, "Chart versions" in `components/argocd/README.md`), so its patch releases arrive
 by themselves, and reads its values from `components/<app>/values.yaml` through a second source.
 A component is Kustomize over a pinned upstream manifest only where upstream has no chart
-(system-upgrade-controller) or a reason demands it (Argo CD's bootstrap); some still are from
-before this rule (hcloud-csi - moving to its chart).
+(system-upgrade-controller) or a reason demands it (Argo CD's bootstrap).
 An app type with several instances gets a chart of our own under `charts/`, rendered from
 `master` for each instance's Application, with its values from `components/<app>/values.yaml`
 the same way ([`charts/wordpress/README.md`](charts/wordpress/README.md)).

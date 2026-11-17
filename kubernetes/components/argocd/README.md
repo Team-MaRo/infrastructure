@@ -56,6 +56,14 @@ component is deleted.
 - Helm's `helm.sh/resource-policy: keep` is honoured as `Delete=false`, so such objects
   survive even a cascading deletion. There are no Helm releases: Argo CD only renders charts
   with `helm template`; `helm list -A` shows just k3s's own Traefik.
+- **Changing an app's sources and its directory in one commit prunes it once.** The app syncs
+  the new commit with its old spec before `root` has updated the Application, so whatever the
+  directory no longer renders is pruned - and recreated a moment later from the new sources.
+  cert-manager lost and regained 40 objects that way (2026-11-17, from a manifest URL to its
+  chart; its CRDs and namespace stayed), kured its DaemonSet. For an app where that hurts, three
+  commits: `prune: false` on the Application, then the switch (an object whose selector changed
+  is then deleted by hand once, so self-heal creates the new one), then `prune: true` again once
+  only the leftovers wait for pruning.
 
 ## Clusters and components
 

@@ -2,11 +2,12 @@
 
 Back to [`kubernetes/README.md`](../../README.md).
 
-Persistent storage is Hetzner Volumes, never the node disk. `kubernetes/components/hcloud-csi/`
-deploys `hetznercloud/csi-driver` (pinned raw manifest, v2.23.0) and its default StorageClass
-`hcloud-volumes`; `patches/` sets `reclaimPolicy: Retain` and the memory per container (16-32Mi
-requested from real memory's p95, the limit twice the working set's p95, over 2026-10-23..11-02 -
-kube-system has no LimitRange). k3s's local-path is disabled (`k3s_config`), so nothing can put
+Persistent storage is Hetzner Volumes, never the node disk. `kubernetes/clusters/prod/hcloud-csi.yaml`
+deploys `hetznercloud/csi-driver` from its Helm chart (`https://charts.hetzner.cloud`, a patch
+range, so its patch releases arrive by themselves; until 2026-11-17 the pinned raw manifest) and
+its default StorageClass `hcloud-volumes`; `values.yaml` sets `reclaimPolicy: Retain` and the
+memory per container (16-32Mi requested from real memory's p95, the limit twice the working set's
+p95, over 2026-10-23..11-02 - kube-system has no LimitRange). k3s's local-path is disabled (`k3s_config`), so nothing can put
 persistent data on a node's 40 GB disk.
 
 ## A volume is not node storage
@@ -21,7 +22,7 @@ controller manager is needed.
   volumes per server (the driver reports it to the scheduler), 10 GB minimum, nbg1 only, price
   linear per GB. A node that vanished without being deleted keeps its volumes until tainted
   `node.kubernetes.io/out-of-service`.
-- **`reclaimPolicy: Retain`** (`patches/reclaim-retain.yaml`): Hetzner has **no backups of
+- **`reclaimPolicy: Retain`** (`storageClasses` in `values.yaml`): Hetzner has **no backups of
   volumes** and Argo CD prunes, so a deleted PVC leaves a `Released` PV and the volume, to be
   removed by hand (see below). reclaimPolicy is immutable on a StorageClass.
 - **Consolidate at the service, not the disk.** PVCs are namespaced and RWO, so sharing one
@@ -52,4 +53,8 @@ hcloud volume delete <volume id>
 
 ## Upgrading
 
-Upgrading is bumping the version in the URL in `components/hcloud-csi/kustomization.yaml`.
+Patch releases arrive by themselves through the chart range; a minor is raising the range in
+`kubernetes/clusters/prod/hcloud-csi.yaml` after reading its release notes and rendering it
+(`helm template hcloud-csi hcloud-csi --repo https://charts.hetzner.cloud --version <new> -n
+kube-system -f kubernetes/components/hcloud-csi/values.yaml`). The StorageClass and the CSIDriver
+must render unchanged: their fields are immutable.
