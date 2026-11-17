@@ -1,5 +1,6 @@
 ---
-# Coordinated reboots after kernel updates for this cluster, from kubernetes/components/kured.
+# Coordinated reboots after kernel updates for this cluster: the kubereboot kured Helm chart with
+# values from kubernetes/components/kured, plus that directory's manifests.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -10,10 +11,19 @@ metadata:
     - resources-finalizer.argocd.argoproj.io
 spec:
   project: default
-  source:
-    repoURL: https://github.com/Team-MaRo/infrastructure.git
-    targetRevision: master
-    path: kubernetes/components/kured
+  sources:
+    # Patch releases arrive by themselves (the `~` range, components/argocd/README.md "Chart
+    # versions"); raising the range is the upgrade.
+    - repoURL: https://kubereboot.github.io/charts
+      chart: kured
+      targetRevision: "~6.1.0"
+      helm:
+        valueFiles:
+          - $repo/kubernetes/components/kured/values.yaml
+    - repoURL: https://github.com/Team-MaRo/infrastructure.git
+      targetRevision: master
+      ref: repo
+      path: kubernetes/components/kured
   destination:
     server: https://kubernetes.default.svc
     namespace: kube-system

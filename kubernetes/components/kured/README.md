@@ -2,8 +2,10 @@
 
 Back to [`kubernetes/README.md`](../../README.md).
 
-Reboots are kured's (`kubernetes/components/kured/`, pinned release manifest 1.23.0 plus the
-reboot window in `kustomization.yaml`, in `kube-system`). A kernel update leaves
+Reboots are kured's (its Helm chart from `https://kubereboot.github.io/charts` with a patch range
+in `kubernetes/clusters/prod/kured.yaml`, so its patch releases arrive by themselves; the reboot
+window and the rest in `kubernetes/components/kured/values.yaml`, in `kube-system`; until
+2026-11-17 the pinned release manifest). A kernel update leaves
 `/var/run/reboot-required` behind - written by unattended-upgrades' hook in
 `/etc/kernel/postinst.d/` - and kured, checking every 10 minutes inside its window (04:30-06:00
 Zurich time), takes a lock on its own DaemonSet, cordons and **drains** the node, reboots it and
@@ -43,7 +45,7 @@ between the k3s upgrades and the OS updates is "The night's maintenance order" i
   node and the last job of `mariadb-primary-off-rebooting-node` in `mariadb`: its last line says
   why it did not switch (MariaDB or the other pod not Ready, that pod terminating, its node
   cordoned or due for a reboot itself).
-- **Memory 16Mi / 64Mi** (a patch in `kustomization.yaml`; real-memory p95 14 MiB; working set
+- **Memory 16Mi / 64Mi** (`resources` in `values.yaml`; real-memory p95 14 MiB; working set
   p95 17 MiB, peak 17 MiB over 2026-10-23..11-02); kube-system has no LimitRange.
 - **Only kernels set the sentinel.** A host service using an updated library keeps the old
   copy until it restarts - there is no `needrestart` on these nodes - but containers bring

@@ -1,0 +1,28 @@
+# Helm values for the kured chart; the chart version is the range in the cluster's Application.
+# Only what differs from the chart's defaults is set.
+
+configuration:
+  # Last in the night's order - after k3s upgrades (02:30-03:30) and OS updates (03:30) - and done
+  # by 06:00. The sentinel is checked every 10 minutes rather than the default hour, so all three
+  # nodes fit into the 90 minutes if one kernel reached them all.
+  startTime: "04:30"
+  endTime: "06:00"
+  timeZone: Europe/Zurich
+  period: 10m
+  # Never drain the MariaDB primary's node: an evicted primary fails over without being demoted
+  # and comes back unable to rejoin (error 1236, mariadb-operator#1948), so the operator rebuilds
+  # it from a backup (night of 2026-11-03). kured checks this before it takes the lock or cordons,
+  # and only for pods on its own node; the annotation marks a node that waits for a reboot, and
+  # mariadb's CronJob primary-off-rebooting-node then switches the primary away.
+  blockingPodSelector:
+    - k8s.mariadb.com/role=primary
+  annotateNodes: true
+
+# Memory over 2026-10-23..11-02: real memory (working set minus active file cache) p95 14 MiB, the
+# request; working set p95 17 MiB, peak 17 MiB, the limit twice that p95. The chart sets none, and
+# kube-system has no LimitRange.
+resources:
+  requests:
+    memory: 16Mi
+  limits:
+    memory: 64Mi
