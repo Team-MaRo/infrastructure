@@ -399,7 +399,7 @@ spec:
         # Signs nginx's requests for /wp-content/uploads/ with the read-only key and streams the
         # files from the private bucket (nginx/nginx-s3-gateway). GET and HEAD only.
         - name: uploads-proxy
-          image: ghcr.io/nginxinc/nginx-s3-gateway/nginx-oss-s3-gateway:unprivileged-oss
+          image: ghcr.io/nginx/nginx-s3-gateway/nginx-oss-s3-gateway:unprivileged-oss
           imagePullPolicy: Always
           lifecycle: *drain
           envFrom:

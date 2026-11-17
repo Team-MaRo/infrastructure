@@ -24,7 +24,7 @@ named after the site:
 | `php-fpm` | `wordpress:7-php8.5-fpm` | runs WordPress |
 | `varnish` (with `pageCache`) | `varnish:9.1` | the page cache on 6081, in front of nginx (`files/default.vcl`, "Page cache") |
 | `nginx` | `nginxinc/nginx-unprivileged:stable` | serves it on 8081 (`files/default.conf`), and php-fpm's pool figures on 9253 for Prometheus |
-| `uploads-proxy` | `ghcr.io/nginxinc/nginx-s3-gateway/nginx-oss-s3-gateway:unprivileged-oss` | serves `/wp-content/uploads/` from the private bucket |
+| `uploads-proxy` | `ghcr.io/nginx/nginx-s3-gateway/nginx-oss-s3-gateway:unprivileged-oss` | serves `/wp-content/uploads/` from the private bucket |
 | CronJob `wp-cron` | `curlimages/curl` | calls `http://web/wp-cron.php` every five minutes |
 
 Beside them: the Service and Ingress `web` (cert-manager creates the Certificate `web-tls` from
@@ -136,7 +136,9 @@ variable, stops the rendering with a message naming it.
   wp-cli command breaks every `wp` command), writes them with the site's key; their objects are
   private and their URLs point at the site itself, so `/wp-content/uploads/...` reaches nginx,
   which hands it to the uploads proxy. The proxy signs with a read-only key (the bucket policy
-  denies it every write) and streams the file. Its cache key leaves out the query string, so a
+  denies it every write) and streams the file. Its image comes from `ghcr.io/nginx/` since
+  2026-11-17: the project moved from GitHub's `nginxinc` to `nginx`, and the old
+  `ghcr.io/nginxinc/` path kept its last build of 2025-03-31 (nginx 1.27.2). Its cache key leaves out the query string, so a
   file rewritten under the same name stays old for as long as it caches, whatever `?ver=` the
   site sends, and Varnish's purge does not reach it (a consent banner's generated CSS showed an
   hour late at its default of an hour, 2026-10-26). So with the page cache it keeps nothing
