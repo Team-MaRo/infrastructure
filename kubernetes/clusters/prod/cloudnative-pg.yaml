@@ -22,7 +22,7 @@ spec:
           - $repo/kubernetes/components/cloudnative-pg/values.yaml
     - repoURL: https://cloudnative-pg.github.io/charts
       chart: plugin-barman-cloud
-      targetRevision: "~0.8.0"
+      targetRevision: "~0.9.0"
       helm:
         valueFiles:
           - $repo/kubernetes/components/cloudnative-pg/plugin-values.yaml

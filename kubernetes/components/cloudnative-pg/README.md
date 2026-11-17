@@ -24,9 +24,10 @@ cluster's manifests fit together is in [`kubernetes/README.md`](../../README.md)
 - **The Barman Cloud plugin** ships base backups and WAL to `d3strukt0r-prod-postgres-backups`.
   In-tree Barman support (`barmanObjectStore`) is deprecated and removed in CloudNativePG 1.31.
   The plugin must run in the operator's namespace, where the operator finds it by the label on
-  its Service; its TLS comes from its own cert-manager Issuer. **It runs as one replica only** -
-  a second never becomes ready, since the plugin serves only on its leader
-  (plugin-barman-cloud#1105, unreleased). The archiving itself runs in a sidecar inside each
+  its Service; its TLS comes from its own cert-manager Issuer. **It runs as one replica.** Until
+  plugin 0.16 a second never became ready, since the plugin served only on its leader
+  (plugin-barman-cloud#1105); 0.16 (chart 0.9, 2026-11-17) supports several - more replicas are
+  an option now, not yet used (an upgrade still restarts it, `Recreate`). The archiving itself runs in a sidecar inside each
   PostgreSQL pod; the Deployment is needed to start new PostgreSQL pods and backups, so it
   tolerates an unreachable or not-ready node for 30 seconds instead of five minutes.
 - **Archiving after a switch** (plugin-barman-cloud#828, "Expected empty archive"): reported to

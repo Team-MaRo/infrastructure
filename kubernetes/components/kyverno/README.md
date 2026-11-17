@@ -2,8 +2,8 @@
 
 Back to [`kubernetes/README.md`](../../README.md).
 
-`kubernetes/clusters/prod/kyverno.yaml` deploys the `kyverno` Helm chart (patch range 3.9.x =
-Kyverno v1.19) with `kubernetes/components/kyverno/` as values and extra resources - the
+`kubernetes/clusters/prod/kyverno.yaml` deploys the `kyverno` Helm chart (patch range 3.10.x =
+Kyverno v1.20) with `kubernetes/components/kyverno/` as values and extra resources - the
 same two-source pattern as OpenBao, plus a third source for the directory's manifests. It holds
 two policies: `default-resources` (`default-resources.yaml`) gives every namespace but a few
 system ones a LimitRange, so a container without `resources` of its own still has requests and
@@ -174,4 +174,4 @@ the DNS-only names publish. `components/kyverno/cloudflare-only-routes.yaml`, a
 - **`failurePolicy: Ignore`**, for the same reason as the registries: routes only come from git.
 - Tested offline with the CLI of the running version (2026-10-28: the middleware second, missing
   or from another namespace refused; labelled skipped; all 23 live routes passed):
-  `docker run --rm -v "$PWD:/w" -w /w ghcr.io/kyverno/kyverno-cli:v1.19.1 apply <policy> --resource <routes>`.
+  `docker run --rm -v "$PWD:/w" -w /w ghcr.io/kyverno/kyverno-cli:v1.20.0 apply <policy> --resource <routes>`.
