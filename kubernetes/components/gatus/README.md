@@ -1,8 +1,9 @@
 # Gatus
 
 The public status page at `https://status.d3strukt0r.dev`, and the watch on the alerting
-pipeline itself (`kubernetes/clusters/prod/gatus.yaml`, plain manifests in this directory, image
-pinned, namespace `gatus`). How the cluster's manifests fit together is in
+pipeline itself (`kubernetes/clusters/prod/gatus.yaml`, plain manifests in this directory, the
+image's `stable` tag kept current by Keel - it also brings majors, since there is no `v5` tag -
+namespace `gatus`). How the cluster's manifests fit together is in
 [`kubernetes/README.md`](../../README.md).
 
 Gatus watches the alerting pipeline itself: Alertmanager's always-firing `Watchdog` alert

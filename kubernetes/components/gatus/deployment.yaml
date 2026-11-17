@@ -4,6 +4,10 @@ kind: Deployment
 metadata:
   name: gatus
   annotations:
+    # A new image under the same tag rolls it out (components/keel).
+    keel.sh/policy: force
+    keel.sh/matchTag: "true"
+    keel.sh/trigger: poll
     # Restarted by Reloader when the Secret changes in OpenBao: Gatus reads it as environment
     # variables, fixed at start.
     secret.reloader.stakater.com/reload: gatus
@@ -30,8 +34,10 @@ spec:
           type: RuntimeDefault
       containers:
         - name: gatus
-          # Pinned; bumping the tag is the upgrade.
-          image: ghcr.io/twin/gatus:v5.37.0
+          # stable is the newest release; there is no v5 tag, so it also brings majors. An invalid
+          # config after one makes Gatus exit, which Argo CD and Alertmanager report (README).
+          image: ghcr.io/twin/gatus:stable
+          imagePullPolicy: Always
           envFrom:
             - secretRef:
                 name: gatus
