@@ -172,6 +172,9 @@ the DNS-only names publish. `components/kyverno/cloudflare-only-routes.yaml`, a
   dashboard's IngressRoute in `kube-system` carries the middleware all the same. TCP routes
   (`IngressRouteTCP`) are not checked either: they carry no HTTP middlewares.
 - **`failurePolicy: Ignore`**, for the same reason as the registries: routes only come from git.
+- **The reports controller may read IngressRoutes** (`reportsController.rbac.clusterRole.extraResources`
+  in `values.yaml`): Kyverno cannot grant itself access to a CRD, and without it the policy stays
+  not Ready "for reporting" - which Argo CD counts as Degraded since 3.6 (2026-11-17).
 - Tested offline with the CLI of the running version (2026-10-28: the middleware second, missing
   or from another namespace refused; labelled skipped; all 23 live routes passed):
   `docker run --rm -v "$PWD:/w" -w /w ghcr.io/kyverno/kyverno-cli:v1.20.0 apply <policy> --resource <routes>`.

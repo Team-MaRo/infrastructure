@@ -31,6 +31,16 @@ backgroundController:
       memory: 224Mi
 # Real p95 89 MiB; working set p95 105 MiB, peak 112 MiB.
 reportsController:
+  # cloudflare-only-routes checks Traefik's IngressRoutes; without read access the reports
+  # controller cannot report on them and the policy stays not Ready - which Argo CD 3.6 counts as
+  # Degraded. Kyverno cannot grant itself access to a CRD (get, list, watch).
+  rbac:
+    clusterRole:
+      extraResources:
+        - apiGroups:
+            - traefik.io
+          resources:
+            - ingressroutes
   serviceMonitor:
     enabled: true
   resources:
