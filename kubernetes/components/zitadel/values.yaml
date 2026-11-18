@@ -54,11 +54,12 @@ zitadel:
 # ServiceAccounts and RBAC (0), the init job (1), the setup job (2), then Zitadel and the login page
 # (3). null removes the chart's hook annotations.
 
-# Above the chart's appVersion (v4.19.2 up to chart 10.5.0) for 4.20.3's security fixes; the same
+# Above the chart's appVersion (v4.19.2 up to chart 10.5.0) for 4.20.3's security fixes and
+# 4.20.4's login fixes; the same
 # for the login page below. Remove both once the chart ships a version at least as new - until
 # then they hold back the patch releases the chart range would bring (README "Design").
 image:
-  tag: v4.20.3
+  tag: v4.20.4
 
 configMap:
   annotations: &noHelmHook
@@ -178,7 +179,7 @@ ingress:
 
 login:
   image:
-    tag: v4.20.3
+    tag: v4.20.4
   # Our own key pair (certificates.yaml): the chart's would be regenerated on every render.
   loginServiceKeySecretName: zitadel-login-service-key
   # Signs the login page's session cookie and e-mail verification proofs (external-secrets.yaml);

@@ -19,9 +19,10 @@ and registration webhooks stay on the namespace's defaults (real p95 11 / 14 MiB
 ## Design
 
 - **The images are pinned above the chart's version** (`image.tag` and `login.image.tag` in
-  `values.yaml`, v4.20.3 since 2026-11-16): no chart up to 10.5.0 ships more than v4.19.2, and
+  `values.yaml`, v4.20.4 since 2026-11-18): no chart up to 10.5.0 ships more than v4.19.2, and
   4.19.5 and 4.20.3 fixed account takeovers and Login V2 holes. Both tags hold Zitadel where it
-  is, also against the patch releases the chart range would bring, so remove them as soon as the
+  is, also against the patch releases the chart range would bring - each patch is a commit here
+  (the upgrade-versions inventory shows it as `override`) - so remove them as soon as the
   chart's `appVersion` (`helm show chart zitadel --repo https://charts.zitadel.com`) is at least
   as new.
 - **Its database** is `database.yaml` (namespace `postgres`, see

@@ -17,7 +17,7 @@ spec:
     # versions"); raising the range is the upgrade.
     - repoURL: https://kubernetes.github.io/autoscaler
       chart: vertical-pod-autoscaler
-      targetRevision: "~0.16.0"
+      targetRevision: "~0.17.0"
       helm:
         valueFiles:
           - $repo/kubernetes/components/vertical-pod-autoscaler/values.yaml

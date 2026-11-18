@@ -19,7 +19,7 @@ spec:
     # versions"); raising the range is the upgrade.
     - repoURL: https://charts.fairwinds.com/stable
       chart: goldilocks
-      targetRevision: "~11.2.1"
+      targetRevision: "~11.3.0"
       helm:
         valueFiles:
           - $repo/kubernetes/components/goldilocks/values.yaml
