@@ -205,12 +205,21 @@ spec:
               limit or lower what it may use - see the component's README.
         # A single kill only restarts the container, so nothing else would tell: it is no crash
         # loop unless it repeats. Fires for the restart that an OOM kill caused, in the last
-        # 10 minutes.
+        # 10 minutes - of a container or an init container (wp-cli in the WordPress sites'
+        # plugins, which would otherwise only leave its pod in Init:CrashLoopBackOff).
         - alert: ContainerOOMKilled
           expr: >-
-            (kube_pod_container_status_restarts_total - kube_pod_container_status_restarts_total offset 10m >= 1)
-            and ignoring (reason)
-            min_over_time(kube_pod_container_status_last_terminated_reason{reason="OOMKilled"}[10m]) == 1
+            (
+              (kube_pod_container_status_restarts_total - kube_pod_container_status_restarts_total offset 10m >= 1)
+              and ignoring (reason)
+              min_over_time(kube_pod_container_status_last_terminated_reason{reason="OOMKilled"}[10m]) == 1
+            )
+            or
+            (
+              (kube_pod_init_container_status_restarts_total - kube_pod_init_container_status_restarts_total offset 10m >= 1)
+              and ignoring (reason)
+              min_over_time(kube_pod_init_container_status_last_terminated_reason{reason="OOMKilled"}[10m]) == 1
+            )
           labels:
             severity: warning
           annotations:

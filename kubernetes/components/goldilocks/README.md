@@ -48,8 +48,10 @@ second opinion.
   Kyverno and pulled through zot ([`../kyverno/README.md`](../kyverno/README.md)); pinned by the
   chart, so `IfNotPresent` instead of the chart's `Always`.
 - **No Argo Rollouts rights** (`enableArgoproj: false`): Rollouts is not installed.
-- **Memory on the namespace's defaults** (32Mi / 128Mi from Kyverno's LimitRange) instead of the
-  chart's 256Mi request: not measured yet, sized by the rule after a week.
+- **Memory by the rule** instead of the chart's 256Mi request, over 2026-11-13..18: the
+  controller 64Mi / 128Mi (real p95 54 MiB, working set peak 65 MiB), the dashboard 80Mi / 128Mi
+  (69; peak 82 MiB) - the limits the LimitRange's default. The chart's CPU request of 25m is
+  dropped, so the LimitRange's applies.
 - **No Gatus check**: behind the gate the page answers with a redirect; pods not running already
   alert through the chart's default rules.
 

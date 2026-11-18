@@ -54,10 +54,21 @@ registries. `rbac-limitranges.yaml` lets Kyverno create LimitRanges.
   days, not hours (2026-10-23..11-02 for the first ones). The request is the p95 of real memory,
   `container_memory_working_set_bytes - container_memory_total_active_file_bytes` - anonymous,
   shared and kernel memory, what the kernel cannot reclaim without swap (PHP's OPcache,
-  Postgres' `shared_buffers` included) - rounded up to 16 MiB. The limit is twice the working
-  set's p95 or the highest working set ever seen x 1.1 rounded up to 32 MiB, whichever is
-  higher, so the file cache keeps its room up to the limit. Grafana's dashboard "Memory sizing"
-  computes both for every container
+  Postgres' `shared_buffers` included) - rounded up to 16 MiB. The limit is the highest
+  **expected** working set ÷ 0.8 (x 1.25), rounded up to 32 MiB, so the expected peak sits at 80 % of the limit, where `ContainerMemoryNearLimit` starts warning (user decision, 2026-11-18; until then
+  also at least twice the working set's p95, which left most containers at half their limit).
+  Expected means a peak the software genuinely has - a backup, a heavy query or trace lookup,
+  wp-cli at a start - never a memory leak or a bug: those are what a limit is there to reveal
+  (an OOM kill, `ContainerMemoryNearLimit`), so a peak like that is investigated, not sized
+  for. The peak is the kernel's own (`container_memory_max_usage_bytes`, cgroup memory.peak),
+  which no 30 s scrape misses - short spikes between two samples were 10-30 % above the sampled
+  working set (Argo CD's repo-server 777 against 569 MiB, OpenBao 238 against 195) - except
+  where that peak sits at the limit: there it is file cache filling the container (Prometheus,
+  Loki, Tempo, Postgres) and says nothing about the need, so the sampled working set stays. The
+  file cache gets less room under the limit: at the limit the kernel drops cache
+  instead of killing the container (more disk reads), and only memory the program holds can end
+  in an OOM kill. Grafana's dashboard "Memory sizing" and the skill `resources`
+  (`.claude/skills/resources/`) compute both for every container
   ([`../kube-prometheus-stack/README.md`](../kube-prometheus-stack/README.md)). A comment next to
   the value gives the real-memory p95, the working set's p95 and peak, and the window they come
   from. A

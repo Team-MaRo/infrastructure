@@ -18,11 +18,11 @@ configuration:
     - k8s.mariadb.com/role=primary
   annotateNodes: true
 
-# Memory over 2026-10-23..11-02: real memory (working set minus active file cache) p95 14 MiB, the
-# request; working set p95 17 MiB, peak 17 MiB, the limit twice that p95. The chart sets none, and
-# kube-system has no LimitRange.
+# Memory over 2026-11-13..18 (5 days, a longer window to come): real memory (working set minus
+# active file cache) p95 28 MiB, the request; working set peak 63 MiB ÷ 0.8, the limit. The chart
+# sets none, and kube-system has no LimitRange.
 resources:
   requests:
-    memory: 16Mi
+    memory: 32Mi
   limits:
-    memory: 64Mi
+    memory: 96Mi

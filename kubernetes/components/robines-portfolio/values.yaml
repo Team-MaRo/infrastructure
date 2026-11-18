@@ -43,6 +43,16 @@ languages:
 matomo:
   siteId: 2
 
+# wp-cli in the init container plugins. Over 2026-11-13..18 (5 days, a longer window to come):
+# working set peak 248 MiB ÷ 0.8, the limit. The request stays at the 256Mi it had from the
+# chart's limit (a limit without a request counts as both); real p95 153 MiB would ask only 160.
+wpCli:
+  resources:
+    requests:
+      memory: 256Mi
+    limits:
+      memory: 320Mi
+
 # Database 1 in valkey-cache (components/valkey-cache).
 objectCache:
   database: 1

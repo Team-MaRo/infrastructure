@@ -121,14 +121,15 @@ prometheus:
           resources:
             requests:
               storage: 20Gi
-    # Over 2026-10-23..11-02: real memory (working set minus active file cache) p95 1305 MiB, the
-    # request; working set p95 1350 MiB, peak 1670 MiB, the limit twice that p95.
+    # Over 2026-11-13..18 (5 days, a longer window to come): real memory (working set minus active
+    # file cache) p95 1411 MiB, the request; working set peak 2491 MiB (a heavy 14-day query) ÷ 0.8,
+    # the limit.
     resources:
       requests:
         cpu: 200m
-        memory: 1312Mi
+        memory: 1424Mi
       limits:
-        memory: 2720Mi
+        memory: 3136Mi
     # Pick up monitors, rules and scrape configs from every Application, not only from
     # objects carrying this Helm release's label.
     ruleSelectorNilUsesHelmValues: false
@@ -163,11 +164,12 @@ alertmanager:
     # Mounted under /etc/alertmanager/secrets/alertmanager-ntfy/, from external-secrets.yaml.
     secrets:
       - alertmanager-ntfy
-    # The operator's default request is 200Mi, so it is written out. Over 2026-10-23..11-02: real
-    # memory p95 30 MiB, the request; working set p95 45 MiB, peak 46 MiB, the limit twice that p95.
+    # The operator's default request is 200Mi, so it is written out. Over 2026-11-13..18 (5 days, a
+    # longer window to come): real memory p95 33 MiB, the request; the limit stays, above the
+    # working set peak 53 MiB ÷ 0.8.
     resources:
       requests:
-        memory: 32Mi
+        memory: 48Mi
       limits:
         memory: 96Mi
   # Phone notifications through ntfy.sh, one receiver per priority, since Alertmanager's
@@ -294,19 +296,22 @@ grafana:
   # A test pod Helm would run on install; Argo CD would only ever show it as extra.
   testFramework:
     enabled: false
-  # Browsing dashboards is where it peaks. Over 2026-10-23..11-02: real memory p95 526 MiB, the
-  # request; working set p95 740 MiB, peak 918 MiB, the limit twice that p95.
+  # Browsing dashboards is where it peaks. Over 2026-11-13..18 (5 days, a longer window to come):
+  # real memory p95 540 MiB, the request; working set p95 905 MiB, peak 1055 MiB - the limit stays,
+  # above that peak ÷ 0.8.
   resources:
     requests:
-      memory: 528Mi
+      memory: 544Mi
     limits:
       memory: 1504Mi
-  # One setting for the dashboard and datasource sidecars: real p95 76 / 75 MiB; working set p95
-  # 91 / 81 MiB, peak 92 / 81 MiB over 2026-10-23..11-02, sized for the larger.
+  # One setting for the dashboard and datasource sidecars, sized for the larger, the dashboard
+  # sidecar: over 2026-11-13..18 (5 days, a longer window to come) real p95 just over 80 MiB, so
+  # 96Mi the request (the datasource sidecar would fit in 80); working set p95 93 MiB, peak
+  # 96 MiB - the limit stays, above that peak ÷ 0.8.
   sidecar:
     resources:
       requests:
-        memory: 80Mi
+        memory: 96Mi
       limits:
         memory: 192Mi
   # Logs and traces, next to the chart's own Prometheus and Alertmanager datasources, linked

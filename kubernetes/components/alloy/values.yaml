@@ -40,14 +40,14 @@ alloy:
     seccompProfile:
       type: RuntimeDefault
   # kube-system has no LimitRange. Over 2026-10-23..11-02: real memory (working set minus active
-  # file cache) p95 230 MiB, the request; working set p95 255 MiB, peak 259 MiB, the limit twice
-  # that p95.
+  # file cache) p95 230 MiB, the request. Over 2026-11-13..18 (5 days, a longer window to come):
+  # the kernel's peak 419 MiB ÷ 0.8, the limit.
   resources:
     requests:
       cpu: 20m
       memory: 240Mi
     limits:
-      memory: 512Mi
+      memory: 544Mi
   configMap:
     content: |
       // Containers on this node, found through the API and read from the kubelet's log files.
@@ -318,14 +318,15 @@ alloy:
 service:
   trafficDistribution: PreferSameNode
 
-# The chart's 50Mi request and no limit; kube-system has no LimitRange. Over 2026-10-23..11-02:
-# real p95 14 MiB, the request; working set p95 15 MiB, peak 18 MiB, the limit twice that p95.
+# The chart's 50Mi request and no limit; kube-system has no LimitRange. Over 2026-11-13..18 (5
+# days, a longer window to come): real p95 14 MiB, the request; working set peak 31 MiB ÷ 0.8, the
+# limit.
 configReloader:
   resources:
     requests:
       memory: 16Mi
     limits:
-      memory: 32Mi
+      memory: 64Mi
 
 controller:
   volumes:

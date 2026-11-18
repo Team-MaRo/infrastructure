@@ -25,11 +25,26 @@ spec:
               * on (namespace, pod) group_left (workload, workload_type)
                 max by (namespace, pod, workload, workload_type) (namespace_workload_pod:kube_pod_owner:relabel)
             )
-        # The working set, file cache included: the limit's base, and what the kubelet evicts by.
+        # The working set, file cache included: what the kubelet evicts by, and the limit's base
+        # where the kernel's peak below cannot be used.
         - record: workload_container:memory_working_set:max_bytes
           expr: >-
             max by (namespace, workload, workload_type, container) (
               container_memory_working_set_bytes{container!=""}
+              * on (namespace, pod) group_left (workload, workload_type)
+                max by (namespace, pod, workload, workload_type) (namespace_workload_pod:kube_pod_owner:relabel)
+            )
+        # The kernel's own peak of the container since it started (cgroup memory.peak), which a
+        # 30 s scrape cannot miss - the limit's base: short spikes between two scrapes (a trace
+        # lookup, a big query) never show in the working set's samples, and a limit 10 % above the
+        # sampled peak would not hold them. It counts all file cache, so for a container whose
+        # cache fills it up to its limit (Prometheus, Loki, Tempo, Postgres) it simply equals the
+        # limit and says nothing about its need - there the sampled working set stays the base
+        # (kubernetes/components/kyverno/README.md, "How the values are sized").
+        - record: workload_container:memory_max_usage:max_bytes
+          expr: >-
+            max by (namespace, workload, workload_type, container) (
+              container_memory_max_usage_bytes{container!=""}
               * on (namespace, pod) group_left (workload, workload_type)
                 max by (namespace, pod, workload, workload_type) (namespace_workload_pod:kube_pod_owner:relabel)
             )

@@ -19,8 +19,9 @@ paths:
   `us-docker.pkg.dev`; write them fully qualified where an operator deploys them.
 - No CPU limits. Set memory only where Kyverno's defaults (32Mi request, 128Mi limit) do not
   fit, and always in `kube-system` and `system-upgrade`: request the p95 of real memory
-  (working set minus active file cache) over a window of days in 16 MiB steps, limit max(2 x the
-  working set's p95, highest working set ever seen x 1.1 in 32 MiB steps). A container that holds
+  (working set minus active file cache) over a window of days in 16 MiB steps, limit the highest
+  expected working set ÷ 0.8 in 32 MiB steps (so it sits at 80 %, where ContainerMemoryNearLimit starts) - a genuine peak (backup, heavy query, start), not a
+  leak or bug, which the limit is there to reveal. The `resources` skill computes both. A container that holds
   data by design (Traefik with the upload scan's bodies) sizes its limit from that design, the
   derivation in a comment next to it.
 - An app whose Application carries the finalizer brings its own `namespace.yaml` (never in

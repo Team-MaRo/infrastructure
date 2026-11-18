@@ -106,12 +106,14 @@ phpFpm:
 
 # wp-cli loads WooCommerce and its admin code, which needs far more than 256M (measured on
 # prod-old: 128M crashed). The request is set, or it would default to the limit and stay booked
-# on the node for the pod's whole life.
+# on the node for the pod's whole life. Over 2026-11-13..18 (5 days, a longer window to come):
+# real memory p95 305 MiB, the request; working set peak 349 MiB - the limit stays, held for
+# memory_limit's 1024M.
 wpCli:
   memoryLimit: 1024M
   resources:
     requests:
-      memory: 256Mi
+      memory: 320Mi
     limits:
       memory: 1280Mi
 

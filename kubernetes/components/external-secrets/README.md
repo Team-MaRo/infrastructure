@@ -31,10 +31,10 @@ since 2.14, the full one is in
   defaults).
 - The store may read all of `secret/`, so every namespace that references it reaches every
   value - fine while one admin runs the cluster.
-- **Memory** (`values.yaml`), over 2026-10-23..11-02, the request from real memory's p95, the
-  limit from the working set's p95 and peak: the controller 80Mi / 224Mi (real p95 75 MiB; 104,
-  109 MiB), the cert controller 96Mi / 224Mi (90; 110, 113 MiB), the webhook 48Mi / 128Mi (44;
-  peak 46 MiB).
+- **Memory** (`values.yaml`), over 2026-11-13..18, the request from real memory's p95, the limit
+  from the peak ÷ 0.8: the controller 96Mi / 256Mi (real p95 88 MiB, the kernel's peak 200 MiB),
+  the cert controller 96Mi / 256Mi (94; 184 MiB), the webhook 64Mi / 128Mi (52; working set peak
+  91 MiB).
 
 ## Using it
 

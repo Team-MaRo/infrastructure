@@ -41,9 +41,9 @@ How the cluster's manifests fit together is in [`kubernetes/README.md`](../../RE
   pods. The rejoin of a former primary after a failover (error 1236,
   [mariadb-operator#1948](https://github.com/mariadb-operator/mariadb-operator/issues/1948)) is
   not confirmed fixed by it.
-- **Memory** (`values.yaml`), over 2026-10-23..11-02, the request from real memory's p95: the
-  operator 96Mi / 224Mi (real p95 94 MiB; working set p95 98 MiB, peak 107 MiB), since it
-  watches every namespace; the webhook 48Mi / 96Mi (real p95 34 MiB, peak 43 MiB), above the
+- **Memory** (`values.yaml`), the request from real memory's p95: the operator 112Mi / 224Mi
+  (real p95 104 MiB; working set peak 153 MiB over 2026-11-13..18), since it watches every
+  namespace; the webhook 48Mi / 128Mi (real p95 35 MiB, the kernel's peak 79 MiB), above the
   default request of 32Mi.
 
 ## The operator is stuck

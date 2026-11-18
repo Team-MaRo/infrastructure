@@ -129,9 +129,15 @@ def main():
     ws_max = by(f"max_over_time(workload_container:memory_working_set:max_bytes{sel}[{w}])", *key)
     c_req = by(f"max_over_time(workload_container:memory_request:max_bytes{sel}[1h])", *key)
     c_lim = by(f"max_over_time(workload_container:memory_limit:max_bytes{sel}[1h])", *key)
-    vpa = by(f'kube_customresource_vpa_memory_recommendation{{bound="target"{"," + sel[1:-1] if sel else ""}}}', "namespace", "target_name", "container")
+    lim_min = by(f"min_over_time(workload_container:memory_limit:max_bytes{sel}[{w}])", *key)
     owner = 'max by (namespace, pod, workload) (namespace_workload_pod:kube_pod_owner:relabel)'
-    cpu = f"max by (namespace, workload, container) (node_namespace_pod_container:container_cpu_usage_seconds_total:sum_rate5m{sel} * on (namespace, pod) group_left (workload) {owner})"
+    # The kernel's peak (cgroup memory.peak): the recorded series, recorded since 2026-11-18, and
+    # the running pods' own counters for the time before - whichever is higher.
+    kernel = by(f"max_over_time(workload_container:memory_max_usage:max_bytes{sel}[{w}])", *key)
+    for k, v in by(f"max by (namespace, workload, container) (max_over_time(container_memory_max_usage_bytes{{container!=\"\"{',' + sel[1:-1] if sel else ''}}}[{w}]) * on (namespace, pod) group_left (workload) {owner})", *key).items():
+        kernel[k] = max(v, kernel.get(k, 0))
+    vpa = by(f'kube_customresource_vpa_memory_recommendation{{bound="target"{"," + sel[1:-1] if sel else ""}}}', "namespace", "target_name", "container")
+    cpu =f"max by (namespace, workload, container) (node_namespace_pod_container:container_cpu_usage_seconds_total:sum_rate5m{sel} * on (namespace, pod) group_left (workload) {owner})"
     cpu_p95 = by(f"quantile_over_time(0.95, ({cpu})[{w}:{STEP}])", *key)
     cpu_max = by(f"max_over_time(({cpu})[{w}:{STEP}])", *key)
     restarts = by(f"sum by (namespace, workload, container) (increase(kube_pod_container_status_restarts_total{sel}[{w}]) * on (namespace, pod) group_left (workload) {owner})", *key)
@@ -150,11 +156,22 @@ def main():
         if rp is None or wp is None or wm is None:
             continue
         rule_req = up(rp, 16 * MIB)
-        rule_lim = max(up(2 * wp, 32 * MIB), up(1.1 * wm, 32 * MIB))
         r, lim = c_req.get(k), c_lim.get(k)
+        # The peak the limit is built on: the kernel's, which no scrape interval misses - unless
+        # it reaches a limit (within 3 %), where it is file cache filling the container and says
+        # nothing about its need; then the sampled working set (marked "s"). The lowest limit of
+        # the window counts: after a raise, the old pods' peak sits at the old limit, and judged
+        # against the new one it would ask for yet more at every pass.
+        kp = kernel.get(k)
+        low = min(v for v in (lim, lim_min.get(k)) if v) if (lim or lim_min.get(k)) else None
+        if kp and not (low and kp >= 0.97 * low):
+            peak, source = max(kp, wm), "k"
+        else:
+            peak, source = wm, "s"
+        rule_lim = up(peak / 0.8, 32 * MIB)
         if oom.get(k):
             flag = "oom-killed"
-        elif lim and wm > 0.8 * lim:
+        elif lim and peak > 0.8 * lim:
             flag = "over-limit-risk"
         elif r and rule_req > r:
             flag = "under-requested"
@@ -162,15 +179,15 @@ def main():
             flag = "over-requested"
         else:
             flag = "ok"
-        crows.append((severity[flag], -wm, [
-            f"{ns}/{wl}", ctr, mib(r), mib(lim), mib(rp), mib(wp), mib(wm),
+        crows.append((severity[flag], -peak, [
+            f"{ns}/{wl}", ctr, mib(r), mib(lim), mib(rp), mib(wp), mib(wm), f"{mib(peak)} {source}",
             f"{mib(rule_req)}/{mib(rule_lim)}", mib(vpa.get(k)),
             f"{cpu_p95.get(k, 0):.3f}/{cpu_max.get(k, 0):.2f}",
             f"{restarts.get(k, 0):.0f}", flag,
         ]))
     crows.sort(key=lambda x: (x[0], x[1]))
     print(f"\nCONTAINERS (MiB; CPU in cores; {w})")
-    table(["WORKLOAD", "CONTAINER", "REQUEST", "LIMIT", "REAL P95", "WS P95", "WS MAX",
+    table(["WORKLOAD", "CONTAINER", "REQUEST", "LIMIT", "REAL P95", "WS P95", "WS MAX", "PEAK",
            "RULE REQ/LIM", "VPA", "CPU P95/MAX", "RESTARTS", "FLAG"], [r for _, _, r in crows])
 
 

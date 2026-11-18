@@ -45,8 +45,8 @@ between the k3s upgrades and the OS updates is "The night's maintenance order" i
   node and the last job of `mariadb-primary-off-rebooting-node` in `mariadb`: its last line says
   why it did not switch (MariaDB or the other pod not Ready, that pod terminating, its node
   cordoned or due for a reboot itself).
-- **Memory 16Mi / 64Mi** (`resources` in `values.yaml`; real-memory p95 14 MiB; working set
-  p95 17 MiB, peak 17 MiB over 2026-10-23..11-02); kube-system has no LimitRange.
+- **Memory 32Mi / 96Mi** (`resources` in `values.yaml`; real-memory p95 28 MiB; working set
+  peak 63 MiB over 2026-11-13..18); kube-system has no LimitRange.
 - **Only kernels set the sentinel.** A host service using an updated library keeps the old
   copy until it restarts - there is no `needrestart` on these nodes - but containers bring
   their own libraries anyway, so this only concerns the few host daemons.

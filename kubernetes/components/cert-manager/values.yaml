@@ -22,11 +22,11 @@ resources:
 
 # The cainjector holds every certificate, CRD and webhook configuration it patches in memory: the
 # namespace's LimitRange limit of 128Mi got it OOM-killed when many CRDs arrived at once
-# (2026-10-02). Over 2026-10-23..11-02: real memory p95 127 MiB, the request; working set p95
-# 142 MiB, peak 143 MiB, the limit twice that p95.
+# (2026-10-02). Over 2026-11-13..18 (5 days, a longer window to come): real memory p95 131 MiB,
+# the request; working set peak 132 MiB ÷ 0.8 - the limit stays.
 cainjector:
   resources:
     requests:
-      memory: 128Mi
+      memory: 144Mi
     limits:
       memory: 288Mi

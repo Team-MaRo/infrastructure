@@ -61,7 +61,7 @@ tempo:
   # Go's units (MiB): Kubernetes' Mi stops Tempo at start.
   extraEnv:
     - name: GOMEMLIMIT
-      value: 777MiB
+      value: 979MiB
   extraEnvFrom:
     - secretRef:
         name: tempo-s3
@@ -71,14 +71,14 @@ tempo:
   extraVolumeMounts:
     - name: data
       mountPath: /var/tempo
-  # Over 2026-10-23..11-02: real memory (working set minus active file cache) p95 373 MiB, the
-  # request; working set p95 383 MiB. The limit is the highest working set seen x 1.1: the
-  # OOMKill at 768 MiB on 2026-11-12. GOMEMLIMIT above is 90 % of it: change both together.
+  # Over 2026-11-13..18 (5 days, a longer window to come): real memory (working set minus active
+  # file cache) p95 498 MiB, the request; working set peak 862 MiB (trace lookups) ÷ 0.8, the
+  # limit. GOMEMLIMIT above is 90 % of it: change both together.
   resources:
     requests:
-      memory: 384Mi
+      memory: 512Mi
     limits:
-      memory: 864Mi
+      memory: 1088Mi
   securityContext:
     allowPrivilegeEscalation: false
     capabilities:

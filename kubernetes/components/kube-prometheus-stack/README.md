@@ -8,10 +8,11 @@ its sidecars, kube-state-metrics, the operator and the config reloaders - and fo
 whose operator would otherwise request 200Mi. node-exporter goes to `kube-system`
 (`namespaceOverride`), since it needs the host's network, PIDs and files; there is no
 LimitRange there, so it sets its own. The values were sized on 2026-11-02 over
-2026-10-23..11-02, the requests from real memory's p95, the limits from the working set's p95
-and peak, each next to its value in `values.yaml`: Prometheus 1312Mi / 2720Mi, Grafana 528Mi /
-1504Mi and its sidecars 80Mi / 192Mi, kube-state-metrics 160Mi / 384Mi, the operator and
-node-exporter 48Mi / 96Mi, Alertmanager and the config reloaders 32Mi / 96Mi - written out,
+2026-10-23..11-02 and raised on 2026-11-18 over 2026-11-13..18, the requests from real memory's
+p95, the limits from the working set's p95 and peak, each next to its value in `values.yaml`:
+Prometheus 1424Mi / 3136Mi, Grafana 544Mi / 1504Mi and its sidecars 96Mi / 192Mi,
+kube-state-metrics 160Mi / 384Mi, the operator, node-exporter and Alertmanager 48Mi / 96Mi, the
+config reloaders 32Mi / 96Mi - written out,
 since the operator would otherwise set its own. How the cluster's
 manifests fit together is in [`kubernetes/README.md`](../../README.md).
 
@@ -203,7 +204,9 @@ The operator does not resize an existing volume. Grow the volume before pushing 
     (Postgres 2.2 million times in 10 days, unharmed), since the kernel fills the cache up to it.
   - `ContainerOOMKilled` for a restart that an OOM kill caused. A single kill only restarts the
     container - no crash loop, so nothing else would tell - but every request it was serving
-    fails with it (arepazo's php-fpm, twice on 2026-10-04, noticed only by chance).
+    fails with it (arepazo's php-fpm, twice on 2026-10-04, noticed only by chance). Init
+    containers too (since 2026-11-18): wp-cli in a WordPress site's `plugins` killed at a start
+    otherwise only leaves the pod in `Init:CrashLoopBackOff`.
 - **php-fpm of the PHP apps** (`php-fpm.yaml`; the metrics come from each app's
   `pod-monitor.yaml`, job `<namespace>/php-fpm`): `PhpFpmRequestsQueued` (requests waiting for a
   worker), `PhpFpmNoIdleWorker` (all busy) and `PhpFpmStatusDown` (php-fpm's status pool,

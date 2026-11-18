@@ -6,8 +6,9 @@ Persistent storage is Hetzner Volumes, never the node disk. `kubernetes/clusters
 deploys `hetznercloud/csi-driver` from its Helm chart (`https://charts.hetzner.cloud`, a patch
 range, so its patch releases arrive by themselves; until 2026-11-17 the pinned raw manifest) and
 its default StorageClass `hcloud-volumes`; `values.yaml` sets `reclaimPolicy: Retain` and the
-memory per container (16-32Mi requested from real memory's p95, the limit twice the working set's
-p95, over 2026-10-23..11-02 - kube-system has no LimitRange). k3s's local-path is disabled (`k3s_config`), so nothing can put
+memory per container (16-32Mi requested from real memory's p95, the limit twice the working
+set's p95, or where resized since 2026-11-18 the expected peak ÷ 0.8 - kube-system has no LimitRange). k3s's local-path is disabled
+(`k3s_config`), so nothing can put
 persistent data on a node's 40 GB disk.
 
 ## A volume is not node storage

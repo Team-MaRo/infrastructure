@@ -15,12 +15,12 @@ securityContext: &securityContext
   capabilities:
     drop:
       - ALL
-# It watches every namespace, so its memory grows with the cluster. Over 2026-10-23..11-02: real
-# memory (working set minus active file cache) p95 94 MiB, the request; working set p95 98 MiB,
-# peak 107 MiB, the limit twice that p95.
+# It watches every namespace, so its memory grows with the cluster. Over 2026-11-13..18 (5 days, a
+# longer window to come): real memory (working set minus active file cache) p95 104 MiB, the
+# request; working set peak 153 MiB ÷ 0.8 - the limit stays.
 resources:
   requests:
-    memory: 96Mi
+    memory: 112Mi
   limits:
     memory: 224Mi
 metrics:
@@ -67,12 +67,13 @@ webhook:
               app.kubernetes.io/name: mariadb-operator-webhook
   pdb:
     enabled: true
-  # Real p95 34 MiB, the request; working set peak 43 MiB, the limit kept at 96Mi.
+  # Over 2026-11-13..18 (5 days, a longer window to come): real p95 35 MiB, the request; the
+  # kernel's peak 79 MiB ÷ 0.8, the limit.
   resources:
     requests:
       memory: 48Mi
     limits:
-      memory: 96Mi
+      memory: 128Mi
 
 # Defaults for the pods the operator creates. Written fully qualified, so the registry check
 # in kubernetes/components/kyverno does not depend on how short names are resolved; each

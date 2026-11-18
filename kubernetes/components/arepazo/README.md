@@ -28,8 +28,9 @@ in the shared MariaDB, the uploads are in the bucket `d3strukt0r-prod-arepazo`
   at once - 512Mi was OOM-killed twice with five right after the switch (2026-10-04). wp-cli in the
   init container loads WooCommerce's admin code and crashes at 128M, so it runs with `-d
   memory_limit=1024M` (`WP_CLI_PHP_ARGS`) in a 1280Mi container that exits once the site is
-  assembled. It requests only 256Mi: without a request the limit would count as one, and a pod keeps
-  its largest init container's request booked on the node for its whole life.
+  assembled. It requests only 320Mi (real-memory p95 305 MiB, peak 349 MiB over 2026-11-13..18):
+  without a request the limit would count as one, and a pod keeps its largest init container's
+  request booked on the node for its whole life.
 - **Six workers, sized from the memory limit** (`phpFpm` in `values.yaml`): `(limit - opcache -
   master - headroom) / memory per worker` = (1280 - 256 - 40 - ~200) / 90 MB = 8, one fewer so a
   heavy request (an export, up to `memory_limit` 256M) still fits beside the others, kept at 6:

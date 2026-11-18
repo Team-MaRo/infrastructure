@@ -35,11 +35,12 @@ spec:
           ports:
             - name: http
               containerPort: 80
-          # Over 2026-10-23..11-02: real memory (working set minus active file cache) p95 142 MiB,
-          # the request; working set p95 158 MiB, peak 158 MiB, the limit twice that p95.
+          # Over 2026-11-13..18 (5 days, a longer window to come): real memory (working set minus
+          # active file cache) p95 244 MiB, the request; working set peak 244 MiB ÷ 0.8 - the limit
+          # stays.
           resources:
             requests:
-              memory: 144Mi
+              memory: 256Mi
             limits:
               memory: 320Mi
           readinessProbe:

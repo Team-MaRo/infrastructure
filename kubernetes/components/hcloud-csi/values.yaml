@@ -15,16 +15,17 @@ storageClasses:
     reclaimPolicy: Retain
 
 # Memory per container; the chart sets none, and kube-system has no LimitRange. From what they
-# used over 2026-10-23..11-02: the request the p95 of real memory (working set minus active file
-# cache), the limit twice the working set's p95.
+# used over 2026-10-23..11-02 unless a container says otherwise: the request the p95 of real
+# memory (working set minus active file cache), the limit twice the working set's p95.
 controller:
   resources:
-    # Real p95 15 MiB; working set p95 20 MiB, peak 20 MiB.
+    # Over 2026-11-13..18 (5 days, a longer window to come): real p95 17 MiB, the request; working
+    # set peak 61 MiB ÷ 0.8, the limit.
     csiAttacher:
       requests:
-        memory: 16Mi
+        memory: 32Mi
       limits:
-        memory: 64Mi
+        memory: 96Mi
     # Real p95 19 MiB; working set p95 29 MiB, peak 29 MiB.
     csiProvisioner:
       requests:
@@ -63,9 +64,10 @@ node:
         memory: 16Mi
       limits:
         memory: 64Mi
-    # Real p95 14 MiB; working set p95 22 MiB, peak 23 MiB.
+    # Over 2026-11-13..18 (5 days, a longer window to come): real p95 just over 16 MiB, so 32Mi the
+    # request; working set peak 34 MiB ÷ 0.8 - the limit stays.
     livenessProbe:
       requests:
-        memory: 16Mi
+        memory: 32Mi
       limits:
         memory: 64Mi

@@ -243,8 +243,10 @@ rule, 2026-10-02). Where a name cannot hold a hyphen, the hyphens become undersc
   they throttle an idle node. A container sets its memory itself only where the defaults do
   not fit, and always in `kube-system` and `system-upgrade`, which have no LimitRange: the
   request the p95 of real memory (working set minus active file cache) over a window of days,
-  rounded up to 16 MiB; the limit twice the working set's p95 or the highest working set ever
-  seen x 1.1 (rounded up to 32 MiB), whichever is higher. A container that holds data by design
+  rounded up to 16 MiB; the limit the highest **expected** working set ÷ 0.8 (x 1.25), rounded up to
+  32 MiB - the peaks the software genuinely has (a backup, a heavy query, a start), never a leak
+  or a bug: those are what the limit is there to reveal, so they are investigated, not sized for
+  (user decision 2026-11-18). A container that holds data by design
   (Traefik with the upload scan's bodies) sizes its limit from that design instead, the
   derivation written next to it
   ([`kubernetes/components/kyverno/README.md`](kubernetes/components/kyverno/README.md)).

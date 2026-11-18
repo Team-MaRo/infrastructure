@@ -8,8 +8,9 @@ argument-hint: "[namespace|node] [--window 14d]"
 
 The cluster's sizing rule is in AGENTS.md ("Default resources come from Kyverno's LimitRange"):
 a container's memory **request** is the p95 of its real memory (working set minus active file
-cache) rounded up to 16 MiB; its **limit** is twice the working set's p95 or its highest working
-set x 1.1, rounded up to 32 MiB, whichever is higher. No CPU limits anywhere. Grafana's "Memory
+cache) rounded up to 16 MiB; its **limit** is its highest *expected* working set ÷ 0.8 (x 1.25) - so that peak sits at 80 %, where `ContainerMemoryNearLimit` warns -, rounded
+up to 32 MiB - a peak the software genuinely has, never a leak or a bug, which the limit is there
+to reveal. No CPU limits anywhere. Grafana's "Memory
 sizing" dashboard shows the same rule over a chosen window; Goldilocks shows VPA's opinion. This
 skill puts both into a table here and adds an evaluation.
 
@@ -44,12 +45,13 @@ say so in the evaluation and prefer caution over lowering anything.
 | Column | Meaning |
 |---|---|
 | REQUEST, LIMIT | set now |
-| REAL P95, WS P95, WS MAX | over the window |
-| RULE REQ/LIM | what the sizing rule gives |
+| REAL P95, WS P95, WS MAX | over the window, from the 30 s samples |
+| PEAK | the peak the limit is built on: `k` the kernel's own (`container_memory_max_usage_bytes`, cgroup memory.peak), which no scrape misses - short spikes run 10-30 % above WS MAX; `s` the sampled WS MAX where the kernel's peak sits at the limit, which is file cache filling the container (Prometheus, Loki, Tempo, Postgres) and says nothing about the need |
+| RULE REQ/LIM | what the sizing rule gives - the limit from PEAK as if that peak were expected; the evaluation decides whether it is |
 | VPA | VPA's target (Goldilocks' source) - a second opinion with its own formula (`kubernetes/components/vertical-pod-autoscaler/README.md`); `-` where it has none (operator-owned pods) |
 | CPU P95/MAX | cores |
 | RESTARTS | in the window |
-| FLAG | `oom-killed` (last termination), `over-limit-risk` (WS MAX above 80 % of the limit), `under-requested` (request below the rule), `over-requested` (request above twice the rule), `ok` |
+| FLAG | `oom-killed` (last termination), `over-limit-risk` (PEAK above 80 % of the limit - beyond it the near-limit alert fires), `under-requested` (request below the rule), `over-requested` (request above twice the rule), `ok` |
 
 ## The evaluation (what to add on top)
 
@@ -58,10 +60,16 @@ Answer the user's question first, then in this order, short:
 1. **Can the cluster lose a node?** Any `DRAIN FITS: NO` is the headline - a reboot night or a
    failure would leave pods Pending. Then nodes whose USED MAX comes near their total (memory
    pressure evicts pods before it OOM-kills the node).
-2. **Containers at risk of being OOM-killed**: `oom-killed` and `over-limit-risk`, with the
-   rule's limit as the fix. Judge whether WS MAX is a one-off (a backup, a trace query, an init
-   container that ran once - say what it is) or regular. A container that holds data by design
-   (Traefik with upload-scan bodies) is sized from that design, not the rule - its README says so.
+2. **Containers at risk of being OOM-killed**: `oom-killed` and `over-limit-risk`. First decide
+   whether WS MAX is an **expected** peak - something the software genuinely does (a backup, a
+   heavy query or trace lookup, wp-cli at a start; say what it is) - or a sign of trouble: real
+   memory climbing for days without coming back down (a leak), a jump after an upgrade, a spike
+   with a known bug behind it. Only an expected peak becomes the limit (÷ 0.8); trouble is
+   reported for investigation and the limit stays, because revealing it is the limit's job. Look
+   at the container over time (Grafana "Memory sizing", one workload; or a range query on
+   `workload_container:memory_real:max_bytes`) before calling it either. A container that holds
+   data by design (Traefik with upload-scan bodies) is sized from that design, not the rule - its
+   README says so.
 3. **Under-requested**: the scheduler thinks the node has room it lacks; the rule's request.
 4. **Over-requested**: memory reserved but unused; the rule's request. Lower only with a full
    window of data, never from a few days.
@@ -69,6 +77,6 @@ Answer the user's question first, then in this order, short:
 
 Recommendations are concrete values and the file they go in (`components/<app>/values.yaml`, a
 manifest's `resources:`), with the derivation as the comment the repo writes next to them
-("Over <dates>: real p95 X, the request; working set p95 Y, peak Z, the limit ..."). Nothing is
+("Over <dates>: real p95 X, the request; working set peak Z (what it was) ÷ 0.8, the limit"). Nothing is
 changed without the user's go; a change follows the component's README and the infrastructure
 rules (plan, render, commit on the user's word).

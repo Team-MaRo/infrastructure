@@ -72,9 +72,9 @@ ran under Docker Compose. How the cluster's manifests fit together is in
   in the WordPress sites, see [`../../charts/wordpress/README.md`](../../charts/wordpress/README.md).
   **The pool path carries the image's PHP version (8.3)**: on a new PHP version the file is no
   longer read and `PhpFpmStatusDown` fires - then change the version in `api.yaml`.
-- **Memory**, over 2026-10-23..11-02, the request from real memory's p95: the API 240Mi / 704Mi
-  (real p95 237 MiB; working set p95 313 MiB, peak 316 MiB - plus one request at `memory_limit`
-  256M, which 512Mi no longer held); the PWA 144Mi / 320Mi (142; 158, peak 158 MiB).
+- **Memory**, over 2026-11-13..18, the request from real memory's p95: the API 256Mi / 704Mi
+  (real p95 245 MiB; working set peak 300 MiB - plus one request at `memory_limit` 256M, which
+  512Mi no longer held); the PWA 256Mi / 320Mi (244; peak 244 MiB).
 - **A higher per-visitor rate limit** (`kustomization.yaml`: 50 a second, bursts of 300, against
   the default 20/100): the gallery requests every thumbnail at once, one API call each behind the
   guests' login, so Cloudflare caches none - a load is ~675 requests over ~20 s (php-fpm's five

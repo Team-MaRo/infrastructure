@@ -65,14 +65,13 @@ server:
       }
 
   # Real memory (working set minus active file cache) p95 56 MiB over 2026-10-23..11-02, the
-  # request; working set p95 61 MiB, peak 80 MiB. The limit covers the
-  # highest use ever seen, not only that window: 228 MiB in its first week (2026-10-05), on
-  # start-up and snapshots.
+  # request. The limit: the kernel's peak 238 MiB ÷ 0.8 (2026-11-13..18, start-up and snapshots -
+  # expected; 228 MiB in its first week, 2026-10-05), which the 30 s samples (195 MiB) missed.
   resources:
     requests:
       memory: 64Mi
     limits:
-      memory: 256Mi
+      memory: 320Mi
 
   volumes:
     - name: seal

@@ -1,8 +1,8 @@
 ---
 # Memory for the Argo CD containers the namespace's LimitRange defaults (32Mi, limit 128Mi) do
-# not fit, from what they used over 2026-10-23..11-02: the request the p95 of real memory (working
-# set minus active file cache), the limit twice the working set's p95 or its peak x 1.1, whichever
-# is higher.
+# not fit, from what they used over 2026-10-23..11-02 unless a container names another window: the
+# request the p95 of real memory (working set minus active file cache), the limit the expected peak
+# ÷ 0.8.
 #
 # The application controller caches every resource it manages and is the largest user in the
 # cluster: real p95 1314 MiB; working set p95 1338 MiB, peak 1714 MiB.
@@ -21,9 +21,10 @@ spec:
             limits:
               memory: 2688Mi
 ---
-# Rendering Helm charts (kube-prometheus-stack, Kyverno) is where it peaks: real p95 143 MiB;
-# working set p95 290 MiB, peak 551 MiB over 2026-10-23..11-02. The limit stays 1Gi: at 608Mi
-# rendering kube-prometheus-stack got it OOM-killed (2026-11-02), a peak the window had not seen.
+# Rendering Helm charts (kube-prometheus-stack, Kyverno) is where it peaks. Over 2026-11-13..18 (5
+# days, a longer window to come): real p95 262 MiB, the request; working set p95 315 MiB, peak
+# 569 MiB. The limit stays 1Gi: at 608Mi rendering kube-prometheus-stack got it OOM-killed
+# (2026-11-02), a peak no window has seen.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -35,7 +36,7 @@ spec:
         - name: argocd-repo-server
           resources:
             requests:
-              memory: 144Mi
+              memory: 272Mi
             limits:
               memory: 1Gi
 ---
@@ -55,7 +56,8 @@ spec:
             limits:
               memory: 224Mi
 ---
-# Real p95 50 MiB; working set p95 66 MiB, peak 70 MiB.
+# Over 2026-11-13..18 (5 days, a longer window to come): real p95 53 MiB, the request; the kernel's
+# peak 145 MiB ÷ 0.8, the limit.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -69,7 +71,7 @@ spec:
             requests:
               memory: 64Mi
             limits:
-              memory: 160Mi
+              memory: 192Mi
 ---
 # Real p95 53 MiB; working set p95 55 MiB, peak 61 MiB.
 apiVersion: apps/v1

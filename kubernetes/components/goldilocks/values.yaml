@@ -20,9 +20,15 @@ controller:
   rbac:
     # Argo Rollouts is not installed.
     enableArgoproj: false
-  # Not measured yet: the namespace's defaults (Kyverno's LimitRange) instead of the chart's 256Mi
-  # request; sized by the rule after a week.
-  resources: null
+  # Over 2026-11-13..18 (5 days, a longer window to come): real memory (working set minus active
+  # file cache) p95 54 MiB, the request; working set peak 65 MiB - the limit stays at the
+  # LimitRange's 128Mi. The chart's CPU request is dropped for the LimitRange's.
+  resources:
+    requests:
+      cpu: null
+      memory: 64Mi
+    limits:
+      memory: 128Mi
 
 dashboard:
   replicaCount: 1
@@ -34,7 +40,14 @@ dashboard:
     enable-cost: "false"
   rbac:
     enableArgoproj: false
-  resources: null
+  # Over 2026-11-13..18 (5 days, a longer window to come): real p95 69 MiB, the request; working
+  # set peak 82 MiB - the limit stays at the LimitRange's 128Mi. CPU like the controller.
+  resources:
+    requests:
+      cpu: null
+      memory: 80Mi
+    limits:
+      memory: 128Mi
   ingress:
     enabled: true
     annotations:

@@ -54,10 +54,10 @@ is in [`kubernetes/README.md`](../../README.md).
     new series land in one overflow series, and `TempoSpanMetricsLimited` fires.
 - **The finalizer is on** (AGENTS.md): Tempo brings no CRDs and no volume, and its traces are in
   the bucket - removing the Application removes the namespace, not the traces.
-- **Memory** 384Mi / 864Mi: the request from real-memory p95 373 MiB (working set p95 383 MiB)
-  over 2026-10-23..11-02, the limit from the highest working set seen x 1.1 - 768 MiB, the
-  OOMKill below. Queries add to that: a trace lookup reads every block in the bucket,
-  split into jobs of 30 blocks. On 2026-11-12 the first lookups after a search pushed the pod from
+- **Memory** 512Mi / 1088Mi: the request from real-memory p95 498 MiB (working set p95 510 MiB)
+  over 2026-11-13..18, the limit from the highest working set seen ÷ 0.8 - 862 MiB, during trace
+  lookups (768 MiB at the OOMKill below). Queries add to that: a trace lookup reads every block in
+  the bucket, split into jobs of 30 blocks. On 2026-11-12 the first lookups after a search pushed the pod from
   404 MiB past its limit within a second (OOMKilled) - too fast for the 30 s memory samples to
   show; the pod cgroup's `container_memory_max_usage_bytes` caught it. Three settings answer it:
   - **Fewer blocks.** Compaction merges only blocks of the same window, by default an hour: the
@@ -68,7 +68,7 @@ is in [`kubernetes/README.md`](../../README.md).
     packs several jobs into one batch (`max_batch_size` 7, a lookup job weighing 2), all run at
     once. With `max_concurrent_queries: 4` and `max_batch_size: 1` it is 4 jobs. It slows every
     query alike - searches too - which at a few MB of traces a day is not felt.
-  - **`GOMEMLIMIT`** at 90 % of the limit (777MiB - Go's units; Kubernetes' `Mi` stops Tempo at
+  - **`GOMEMLIMIT`** at 90 % of the limit (979MiB - Go's units; Kubernetes' `Mi` stops Tempo at
     start) makes Go collect garbage harder before the kernel kills
     it. Tempo's own `memory.automemlimit_enabled` would do the same from the cgroup's limit, but
     the chart sets it only by replacing its whole configuration template (`config`), which would
