@@ -15,6 +15,24 @@ resources:
   # Only Cloudflare reaches its proxied routes (charts/cloudflare-only).
   - ../../charts/cloudflare-only/files
 
+# This namespace's per-visitor rate limit above the default (charts/cloudflare-only README,
+# "Raising the limit for one app"): the gallery requests every thumbnail at once, one API call each
+# behind the guests' login, so Cloudflare caches none. Seven loads on 2026-11-18 (Traefik's spans in
+# Tempo): ~650 requests each over ~20 s, up to 265 in one second; replayed against the default
+# 20/100 they lost 1,363, against 50/300 none, at most 82 % of the burst used. Covers both routes
+# here, the PWA and the API.
+patches:
+  - target:
+      kind: Middleware
+      name: cloudflare-rate-limit
+    patch: |-
+      - op: replace
+        path: /spec/rateLimit/average
+        value: 50
+      - op: replace
+        path: /spec/rateLimit/burst
+        value: 300
+
 # A hash in the name, so a change to any of these files rolls the API.
 configMapGenerator:
   - name: api-config

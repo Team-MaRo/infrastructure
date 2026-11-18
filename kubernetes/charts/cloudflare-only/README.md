@@ -75,7 +75,8 @@ The rate limit is there to stop traffic that is not genuine - a scanner's hundre
 of requests a minute -, never normal use, heavy use included. The numbers in
 `files/middleware.yaml` are the default; an app whose genuine use they refuse raises its own
 copy, and only its own: each namespace's copy is its own bucket. Today `monitoring` (Grafana:
-average 50, burst 300).
+average 50, burst 300) and `wedding-manuele-robine` (the gallery's thumbnails: average 50, burst
+300). Both are sized so the heaviest measured genuine use takes about 80 % of the burst.
 
 - **When**: people using the app get 429 ("Too Many Requests"). Traefik's access log keeps every
   429 with the visitor's `CF-Connecting-IP`; one from a real user's address is the sign, a

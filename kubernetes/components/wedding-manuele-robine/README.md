@@ -75,6 +75,14 @@ ran under Docker Compose. How the cluster's manifests fit together is in
 - **Memory**, over 2026-10-23..11-02, the request from real memory's p95: the API 240Mi / 704Mi
   (real p95 237 MiB; working set p95 313 MiB, peak 316 MiB - plus one request at `memory_limit`
   256M, which 512Mi no longer held); the PWA 144Mi / 320Mi (142; 158, peak 158 MiB).
+- **A higher per-visitor rate limit** (`kustomization.yaml`: 50 a second, bursts of 300, against
+  the default 20/100): the gallery requests every thumbnail at once, one API call each behind the
+  guests' login, so Cloudflare caches none - a load is ~675 requests over ~20 s (php-fpm's five
+  workers set the pace), up to 265 in one second; the default refused 559 per load on 2026-11-18
+  ([`../../charts/cloudflare-only/README.md`](../../charts/cloudflare-only/README.md), "Raising
+  the limit for one app"). **TODO: lazy-load the gallery's thumbnails** (only those on screen,
+  plus `Cache-Control: private, max-age=...` so a browser keeps them), then the limit can come
+  back down.
 - Dropped from prod-old: the app's own MariaDB (now the shared one, backed up by the operator),
   phpMyAdmin (the shared one at `phpmyadmin.d3strukt0r.dev`) and tiredofit/db-backup.
 
