@@ -134,8 +134,8 @@ spec:
                 - -c
                 - |
                   set -eu
-                  rclone copy --no-check-dest /dumps s3:d3strukt0r-prod-postgres-backups/logical/
-                  rclone delete --min-age 30d s3:d3strukt0r-prod-postgres-backups/logical/
+                  rclone copy --config "" --no-check-dest /dumps s3:d3strukt0r-prod-postgres-backups/logical/
+                  rclone delete --config "" --min-age 30d s3:d3strukt0r-prod-postgres-backups/logical/
               securityContext:
                 allowPrivilegeEscalation: false
                 readOnlyRootFilesystem: true
