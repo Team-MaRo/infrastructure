@@ -53,7 +53,7 @@ Only what differs between sites; `values.yaml` holds the defaults and says what 
 | Value | Default | What |
 |---|---|---|
 | `hosts` | (required) | the site's names; the first is WordPress's address (`WP_HOME`, the probes' and WP-Cron's `Host`), the others redirect to it |
-| `plugins`, `themes` | `[]` | wordpress.org slugs, `<slug>` or `<slug> <version>` |
+| `plugins`, `themes` | `[]` | wordpress.org slugs, `<slug>` or `<slug> <version or range>` (`5`, `5.12`, `~5.12.3`, `^5.12.3`; "Design") |
 | `languages` | `[]` | language packs for core, plugins and themes |
 | `secrets` | `[]` | every secret of the WordPress containers: blocks of `key` and `env` ("Secrets") |
 | `uploadsProxy.secrets` | `[]` | the uploads proxy's key, the same way |
@@ -119,13 +119,19 @@ variable, stops the rendering with a message naming it.
 
 - **No image of its own, no build, no volume.** The stock images, and the site assembled at every
   start: core from the WordPress image, plugins and themes from wordpress.org (the latest release
-  of each unless the values pin a version), S3-Uploads from its GitHub release (pinned, 3.0.10).
+  of each unless the values limit it), S3-Uploads from its GitHub release (pinned, 3.0.10).
   The release is the version wordpress.org's API names: the unversioned download is the
   development version (trunk), which ran Jetpack and Yoast pre-releases until 2026-10-22. A
+  version in the values is a range, read by `files/plugin-version.php` from the API's list of
+  versions, like an image tag or a chart range: `5`, `5.12` or `5.12.3` takes the newest release
+  that is it or starts with it plus `.`; `~5.12.3` the newest 5.12.x from 5.12.3 on (patches);
+  `^5.12.3` the newest 5.x from 5.12.3 on (`^0.7.1`: 0.7.x). Never a pre-release (a letter in the
+  version) and never a tag newer than the release; no match stops the start, the range named in
+  the init container's log, which shows every version it installs. A
   plugin wordpress.org has closed has no release (its API answers 404): the site still starts,
   with that plugin's development version and a `WARNING: … has no release` line in the init
-  container `plugins`'s log - replace or remove it. Pinning does not help, wordpress.org removes
-  a closed plugin's versioned downloads too. Any other failure of the API stops the start, so an
+  container `plugins`'s log - replace or remove it, whatever range the values give. Pinning does
+  not help, wordpress.org removes a closed plugin's versioned downloads too. Any other failure of the API stops the start, so an
   outage there never puts every plugin on trunk. The two plugins the image brings, Akismet and Hello Dolly, are deleted first, so only
   the values decide; a site that wants Akismet lists it there.
   `DISALLOW_FILE_MODS` keeps WordPress from installing or updating anything itself, so the list
@@ -433,12 +439,16 @@ With `mcp.clientId`, people edit the site by chatting with Claude - claude.ai, C
 Claude Code - each as their own WordPress user, with that user's rights: a customer can write
 nothing, an editor only what an editor may. Who may is decided in Zitadel alone.
 
-- **Two plugins, pinned**: MCP Adapter (`mcp-adapter`, WordPress's own, experimental) serves the
+- **Two plugins**: MCP Adapter (`mcp-adapter`, WordPress's own, experimental) serves the
   abilities as an MCP server; Enable Abilities for MCP (`enable-abilities-for-mcp`) brings the
   abilities for posts, pages, media, portfolio items, Polylang translations, Yoast fields and
   WooCommerce products. Both are activated at every start. Plugins of this kind have had
-  access-control flaws (AI Engine's MCP let subscribers become admins), so a new version is read
-  in its changelog before the pin moves.
+  access-control flaws (AI Engine's MCP let subscribers become admins), so MCP Adapter takes only
+  its patch releases (`~0.7.1`) and a new minor is read in its changelog before the range moves.
+  Enable Abilities follows its
+  releases like every other plugin (user decision 2026-11-18): its releases often carry security
+  fixes (2.16.0 and 2.16.1 closed seven permission holes), so staying behind is the larger risk,
+  and a bad release is fixed the same way.
 - **Claude logs in with Zitadel** (`files/mcp.php`): the site's project has a second app,
   `<site>-claude` (tofu/zitadel; public, PKCE), so the role check applies to Claude as to the
   login. The MCP route answers a request without a token with 401 and the address of its
@@ -518,7 +528,8 @@ serves only what is personal. Rules in `files/default.vcl`:
 - **Six hours, then up to twelve more** while a fresh copy is fetched in the background (grace),
   and a failed refresh keeps the old copy; sitemaps and feeds an hour, 404s five minutes. Twelve
   plus six stays well under WPForms' 48-hour form token.
-- **Emptied by WordPress**: Proxy Cache Purge (`varnish-http-purge`, pinned) sends a PURGE to
+- **Emptied by WordPress**: Proxy Cache Purge (`varnish-http-purge`, patch releases only, since `files/page-cache.php`
+  relies on its internals) sends a PURGE to
   `127.0.0.1:6081` (`VHP_VARNISH_IP`) whenever a post, page or product is saved - in wp-admin or
   by Claude - for the page, the home page and its archives; `files/page-cache.php` adds
   WooCommerce's stock changes (an order taking the last one), which save nothing: the product's
@@ -636,8 +647,8 @@ and for plugins wordpress.org has closed; Prometheus alerts like on anything els
   Tested 2026-10-22 against WPVulnerability's answers: the Timber 1.23.1 that ran until that day
   would have raised CVE-2024-45411 (CVSS 8.6, fixed in 1.23.3).
 
-**On an alert**: update the item (a newer release arrives at the next start; a pinned one needs
-its pin raised), replace it or remove it from the site's values; the alert clears after the next
+**On an alert**: update the item (a newer release arrives at the next start; one limited by a
+range only if the range allows it, otherwise the range is raised), replace it or remove it from the site's values; the alert clears after the next
 check. A false positive or an accepted risk gets an Alertmanager silence on its `id`. To check at
 once instead of waiting for the next day, and to read the result:
 
@@ -738,7 +749,8 @@ running pods stay. A renamed or removed value changes in the same commit as ever
   (MonsterInsights: 19 options, its cache table and 3 cron hooks stayed - check the database
   afterwards). A failure shows as a notice and in php-fpm's log.
 - **A plugin release breaks the site** (a 500 with its path in the php-fpm log): pin the last good
-  version (`<slug> <version>`). Every start installs the latest release otherwise.
+  version (`<slug> 6.0.0` - a full version, so only a hotfix with a fourth number would move it).
+  Every start installs the latest release otherwise.
 - **A new WordPress major or PHP version** comes with the image tags (`7-php8.5-fpm` twice and
   `cli-2-php8.5` in `templates/deployment.yaml`) - a chart change, for every site at once. The
   init container `plugins` runs the database update. Dump the sites' databases first - the

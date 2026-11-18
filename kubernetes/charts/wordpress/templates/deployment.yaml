@@ -100,24 +100,26 @@ spec:
               # The image brings Akismet and Hello Dolly into every site; a site that wants Akismet
               # lists it in its values, and the loop puts it back.
               rm -rf plugins/akismet plugins/hello.php
-              grep -v '^#' /config/plugins.txt | while read -r kind slug version; do
+              grep -v '^#' /config/plugins.txt | while read -r kind slug range; do
                 [ -n "$kind" ] || continue
                 # Without a version, downloads.wordpress.org serves the development version (trunk),
                 # not the release - Jetpack and Yoast ran pre-releases that way (2026-10-22). The API
-                # names the release. A plugin wordpress.org closed has none (404); it keeps running
-                # from trunk with a warning rather than keeping the site from starting. Any other
-                # failure of the API stops the start, or an outage would put every site on trunk.
-                if [ -z "$version" ]; then
-                  code=$(curl -sSL --retry 3 -o /tmp/info.json -w '%{http_code}' "https://api.wordpress.org/${kind}s/info/1.2/?action=${kind}_information&request%5Bslug%5D=$slug")
-                  if [ "$code" = 200 ]; then
-                    version=$(php -r '$i = json_decode(file_get_contents("/tmp/info.json")); if (empty($i->version)) exit(1); echo $i->version;') \
-                      || { echo "wordpress.org names no version for $kind $slug"; exit 1; }
-                  elif [ "$code" = 404 ]; then
-                    echo "WARNING: $kind $slug has no release on wordpress.org (closed?) - installing its development version; replace or remove it"
-                  else
-                    echo "wordpress.org's API answered $code for $kind $slug"; exit 1
-                  fi
+                # names the release and lists every version, from which plugin-version.php picks
+                # the one the range allows. A plugin wordpress.org closed has none (404); it keeps
+                # running from trunk with a warning rather than keeping the site from starting. Any
+                # other failure of the API stops the start, or an outage would put every site on
+                # trunk.
+                version=
+                code=$(curl -sSL --retry 3 -o /tmp/info.json -w '%{http_code}' "https://api.wordpress.org/${kind}s/info/1.2/?action=${kind}_information&request%5Bslug%5D=$slug&request%5Bfields%5D%5Bversions%5D=1")
+                if [ "$code" = 200 ]; then
+                  version=$(php /config/plugin-version.php "$range" < /tmp/info.json) \
+                    || { echo "no version to install for $kind $slug"; exit 1; }
+                elif [ "$code" = 404 ]; then
+                  echo "WARNING: $kind $slug has no release on wordpress.org (closed?) - installing its development version; replace or remove it"
+                else
+                  echo "wordpress.org's API answered $code for $kind $slug"; exit 1
                 fi
+                echo "$kind $slug ${range:+$range -> }${version:-trunk}"
                 fetch "https://downloads.wordpress.org/$kind/$slug${version:+.$version}.zip" "${kind}s"
               done
               # Not on wordpress.org; the release zip has its files at the root.

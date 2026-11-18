@@ -6,7 +6,8 @@ metadata:
   name: web-config
 data:
   # What the init container `plugins` installs into wp-content at every start, as
-  # `<kind> <slug> [<version>]` (values plugins and themes). WordPress cannot install anything
+  # `<kind> <slug> [<version or range>]` (values plugins and themes; the ranges are in
+  # files/plugin-version.php). WordPress cannot install anything
   # itself (DISALLOW_FILE_MODS), so this list is the site's plugins and themes; whether a plugin is
   # active stays in the database. S3-Uploads is installed beside these (deployment.yaml).
   plugins.txt: |
@@ -22,13 +23,13 @@ data:
     plugin redis-cache
     {{- end }}
     {{- if .Values.pageCache.enabled }}
-    plugin varnish-http-purge 5.12.3
+    plugin varnish-http-purge ~5.12.3
     {{- end }}
     {{- if .Values.mcp.clientId }}
-    # Pinned: plugins in this field have had access-control flaws; an update is read first
+    # Patch releases only: MCP plugins have had access-control flaws; a minor is read first
     # (README "Content through Claude").
-    plugin mcp-adapter 0.7.1
-    plugin enable-abilities-for-mcp 2.13.7
+    plugin mcp-adapter ~0.7.1
+    plugin enable-abilities-for-mcp
     {{- end }}
     {{- range .Values.themes }}
     theme {{ . }}
@@ -53,6 +54,8 @@ data:
     {{- .Files.Get "files/vulnerability-check.php" | nindent 4 }}
   vulnerability-metrics.php: |
     {{- .Files.Get "files/vulnerability-metrics.php" | nindent 4 }}
+  plugin-version.php: |
+    {{- .Files.Get "files/plugin-version.php" | nindent 4 }}
   plugin-data.php: |
     {{- .Files.Get "files/plugin-data.php" | nindent 4 }}
   plugin-data-de.l10n.php: |
