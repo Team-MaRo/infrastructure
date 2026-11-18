@@ -49,7 +49,9 @@ Procedures that span the layers are skills in `.claude/skills/` (Claude Code loa
 agents read their `SKILL.md`): `resize-server` for a node's server type, `upgrade-versions` for
 finding and upgrading outdated versions - its `scripts/inventory.sh` lists every version location
 and how far it is behind -, `rate-limits` for how close each namespace's `cloudflare-only` rate
-limit comes to refusing genuine use (`scripts/rate-limits.sh [namespace] [--since 7d]`).
+limit comes to refusing genuine use (`scripts/rate-limits.sh [namespace] [--since 7d]`),
+`resources` for memory, CPU and disk per node and container against the sizing rule
+(`scripts/resources.py [namespace|node] [--window 14d]`).
 
 No credential is ever exported by hand, and no value belongs in a `.tf` file: each module
 reads its own token from a gitignored `terraform.tfvars`, and every backend reads the Object
