@@ -88,7 +88,8 @@ average 50, burst 300) and `wedding-manuele-robine` (the gallery's thumbnails: a
   its spans (Tempo's search API, TraceQL `{ resource.service.name = "traefik" &&
   span.server.address = "<host>" }`, `limit=5000`, `spss=1`), count them per second and replay
   their start times against a token bucket (`average` tokens a second, at most `burst`, one per
-  request): the chosen numbers refuse nothing and leave the bucket well above empty.
+  request): the chosen numbers refuse nothing and leave the bucket well above empty. The skill
+  `rate-limits` (`.claude/skills/rate-limits/`) does all of it, for one namespace or every one.
 - **Where**: a Kustomize directory patches its copy in its `kustomization.yaml`, with the
   measurement next to it (`components/kube-prometheus-stack`):
 

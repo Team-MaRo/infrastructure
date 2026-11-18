@@ -48,7 +48,8 @@ git config core.hooksPath .githooks
 Procedures that span the layers are skills in `.claude/skills/` (Claude Code loads them; other
 agents read their `SKILL.md`): `resize-server` for a node's server type, `upgrade-versions` for
 finding and upgrading outdated versions - its `scripts/inventory.sh` lists every version location
-and how far it is behind.
+and how far it is behind -, `rate-limits` for how close each namespace's `cloudflare-only` rate
+limit comes to refusing genuine use (`scripts/rate-limits.sh [namespace] [--since 7d]`).
 
 No credential is ever exported by hand, and no value belongs in a `.tf` file: each module
 reads its own token from a gitignored `terraform.tfvars`, and every backend reads the Object
