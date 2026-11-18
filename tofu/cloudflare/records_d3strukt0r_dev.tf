@@ -18,28 +18,24 @@ resource "cloudflare_dns_record" "d3strukt0r_dev_a_prod" {
   for_each = local.prod_nodes
   provider = cloudflare.personal
 
-  content  = each.value.ipv4
-  name     = "prod.d3strukt0r.dev"
-  proxied  = true
-  tags     = []
-  ttl      = 1
-  type     = "A"
-  zone_id  = local.zone_ids["d3strukt0r.dev"]
-  settings = {}
+  content = each.value.ipv4
+  name    = "prod.d3strukt0r.dev"
+  proxied = true
+  ttl     = 1
+  type    = "A"
+  zone_id = local.zone_ids["d3strukt0r.dev"]
 }
 
 resource "cloudflare_dns_record" "d3strukt0r_dev_aaaa_prod" {
   for_each = local.prod_nodes
   provider = cloudflare.personal
 
-  content  = each.value.ipv6
-  name     = "prod.d3strukt0r.dev"
-  proxied  = true
-  tags     = []
-  ttl      = 1
-  type     = "AAAA"
-  zone_id  = local.zone_ids["d3strukt0r.dev"]
-  settings = {}
+  content = each.value.ipv6
+  name    = "prod.d3strukt0r.dev"
+  proxied = true
+  ttl     = 1
+  type    = "AAAA"
+  zone_id = local.zone_ids["d3strukt0r.dev"]
 }
 
 # The single records that pointed at the old server become prod-01's.
@@ -61,28 +57,22 @@ resource "cloudflare_dns_record" "d3strukt0r_dev_a_direct_prod" {
   for_each = local.prod_nodes
   provider = cloudflare.personal
 
-  content  = each.value.ipv4
-  name     = "direct.prod.d3strukt0r.dev"
-  proxied  = false
-  tags     = []
-  ttl      = 1
-  type     = "A"
-  zone_id  = local.zone_ids["d3strukt0r.dev"]
-  settings = {}
+  content = each.value.ipv4
+  name    = "direct.prod.d3strukt0r.dev"
+  ttl     = 1
+  type    = "A"
+  zone_id = local.zone_ids["d3strukt0r.dev"]
 }
 
 resource "cloudflare_dns_record" "d3strukt0r_dev_aaaa_direct_prod" {
   for_each = local.prod_nodes
   provider = cloudflare.personal
 
-  content  = each.value.ipv6
-  name     = "direct.prod.d3strukt0r.dev"
-  proxied  = false
-  tags     = []
-  ttl      = 1
-  type     = "AAAA"
-  zone_id  = local.zone_ids["d3strukt0r.dev"]
-  settings = {}
+  content = each.value.ipv6
+  name    = "direct.prod.d3strukt0r.dev"
+  ttl     = 1
+  type    = "AAAA"
+  zone_id = local.zone_ids["d3strukt0r.dev"]
 }
 
 # The container registry (zot) on the cluster, DNS-only: through Cloudflare's proxy a request may
@@ -93,14 +83,9 @@ resource "cloudflare_dns_record" "d3strukt0r_dev_cname_registry" {
 
   content = "direct.prod.d3strukt0r.dev"
   name    = "registry.d3strukt0r.dev"
-  proxied = false
-  tags    = []
   ttl     = 1
   type    = "CNAME"
   zone_id = local.zone_ids["d3strukt0r.dev"]
-  settings = {
-    flatten_cname = false
-  }
 }
 
 # Zitadel, the identity provider, on the cluster.
@@ -110,13 +95,9 @@ resource "cloudflare_dns_record" "d3strukt0r_dev_cname_auth" {
   content = "prod.d3strukt0r.dev"
   name    = "auth.d3strukt0r.dev"
   proxied = true
-  tags    = []
   ttl     = 1
   type    = "CNAME"
   zone_id = local.zone_ids["d3strukt0r.dev"]
-  settings = {
-    flatten_cname = false
-  }
 }
 
 # Argo CD's UI and API, on the cluster behind Zitadel's login.
@@ -126,13 +107,9 @@ resource "cloudflare_dns_record" "d3strukt0r_dev_cname_argocd" {
   content = "prod.d3strukt0r.dev"
   name    = "argocd.d3strukt0r.dev"
   proxied = true
-  tags    = []
   ttl     = 1
   type    = "CNAME"
   zone_id = local.zone_ids["d3strukt0r.dev"]
-  settings = {
-    flatten_cname = false
-  }
 }
 
 # Grafana, on the cluster behind Zitadel's login.
@@ -142,13 +119,9 @@ resource "cloudflare_dns_record" "d3strukt0r_dev_cname_grafana" {
   content = "prod.d3strukt0r.dev"
   name    = "grafana.d3strukt0r.dev"
   proxied = true
-  tags    = []
   ttl     = 1
   type    = "CNAME"
   zone_id = local.zone_ids["d3strukt0r.dev"]
-  settings = {
-    flatten_cname = false
-  }
 }
 
 # Prometheus' UI, on the cluster behind the Zitadel gate (oauth2-proxy).
@@ -158,13 +131,9 @@ resource "cloudflare_dns_record" "d3strukt0r_dev_cname_prometheus" {
   content = "prod.d3strukt0r.dev"
   name    = "prometheus.d3strukt0r.dev"
   proxied = true
-  tags    = []
   ttl     = 1
   type    = "CNAME"
   zone_id = local.zone_ids["d3strukt0r.dev"]
-  settings = {
-    flatten_cname = false
-  }
 }
 
 # Alertmanager's UI, on the cluster behind the Zitadel gate (oauth2-proxy).
@@ -174,13 +143,9 @@ resource "cloudflare_dns_record" "d3strukt0r_dev_cname_alertmanager" {
   content = "prod.d3strukt0r.dev"
   name    = "alertmanager.d3strukt0r.dev"
   proxied = true
-  tags    = []
   ttl     = 1
   type    = "CNAME"
   zone_id = local.zone_ids["d3strukt0r.dev"]
-  settings = {
-    flatten_cname = false
-  }
 }
 
 # oauth2-proxy's own address, where Zitadel returns after a login for the UIs it guards.
@@ -190,13 +155,9 @@ resource "cloudflare_dns_record" "d3strukt0r_dev_cname_oauth2_proxy" {
   content = "prod.d3strukt0r.dev"
   name    = "oauth2-proxy.d3strukt0r.dev"
   proxied = true
-  tags    = []
   ttl     = 1
   type    = "CNAME"
   zone_id = local.zone_ids["d3strukt0r.dev"]
-  settings = {
-    flatten_cname = false
-  }
 }
 
 # The Traefik dashboard, behind oauth2-proxy.
@@ -206,13 +167,9 @@ resource "cloudflare_dns_record" "d3strukt0r_dev_cname_traefik" {
   content = "prod.d3strukt0r.dev"
   name    = "traefik.d3strukt0r.dev"
   proxied = true
-  tags    = []
   ttl     = 1
   type    = "CNAME"
   zone_id = local.zone_ids["d3strukt0r.dev"]
-  settings = {
-    flatten_cname = false
-  }
 }
 
 # phpMyAdmin, the shared MariaDB's web UI, behind oauth2-proxy.
@@ -222,13 +179,9 @@ resource "cloudflare_dns_record" "d3strukt0r_dev_cname_phpmyadmin" {
   content = "prod.d3strukt0r.dev"
   name    = "phpmyadmin.d3strukt0r.dev"
   proxied = true
-  tags    = []
   ttl     = 1
   type    = "CNAME"
   zone_id = local.zone_ids["d3strukt0r.dev"]
-  settings = {
-    flatten_cname = false
-  }
 }
 
 # Goldilocks, VPA's recommended requests per container, behind oauth2-proxy.
@@ -238,13 +191,9 @@ resource "cloudflare_dns_record" "d3strukt0r_dev_cname_goldilocks" {
   content = "prod.d3strukt0r.dev"
   name    = "goldilocks.d3strukt0r.dev"
   proxied = true
-  tags    = []
   ttl     = 1
   type    = "CNAME"
   zone_id = local.zone_ids["d3strukt0r.dev"]
-  settings = {
-    flatten_cname = false
-  }
 }
 
 # Matomo, the web analytics of every site: its UI with its own Zitadel login and the tracking
@@ -255,13 +204,9 @@ resource "cloudflare_dns_record" "d3strukt0r_dev_cname_matomo" {
   content = "prod.d3strukt0r.dev"
   name    = "matomo.d3strukt0r.dev"
   proxied = true
-  tags    = []
   ttl     = 1
   type    = "CNAME"
   zone_id = local.zone_ids["d3strukt0r.dev"]
-  settings = {
-    flatten_cname = false
-  }
 }
 
 # pgAdmin, the shared PostgreSQL's web UI, with its own Zitadel login.
@@ -271,13 +216,9 @@ resource "cloudflare_dns_record" "d3strukt0r_dev_cname_pgadmin" {
   content = "prod.d3strukt0r.dev"
   name    = "pgadmin.d3strukt0r.dev"
   proxied = true
-  tags    = []
   ttl     = 1
   type    = "CNAME"
   zone_id = local.zone_ids["d3strukt0r.dev"]
-  settings = {
-    flatten_cname = false
-  }
 }
 
 # The wedding website's second name and its API (kubernetes/components/wedding-manuele-robine).
@@ -287,13 +228,9 @@ resource "cloudflare_dns_record" "d3strukt0r_dev_cname_wedding_manuele_robine" {
   content = "prod.d3strukt0r.dev"
   name    = "wedding-manuele-robine.d3strukt0r.dev"
   proxied = true
-  tags    = []
   ttl     = 1
   type    = "CNAME"
   zone_id = local.zone_ids["d3strukt0r.dev"]
-  settings = {
-    flatten_cname = false
-  }
 }
 
 resource "cloudflare_dns_record" "d3strukt0r_dev_cname_api_wedding_manuele_robine" {
@@ -302,13 +239,9 @@ resource "cloudflare_dns_record" "d3strukt0r_dev_cname_api_wedding_manuele_robin
   content = "prod.d3strukt0r.dev"
   name    = "api-wedding-manuele-robine.d3strukt0r.dev"
   proxied = true
-  tags    = []
   ttl     = 1
   type    = "CNAME"
   zone_id = local.zone_ids["d3strukt0r.dev"]
-  settings = {
-    flatten_cname = false
-  }
 }
 
 # The public status page (Gatus), on the cluster.
@@ -318,13 +251,9 @@ resource "cloudflare_dns_record" "d3strukt0r_dev_cname_status" {
   content = "prod.d3strukt0r.dev"
   name    = "status.d3strukt0r.dev"
   proxied = true
-  tags    = []
   ttl     = 1
   type    = "CNAME"
   zone_id = local.zone_ids["d3strukt0r.dev"]
-  settings = {
-    flatten_cname = false
-  }
 }
 
 # OpenBao's UI and API, on the cluster behind Zitadel's login.
@@ -334,13 +263,9 @@ resource "cloudflare_dns_record" "d3strukt0r_dev_cname_openbao" {
   content = "prod.d3strukt0r.dev"
   name    = "openbao.d3strukt0r.dev"
   proxied = true
-  tags    = []
   ttl     = 1
   type    = "CNAME"
   zone_id = local.zone_ids["d3strukt0r.dev"]
-  settings = {
-    flatten_cname = false
-  }
 }
 
 resource "cloudflare_dns_record" "d3strukt0r_dev_cname_dk1_domainkey" {
@@ -349,14 +274,9 @@ resource "cloudflare_dns_record" "d3strukt0r_dev_cname_dk1_domainkey" {
   comment = "AnonAddy (Proxy not supported!)"
   content = "dk1._domainkey.anonaddy.me"
   name    = "dk1._domainkey.d3strukt0r.dev"
-  proxied = false
-  tags    = []
   ttl     = 1
   type    = "CNAME"
   zone_id = local.zone_ids["d3strukt0r.dev"]
-  settings = {
-    flatten_cname = false
-  }
 }
 
 resource "cloudflare_dns_record" "d3strukt0r_dev_cname_dk2_domainkey" {
@@ -365,14 +285,9 @@ resource "cloudflare_dns_record" "d3strukt0r_dev_cname_dk2_domainkey" {
   comment = "AnonAddy (Proxy not supported!)"
   content = "dk2._domainkey.anonaddy.me"
   name    = "dk2._domainkey.d3strukt0r.dev"
-  proxied = false
-  tags    = []
   ttl     = 1
   type    = "CNAME"
   zone_id = local.zone_ids["d3strukt0r.dev"]
-  settings = {
-    flatten_cname = false
-  }
 }
 
 resource "cloudflare_dns_record" "d3strukt0r_dev_cname_wundexpertinplus" {
@@ -381,13 +296,9 @@ resource "cloudflare_dns_record" "d3strukt0r_dev_cname_wundexpertinplus" {
   content = "team-maro.github.io"
   name    = "wundexpertinplus.d3strukt0r.dev"
   proxied = true
-  tags    = []
   ttl     = 1
   type    = "CNAME"
   zone_id = local.zone_ids["d3strukt0r.dev"]
-  settings = {
-    flatten_cname = false
-  }
 }
 
 resource "cloudflare_dns_record" "d3strukt0r_dev_mx_apex" {
@@ -397,12 +308,9 @@ resource "cloudflare_dns_record" "d3strukt0r_dev_mx_apex" {
   content  = "mail2.anonaddy.me"
   name     = "d3strukt0r.dev"
   priority = 20
-  proxied  = false
-  tags     = []
   ttl      = 1
   type     = "MX"
   zone_id  = local.zone_ids["d3strukt0r.dev"]
-  settings = {}
 }
 
 resource "cloudflare_dns_record" "d3strukt0r_dev_mx_apex_2" {
@@ -412,150 +320,120 @@ resource "cloudflare_dns_record" "d3strukt0r_dev_mx_apex_2" {
   content  = "mail.anonaddy.me"
   name     = "d3strukt0r.dev"
   priority = 10
-  proxied  = false
-  tags     = []
   ttl      = 1
   type     = "MX"
   zone_id  = local.zone_ids["d3strukt0r.dev"]
-  settings = {}
 }
 
 resource "cloudflare_dns_record" "d3strukt0r_dev_txt_atproto" {
   provider = cloudflare.personal
 
-  comment  = "BlueSky Verify"
-  content  = "\"did=did:plc:hwgplhlt5rreem3bclu63umf\""
-  name     = "_atproto.d3strukt0r.dev"
-  proxied  = false
-  tags     = []
-  ttl      = 1
-  type     = "TXT"
-  zone_id  = local.zone_ids["d3strukt0r.dev"]
-  settings = {}
+  comment = "BlueSky Verify"
+  content = "\"did=did:plc:hwgplhlt5rreem3bclu63umf\""
+  name    = "_atproto.d3strukt0r.dev"
+  ttl     = 1
+  type    = "TXT"
+  zone_id = local.zone_ids["d3strukt0r.dev"]
 }
 
 # Zitadel re-checks the organisation domain periodically, so this stays.
 resource "cloudflare_dns_record" "d3strukt0r_dev_txt_zitadel_challenge" {
   provider = cloudflare.personal
 
-  comment  = "Zitadel Verify (organisation D3strukt0r)"
-  content  = "\"7VUEdq0n1PFU9toPwnmMKiYRIrwNu3g3\""
-  name     = "_zitadel-challenge.d3strukt0r.dev"
-  proxied  = false
-  tags     = []
-  ttl      = 1
-  type     = "TXT"
-  zone_id  = local.zone_ids["d3strukt0r.dev"]
-  settings = {}
+  comment = "Zitadel Verify (organisation D3strukt0r)"
+  content = "\"7VUEdq0n1PFU9toPwnmMKiYRIrwNu3g3\""
+  name    = "_zitadel-challenge.d3strukt0r.dev"
+  ttl     = 1
+  type    = "TXT"
+  zone_id = local.zone_ids["d3strukt0r.dev"]
 }
 
 resource "cloudflare_dns_record" "d3strukt0r_dev_txt_apex" {
   provider = cloudflare.personal
 
-  comment  = "Have I Been Pwned Verify"
-  content  = "\"have-i-been-pwned-verification=dweb_lyn6vdhsmazisl84225s18d3\""
-  name     = "d3strukt0r.dev"
-  proxied  = false
-  tags     = []
-  ttl      = 1
-  type     = "TXT"
-  zone_id  = local.zone_ids["d3strukt0r.dev"]
-  settings = {}
+  comment = "Have I Been Pwned Verify"
+  content = "\"have-i-been-pwned-verification=dweb_lyn6vdhsmazisl84225s18d3\""
+  name    = "d3strukt0r.dev"
+  ttl     = 1
+  type    = "TXT"
+  zone_id = local.zone_ids["d3strukt0r.dev"]
 }
 
 resource "cloudflare_dns_record" "d3strukt0r_dev_txt_apex_2" {
   provider = cloudflare.personal
 
-  comment  = "AnonAddy SPF"
-  content  = "\"v=spf1 include:spf.anonaddy.me -all\""
-  name     = "d3strukt0r.dev"
-  proxied  = false
-  tags     = []
-  ttl      = 1
-  type     = "TXT"
-  zone_id  = local.zone_ids["d3strukt0r.dev"]
-  settings = {}
+  comment = "AnonAddy SPF"
+  content = "\"v=spf1 include:spf.anonaddy.me -all\""
+  name    = "d3strukt0r.dev"
+  ttl     = 1
+  type    = "TXT"
+  zone_id = local.zone_ids["d3strukt0r.dev"]
 }
 
 resource "cloudflare_dns_record" "d3strukt0r_dev_txt_apex_3" {
   provider = cloudflare.personal
 
-  comment  = "OpenAI/ChatGPT Verify"
-  content  = "\"openai-domain-verification=dv-iGnk42gpu7REPIIMHXN9H5xz\""
-  name     = "d3strukt0r.dev"
-  proxied  = false
-  tags     = []
-  ttl      = 1
-  type     = "TXT"
-  zone_id  = local.zone_ids["d3strukt0r.dev"]
-  settings = {}
+  comment = "OpenAI/ChatGPT Verify"
+  content = "\"openai-domain-verification=dv-iGnk42gpu7REPIIMHXN9H5xz\""
+  name    = "d3strukt0r.dev"
+  ttl     = 1
+  type    = "TXT"
+  zone_id = local.zone_ids["d3strukt0r.dev"]
 }
 
 resource "cloudflare_dns_record" "d3strukt0r_dev_txt_apex_4" {
   provider = cloudflare.personal
 
-  comment  = "AnonAddy Verify"
-  content  = "\"aa-verify=2e2cf60f7d0fc0c21beaacf519fc39b74ff4c258\""
-  name     = "d3strukt0r.dev"
-  proxied  = false
-  tags     = []
-  ttl      = 1
-  type     = "TXT"
-  zone_id  = local.zone_ids["d3strukt0r.dev"]
-  settings = {}
+  comment = "AnonAddy Verify"
+  content = "\"aa-verify=2e2cf60f7d0fc0c21beaacf519fc39b74ff4c258\""
+  name    = "d3strukt0r.dev"
+  ttl     = 1
+  type    = "TXT"
+  zone_id = local.zone_ids["d3strukt0r.dev"]
 }
 
 resource "cloudflare_dns_record" "d3strukt0r_dev_txt_dmarc" {
   provider = cloudflare.personal
 
-  comment  = "DMARC, DKIM relaxed (no adkim=s): mailomat signs as mailomat.d3strukt0r.dev"
-  content  = "\"v=DMARC1; p=quarantine\""
-  name     = "_dmarc.d3strukt0r.dev"
-  proxied  = false
-  tags     = []
-  ttl      = 1
-  type     = "TXT"
-  zone_id  = local.zone_ids["d3strukt0r.dev"]
-  settings = {}
+  comment = "DMARC, DKIM relaxed (no adkim=s): mailomat signs as mailomat.d3strukt0r.dev"
+  content = "\"v=DMARC1; p=quarantine\""
+  name    = "_dmarc.d3strukt0r.dev"
+  ttl     = 1
+  type    = "TXT"
+  zone_id = local.zone_ids["d3strukt0r.dev"]
 }
 
 resource "cloudflare_dns_record" "d3strukt0r_dev_aaaa_apex" {
   provider = cloudflare.personal
 
-  content  = "100::"
-  name     = "d3strukt0r.dev"
-  proxied  = true
-  tags     = []
-  ttl      = 1
-  type     = "AAAA"
-  zone_id  = local.zone_ids["d3strukt0r.dev"]
-  settings = {}
+  content = "100::"
+  name    = "d3strukt0r.dev"
+  proxied = true
+  ttl     = 1
+  type    = "AAAA"
+  zone_id = local.zone_ids["d3strukt0r.dev"]
 }
 
 resource "cloudflare_dns_record" "d3strukt0r_dev_aaaa_weleda_webcenter_text_export" {
   provider = cloudflare.personal
 
-  content  = "100::"
-  name     = "weleda-webcenter-text-export.d3strukt0r.dev"
-  proxied  = true
-  tags     = []
-  ttl      = 1
-  type     = "AAAA"
-  zone_id  = local.zone_ids["d3strukt0r.dev"]
-  settings = {}
+  content = "100::"
+  name    = "weleda-webcenter-text-export.d3strukt0r.dev"
+  proxied = true
+  ttl     = 1
+  type    = "AAAA"
+  zone_id = local.zone_ids["d3strukt0r.dev"]
 }
 
 resource "cloudflare_dns_record" "d3strukt0r_dev_aaaa_www" {
   provider = cloudflare.personal
 
-  content  = "100::"
-  name     = "www.d3strukt0r.dev"
-  proxied  = true
-  tags     = []
-  ttl      = 1
-  type     = "AAAA"
-  zone_id  = local.zone_ids["d3strukt0r.dev"]
-  settings = {}
+  content = "100::"
+  name    = "www.d3strukt0r.dev"
+  proxied = true
+  ttl     = 1
+  type    = "AAAA"
+  zone_id = local.zone_ids["d3strukt0r.dev"]
 }
 
 # mailomat.swiss sends mail for this domain (smarthost, see "Sending through mailomat" in the
@@ -565,29 +443,23 @@ resource "cloudflare_dns_record" "d3strukt0r_dev_aaaa_www" {
 resource "cloudflare_dns_record" "d3strukt0r_dev_txt_mailomat" {
   provider = cloudflare.personal
 
-  comment  = "mailomat"
-  content  = "v=spf1 include:mailomat.cloud -all"
-  name     = "mailomat.d3strukt0r.dev"
-  proxied  = false
-  tags     = []
-  ttl      = 1
-  type     = "TXT"
-  zone_id  = local.zone_ids["d3strukt0r.dev"]
-  settings = {}
+  comment = "mailomat"
+  content = "v=spf1 include:mailomat.cloud -all"
+  name    = "mailomat.d3strukt0r.dev"
+  ttl     = 1
+  type    = "TXT"
+  zone_id = local.zone_ids["d3strukt0r.dev"]
 }
 
 resource "cloudflare_dns_record" "d3strukt0r_dev_txt_mom1_domainkey_mailomat" {
   provider = cloudflare.personal
 
-  comment  = "mailomat"
-  content  = "v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA3LbxAfchqUME2RP3iZMnZCn5bntV90LX3NVg62+cP0HFLY4L2Ewaz3jBI6uPQE6Rg/H54LoBa4vMaPcfBKk2PPra/cdDaTOYuy85oNBaEDLJjAZWsGGzgdjFm6npYr30rio4C1O0UkSYuspr8YMm8t5gsc4PByGfhJSSFYC7I90HEQ1yy+dOCTGrFKBGz2OHYC7vpVVjl/wDN5X/RD2fxol2O/rqGBrVKDtOSX3G/Z6sWPLni48+T2GTLtOpbFxKzG/T0TmjIUCjCtcUhjgZx0Gp1UXsRUnKWbIOJFXfddUs/rc9OlCp0W8DWEi9EmXDsT2DGeoIe3fpTMsg/VJ2HwIDAQAB"
-  name     = "mom1._domainkey.mailomat.d3strukt0r.dev"
-  proxied  = false
-  tags     = []
-  ttl      = 1
-  type     = "TXT"
-  zone_id  = local.zone_ids["d3strukt0r.dev"]
-  settings = {}
+  comment = "mailomat"
+  content = "v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA3LbxAfchqUME2RP3iZMnZCn5bntV90LX3NVg62+cP0HFLY4L2Ewaz3jBI6uPQE6Rg/H54LoBa4vMaPcfBKk2PPra/cdDaTOYuy85oNBaEDLJjAZWsGGzgdjFm6npYr30rio4C1O0UkSYuspr8YMm8t5gsc4PByGfhJSSFYC7I90HEQ1yy+dOCTGrFKBGz2OHYC7vpVVjl/wDN5X/RD2fxol2O/rqGBrVKDtOSX3G/Z6sWPLni48+T2GTLtOpbFxKzG/T0TmjIUCjCtcUhjgZx0Gp1UXsRUnKWbIOJFXfddUs/rc9OlCp0W8DWEi9EmXDsT2DGeoIe3fpTMsg/VJ2HwIDAQAB"
+  name    = "mom1._domainkey.mailomat.d3strukt0r.dev"
+  ttl     = 1
+  type    = "TXT"
+  zone_id = local.zone_ids["d3strukt0r.dev"]
 }
 
 resource "cloudflare_dns_record" "d3strukt0r_dev_mx_mailomat" {
@@ -597,10 +469,7 @@ resource "cloudflare_dns_record" "d3strukt0r_dev_mx_mailomat" {
   content  = "mx.mailomat.cloud"
   name     = "mailomat.d3strukt0r.dev"
   priority = 10
-  proxied  = false
-  tags     = []
   ttl      = 1
   type     = "MX"
   zone_id  = local.zone_ids["d3strukt0r.dev"]
-  settings = {}
 }

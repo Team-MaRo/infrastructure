@@ -21,8 +21,6 @@ resource "cloudflare_dns_record" "caa_personal" {
   provider = cloudflare.personal
 
   name    = each.value.zone
-  proxied = false
-  tags    = []
   ttl     = 1
   type    = "CAA"
   zone_id = local.zone_ids[each.value.zone]
@@ -31,7 +29,6 @@ resource "cloudflare_dns_record" "caa_personal" {
     tag   = each.value.tag
     value = "letsencrypt.org"
   }
-  settings = {}
 }
 
 resource "cloudflare_dns_record" "caa_arepazo" {
@@ -39,8 +36,6 @@ resource "cloudflare_dns_record" "caa_arepazo" {
   provider = cloudflare.arepazo
 
   name    = each.value.zone
-  proxied = false
-  tags    = []
   ttl     = 1
   type    = "CAA"
   zone_id = local.zone_ids[each.value.zone]
@@ -49,5 +44,4 @@ resource "cloudflare_dns_record" "caa_arepazo" {
     tag   = each.value.tag
     value = "letsencrypt.org"
   }
-  settings = {}
 }

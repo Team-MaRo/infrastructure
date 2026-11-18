@@ -60,6 +60,10 @@ Things that will bite:
   because it records which account owns which zone.
 - Every A/AAAA record is proxied, and `proxied = true` forces `ttl = 1`. A generated
   record with any other TTL will fight the API.
+- A record writes only what differs from the provider's defaults. Generated HCL restates
+  `tags = []`, `settings = {}` (or `flatten_cname = false`) and `proxied = false`; they are
+  dropped when the record moves into the module, and the plan stays empty. `ttl` stays even at
+  `1` (automatic): the provider requires it.
 - cf-terraforming can *generate* HCL for zones, records and settings, but only lists
   `cloudflare_dns_record` as import-capable for v5. The zone and zone-setting import
   blocks come from `local.zones`/`local.setting_pairs` via `for_each`, not from the
