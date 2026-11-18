@@ -97,6 +97,16 @@ manifests fit together is in [`kubernetes/README.md`](../../README.md).
 - **Backups** (`backups.yaml`), to `d3strukt0r-prod-mariadb-backups`:
   - `PhysicalBackup` `mariadb-daily` at 23:30 UTC from the replica, kept 30 days. Staged on
     the node's disk before the upload, so it sets an ephemeral-storage limit of its own.
+  - **A `.sql.gz` of every database every night** (since 2026-11-18, `database-dumps.yaml`): the
+    CronJob `database-dumps` at 22:30 UTC dumps each database the server has (but its own) from
+    the replica, verified TLS, as the read-only user `dumps`, and uploads
+    `logical/<database>.<UTC time>.sql.gz`; files older than 30 days are deleted there. Content
+    only - no `CREATE DATABASE` or `USE` -, so a dump imports into whatever database it is
+    pointed at ("Dumping and importing one database"); the physical backups stay the way back for
+    the whole server. Not the operator's logical `Backup`: it always dumps with `--databases`,
+    which writes `CREATE DATABASE` and `USE` into the file. A new app's database is dumped from
+    its first night on. `DatabaseDumpsMissing` fires when no run has succeeded for a day (a failed
+    one is also `KubeJobFailed`).
   - `PointInTimeRecovery` `pitr-2026-11-03` (the one `mariadb.yaml` names; a new dated one after
     every replica recovery, see below): the agent next to the primary archives **closed**
     binary logs every ten minutes (hardcoded, counted from the agent's start, not the clock). The operator
@@ -256,6 +266,46 @@ kubectl --context d3strukt0r-prod-admin -n mariadb get mariadb mariadb -o jsonpa
 
 To look into the databases by hand, phpMyAdmin is at `https://phpmyadmin.d3strukt0r.dev`
 ([`../phpmyadmin/README.md`](../phpmyadmin/README.md)).
+
+## Dumping and importing one database
+
+**The nightly dump** of a database, from the bucket (read-only with the admin profile):
+
+```sh
+aws --profile d3strukt0r-hetzner --endpoint-url https://nbg1.your-objectstorage.com s3 ls s3://d3strukt0r-prod-mariadb-backups/logical/ | grep <database>
+aws --profile d3strukt0r-hetzner --endpoint-url https://nbg1.your-objectstorage.com s3 cp s3://d3strukt0r-prod-mariadb-backups/logical/<database>.<UTC time>.sql.gz .
+```
+
+A dump holds only the database's content - no `CREATE DATABASE`, no `USE` -, so it goes into
+whichever database the import names: the original or a copy.
+
+**A fresh dump by hand**, from the replica (the primary is named by `kubectl --context
+d3strukt0r-prod-admin -n mariadb get mariadb mariadb -o jsonpath='{.status.currentPrimary}'`):
+
+```sh
+replica=$([ "$(kubectl --context d3strukt0r-prod-admin -n mariadb get mariadb mariadb -o jsonpath='{.status.currentPrimary}')" = mariadb-0 ] && echo mariadb-1 || echo mariadb-0)
+kubectl --context d3strukt0r-prod-admin -n mariadb exec "$replica" -c mariadb -- sh -c 'mariadb-dump -uroot -p"$MARIADB_ROOT_PASSWORD" --single-transaction --routines --triggers --events --hex-blob <database>' | gzip > <database>.sql.gz
+```
+
+**Importing a `.sql.gz`** - always into the primary (the replica is read-only and gets it through
+replication). The database must exist (its app's `Database` object); the import overwrites every
+table the dump holds, so take a fresh dump first if the database has anything to keep:
+
+```sh
+primary=$(kubectl --context d3strukt0r-prod-admin -n mariadb get mariadb mariadb -o jsonpath='{.status.currentPrimary}')
+gunzip -c <file>.sql.gz | kubectl --context d3strukt0r-prod-admin -n mariadb exec -i "$primary" -c mariadb -- sh -c 'mariadb -uroot -p"$MARIADB_ROOT_PASSWORD" <database>'
+```
+
+phpMyAdmin imports a `.sql.gz` too, up to 100 MB (`components/phpmyadmin`).
+
+**A dump run by hand**, e.g. before a risky change (it uploads like the nightly one):
+
+```sh
+kubectl --context d3strukt0r-prod-admin -n mariadb create job --from=cronjob/database-dumps database-dumps-manual
+```
+
+Delete the Job once it is done (`kubectl --context d3strukt0r-prod-admin -n mariadb delete job
+database-dumps-manual`); a dump that fails shows why in its containers' logs (`dump`, `upload`).
 
 ## Queries pile up
 

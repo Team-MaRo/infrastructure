@@ -1,0 +1,186 @@
+---
+# Every app database as a plain .sql.gz every night, kept 30 days (README "Dumping and importing
+# one database"): content only - no CREATE DATABASE or USE -, so a dump imports into whatever
+# database it is pointed at. Beside the physical backups, which restore the whole server.
+#
+# Its user may only read. The password comes from OpenBao secret/mariadb-apps/dumps.
+# 1Password "MariaDB | Prod | dumps"
+#   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=erkwk4gkt2uvekxfps2pjnikk4&h=my.1password.com
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: dumps-db
+spec:
+  data:
+    - secretKey: password
+      remoteRef:
+        key: mariadb-apps/dumps
+        property: password
+---
+apiVersion: k8s.mariadb.com/v1alpha1
+kind: User
+metadata:
+  name: dumps
+spec:
+  mariaDbRef:
+    name: mariadb
+  name: dumps
+  host: "%"
+  passwordSecretKeyRef:
+    name: dumps-db
+    key: password
+  # Refused without TLS, so the password never crosses the network in the clear.
+  require:
+    ssl: true
+---
+# What mariadb-dump needs to read every database with its views, triggers, events and routines
+# (global SELECT covers the routines' definitions in mysql.proc); nothing that writes.
+apiVersion: k8s.mariadb.com/v1alpha1
+kind: Grant
+metadata:
+  name: dumps
+spec:
+  mariaDbRef:
+    name: mariadb
+  username: dumps
+  host: "%"
+  database: "*"
+  table: "*"
+  privileges:
+    - SELECT
+    - SHOW VIEW
+    - TRIGGER
+    - EVENT
+    - LOCK TABLES
+---
+# 22:30 UTC, before the physical backup (23:30); it touches no node. From the replica
+# (mariadb-secondary), every database the server has but its own - a new app's is dumped from its
+# first night on. The dump container writes into /dumps, the upload container then copies the
+# files to the backup bucket under logical/ and deletes those older than 30 days there (the
+# bucket's 35-day rule stays as a backstop).
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: database-dumps
+spec:
+  schedule: "30 22 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 3600
+      ttlSecondsAfterFinished: 86400
+      template:
+        spec:
+          restartPolicy: Never
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 999
+            runAsGroup: 999
+            fsGroup: 999
+            seccompProfile:
+              type: RuntimeDefault
+          initContainers:
+            - name: dump
+              # The LTS line, pulled at every run.
+              image: mariadb:12.3
+              imagePullPolicy: Always
+              env:
+                - name: MYSQL_PWD
+                  valueFrom:
+                    secretKeyRef:
+                      name: dumps-db
+                      key: password
+              command:
+                - bash
+                - -c
+                - |
+                  set -euo pipefail
+                  # mariadb-dump knows no --connect-timeout; the client checks the connection first.
+                  connect=(--host=mariadb-secondary.mariadb.svc --user=dumps --ssl-ca=/ca/ca.crt)
+                  time=$(date -u +%Y-%m-%dT%H%M%SZ)
+                  for db in $(mariadb "${connect[@]}" --connect-timeout=10 --batch --skip-column-names --execute='SHOW DATABASES' \
+                      | grep -v -x -E 'information_schema|performance_schema|mysql|sys'); do
+                    mariadb-dump "${connect[@]}" --single-transaction --routines --triggers --events --hex-blob "$db" \
+                      | gzip >"/dumps/$db.$time.sql.gz"
+                    echo "$db: $(wc -c <"/dumps/$db.$time.sql.gz") bytes"
+                  done
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop:
+                    - ALL
+              resources:
+                requests:
+                  memory: 64Mi
+                limits:
+                  memory: 256Mi
+              volumeMounts:
+                - name: dumps
+                  mountPath: /dumps
+                - name: ca
+                  mountPath: /ca
+                  readOnly: true
+          containers:
+            - name: upload
+              image: rclone/rclone:1
+              imagePullPolicy: Always
+              env:
+                - name: HOME
+                  value: /tmp
+                - name: RCLONE_CONFIG_S3_TYPE
+                  value: s3
+                - name: RCLONE_CONFIG_S3_PROVIDER
+                  value: Other
+                - name: RCLONE_CONFIG_S3_ENDPOINT
+                  value: https://nbg1.your-objectstorage.com
+                - name: RCLONE_CONFIG_S3_REGION
+                  value: nbg1
+                - name: RCLONE_CONFIG_S3_ACCESS_KEY_ID
+                  valueFrom:
+                    secretKeyRef:
+                      name: mariadb-backups-s3
+                      key: access-key-id
+                - name: RCLONE_CONFIG_S3_SECRET_ACCESS_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: mariadb-backups-s3
+                      key: secret-access-key
+              command:
+                - sh
+                - -c
+                - |
+                  set -eu
+                  rclone copy --no-check-dest /dumps s3:d3strukt0r-prod-mariadb-backups/logical/
+                  rclone delete --min-age 30d s3:d3strukt0r-prod-mariadb-backups/logical/
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop:
+                    - ALL
+              resources:
+                requests:
+                  memory: 32Mi
+                limits:
+                  memory: 128Mi
+              volumeMounts:
+                - name: dumps
+                  mountPath: /dumps
+                  readOnly: true
+                - name: tmp
+                  mountPath: /tmp
+          volumes:
+            - name: dumps
+              emptyDir:
+                sizeLimit: 2Gi
+            - name: tmp
+              emptyDir:
+                sizeLimit: 64Mi
+            # The operator's CA, which signed mariadb-secondary's certificate.
+            - name: ca
+              secret:
+                secretName: mariadb-ca-bundle

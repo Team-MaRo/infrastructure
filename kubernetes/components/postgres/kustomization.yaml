@@ -9,6 +9,7 @@ resources:
   - cluster.yaml
   - admin-role.yaml
   - backups.yaml
+  - database-dumps.yaml
   - pod-monitor.yaml
   - rules.yaml
 

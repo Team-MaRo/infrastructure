@@ -1,0 +1,174 @@
+---
+# Every app database as a plain .sql.gz every night, kept 30 days (README "Dumping and importing
+# one database"): content only - no CREATE DATABASE or \connect -, so a dump imports into whatever
+# database it is pointed at. Beside the physical backups (backups.yaml), which restore the whole
+# cluster.
+#
+# Its role may only read (pg_read_all_data) and logs in with a client certificate CloudNativePG
+# issues and renews (Secret dumps-client-cert) - no password to keep anywhere. pg_hba in
+# cluster.yaml admits it by certificate only.
+apiVersion: postgresql.cnpg.io/v1
+kind: DatabaseRole
+metadata:
+  name: dumps
+spec:
+  cluster:
+    name: postgres
+  name: dumps
+  login: true
+  inRoles:
+    - pg_read_all_data
+  clientCertificate:
+    enabled: true
+---
+# 22:30 UTC, before the scheduled backup (23:00); it touches no node. From a replica
+# (postgres-ro), every database the cluster has but its own (postgres, the templates, and app -
+# CloudNativePG's default database, unused) - a new app's is dumped from its first night on. The
+# dump container writes into /dumps, the upload container then copies the files to the backup
+# bucket under logical/ and deletes those older than 30 days there (the bucket has no expiry of
+# its own: barman manages the rest).
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: database-dumps
+spec:
+  schedule: "30 22 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 3600
+      ttlSecondsAfterFinished: 86400
+      template:
+        spec:
+          restartPolicy: Never
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 999
+            runAsGroup: 999
+            fsGroup: 999
+            seccompProfile:
+              type: RuntimeDefault
+          initContainers:
+            - name: dump
+              # The server's major version, pulled at every run - pg_dump must not be older than
+              # the server.
+              image: postgres:18
+              imagePullPolicy: Always
+              env:
+                - name: PGHOST
+                  value: postgres-ro.postgres.svc
+                - name: PGUSER
+                  value: dumps
+                - name: PGSSLMODE
+                  value: verify-full
+                - name: PGSSLROOTCERT
+                  value: /ca/ca.crt
+                - name: PGSSLCERT
+                  value: /cert/tls.crt
+                - name: PGSSLKEY
+                  value: /cert/tls.key
+                - name: PGCONNECT_TIMEOUT
+                  value: "10"
+              command:
+                - bash
+                - -c
+                - |
+                  set -euo pipefail
+                  time=$(date -u +%Y-%m-%dT%H%M%SZ)
+                  for db in $(psql --dbname=postgres --no-align --tuples-only --command="
+                      SELECT datname FROM pg_database
+                      WHERE NOT datistemplate AND datname NOT IN ('postgres', 'app')"); do
+                    pg_dump --dbname="$db" --no-owner --no-privileges | gzip >"/dumps/$db.$time.sql.gz"
+                    echo "$db: $(wc -c <"/dumps/$db.$time.sql.gz") bytes"
+                  done
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop:
+                    - ALL
+              resources:
+                requests:
+                  memory: 64Mi
+                limits:
+                  memory: 256Mi
+              volumeMounts:
+                - name: dumps
+                  mountPath: /dumps
+                - name: ca
+                  mountPath: /ca
+                  readOnly: true
+                - name: cert
+                  mountPath: /cert
+                  readOnly: true
+          containers:
+            - name: upload
+              image: rclone/rclone:1
+              imagePullPolicy: Always
+              env:
+                - name: HOME
+                  value: /tmp
+                - name: RCLONE_CONFIG_S3_TYPE
+                  value: s3
+                - name: RCLONE_CONFIG_S3_PROVIDER
+                  value: Other
+                - name: RCLONE_CONFIG_S3_ENDPOINT
+                  value: https://nbg1.your-objectstorage.com
+                - name: RCLONE_CONFIG_S3_REGION
+                  value: nbg1
+                - name: RCLONE_CONFIG_S3_ACCESS_KEY_ID
+                  valueFrom:
+                    secretKeyRef:
+                      name: postgres-backups-s3
+                      key: access-key-id
+                - name: RCLONE_CONFIG_S3_SECRET_ACCESS_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: postgres-backups-s3
+                      key: secret-access-key
+              command:
+                - sh
+                - -c
+                - |
+                  set -eu
+                  rclone copy --no-check-dest /dumps s3:d3strukt0r-prod-postgres-backups/logical/
+                  rclone delete --min-age 30d s3:d3strukt0r-prod-postgres-backups/logical/
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop:
+                    - ALL
+              resources:
+                requests:
+                  memory: 32Mi
+                limits:
+                  memory: 128Mi
+              volumeMounts:
+                - name: dumps
+                  mountPath: /dumps
+                  readOnly: true
+                - name: tmp
+                  mountPath: /tmp
+          volumes:
+            - name: dumps
+              emptyDir:
+                sizeLimit: 2Gi
+            - name: tmp
+              emptyDir:
+                sizeLimit: 64Mi
+            # CloudNativePG's CA, which signed postgres-ro's certificate.
+            - name: ca
+              secret:
+                secretName: postgres-ca
+                items:
+                  - key: ca.crt
+                    path: ca.crt
+            # libpq takes a key owned by root only with mode 0640 or less.
+            - name: cert
+              secret:
+                secretName: dumps-client-cert
+                defaultMode: 0440

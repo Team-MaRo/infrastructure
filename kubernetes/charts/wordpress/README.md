@@ -30,7 +30,9 @@ named after the site:
 Beside them: the Service and Ingress `web` (cert-manager creates the Certificate `web-tls` from
 its annotation), the ExternalSecrets `web`
 and `uploads-proxy`, the PodMonitor `php-fpm`, and in the namespace `mariadb` the site's
-`Database`, `User`, `Grant` and the ExternalSecret `<site>-db` (`templates/database.yaml`).
+`Database`, `User`, `Grant` and the ExternalSecret `<site>-db` (`templates/database.yaml`). The
+site's database is dumped every night with all the others (`components/mariadb` README,
+"Dumping and importing one database").
 
 ## Names from the release
 
@@ -192,7 +194,9 @@ variable, stops the rendering with a message naming it.
   `wp-cron.php` through the Service every five minutes - on time, independent of visitors, past
   any basic auth on the Ingress, and a failing run shows as a failed Job. While the pod is missing
   (a node drained for a reboot, the new pod still assembling WordPress) curl retries every 30 s
-  for up to 5 minutes instead of failing; a kured reboot failed a run that way (2026-10-18). A
+  for up to 5 minutes instead of failing; a kured reboot failed a run that way (2026-10-18). An
+  outage that keeps php-fpm busy for longer still fails the run (Object Storage, 2026-10-26) -
+  the alert is right then, and a longer retry would only hide the outage. A
   finished Job deletes itself a day later (`ttlSecondsAfterFinished`), so KubeJobFailed fires once
   and clears itself; the run's output stays in Loki: `{namespace="<site>", container="wp-cron"}`.
 - **nginx** (`files/default.conf`) takes its rules in an order where they take effect (nginx uses
@@ -737,10 +741,12 @@ running pods stay. A renamed or removed value changes in the same commit as ever
   version (`<slug> <version>`). Every start installs the latest release otherwise.
 - **A new WordPress major or PHP version** comes with the image tags (`7-php8.5-fpm` twice and
   `cli-2-php8.5` in `templates/deployment.yaml`) - a chart change, for every site at once. The
-  init container `plugins` runs the database update. Dump the sites' databases first (from the
-  replica; `kubectl --context d3strukt0r-prod-admin -n mariadb get mariadb mariadb -o
-  jsonpath='{.status.currentPrimary}'` names the primary), then watch every site's php-fpm log
-  for fatal errors - a plugin that breaks gets pinned or the tags go back:
+  init container `plugins` runs the database update. Dump the sites' databases first - the
+  nightly dumps are up to a day old, so a fresh one by hand (from the replica, `components/mariadb`
+  README "Dumping and importing one database", where restoring one is too; `kubectl --context
+  d3strukt0r-prod-admin -n mariadb get mariadb mariadb -o jsonpath='{.status.currentPrimary}'`
+  names the primary) - then watch every site's php-fpm log for fatal errors - a plugin that breaks
+  gets pinned or the tags go back:
 
   ```shell
   for db in $(kubectl --context d3strukt0r-prod-admin -n mariadb get databases.k8s.mariadb.com -o jsonpath='{.items[*].spec.name}'); do

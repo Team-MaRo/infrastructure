@@ -97,3 +97,20 @@ spec:
             description: >-
               Find it in pg_stat_activity (xact_start) on that instance; an idle-in-transaction
               session from an app is the usual cause.
+        # The nightly .sql.gz dumps (database-dumps.yaml): no run has succeeded for 26 hours - the
+        # nightly one plus slack. A failed run is also KubeJobFailed; this catches one that never
+        # started (a suspended CronJob, a scheduling problem) too.
+        - alert: DatabaseDumpsMissing
+          expr: >-
+            time() - kube_cronjob_status_last_successful_time{namespace="postgres", cronjob="database-dumps"} > 26 * 3600
+            or (time() - kube_cronjob_created{namespace="postgres", cronjob="database-dumps"} > 26 * 3600
+              unless on (namespace, cronjob) kube_cronjob_status_last_successful_time{namespace="postgres", cronjob="database-dumps"})
+          for: 1h
+          labels:
+            severity: warning
+          annotations:
+            summary: "postgres's nightly database dumps have not succeeded for over a day."
+            description: >-
+              The newest .sql.gz per database is older than a day; the physical backups are
+              unaffected. Check kubectl -n postgres get jobs and the log of the latest
+              database-dumps Job (containers dump and upload).

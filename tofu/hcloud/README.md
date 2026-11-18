@@ -118,6 +118,15 @@ using it would plan a replace of every attachment on import.
 `prevent_destroy` does not block in-place updates, so a `server_type` resize still
 works (it is a resize with a reboot, not a replace).
 
+## Account limits
+
+Hetzner limits each customer across all its projects, and raising a limit is self-service and
+instant in the Console. Raised on 2026-11-01: shared vCPUs **40**, primary IPs **20**. At
+the time, 16 vCPUs (4 servers x 4) and 8 primary IPs (IPv4 + IPv6 per server) were in use. The
+others: dedicated vCPUs 8, volumes 1024 GB, floating IPs 10, load balancers 5, snapshots 30, DNS
+zones 25, storage boxes 2. A new server or a resize that fails with a limit error needs one of
+these raised first.
+
 ## Not managed here
 
 The per-server primary IPs: `public_net` is deliberately omitted from `hcloud_server`, and

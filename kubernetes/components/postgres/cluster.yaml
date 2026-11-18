@@ -42,6 +42,10 @@ spec:
       shared_buffers: 128MB
       log_min_duration_statement: "2000"
       log_lock_waits: "on"
+    # The nightly dumps' role logs in by its client certificate only (database-dumps.yaml);
+    # CloudNativePG puts this before its default password rule. Reloaded without a restart.
+    pg_hba:
+      - hostssl all dumps all cert
 
   # Over 2026-10-23..11-02: real memory (working set minus active file cache) p95 148 MiB, the
   # request; working set p95 182 MiB, peak 219 MiB. The limit stays at the former 512Mi until

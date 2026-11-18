@@ -10,6 +10,7 @@ resources:
   - mariadb.yaml
   - backups.yaml
   - flush-binlogs.yaml
+  - database-dumps.yaml
   - backup-after-switchover.yaml
   - primary-off-rebooting-node.yaml
   - rules.yaml

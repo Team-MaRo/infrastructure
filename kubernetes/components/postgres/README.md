@@ -57,6 +57,17 @@ in the last 30 days. How the cluster's manifests fit together is in
     requests signed for boto3's default (tested 2026-09-29).
   - `ScheduledBackup` `postgres-daily` at 23:00 UTC, from the replica (the cluster's default
     target), and once right away when created.
+  - **A `.sql.gz` of every database every night** (since 2026-11-18, `database-dumps.yaml`): the
+    CronJob `database-dumps` at 22:30 UTC dumps each database (but `postgres`, the templates and
+    the unused `app`) with `pg_dump` from a replica (`postgres-ro`), verified TLS, and uploads
+    `logical/<database>.<UTC time>.sql.gz`; files older than 30 days are deleted there (the
+    bucket has no expiry of its own). Plain SQL, content only - no `CREATE DATABASE` or
+    `\connect`, `--no-owner --no-privileges` -, so a dump imports into whatever database it is
+    pointed at ("Dumping and importing one database"). CloudNativePG has no logical backup of
+    its own. Its role `dumps` only reads (`pg_read_all_data`) and logs in by a client certificate
+    CloudNativePG issues and renews (`clientCertificate`, Secret `dumps-client-cert`): no
+    password anywhere; `pg_hba` in `cluster.yaml` admits it by certificate only.
+    `DatabaseDumpsMissing` fires when no run has succeeded for a day.
 - **Alerts** (`rules.yaml`, from the instances' metrics through `pod-monitor.yaml` - the Cluster's
   `enablePodMonitor` is deprecated): `PostgresNoReadyPrimary` (critical, 5 minutes),
   `PostgresReplicaMissing`, `PostgresReplicaLagging`, `PostgresWALArchivingFailing` (a failure
@@ -161,6 +172,42 @@ apart from a person's in `pg_stat_activity` and in error messages. The password 
 [`../pgadmin/README.md`](../pgadmin/README.md). To take it away, set `login: false` on the
 `DatabaseRole`, or `ensure: absent` to drop the role - deleting the object alone keeps the role,
 since CloudNativePG retains it. Nothing else uses it.
+
+## Dumping and importing one database
+
+**The nightly dump** of a database, from the bucket (read-only with the admin profile):
+
+```sh
+aws --profile d3strukt0r-hetzner --endpoint-url https://nbg1.your-objectstorage.com s3 ls s3://d3strukt0r-prod-postgres-backups/logical/ | grep <database>
+aws --profile d3strukt0r-hetzner --endpoint-url https://nbg1.your-objectstorage.com s3 cp s3://d3strukt0r-prod-postgres-backups/logical/<database>.<UTC time>.sql.gz .
+```
+
+A dump holds only the database's content, without owners or grants, so it goes into whichever
+database the import names: the original or a copy.
+
+**Importing a `.sql.gz`** - into the primary, as the role `admin` (password in 1Password
+[`PostgreSQL | Prod | admin`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=4apn53q53ypoi2ruryq6voicz4&h=my.1password.com)),
+through a port-forward. The database must exist (its app's `Database` object) and should be
+empty - a dump creates its tables, it does not drop existing ones -, so for a restore over a
+live database drop and recreate its schema first, after a fresh dump:
+
+```sh
+kubectl --context d3strukt0r-prod-admin -n postgres port-forward svc/postgres-rw 15432:5432
+gunzip -c <file>.sql.gz | psql "host=localhost port=15432 user=admin dbname=<database> sslmode=require" --set ON_ERROR_STOP=1
+```
+
+Afterwards the objects belong to `admin`; give them to the app's role:
+`psql ... --command 'REASSIGN OWNED BY admin TO <role>'` in that database. pgAdmin imports a dump
+too (Query Tool, or Restore).
+
+**A dump run by hand**, e.g. before a risky change (it uploads like the nightly one):
+
+```sh
+kubectl --context d3strukt0r-prod-admin -n postgres create job --from=cronjob/database-dumps database-dumps-manual
+```
+
+Delete the Job once it is done (`kubectl --context d3strukt0r-prod-admin -n postgres delete job
+database-dumps-manual`); a dump that fails shows why in its containers' logs (`dump`, `upload`).
 
 ## Failover hangs
 
