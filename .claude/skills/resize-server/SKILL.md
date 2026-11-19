@@ -39,7 +39,7 @@ the new type, the kured lock and the time.
 **Stop and say why** - and hand over no commands - if:
 
 - `orderable in nbg1: NO` (or `not offered`). Nothing to do until hetzner-watch's ntfy message
-  says `server-type/<type>/nbg1: not orderable -> orderable` (it checks every 15 minutes); then
+  says `server-type/<type>/nbg1: not orderable -> orderable` (it checks every 5 minutes); then
   run the preflight again. It watches only the types in `WATCH_SERVER_TYPES` in
   `kubernetes/components/hetzner-watch/cronjob.yaml` (comma-separated, e.g. `cx43,cx53`) - offer
   to add the type there, or the message never comes.

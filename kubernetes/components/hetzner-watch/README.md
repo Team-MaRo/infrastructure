@@ -1,6 +1,6 @@
 # Hetzner watch
 
-A look at the Hetzner Cloud API every 15 minutes that tells ntfy when something there
+A look at the Hetzner Cloud API every 5 minutes that tells ntfy when something there
 **changed** - and nothing as long as it stays the same
 (`kubernetes/clusters/prod/hetzner-watch.yaml`, plain manifests in this directory, namespace
 `hetzner-watch`). How the cluster's manifests fit together
@@ -35,12 +35,14 @@ the server type (`GET /v1/server_types?name=…` → `locations[].available`).
   started" with the current values, so a working setup is visible once.
 - **Only changes are sent.** An unchanged run prints "No changes" in the job's log and nothing
   else - Alertmanager would repeat a firing alert every few hours instead.
-- **The message goes out before the state is saved**, so a failed notification is sent again 15
+- **The message goes out before the state is saved**, so a failed notification is sent again 5
   minutes later rather than being lost. Any error (API, ntfy, Kubernetes) fails the job, which
   raises kube-prometheus-stack's `KubeJobFailed`, and nothing is saved.
-- **Every 15 minutes, off the full hour** (`:11`, `:26`, `:41`, `:56`): server types sell out
-  within the hour (CX43 in nbg1, 2026-11-05), so a slower look misses the window. A run makes a
-  handful of API calls, far below Hetzner's 3600 an hour.
+- **Every 5 minutes, off the full hour** (`:01`, `:06`, … `:56`): server types sell out
+  within minutes - CX43 in nbg1 was gone 20 minutes after it became orderable (2026-11-05), and
+  on 2026-11-19 the 15-minute look left too little time to act. A run makes a handful of API
+  calls, 12 runs an hour far below Hetzner's 3600 calls an hour. The job ends after 4 minutes at
+  the latest, before the next one is due.
 - **The same ntfy topic as Alertmanager and Gatus** (OpenBao `secret/ntfy`), priority 3.
 
 ## The state

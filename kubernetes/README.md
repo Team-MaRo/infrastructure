@@ -215,7 +215,7 @@ kubernetes/
     │   ├── namespace.yaml
     │   ├── rbac.yaml              # may only create, read and replace its state ConfigMap
     │   ├── external-secrets.yaml  # the read-only Hetzner token, ntfy
-    │   └── cronjob.yaml           # every 15 minutes
+    │   └── cronjob.yaml           # every 5 minutes
     ├── mailomat-watch/
     │   ├── kustomization.yaml     # watch.py becomes the ConfigMap mailomat-watch
     │   ├── watch.py               # every 5 minutes: new events into the log, counted for alerts
@@ -340,7 +340,7 @@ kubernetes/
 | [`traefik`](components/traefik/README.md) | k3s's Traefik on the ingress nodes' host network, the dashboard |
 | [`cert-manager`](components/cert-manager/README.md) | Certificates from Let's Encrypt over DNS-01 |
 | [`gatus`](components/gatus/README.md) | The public status page and the alerting heartbeat |
-| [`hetzner-watch`](components/hetzner-watch/README.md) | A look at the Hetzner Cloud API every 15 minutes; tells ntfy only what changed (server type availability, deprecations, blocked IPs, rescue mode, traffic) |
+| [`hetzner-watch`](components/hetzner-watch/README.md) | A look at the Hetzner Cloud API every 5 minutes; tells ntfy only what changed (server type availability, deprecations, blocked IPs, rescue mode, traffic) |
 | [`mailomat-watch`](components/mailomat-watch/README.md) | Copies every mailomat event (all sending domains) into Loki for 30 days; alerts when a mail is lost or the events stop arriving |
 | [`clamav`](components/clamav/README.md) | The shared virus scanner that Traefik hands uploads to |
 | [`domain-redirects`](components/domain-redirects/README.md) | Whole domains redirected to another by Traefik (`d3st.dev`, `d3st.org`, `d3strukt0r.me` to `d3strukt0r.dev`) |
