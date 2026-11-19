@@ -131,6 +131,7 @@ DNS-only CNAME to `direct.prod.d3strukt0r.dev` instead):
 | `openbao.d3strukt0r.dev` | OpenBao | Zitadel | on |
 | `matomo.d3strukt0r.dev` | Matomo (web analytics; the tracking script is public) | Zitadel | on |
 | `pgadmin.d3strukt0r.dev` | pgAdmin | Zitadel | on |
+| `rabbitmq.d3strukt0r.dev` | RabbitMQ's management UI | Zitadel | on |
 | `prometheus.d3strukt0r.dev` | Prometheus | oauth2-proxy | on |
 | `alertmanager.d3strukt0r.dev` | Alertmanager | oauth2-proxy | on |
 | `phpmyadmin.d3strukt0r.dev` | phpMyAdmin | oauth2-proxy | on |

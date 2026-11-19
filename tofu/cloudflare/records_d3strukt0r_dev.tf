@@ -124,6 +124,18 @@ resource "cloudflare_dns_record" "d3strukt0r_dev_cname_grafana" {
   zone_id = local.zone_ids["d3strukt0r.dev"]
 }
 
+# RabbitMQ's management UI, on the cluster behind Zitadel's login.
+resource "cloudflare_dns_record" "d3strukt0r_dev_cname_rabbitmq" {
+  provider = cloudflare.personal
+
+  content = "prod.d3strukt0r.dev"
+  name    = "rabbitmq.d3strukt0r.dev"
+  proxied = true
+  ttl     = 1
+  type    = "CNAME"
+  zone_id = local.zone_ids["d3strukt0r.dev"]
+}
+
 # Prometheus' UI, on the cluster behind the Zitadel gate (oauth2-proxy).
 resource "cloudflare_dns_record" "d3strukt0r_dev_cname_prometheus" {
   provider = cloudflare.personal
