@@ -1,0 +1,40 @@
+---
+# Layer sharing between this cluster's nodes: the Spegel Helm chart with values from
+# kubernetes/components/spegel, plus that directory's PodMonitor. Every node's containerd lists
+# its own Spegel first (ansible/roles/k3s, k3s_registries).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: spegel
+  namespace: argocd
+  # Removing this file removes everything it deployed, namespace included. Nothing is lost:
+  # containerd finds the endpoint refused and goes on to zot.
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  sources:
+    # Patch releases arrive by themselves (the `~` range, components/argocd/README.md "Chart
+    # versions"); raising the range is the upgrade.
+    # An OCI source: the chart is only published to ghcr.io. Argo CD pulls it like an image, no
+    # repository Secret needed for a public registry; a Helm chart's path is always `.`.
+    - repoURL: oci://ghcr.io/spegel-org/helm-charts/spegel
+      path: .
+      targetRevision: "~0.8.1"
+      helm:
+        valueFiles:
+          - $repo/kubernetes/components/spegel/values.yaml
+    - repoURL: https://github.com/Team-MaRo/infrastructure.git
+      targetRevision: master
+      ref: repo
+      path: kubernetes/components/spegel
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: spegel
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      # Not required here (no CRDs); used for consistency.
+      - ServerSideApply=true

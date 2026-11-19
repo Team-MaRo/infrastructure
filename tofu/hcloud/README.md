@@ -15,8 +15,9 @@ reality rather than an ideal, which is why some values look arbitrary:
 
 - `prod-01` is a `cx43` since 2026-11-05 (the first step towards bigger servers, once the type
   was orderable again in nbg1); `prod-02`, `prod-03` and the worker `prod-04` are `cx33`.
-  Resizing `prod-02` the same morning failed with `resource_unavailable`: Hetzner had no CX43
-  left, and the resize had already powered the server off (power it on again:
+  Resizing `prod-02` the same morning failed with `resource_unavailable`, and again on
+  2026-11-19 while the API listed cx43 as available - see "Resizing inside the placement group".
+  The failed resize had already powered the server off (power it on again:
   `hcloud --context d3strukt0r-infrastructure server poweron <node>`). `prod-03` was created as
   `cx23` and resized in the console (2026-10-02, CPU and RAM only, so its disk stayed at 40 GB
   and a downgrade stays possible).
@@ -65,6 +66,31 @@ it, its paths and flags).
 The module used to be called `k3s`, with state key `k3s/terraform.tfstate`. `moved.tf`
 maps the old resource addresses to the new ones; the state was copied to the new key with
 `tofu init -migrate-state`.
+
+## Resizing inside the placement group
+
+Every server is in the spread placement group `prod`: each runs on a different physical host,
+so one host failing never takes two etcd members. A resize therefore needs a host that holds no
+other member and has room for the new type - the server type's `available` flag only says nbg1
+sells it. That is the suspected reason `prod-02`'s resizes to cx43 failed with
+`resource_unavailable` (2026-11-05, twice on 2026-11-19, the console's rescale too); Hetzner's
+API documents the error only as "currently unavailable (e.g. not available for order)", and
+support has not confirmed it yet.
+
+Taking a server out of the group for the resize is possible, but not in one apply (hcloud
+provider 1.69, `internal/server/resource.go`):
+
+- `placement_group_id` changes in place, never by replacement - but the provider refuses to
+  remove a **running** server, and adding one needs it powered off too (Hetzner's API).
+- In one apply the provider changes `server_type` **before** `placement_group_id`, using the
+  server's status from the start of the apply. Leave, resize and rejoin are three applies, with
+  the server shut down before the first and the last.
+- `change_type` starts the server again by itself, outside the group until it rejoins.
+- **Not documented:** whether the spread rule is checked when a stopped server rejoins or at its
+  next power-on - a server could rejoin and then fail to start. Ask Hetzner before relying on it.
+
+A server left outside the group for good could share a host with another etcd member - not an
+option for `prod-01..03`.
 
 ## Attributes OpenTofu cannot see
 

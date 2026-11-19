@@ -120,6 +120,11 @@ Only include a switchover when the preflight shows that primary on the node.
    kubectl --context d3strukt0r-prod-admin get node <node> -w
    kubectl --context d3strukt0r-prod-admin uncordon <node>
    ```
+   Do not retry right away: with `available: true` the likely cause is the spread placement
+   group (no host without another member has room). The route around it - leave the group,
+   resize, rejoin, three applies - and what is still unknown about rejoining are in
+   `tofu/hcloud/README.md`, "Resizing inside the placement group"; don't start it without
+   Hetzner's answer on rejoining.
 6. **Schedulable again:**
    ```sh
    kubectl --context d3strukt0r-prod-admin uncordon <node>

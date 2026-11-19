@@ -1,0 +1,25 @@
+# Spegel shares image layers between the nodes, by digest only (README). The k3s role lists each
+# node's own Spegel as the first endpoint of every mirror in registries.yaml, so k3s writes it into
+# containerd's config on every start; Spegel writes none itself.
+spegel:
+  containerdMirrorAdd: false
+  # k3s's containerd, not the defaults of a stock containerd.
+  containerdSock: /run/k3s/containerd/containerd.sock
+  containerdContentPath: /var/lib/rancher/k3s/agent/containerd/io.containerd.content.v1.content
+  containerdRegistryConfigPath: /var/lib/rancher/k3s/agent/etc/containerd/certs.d
+  # The six registries pulled through zot and zot itself (ansible/roles/k3s, k3s_registries).
+  mirroredRegistries:
+    - https://docker.io
+    - https://ghcr.io
+    - https://quay.io
+    - https://registry.k8s.io
+    - https://public.ecr.aws
+    - https://us-docker.pkg.dev
+    - https://registry.d3strukt0r.dev
+  # Every tag reference answers 404, so containerd asks zot for it, which asks upstream: a
+  # floating tag always resolves to its current image. resolveTags alone does not do that - only
+  # the init container that containerdMirrorAdd turns off reads it (README "Tags never").
+  registryFilters:
+    - ":[^/]+$"
+  resolveTags: false
+  debugWebEnabled: false

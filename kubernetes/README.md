@@ -60,6 +60,7 @@ kubernetes/
 │       ├── valkey-cache.yaml      # the shared cache, a database per app
 │       ├── valkey-state.yaml      # the shared state (sessions, locks) on a volume, a database per app
 │       ├── zot.yaml               # the container registry: chart (patch range) here, values in components/
+│       ├── spegel.yaml            # layer sharing between the nodes: chart (patch range, OCI) here, values in components/
 │       ├── wedding-manuele-robine.yaml  # the wedding website
 │       ├── robines-portfolio.yaml  # the old WordPress portfolio: the WordPress chart and its values
 │       ├── arepazo.yaml       # the WooCommerce shop: the WordPress chart and its values
@@ -316,14 +317,19 @@ kubernetes/
     │   ├── cronjob-archive.yaml   # builds the reports every hour
     │   ├── cronjob-geoip.yaml     # the monthly DB-IP city database into its bucket
     │   └── common.config.ini.php  # Matomo's settings beside its defaults
-    └── zot/
-        ├── values.yaml            # Helm values: config from a Secret, non-root, the S3 key as env
+    ├── zot/
+    │   ├── values.yaml            # Helm values: config from a Secret, non-root, the S3 key as env
+    │   ├── kustomization.yaml
+    │   ├── external-secrets.yaml  # config.json as a template, the S3 key, its user in valkey-state
+    │   ├── ingress.yaml           # registry.d3strukt0r.dev, DNS-only, /v2 and /zot only
+    │   ├── middleware-rate-limit.yaml  # its own limit per connection address
+    │   ├── service-monitor.yaml
+    │   └── rules.yaml             # alert: down
+    └── spegel/
+        ├── values.yaml            # Helm values: k3s's containerd paths, every tag refused, no containerd config of its own
         ├── kustomization.yaml
-        ├── external-secrets.yaml  # config.json as a template, the S3 key, its user in valkey-state
-        ├── ingress.yaml           # registry.d3strukt0r.dev, DNS-only, /v2 and /zot only
-        ├── middleware-rate-limit.yaml  # its own limit per connection address
-        ├── service-monitor.yaml
-        └── rules.yaml             # alert: down
+        ├── namespace.yaml
+        └── pod-monitor.yaml       # served layers and lookups per node
 ```
 
 | Component | What it is |
@@ -362,6 +368,7 @@ kubernetes/
 | [`valkey-cache`](components/valkey-cache/README.md) | The shared cache (Valkey): a database per app, the WordPress object cache |
 | [`valkey-state`](components/valkey-state/README.md) | The shared state (Valkey) on a volume: sessions, locks, zot's logins |
 | [`zot`](components/zot/README.md) | The container registry `registry.d3strukt0r.dev`: our own images, the mirror |
+| [`spegel`](components/spegel/README.md) | Image layers from the other nodes, by digest; tags always from zot |
 | [`wedding-manuele-robine`](components/wedding-manuele-robine/README.md) | The wedding website (moved from prod-old) |
 | [`robines-portfolio`](components/robines-portfolio/README.md) | The old WordPress portfolio at old.robines.space (moved from prod-old), from the WordPress chart |
 | [`arepazo`](components/arepazo/README.md) | The WooCommerce shop at www.arepazo.ch (moved from prod-old), from the WordPress chart |

@@ -140,30 +140,35 @@ k3s_gomemlimit: 2304MiB
 # containerd's registry settings, written to /etc/rancher/k3s/registries.yaml on every node; a
 # change restarts one node at a time, like k3s_config (README "Pulling through zot"). The six
 # registries Kyverno allows are pulled through zot's mirror, each under its own prefix there
-# (rewrite). Order per pull: zot, then the origin registry, which k3s always tries last - a
-# broken zot slows pulls down, it does not stop them. zot wants a login for everything; the
-# nodes use the API key of its read-only user cluster.
+# (rewrite). Order per pull: the node's own Spegel (layers by digest from the other nodes; every
+# tag refused, kubernetes/components/spegel), zot, then the origin registry, which k3s always
+# tries last - a broken Spegel or zot slows pulls down, it does not stop them. zot wants a login
+# for everything; the nodes use the API key of its read-only user cluster. Our own registry is
+# zot itself: Spegel first, then zot directly (k3s adds it last, with the login below).
+k3s_spegel_url: "http://{{ hcloud_private_ipv4 }}:30020"
 k3s_registry_url: https://registry.d3strukt0r.dev
 k3s_registries:
   mirrors:
     docker.io:
-      endpoint: ["{{ k3s_registry_url }}"]
+      endpoint: ["{{ k3s_spegel_url }}", "{{ k3s_registry_url }}"]
       rewrite: { "^(.*)$": "docker.io/$1" }
     ghcr.io:
-      endpoint: ["{{ k3s_registry_url }}"]
+      endpoint: ["{{ k3s_spegel_url }}", "{{ k3s_registry_url }}"]
       rewrite: { "^(.*)$": "ghcr.io/$1" }
     quay.io:
-      endpoint: ["{{ k3s_registry_url }}"]
+      endpoint: ["{{ k3s_spegel_url }}", "{{ k3s_registry_url }}"]
       rewrite: { "^(.*)$": "quay.io/$1" }
     registry.k8s.io:
-      endpoint: ["{{ k3s_registry_url }}"]
+      endpoint: ["{{ k3s_spegel_url }}", "{{ k3s_registry_url }}"]
       rewrite: { "^(.*)$": "registry.k8s.io/$1" }
     public.ecr.aws:
-      endpoint: ["{{ k3s_registry_url }}"]
+      endpoint: ["{{ k3s_spegel_url }}", "{{ k3s_registry_url }}"]
       rewrite: { "^(.*)$": "public.ecr.aws/$1" }
     us-docker.pkg.dev:
-      endpoint: ["{{ k3s_registry_url }}"]
+      endpoint: ["{{ k3s_spegel_url }}", "{{ k3s_registry_url }}"]
       rewrite: { "^(.*)$": "us-docker.pkg.dev/$1" }
+    registry.d3strukt0r.dev:
+      endpoint: ["{{ k3s_spegel_url }}"]
   configs:
     registry.d3strukt0r.dev:
       auth:
@@ -198,6 +203,8 @@ k3s_psa_exempt_namespaces:
   - external-secrets
   - system-upgrade
   - kyverno
+  # Spegel reads containerd's socket and content store from the node (host paths, as root).
+  - spegel
   # The one app here, not infrastructure: its images (d3strukt0r/wedding-manuele-robine:api-latest
   # and :pwa-latest) run supervisord, nginx, php-fpm and cron as root on port 80, which the
   # restricted standard refuses (kubernetes/components/wedding-manuele-robine).

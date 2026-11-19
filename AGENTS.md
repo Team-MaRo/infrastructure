@@ -214,7 +214,7 @@ rule, 2026-10-02). Where a name cannot hold a hyphen, the hyphens become undersc
   - It is on apps whose data lives elsewhere or does not matter: `gatus`, `zitadel`,
     `oauth2-proxy`, `phpmyadmin`, `pgadmin`, `reloader`, `keel`, `wedding-manuele-robine`,
     `robines-portfolio`, `arepazo`, `matomo`, `kured`, `alloy`, `etcd-snapshots`,
-    `cluster-rbac`, `tempo`, `argocd-integrations`, `valkey-cache`, `hetzner-watch`, `mailomat-watch`, `domain-redirects`, `clamav`, `goldilocks`, `descheduler`. A Postgres app's database
+    `cluster-rbac`, `tempo`, `argocd-integrations`, `valkey-cache`, `hetzner-watch`, `mailomat-watch`, `domain-redirects`, `clamav`, `goldilocks`, `descheduler`, `spegel`. A Postgres app's database
     and role stay when it goes (CloudNativePG's reclaim policies default to `retain`); a MariaDB
     app's objects set `cleanupPolicy: Skip`, since mariadb-operator's default is `Delete`.
   - **Never on an app that brings CRDs** (deleting a CRD deletes every object of its kind):
@@ -429,6 +429,7 @@ component); update it in the same change.
 | [`kubernetes/components/valkey-cache/README.md`](kubernetes/components/valkey-cache/README.md) | The shared cache: a database per app, its users, adding an app |
 | [`kubernetes/components/valkey-state/README.md`](kubernetes/components/valkey-state/README.md) | The shared state on a volume: sessions, locks, zot's logins; a database per app, adding an app |
 | [`kubernetes/components/zot/README.md`](kubernetes/components/zot/README.md) | The container registry: our own images, the mirror, logins, API keys, restoring a layer |
+| [`kubernetes/components/spegel/README.md`](kubernetes/components/spegel/README.md) | Layer sharing between the nodes: tags refused, the k3s endpoints, its open bugs, checking it |
 | [`kubernetes/components/keel/README.md`](kubernetes/components/keel/README.md) | Rolling out new images under floating tags, opting an app in |
 | [`kubernetes/components/wedding-manuele-robine/README.md`](kubernetes/components/wedding-manuele-robine/README.md) | The wedding website; its two TODOs; moving it from prod-old |
 | [`kubernetes/shared/external-secret-defaults/README.md`](kubernetes/shared/external-secret-defaults/README.md) | The Kustomize Component giving every ExternalSecret its store and refresh interval |

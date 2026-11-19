@@ -1,0 +1,16 @@
+---
+# Spegel's metrics: how often a node served a layer to another, and lookups that found no peer.
+# Here rather than through the chart, whose ServiceMonitor cannot carry the sync option.
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: spegel
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: spegel
+  podMetricsEndpoints:
+    - port: metrics
+      relabelings:
+        - sourceLabels: [__meta_kubernetes_pod_node_name]
+          targetLabel: node

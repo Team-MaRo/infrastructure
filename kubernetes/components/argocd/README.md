@@ -35,7 +35,7 @@ component is deleted.
 - **The finalizer is on apps whose data lives elsewhere or does not matter**: `gatus`,
   `zitadel`, `oauth2-proxy`, `phpmyadmin`, `pgadmin`, `reloader`, `keel`,
   `wedding-manuele-robine`, `robines-portfolio`, `arepazo`, `kured`, `alloy`,
-  `etcd-snapshots`, `cluster-rbac`, `argocd-integrations`, `tempo` (its traces are in S3), `valkey-cache` (a cache), `goldilocks`. A Postgres app's database and role stay when it goes -
+  `etcd-snapshots`, `cluster-rbac`, `argocd-integrations`, `tempo` (its traces are in S3), `valkey-cache` (a cache), `goldilocks`, `spegel` (pulls fall through to zot). A Postgres app's database and role stay when it goes -
   CloudNativePG's `databaseReclaimPolicy` and `databaseRoleReclaimPolicy` default to `retain`;
   a MariaDB app's stay because its objects set `cleanupPolicy: Skip` (the operator's default is
   `Delete`).
@@ -234,6 +234,11 @@ Argo CD's own bootstrap; images we set follow their releases on floating tags th
 - **What runs** is in Argo CD, not git:
   `kubectl --context d3strukt0r-prod-admin -n argocd get application <app> -o jsonpath='{.status.sync.revisions}'`
   (or `.status.sync.revision` for a single source), or the Application in the UI.
+- **A chart published only to an OCI registry** (Spegel): `repoURL: oci://<registry>/<path>/<chart>`
+  with `path: .` instead of `chart:`, and the same range in `targetRevision`. Argo CD pulls it
+  like an image and resolves the range against the registry's tags; a public registry needs no
+  repository Secret (one is needed only for credentials). Render it with
+  `helm template <app> oci://<registry>/<path>/<chart> --version <version> -f …`.
 - **A minor or major** is a deliberate change: read the chart's and the app's changelog, render it
   with the component's values (`helm template … --version <new>`, diff against the current one),
   then raise the range in the Application. Charts with CRDs and a separate CRD chart

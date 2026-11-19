@@ -299,26 +299,37 @@ Every node's containerd pulls through the cluster's own registry, zot at
   `public.ecr.aws`, `us-docker.pkg.dev`) go through zot's mirror: a `rewrite` puts the name under zot's prefix, so
   `docker.io/library/busybox` is fetched as `registry.d3strukt0r.dev/docker.io/library/busybox`.
   Manifests keep the original names, and Kyverno's allowed registries are unchanged.
-- **Order per pull**: zot, then the origin registry, which k3s always tries last. A broken zot
-  slows pulls down; it does not stop them - zot gives up on an unreachable upstream within about
-  8 s, so the origin comes next (zot README "Mirror"; before 2026-11-12 it held a pull for
-  minutes). zot asks the origin for every tag (a HEAD request, which Docker Hub does not count
-  against its pull limit), so a floating tag always resolves to the image it points to now.
-- **No embedded registry** (k3s's `embedded-registry`, Spegel; off since 2026-11-19). It let the
-  nodes pull from each other first, and **k3s's Spegel answers every tag except `latest` from
-  whichever node has it, without asking upstream** - by design, with no setting to change it
-  (k3s#12799; checked in v1.37.2's `pkg/spegel/spegel.go`). So floating tags never moved:
-  measured 2026-11-19, `wordpress:7-php8.5-fpm` and `matomo:5-fpm` were on three different old
-  images across the four nodes while zot and Docker Hub had the new one, and Keel's restarts kept
-  getting the old image. A standalone Spegel with `resolveTags: false` was weighed and dropped:
-  k3s rewrites containerd's `certs.d` on every start, which silently removes Spegel's entries
-  until its pod restarts; it needs root; and without tag resolution our own images by tag would
-  still need zot. What is lost: images no longer come from a neighbour, so every node pulls from
-  zot (which reads them from Object Storage), and **our own registry has no fallback while zot is
-  down** - a node that does not have such an image yet cannot start it then (no workload uses one
-  yet).
-- **Our own registry** (`registry.d3strukt0r.dev`) is not under `mirrors`: pulls go to it
-  directly, with the login below.
+- **Order per pull**: the node's own Spegel, then zot, then the origin registry, which k3s always
+  tries last. Each of the six mirrors lists `k3s_spegel_url` (`http://<the node's private
+  IP>:30020`) before zot.
+- **Spegel shares layers between the nodes, by digest only**
+  ([`kubernetes/components/spegel/README.md`](../../../kubernetes/components/spegel/README.md)):
+  its registry filter answers every tag with 404, so containerd asks zot for the tag and then
+  fetches the manifest and layers by digest from a node that has them. Listed in
+  `registries.yaml` rather than written by Spegel itself, because k3s regenerates containerd's
+  `certs.d` from this file on every start - an entry only Spegel wrote would vanish with the next
+  k3s restart. k3s applies a mirror's `rewrite` to every endpoint, so Spegel gets
+  `docker.io/library/...` paths; harmless, since it looks layers up by digest alone. Not
+  reachable from outside (NodePort 30020 is not in the public firewall). While a node's Spegel is
+  down, containerd gets a refused connection and goes on to zot at once.
+- **zot**: a broken zot slows pulls down; it does not stop them - zot gives up on an unreachable
+  upstream within about 8 s, so the origin comes next (zot README "Mirror"; before 2026-11-12 it
+  held a pull for minutes). zot asks the origin for every tag (a HEAD request, which Docker Hub
+  does not count against its pull limit), so a floating tag always resolves to the image it
+  points to now.
+- **Not k3s's embedded registry** (`embedded-registry`, off since 2026-11-19): k3s's built-in
+  Spegel **answers every tag except `latest` from whichever node has it, without asking
+  upstream** - by design, with no setting to change it (k3s#12799, our request k3s#15020; checked
+  in v1.37.2's `pkg/spegel/spegel.go`). So floating tags never moved: measured 2026-11-19,
+  `wordpress:7-php8.5-fpm` and `matomo:5-fpm` were on three different old images across the four
+  nodes while zot and Docker Hub had the new one, and Keel's restarts kept getting the old image.
+  Our own Spegel (above) keeps the layer sharing without that. Should k3s add the setting, the
+  built-in one could replace it again (no DaemonSet, no PSA exemption).
+- **Our own registry** (`registry.d3strukt0r.dev`) has only Spegel as its mirror endpoint, no
+  rewrite: k3s adds the registry itself last, so a pull asks the node's Spegel, then zot
+  directly, with the login below. Spegel serves what a node holds without a login - any pod
+  that reaches a node's port 30020 can read our images by digest (Spegel README, "Our own
+  images").
 - **Checking that a node has a tag's current image**: `k3s ctr -n k8s.io images ls | grep
   '<image>:<tag>'` on the nodes (`ansible prod -b -m shell -a ...`) against the digest zot
   answers for it.
