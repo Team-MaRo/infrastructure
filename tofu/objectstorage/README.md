@@ -7,17 +7,17 @@ own docs use.
 |---|---|---|
 | `d3strukt0r-tfstate` | bucket (created by hand, adopted through `imports.tf`) and policy | every action denied to every other key |
 | `d3strukt0r-prod-etcd` | bucket, object lock, lifecycle, policy | only the snapshot key and the admin key; the snapshot key may upload, read and delete, but not bypass the lock or change the bucket's rules |
-| `d3strukt0r-prod-loki` | bucket, lifecycle, policy | only Loki's key and the admin key |
-| `d3strukt0r-prod-tempo` | bucket, lifecycle, policy | only Tempo's key and the admin key |
-| `d3strukt0r-prod-mariadb-backups` | bucket, lifecycle (expires after 35 days), policy | only the MariaDB backup key and the admin key |
-| `d3strukt0r-prod-postgres-backups` | bucket, lifecycle, policy | only the PostgreSQL backup key and the admin key |
+| `d3strukt0r-prod-loki` | bucket, lifecycle, policy | only Loki's key and the admin key; only the admin key may change the bucket |
+| `d3strukt0r-prod-tempo` | bucket, lifecycle, policy | only Tempo's key and the admin key; only the admin key may change the bucket |
+| `d3strukt0r-prod-mariadb-backups` | bucket, lifecycle (expires after 35 days), policy | only the MariaDB backup key and the admin key; only the admin key may change the bucket |
+| `d3strukt0r-prod-postgres-backups` | bucket, lifecycle, policy | only the PostgreSQL backup key and the admin key; only the admin key may change the bucket |
 | `d3strukt0r-prod-openbao-snapshots` | bucket, object lock, lifecycle, policy | only OpenBao's snapshot key and the admin key; like the etcd bucket, the key cannot bypass the lock or change the bucket's rules |
-| `d3strukt0r-prod-wedding-manuele-robine` | bucket, versioning, lifecycle, policy | only the app's key and the admin key |
-| `d3strukt0r-prod-robines-portfolio` | bucket, versioning, lifecycle, policy, `uploads/healthcheck.txt` | only the app's key, its uploads proxy's key (read only) and the admin key; only the admin key may change the bucket |
+| `d3strukt0r-prod-wedding-manuele-robine` | bucket, versioning, lifecycle, policy | only the app's key and the admin key; only the admin key may change the bucket or delete an old version |
+| `d3strukt0r-prod-robines-portfolio` | bucket, versioning, lifecycle, policy, `uploads/healthcheck.txt` | only the app's key, its uploads proxy's key (read only) and the admin key; only the admin key may change the bucket or delete an old version |
 | `d3strukt0r-prod-arepazo` | bucket, versioning, lifecycle, policy, `uploads/healthcheck.txt` | as robines-portfolio's: the app's key, its uploads proxy's key (read only), the admin key |
-| `d3strukt0r-prod-matomo` | bucket, versioning, lifecycle, policy | only Matomo's key and the admin key; only the admin key may change the bucket |
+| `d3strukt0r-prod-matomo` | bucket, versioning, lifecycle, policy | only Matomo's key and the admin key; only the admin key may change the bucket or delete an old version |
 | `d3strukt0r-prod-clamav` | bucket, lifecycle, policy | only clamd's key and the admin key; only the admin key may change the bucket. The last good virus signatures, so clamd starts without ClamAV's mirror ([`kubernetes/components/clamav`](../../kubernetes/components/clamav/README.md)) |
-| `d3strukt0r-prod-zot` | bucket, versioning (old versions kept 14 days), lifecycle, policy | only the registry zot's key and the admin key; only the admin key may change the bucket. Versioned so a layer deleted by zot's garbage collection, a bug or a mistake can be restored: a rebuilt image gets a new digest |
+| `d3strukt0r-prod-zot` | bucket, versioning (old versions kept 14 days), lifecycle, policy | only the registry zot's key and the admin key; only the admin key may change the bucket or delete an old version. Versioned so a layer deleted by zot's garbage collection, a bug or a mistake can be restored: a rebuilt image gets a new digest |
 
 Shared rules, credentials and the state backend are in [`../README.md`](../README.md).
 
@@ -48,6 +48,39 @@ after the apply it could read and write in the bucket on some requests, others a
 the bucket itself; from then on, an hour of tests every 5 minutes denied it every time. A bucket
 that existed before showed no such gap. So **nothing goes into a new bucket within 15 minutes of
 its apply**, and a policy test run right after the apply proves nothing - repeat it after that.
+
+**A bucket's own key cannot change its bucket or erase its history** (since 2026-11-19). Every
+policy also denies every key but the admin key `s3:PutLifecycleConfiguration`,
+`s3:PutBucketVersioning`, `s3:PutBucketPolicy`, `s3:DeleteBucketPolicy` and `s3:DeleteBucket`
+(`OnlyTheAdminKeyMayChangeTheBucket`); in every versioned bucket the same statement also
+denies `s3:DeleteObjectVersion` (`OnlyTheAdminKeyMayChangeTheBucketOrDeleteVersions`). Whoever takes over an app
+holds its key; without these rules they could switch versioning off, shorten the lifecycle,
+replace the policy or purge the old versions - the very history that versioning keeps for such a
+case. Plain `DeleteObject` stays allowed: in a versioned bucket it only sets a delete marker,
+the old version stays until the lifecycle rule expires it (Hetzner's own process, not a key),
+and no app here deletes versions itself. The etcd and OpenBao buckets go further with their own
+rule (`OnlyTheAdminKeyMayLoosenProtection`, below). Checking it with the app's key:
+
+```sh
+# the app's own key, here robines-portfolio's from OpenBao
+rp() { AWS_ACCESS_KEY_ID=$(bao kv get -field=access-key secret/robines-portfolio-s3) AWS_SECRET_ACCESS_KEY=$(bao kv get -field=secret-key secret/robines-portfolio-s3) aws --no-cli-pager --endpoint-url https://nbg1.your-objectstorage.com --region nbg1 s3api "$@" --bucket d3strukt0r-prod-robines-portfolio; }
+echo test > /tmp/probe
+rp put-object --key probe --body /tmp/probe --output text
+rp delete-object --key probe --output text                    # allowed: only a delete marker
+v=$(rp list-object-versions --prefix probe --query 'Versions[0].VersionId' --output text)
+m=$(rp list-object-versions --prefix probe --query 'DeleteMarkers[0].VersionId' --output text)
+rp delete-object --key probe --version-id="$v" --debug 2>&1 | grep -m1 '<Code>'                         # AccessDenied
+rp put-bucket-versioning --versioning-configuration Status=Suspended --debug 2>&1 | grep -m1 '<Code>'   # AccessDenied
+# the admin key cleans up
+aws --no-cli-pager --profile d3strukt0r-hetzner s3api delete-object --bucket d3strukt0r-prod-robines-portfolio --key probe --version-id="$v"
+aws --no-cli-pager --profile d3strukt0r-hetzner s3api delete-object --bucket d3strukt0r-prod-robines-portfolio --key probe --version-id="$m"
+```
+
+`--debug ... | grep '<Code>'` because Hetzner answers a denial with an empty `<Message>`, and the
+aws CLI then fails with `argument of type 'NoneType' is not a container or iterable` instead of
+printing `AccessDenied`. `--no-cli-pager` keeps every answer out of `less`. Tested 2026-11-19 on
+robines-portfolio: upload and delete marker allowed, version delete and suspending versioning
+`403 AccessDenied` from two different gateways about eight minutes after the apply.
 
 **Every bucket has a lifecycle rule** that aborts multipart uploads not completed within 7
 days: a broken large upload leaves its parts behind, invisible in a listing but stored and

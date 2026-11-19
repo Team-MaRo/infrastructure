@@ -58,17 +58,17 @@ resource "minio_s3_bucket_policy" "prod_robines_portfolio" {
         Action = [
           "s3:PutObject",
           "s3:DeleteObject",
-          "s3:DeleteObjectVersion",
           "s3:PutObjectAcl",
           "s3:AbortMultipartUpload",
         ]
         Resource = local.prod_robines_portfolio_resources
       },
       {
-        Sid          = "OnlyTheAdminKeyMayChangeTheBucket"
+        Sid          = "OnlyTheAdminKeyMayChangeTheBucketOrDeleteVersions"
         Effect       = "Deny"
         NotPrincipal = { AWS = [local.admin_principal] }
         Action = [
+          "s3:DeleteObjectVersion",
           "s3:PutLifecycleConfiguration",
           "s3:PutBucketVersioning",
           "s3:PutBucketPolicy",

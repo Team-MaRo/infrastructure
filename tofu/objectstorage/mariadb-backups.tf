@@ -29,15 +29,33 @@ resource "minio_s3_bucket_policy" "prod_mariadb_backups" {
   bucket = minio_s3_bucket.prod_mariadb_backups.bucket
   policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [{
-      Sid          = "OnlyTheMariaDBBackupAndAdminKeys"
-      Effect       = "Deny"
-      NotPrincipal = { AWS = [local.admin_principal, local.mariadb_backups_principal] }
-      Action       = ["s3:*"]
-      Resource = [
-        "arn:aws:s3:::${minio_s3_bucket.prod_mariadb_backups.bucket}",
-        "arn:aws:s3:::${minio_s3_bucket.prod_mariadb_backups.bucket}/*",
-      ]
-    }]
+    Statement = [
+      {
+        Sid          = "OnlyTheMariaDBBackupAndAdminKeys"
+        Effect       = "Deny"
+        NotPrincipal = { AWS = [local.admin_principal, local.mariadb_backups_principal] }
+        Action       = ["s3:*"]
+        Resource = [
+          "arn:aws:s3:::${minio_s3_bucket.prod_mariadb_backups.bucket}",
+          "arn:aws:s3:::${minio_s3_bucket.prod_mariadb_backups.bucket}/*",
+        ]
+      },
+      {
+        Sid          = "OnlyTheAdminKeyMayChangeTheBucket"
+        Effect       = "Deny"
+        NotPrincipal = { AWS = [local.admin_principal] }
+        Action = [
+          "s3:PutLifecycleConfiguration",
+          "s3:PutBucketVersioning",
+          "s3:PutBucketPolicy",
+          "s3:DeleteBucketPolicy",
+          "s3:DeleteBucket",
+        ]
+        Resource = [
+          "arn:aws:s3:::${minio_s3_bucket.prod_mariadb_backups.bucket}",
+          "arn:aws:s3:::${minio_s3_bucket.prod_mariadb_backups.bucket}/*",
+        ]
+      },
+    ]
   })
 }

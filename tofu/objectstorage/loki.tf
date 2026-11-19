@@ -24,15 +24,33 @@ resource "minio_s3_bucket_policy" "prod_loki" {
   bucket = minio_s3_bucket.prod_loki.bucket
   policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [{
-      Sid          = "OnlyLokiAndTheAdminKey"
-      Effect       = "Deny"
-      NotPrincipal = { AWS = [local.admin_principal, local.loki_principal] }
-      Action       = ["s3:*"]
-      Resource = [
-        "arn:aws:s3:::${minio_s3_bucket.prod_loki.bucket}",
-        "arn:aws:s3:::${minio_s3_bucket.prod_loki.bucket}/*",
-      ]
-    }]
+    Statement = [
+      {
+        Sid          = "OnlyLokiAndTheAdminKey"
+        Effect       = "Deny"
+        NotPrincipal = { AWS = [local.admin_principal, local.loki_principal] }
+        Action       = ["s3:*"]
+        Resource = [
+          "arn:aws:s3:::${minio_s3_bucket.prod_loki.bucket}",
+          "arn:aws:s3:::${minio_s3_bucket.prod_loki.bucket}/*",
+        ]
+      },
+      {
+        Sid          = "OnlyTheAdminKeyMayChangeTheBucket"
+        Effect       = "Deny"
+        NotPrincipal = { AWS = [local.admin_principal] }
+        Action = [
+          "s3:PutLifecycleConfiguration",
+          "s3:PutBucketVersioning",
+          "s3:PutBucketPolicy",
+          "s3:DeleteBucketPolicy",
+          "s3:DeleteBucket",
+        ]
+        Resource = [
+          "arn:aws:s3:::${minio_s3_bucket.prod_loki.bucket}",
+          "arn:aws:s3:::${minio_s3_bucket.prod_loki.bucket}/*",
+        ]
+      },
+    ]
   })
 }

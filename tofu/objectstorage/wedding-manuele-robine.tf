@@ -43,15 +43,34 @@ resource "minio_s3_bucket_policy" "prod_wedding_manuele_robine" {
   bucket = minio_s3_bucket.prod_wedding_manuele_robine.bucket
   policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [{
-      Sid          = "OnlyTheAppAndTheAdminKey"
-      Effect       = "Deny"
-      NotPrincipal = { AWS = [local.admin_principal, local.wedding_manuele_robine_principal] }
-      Action       = ["s3:*"]
-      Resource = [
-        "arn:aws:s3:::${minio_s3_bucket.prod_wedding_manuele_robine.bucket}",
-        "arn:aws:s3:::${minio_s3_bucket.prod_wedding_manuele_robine.bucket}/*",
-      ]
-    }]
+    Statement = [
+      {
+        Sid          = "OnlyTheAppAndTheAdminKey"
+        Effect       = "Deny"
+        NotPrincipal = { AWS = [local.admin_principal, local.wedding_manuele_robine_principal] }
+        Action       = ["s3:*"]
+        Resource = [
+          "arn:aws:s3:::${minio_s3_bucket.prod_wedding_manuele_robine.bucket}",
+          "arn:aws:s3:::${minio_s3_bucket.prod_wedding_manuele_robine.bucket}/*",
+        ]
+      },
+      {
+        Sid          = "OnlyTheAdminKeyMayChangeTheBucketOrDeleteVersions"
+        Effect       = "Deny"
+        NotPrincipal = { AWS = [local.admin_principal] }
+        Action = [
+          "s3:DeleteObjectVersion",
+          "s3:PutLifecycleConfiguration",
+          "s3:PutBucketVersioning",
+          "s3:PutBucketPolicy",
+          "s3:DeleteBucketPolicy",
+          "s3:DeleteBucket",
+        ]
+        Resource = [
+          "arn:aws:s3:::${minio_s3_bucket.prod_wedding_manuele_robine.bucket}",
+          "arn:aws:s3:::${minio_s3_bucket.prod_wedding_manuele_robine.bucket}/*",
+        ]
+      },
+    ]
   })
 }

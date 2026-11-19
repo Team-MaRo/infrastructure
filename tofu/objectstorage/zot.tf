@@ -52,10 +52,11 @@ resource "minio_s3_bucket_policy" "prod_zot" {
         Resource     = local.prod_zot_resources
       },
       {
-        Sid          = "OnlyTheAdminKeyMayChangeTheBucket"
+        Sid          = "OnlyTheAdminKeyMayChangeTheBucketOrDeleteVersions"
         Effect       = "Deny"
         NotPrincipal = { AWS = [local.admin_principal] }
         Action = [
+          "s3:DeleteObjectVersion",
           "s3:PutLifecycleConfiguration",
           "s3:PutBucketVersioning",
           "s3:PutBucketPolicy",
