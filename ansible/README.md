@@ -9,6 +9,7 @@ of its own; each role's design and runbooks are in its own README:
 |---|---|---|
 | `hostname` | `prod.yml` | [`roles/hostname/README.md`](roles/hostname/README.md) |
 | `os_updates` | `prod.yml` | [`roles/os_updates/README.md`](roles/os_updates/README.md) |
+| `kernel_modules` | `prod.yml` | [`roles/kernel_modules/README.md`](roles/kernel_modules/README.md) |
 | `k3s` | `prod.yml` | [`roles/k3s/README.md`](roles/k3s/README.md) |
 | `swap` | nothing yet | [`roles/swap/README.md`](roles/swap/README.md) |
 | `argocd` | `argocd.yml` | [`roles/argocd/README.md`](roles/argocd/README.md) |
@@ -41,6 +42,9 @@ ansible/
     ├── os_updates/
     │   ├── defaults/main.yml # when the package lists are fetched and unattended-upgrades installs
     │   └── tasks/main.yml    # drop-ins for apt-daily.timer and apt-daily-upgrade.timer
+    ├── kernel_modules/
+    │   ├── defaults/main.yml # the kernel modules the nodes never load (sctp)
+    │   └── tasks/main.yml    # /etc/modprobe.d/ansible-blocked.conf, unloads a loaded one
     ├── k3s/
     │   ├── defaults/main.yml # version and server flags
     │   └── tasks/
@@ -168,7 +172,8 @@ Re-running is safe: every install task is guarded, so a second run reports `chan
 - **`prod.yml`** - the `prod` cluster, in three plays: `hosts: prod-01` initialises the first
   server, `hosts: prod:!prod-01:!prod_agents` joins the other servers and `hosts: prod_agents`
   the workers, each with `serial: 1`. Each play runs
-  [`hostname`](roles/hostname/README.md), [`os_updates`](roles/os_updates/README.md) and
+  [`hostname`](roles/hostname/README.md), [`os_updates`](roles/os_updates/README.md),
+  [`kernel_modules`](roles/kernel_modules/README.md) and
   [`k3s`](roles/k3s/README.md); why it has to be three plays, and why `prod-01` is written out
   literally, is in the k3s role's README.
 - **`site.yml`** - imports the per-type playbooks; today only `prod.yml`.

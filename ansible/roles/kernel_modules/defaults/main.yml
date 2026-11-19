@@ -1,0 +1,6 @@
+---
+# Kernel modules the nodes never load (README). sctp: nginx2root (2026-11-18) gets from code
+# execution in any container to root on the host through an unpatched bug in it, and any
+# process can make the kernel load it by opening an SCTP socket.
+kernel_modules_blocked:
+  - sctp

@@ -388,6 +388,7 @@ component); update it in the same change.
 | [`ansible/roles/k3s/README.md`](ansible/roles/k3s/README.md) | Installing k3s, its config drop-ins, Pod Security, Zitadel authentication |
 | [`ansible/roles/hostname/README.md`](ansible/roles/hostname/README.md) | Pinning the hostname for cloud-init |
 | [`ansible/roles/os_updates/README.md`](ansible/roles/os_updates/README.md) | Moving unattended-upgrades into the night's window |
+| [`ansible/roles/kernel_modules/README.md`](ansible/roles/kernel_modules/README.md) | Kernel modules the nodes never load (sctp) |
 | [`ansible/roles/argocd/README.md`](ansible/roles/argocd/README.md) | Bootstrapping Argo CD once |
 | [`ansible/roles/cluster_secrets/README.md`](ansible/roles/cluster_secrets/README.md) | The bootstrap Secrets from 1Password |
 | [`ansible/roles/swap/README.md`](ansible/roles/swap/README.md) | The unreferenced swap role and what its values claim |

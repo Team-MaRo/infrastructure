@@ -1,0 +1,19 @@
+---
+- name: Refuse to load the blocked kernel modules
+  ansible.builtin.copy:
+    dest: /etc/modprobe.d/ansible-blocked.conf
+    content: |
+      # Managed by Ansible (roles/kernel_modules).
+      {% for module in kernel_modules_blocked %}
+      install {{ module }} /bin/false
+      blacklist {{ module }}
+      {% endfor %}
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Unload the blocked kernel modules where one is loaded
+  community.general.modprobe:
+    name: "{{ item }}"
+    state: absent
+  loop: "{{ kernel_modules_blocked }}"
