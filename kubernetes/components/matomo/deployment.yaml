@@ -133,7 +133,7 @@ spec:
               readOnly: true
         - name: nginx
           # Without docker.io/: Keel writes the short form back (components/keel).
-          image: nginxinc/nginx-unprivileged:stable
+          image: nginxinc/nginx-unprivileged:mainline
           imagePullPolicy: Always
           lifecycle: *drain
           securityContext:

@@ -23,7 +23,7 @@ line kept current by Keel, namespace `phpmyadmin`). How the cluster's manifests 
   Debian, not Alpine: PHP on musl is measurably slower. Until 2026-11-16 it was the Apache
   variant, which had to bind port 80 as www-data and needed the pod sysctl
   `net.ipv4.ip_unprivileged_port_start=0`; nginx on 8080 needs nothing of the kind.
-- **Keel keeps it current** (`phpmyadmin:5-fpm` and `nginx-unprivileged:stable`, both rolled
+- **Keel keeps it current** (`phpmyadmin:5-fpm` and `nginx-unprivileged:mainline`, both rolled
   out when a new image appears under the tag - [`../keel/README.md`](../keel/README.md)): `5-fpm`
   follows every 5.x release and the base image's PHP fixes (PHP2Shell, 2026-10, arrived that way
   in the other PHP apps). 6.0 is not under that tag.

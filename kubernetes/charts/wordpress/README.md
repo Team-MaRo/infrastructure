@@ -23,7 +23,7 @@ named after the site:
 | init `plugins` | `wordpress:cli-2-php8.5` | installs the plugins and themes of the values, S3-Uploads, Query Monitor and the chart's must-use plugins and `db.php`; once the database holds the site, `wp core update-db`, the language packs, and Query Monitor deactivated ("Measuring a request") |
 | `php-fpm` | `wordpress:7-php8.5-fpm` | runs WordPress |
 | `varnish` (with `pageCache`) | `varnish:9.1` | the page cache on 6081, in front of nginx (`files/default.vcl`, "Page cache") |
-| `nginx` | `nginxinc/nginx-unprivileged:stable` | serves it on 8081 (`files/default.conf`), and php-fpm's pool figures on 9253 for Prometheus |
+| `nginx` | `nginxinc/nginx-unprivileged:mainline` (nginx's own recommendation: every fix, not only critical ones) | serves it on 8081 (`files/default.conf`), and php-fpm's pool figures on 9253 for Prometheus |
 | `uploads-proxy` | `ghcr.io/nginx/nginx-s3-gateway/nginx-oss-s3-gateway:unprivileged-oss` | serves `/wp-content/uploads/` from the private bucket |
 | CronJob `wp-cron` | `curlimages/curl` | calls `http://web/wp-cron.php` every five minutes |
 
