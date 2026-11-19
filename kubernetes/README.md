@@ -47,6 +47,7 @@ kubernetes/
 │       ├── alloy.yaml             # log collection and traces' entry on every node: chart (patch range) here
 │       ├── mariadb-operator-crds.yaml  # the operator's CRDs - never pruned
 │       ├── mariadb-operator.yaml  # the operator running the app database
+│       ├── rabbitmq-operators.yaml  # RabbitMQ's two operators: pinned manifests, CRDs - never pruned
 │       ├── mariadb.yaml           # the app database itself
 │       ├── cloudnative-pg.yaml    # the PostgreSQL operator and its backup plugin: charts (patch ranges) here
 │       ├── postgres.yaml          # the shared PostgreSQL itself
@@ -145,6 +146,11 @@ kubernetes/
     │   └── rules.yaml             # alerts: no spans, bucket errors, failing blocks and remote write
     ├── mariadb-operator/
     │   └── values.yaml            # Helm values: securityContexts, cert-manager, images
+    ├── rabbitmq-operators/
+    │   ├── kustomization.yaml     # both operators: no CPU limits, measured memory
+    │   ├── cluster-operator/      # its pinned release manifest
+    │   ├── topology-operator/     # its pinned release manifest, minus the shared namespace
+    │   └── patches/resources.yaml
     ├── mariadb/
     │   ├── kustomization.yaml
     │   ├── mariadb.yaml           # primary + replica, the failover settings
@@ -355,6 +361,7 @@ kubernetes/
 | [`tempo`](components/tempo/README.md) | Trace storage in Object Storage, 30 days; metrics from traces into Prometheus |
 | [`alloy`](components/alloy/README.md) | Log collection on every node; receives traces and forwards them to Tempo; counts the upload scan's lines for its alerts |
 | [`mariadb-operator`](components/mariadb-operator/README.md) | The operator running the app database |
+| [`rabbitmq-operators`](components/rabbitmq-operators/README.md) | RabbitMQ's operators: the broker from a RabbitmqCluster, vhosts and users as objects in Git |
 | [`mariadb`](components/mariadb/README.md) | The shared MariaDB: failover, backups, restore runbooks |
 | [`cloudnative-pg`](components/cloudnative-pg/README.md) | The PostgreSQL operator and its backup plugin |
 | [`postgres`](components/postgres/README.md) | The shared PostgreSQL: adding an app, failover, restore runbooks |

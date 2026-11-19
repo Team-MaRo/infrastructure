@@ -1,0 +1,23 @@
+---
+# RabbitMQ's two operators (README): the Cluster Operator runs the broker from a RabbitmqCluster
+# (kubernetes/components/rabbitmq), the Messaging Topology Operator turns Vhost, User,
+# Permission and Policy objects into the broker's definitions. Each pinned manifest is in its own
+# directory, since both declare the namespace rabbitmq-system.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - cluster-operator
+  - topology-operator
+
+patches:
+  # No CPU limits (they throttle an idle node), the cluster's default CPU request, and memory from
+  # a local measurement instead of upstream's 500Mi and 128Mi requests (README "Resources").
+  - target:
+      kind: Deployment
+      name: rabbitmq-cluster-operator
+    path: patches/resources.yaml
+  - target:
+      kind: Deployment
+      name: messaging-topology-operator
+    path: patches/resources.yaml

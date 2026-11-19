@@ -1,0 +1,14 @@
+---
+# The Messaging Topology Operator: turns Vhost, User, Permission and Policy objects into the
+# broker's definitions. Pinned to a release like the Cluster Operator (README); this variant
+# gets its webhook certificate from cert-manager.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - https://github.com/rabbitmq/messaging-topology-operator/releases/download/v1.20.6/messaging-topology-operator-with-certmanager.yaml
+
+patches:
+  # The Cluster Operator's manifest already declares this namespace; Kustomize refuses a
+  # resource twice once both directories meet in ../kustomization.yaml.
+  - path: namespace.yaml

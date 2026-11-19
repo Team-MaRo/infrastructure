@@ -43,7 +43,7 @@ component is deleted.
   `cloudnative-pg` would take the Postgres `Cluster` with it): cert-manager,
   external-secrets, kyverno, cloudnative-pg, the mariadb-operator ones,
   system-upgrade-controller, kube-prometheus-stack, kubeelasti, trust-manager,
-  vertical-pod-autoscaler. **Never on an
+  vertical-pod-autoscaler, rabbitmq-operators. **Never on an
   app with a volume** (openbao, mariadb, postgres, loki, kube-prometheus-stack, valkey-state): a mistakenly
   deleted file must not take its data along. **Never on the foundation**: root, private,
   argocd, hcloud-csi, traefik, coredns (it tracks k3s's CoreDNS Deployment; deleting it with

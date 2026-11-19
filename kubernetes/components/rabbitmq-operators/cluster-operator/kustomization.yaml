@@ -1,0 +1,9 @@
+---
+# The Cluster Operator: runs the broker from a RabbitmqCluster. Pinned to a release, since
+# upstream publishes no Helm chart that could follow a range; bumping the line is the upgrade
+# (README). The manifest brings the namespace rabbitmq-system and the CRD.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - https://github.com/rabbitmq/cluster-operator/releases/download/v2.23.3/cluster-operator.yml

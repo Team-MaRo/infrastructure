@@ -220,7 +220,7 @@ rule, 2026-10-02). Where a name cannot hold a hyphen, the hyphens become undersc
   - **Never on an app that brings CRDs** (deleting a CRD deletes every object of its kind):
     cert-manager, external-secrets, kyverno, cloudnative-pg, the mariadb-operator ones,
     system-upgrade-controller, kube-prometheus-stack, kubeelasti, trust-manager,
-    vertical-pod-autoscaler. **Never on an
+    vertical-pod-autoscaler, rabbitmq-operators. **Never on an
     app with a volume** (openbao, mariadb, postgres, loki, kube-prometheus-stack, valkey-state). **Never on the
     foundation**: root, private, argocd, hcloud-csi, traefik, coredns (it tracks k3s's CoreDNS
     Deployment). **Never on `priority-classes`**: a pod naming a missing class is refused.
@@ -417,6 +417,7 @@ component); update it in the same change.
 | [`kubernetes/components/tempo/README.md`](kubernetes/components/tempo/README.md) | Trace storage, retention, the metrics generator, searching traces |
 | [`kubernetes/components/alloy/README.md`](kubernetes/components/alloy/README.md) | Log collection on every node; the traces' entry on the way to Tempo; the counter behind alerts on log lines |
 | [`kubernetes/components/mariadb-operator/README.md`](kubernetes/components/mariadb-operator/README.md) | The MariaDB operator, its CRDs and webhook |
+| [`kubernetes/components/rabbitmq-operators/README.md`](kubernetes/components/rabbitmq-operators/README.md) | RabbitMQ's Cluster and Messaging Topology operators: pinned manifests, upgrading |
 | [`kubernetes/components/mariadb/README.md`](kubernetes/components/mariadb/README.md) | The shared MariaDB: failover, backups, PITR, runbooks |
 | [`kubernetes/components/cloudnative-pg/README.md`](kubernetes/components/cloudnative-pg/README.md) | The PostgreSQL operator and the Barman Cloud plugin |
 | [`kubernetes/components/postgres/README.md`](kubernetes/components/postgres/README.md) | The shared PostgreSQL: adding an app, failover, restore |

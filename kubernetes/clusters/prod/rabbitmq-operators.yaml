@@ -1,0 +1,25 @@
+---
+# RabbitMQ's Cluster Operator and Messaging Topology Operator, from
+# kubernetes/components/rabbitmq-operators. No finalizer: the app brings CRDs, and deleting a CRD
+# deletes every object of its kind - the broker and every app's vhost and user.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: rabbitmq-operators
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Team-MaRo/infrastructure.git
+    targetRevision: master
+    path: kubernetes/components/rabbitmq-operators
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: rabbitmq-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      # The CRDs are large.
+      - ServerSideApply=true
