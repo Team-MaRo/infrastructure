@@ -1,0 +1,36 @@
+{{- /* A site that sends through mailomat but brings no token would go unwatched without any
+alert, so it does not render. A site on its own mail server (smtp.host) needs none. */}}
+{{- if eq .Values.smtp.host "smtp.mailomat.cloud" }}
+{{- range .Values.secrets }}
+{{- if and (hasKey (default dict .env) "SMTP_PASSWORD") (not $.Values.mailomatWatch.domain) }}
+{{- fail "the site sends through mailomat (smtp.host, SMTP_PASSWORD) but sets no mailomatWatch.domain: its mail would go unwatched (components/mailomat-watch)" }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- with .Values.mailomatWatch.domain }}
+---
+# The site's mailomat API token for mailomat-watch (components/mailomat-watch), brought into that
+# namespace like its user into valkey-cache: one key, the site's sending domain, found there by
+# its label. The token is the field api-token of the OpenBao entry that holds the site's SMTP
+# login (the secrets block providing SMTP_PASSWORD).
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: {{ $.Release.Name }}
+  namespace: mailomat-watch
+spec:
+  refreshInterval: 5m
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: openbao
+  target:
+    template:
+      metadata:
+        labels:
+          d3strukt0r.dev/mailomat-token: "true"
+  data:
+    - secretKey: {{ . }}
+      remoteRef:
+        key: {{ (include "wordpress.secretRef" (dict "secrets" $.Values.secrets "name" "SMTP_PASSWORD") | fromYaml).key }}
+        property: api-token
+{{- end }}

@@ -1,0 +1,26 @@
+---
+# A Deployment copying every mailomat event into Loki and counting them for alerts (README).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: mailomat-watch
+
+resources:
+  - namespace.yaml
+  - rbac.yaml
+  - external-secrets.yaml
+  - deployment.yaml
+  - pod-monitor.yaml
+  - rules.yaml
+
+# The script, mounted into the pod; a change gets a new name, so the pod restarts with it.
+configMapGenerator:
+  - name: mailomat-watch
+    files:
+      - watch.py
+
+# Shared settings (shared/): the openbao store and refresh for every ExternalSecret, the sync
+# option for every monitor and rule.
+components:
+  - ../../shared/external-secret-defaults
+  - ../../shared/monitoring-sync-options

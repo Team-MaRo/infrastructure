@@ -39,6 +39,10 @@ languages:
   - de_DE
   - es_ES
 
+# Its mail's events in mailomat-watch (token: api-token in secret/arepazo-mailomat).
+mailomatWatch:
+  domain: mailomat.arepazo.ch
+
 # Database 2 in valkey-cache (components/valkey-cache). Without it, loading WordPress alone took
 # 834 database queries and every page 1.5-2 s (2026-10-20).
 objectCache:

@@ -1,0 +1,39 @@
+---
+# Alerts from the poller's own counts of mailomat's events (README "Alerts").
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: mailomat-watch
+spec:
+  groups:
+    - name: mailomat-watch
+      rules:
+        # A retry (failure_tmp) is normal; only the final outcome alerts.
+        - alert: MailomatMailLost
+          expr: increase(mailomat_events_total{job="mailomat-watch/mailomat-watch", event_type=~"failure_perm|not_accepted"}[30m]) > 0
+          labels:
+            severity: warning
+            namespace: mailomat-watch
+          annotations:
+            summary: "mailomat could not deliver a mail from {{ $labels.domain }} ({{ $labels.event_type }})."
+            description: >-
+              The mail is lost: it bounced for good (failure_perm) or mailomat refused it
+              (not_accepted - also over the free plan's limit). Recipient, subject and the
+              receiving server's answer in Loki:
+              {namespace="mailomat-watch"} | json | domain="{{ $labels.domain }}" | eventType="{{ $labels.event_type }}"
+        # After about a day mailomat no longer has the events, so this fires well before.
+        - alert: MailomatWatchStale
+          expr: >-
+            time() - mailomat_poll_last_success_timestamp_seconds{job="mailomat-watch/mailomat-watch"} > 3 * 3600
+            or absent(up{job="mailomat-watch/mailomat-watch"} == 1)
+          for: 15m
+          labels:
+            severity: warning
+            namespace: mailomat-watch
+          annotations:
+            summary: "mailomat's events are not being fetched{{ with $labels.domain }} for {{ . }}{{ end }}."
+            description: >-
+              A token revoked or the pod down; events older than about a day are gone from
+              mailomat. Check the pod's log (kubectl --context d3strukt0r-prod-admin -n
+              mailomat-watch logs deploy/mailomat-watch) for an "error" line (README "When an
+              alert fires").

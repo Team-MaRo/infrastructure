@@ -214,7 +214,7 @@ rule, 2026-10-02). Where a name cannot hold a hyphen, the hyphens become undersc
   - It is on apps whose data lives elsewhere or does not matter: `gatus`, `zitadel`,
     `oauth2-proxy`, `phpmyadmin`, `pgadmin`, `reloader`, `keel`, `wedding-manuele-robine`,
     `robines-portfolio`, `arepazo`, `matomo`, `kured`, `alloy`, `etcd-snapshots`,
-    `cluster-rbac`, `tempo`, `argocd-integrations`, `valkey-cache`, `hetzner-watch`, `domain-redirects`, `clamav`, `goldilocks`, `descheduler`. A Postgres app's database
+    `cluster-rbac`, `tempo`, `argocd-integrations`, `valkey-cache`, `hetzner-watch`, `mailomat-watch`, `domain-redirects`, `clamav`, `goldilocks`, `descheduler`. A Postgres app's database
     and role stay when it goes (CloudNativePG's reclaim policies default to `retain`); a MariaDB
     app's objects set `cleanupPolicy: Skip`, since mariadb-operator's default is `Delete`.
   - **Never on an app that brings CRDs** (deleting a CRD deletes every object of its kind):
@@ -409,6 +409,7 @@ component); update it in the same change.
 | [`kubernetes/components/priority-classes/README.md`](kubernetes/components/priority-classes/README.md) | `stateful-core`: the databases and OpenBao evicted last |
 | [`kubernetes/components/gatus/README.md`](kubernetes/components/gatus/README.md) | The status page, the Watchdog heartbeat, adding checks |
 | [`kubernetes/components/hetzner-watch/README.md`](kubernetes/components/hetzner-watch/README.md) | What it watches in the Hetzner API, change-only messages, its state ConfigMap and token |
+| [`kubernetes/components/mailomat-watch/README.md`](kubernetes/components/mailomat-watch/README.md) | mailomat's events in Loki, the lost-mail alerts, a token per domain, searching sent mail |
 | [`kubernetes/components/domain-redirects/README.md`](kubernetes/components/domain-redirects/README.md) | Whole domains redirected to another by Traefik; adding a domain |
 | [`kubernetes/components/clamav/README.md`](kubernetes/components/clamav/README.md) | The shared virus scanner: clamd, its signatures, who may reach it, testing a scan |
 | [`kubernetes/components/kube-prometheus-stack/README.md`](kubernetes/components/kube-prometheus-stack/README.md) | Prometheus, Alertmanager, Grafana, scraping k3s, alerts |

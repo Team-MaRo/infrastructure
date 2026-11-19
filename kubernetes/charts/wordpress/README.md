@@ -64,6 +64,8 @@ Only what differs between sites; `values.yaml` holds the defaults and says what 
 | `pageCache.staticSizeMiB` | `512` | Varnish's storage for static files, a file on the pod's disk ("Page cache") |
 | `pageCache.dropBasicAuth` | `false` | drop a basic-auth header before WordPress; only for a site behind Traefik's basic auth |
 | `matomo.siteId` | `0` | the site's ID in the cluster's Matomo, which turns on its tracking ("Web analytics"); 0: off |
+| `smtp.host`, `smtp.port`, `smtp.encryption` | `smtp.mailomat.cloud`, `587`, `tls` | the SMTP server the site's mail leaves through, login from `SMTP_USERNAME`/`SMTP_PASSWORD` in `secrets`; a site on its own mail server names it here (`encryption`: `tls` = STARTTLS, `ssl`, or `""`) |
+| `mailomatWatch.domain` | `""` | the site's mailomat sending domain (`mailomat.<domain>`): brings its API token to mailomat-watch ("Mail through mailomat"). Required while `smtp.host` is mailomat's and `secrets` provides `SMTP_PASSWORD` - the chart then refuses to render without it, so no site sending through mailomat goes unwatched; a site on its own server leaves it empty |
 | `objectCache.database` | `0` | the site's database in valkey-cache, which turns on the object cache; 0: off |
 | `reloader` | `true` | the Reloader annotation; needs the namespace in Reloader's list |
 | `phpFpm.pool` | `{}` | `pm.*` settings, e.g. `max_children: 6`; empty: the image's five workers |
@@ -269,10 +271,15 @@ variable, stops the rendering with a message naming it.
 - **Restricted Pod Security**: the pod runs as 33 (`www-data`), the two nginx images as their own
   user 101, the curl job as 100.
 - **Mail through mailomat**: WP Mail SMTP's `WPMS_*` constants in `WORDPRESS_CONFIG_EXTRA` send
-  through `smtp.mailomat.cloud:587` (STARTTLS) with the site's SMTP user from OpenBao, so wp-admin
+  through `smtp.mailomat.cloud:587` (STARTTLS; `smtp` in the values, so a site can name its own
+  server instead) with the site's SMTP user from OpenBao, so wp-admin
   shows the connection greyed out; the sender stays wp-admin's. Signing and DMARC are in
   [`../../../tofu/cloudflare/README.md`](../../../tofu/cloudflare/README.md) ("Sending through
-  mailomat").
+  mailomat"). With `mailomatWatch.domain`, the site also brings its mailomat API token - the field
+  `api-token` of the OpenBao entry holding its SMTP login - into the namespace of
+  [`mailomat-watch`](../../components/mailomat-watch/README.md), which keeps every event of the
+  site's mail in Loki and alerts when one is lost (`templates/mailomat-token.yaml`, labelled, named
+  after the site).
 - **An object cache in valkey-cache** (`objectCache.database`, `components/valkey-cache`):
   WordPress keeps its query results in Valkey instead of asking MariaDB again on the next
   request - for admin and visitors alike. Redis Object Cache's drop-in, through Predis (the image

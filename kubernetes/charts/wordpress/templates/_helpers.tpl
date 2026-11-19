@@ -92,15 +92,15 @@ variable at runtime, so each one carries the same set.
     // Present while Query Monitor is active, outside the web root (files/query-monitor-panels.php,
     // files/query-monitor-db.php).
     define( 'QUERY_MONITOR_MARKER', '/run/query-monitor/active' );
-    // Mail leaves through mailomat (README): WP Mail SMTP takes its connection from
-    // these constants instead of its database settings. Encryption and auth are set
-    // because the plugin's defaults for SMTP are none and off. The sender (From) stays
-    // in wp-admin.
+    // Mail leaves through the SMTP server of values smtp, mailomat unless the site names its
+    // own (README): WP Mail SMTP takes its connection from these constants instead of its
+    // database settings. Encryption and auth are set because the plugin's defaults for SMTP
+    // are none and off. The sender (From) stays in wp-admin.
     define( 'WPMS_ON', true );
     define( 'WPMS_MAILER', 'smtp' );
-    define( 'WPMS_SMTP_HOST', 'smtp.mailomat.cloud' );
-    define( 'WPMS_SMTP_PORT', 587 );
-    define( 'WPMS_SSL', 'tls' );
+    define( 'WPMS_SMTP_HOST', {{ .Values.smtp.host | squote }} );
+    define( 'WPMS_SMTP_PORT', {{ .Values.smtp.port | int }} );
+    define( 'WPMS_SSL', {{ .Values.smtp.encryption | squote }} );
     define( 'WPMS_SMTP_AUTH', true );
     define( 'WPMS_SMTP_USER', getenv( 'SMTP_USERNAME' ) );
     define( 'WPMS_SMTP_PASS', getenv( 'SMTP_PASSWORD' ) );

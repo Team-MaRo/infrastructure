@@ -1,0 +1,27 @@
+# The mailomat watch for this cluster, from kubernetes/components/mailomat-watch: copies every
+# mailomat event into Loki and alerts on lost mail.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: mailomat-watch
+  namespace: argocd
+  # Removing this file removes everything it deployed, namespace and state included; the events
+  # already in Loki stay there.
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Team-MaRo/infrastructure.git
+    targetRevision: master
+    path: kubernetes/components/mailomat-watch
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: mailomat-watch
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      # Not required here (no large CRDs); used for consistency.
+      - ServerSideApply=true

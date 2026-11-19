@@ -53,6 +53,10 @@ wpCli:
     limits:
       memory: 320Mi
 
+# Its mail's events in mailomat-watch (token: api-token in secret/robines-portfolio-mailomat).
+mailomatWatch:
+  domain: mailomat.robines.space
+
 # Database 1 in valkey-cache (components/valkey-cache).
 objectCache:
   database: 1

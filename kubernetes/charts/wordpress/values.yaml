@@ -21,6 +21,21 @@ languages: []
 #       WORDPRESS_DB_PASSWORD: password
 secrets: []
 
+# The SMTP server the site's mail leaves through (README "Mail through mailomat"); the login is
+# SMTP_USERNAME/SMTP_PASSWORD in secrets. encryption is WP Mail SMTP's: tls (STARTTLS), ssl or ""
+# (none).
+smtp:
+  host: smtp.mailomat.cloud
+  port: 587
+  encryption: tls
+
+# The site's mailomat sending domain (mailomat.<domain>) for mailomat-watch
+# (components/mailomat-watch): the site brings its API token there, the field api-token of the
+# OpenBao entry holding its SMTP login. Required while smtp.host is mailomat's and the site has an
+# SMTP login; a site on its own mail server leaves it empty.
+mailomatWatch:
+  domain: ""
+
 # WordPress's object cache in valkey-cache (components/valkey-cache): the site's database number
 # there, which no other app may hold (its README lists them). 0: no object cache.
 objectCache:

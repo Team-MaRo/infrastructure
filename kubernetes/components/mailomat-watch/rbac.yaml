@@ -1,0 +1,38 @@
+---
+# The pod's own identity: it may create its state ConfigMap and then read and replace exactly
+# that one, and list the Secrets in this namespace - the apps' mailomat tokens (README "The
+# tokens"). Nothing else in the cluster.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: mailomat-watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: mailomat-watch
+rules:
+  # create cannot be limited to a name; this namespace holds nothing else.
+  - apiGroups: [""]
+    resources: [configmaps]
+    verbs: [create]
+  - apiGroups: [""]
+    resources: [configmaps]
+    resourceNames: [mailomat-watch-state]
+    verbs: [get, update]
+  # Listed by label; list cannot be limited to names, and this namespace holds only the tokens.
+  - apiGroups: [""]
+    resources: [secrets]
+    verbs: [list]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: mailomat-watch
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: mailomat-watch
+subjects:
+  - kind: ServiceAccount
+    name: mailomat-watch

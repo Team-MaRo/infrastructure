@@ -38,6 +38,7 @@ kubernetes/
 │       ├── traefik.yaml           # k3s's Traefik: DaemonSet on the ingress nodes' host network
 │       ├── gatus.yaml             # the public status page and the alerting heartbeat
 │       ├── hetzner-watch.yaml     # reports changes in the Hetzner Cloud API to ntfy
+│       ├── mailomat-watch.yaml    # copies mailomat's events into Loki, alerts on lost mail
 │       ├── domain-redirects.yaml  # d3st.dev, d3st.org, d3strukt0r.me to d3strukt0r.dev
 │       ├── clamav.yaml            # the shared virus scanner for uploads
 │       ├── kube-prometheus-stack.yaml  # metrics and alerts: chart (patch range) here, values in components/
@@ -215,6 +216,15 @@ kubernetes/
     │   ├── rbac.yaml              # may only create, read and replace its state ConfigMap
     │   ├── external-secrets.yaml  # the read-only Hetzner token, ntfy
     │   └── cronjob.yaml           # every 15 minutes
+    ├── mailomat-watch/
+    │   ├── kustomization.yaml     # watch.py becomes the ConfigMap mailomat-watch
+    │   ├── watch.py               # every 5 minutes: new events into the log, counted for alerts
+    │   ├── namespace.yaml
+    │   ├── rbac.yaml              # its state ConfigMap, and listing the apps' token Secrets here
+    │   ├── external-secrets.yaml  # the tokens of the shared domains; apps bring their own
+    │   ├── deployment.yaml        # one pod, metrics on :9100
+    │   ├── pod-monitor.yaml
+    │   └── rules.yaml             # MailomatMailLost, MailomatWatchStale
     ├── domain-redirects/
     │   ├── kustomization.yaml
     │   ├── namespace.yaml
@@ -331,6 +341,7 @@ kubernetes/
 | [`cert-manager`](components/cert-manager/README.md) | Certificates from Let's Encrypt over DNS-01 |
 | [`gatus`](components/gatus/README.md) | The public status page and the alerting heartbeat |
 | [`hetzner-watch`](components/hetzner-watch/README.md) | A look at the Hetzner Cloud API every 15 minutes; tells ntfy only what changed (server type availability, deprecations, blocked IPs, rescue mode, traffic) |
+| [`mailomat-watch`](components/mailomat-watch/README.md) | Copies every mailomat event (all sending domains) into Loki for 30 days; alerts when a mail is lost or the events stop arriving |
 | [`clamav`](components/clamav/README.md) | The shared virus scanner that Traefik hands uploads to |
 | [`domain-redirects`](components/domain-redirects/README.md) | Whole domains redirected to another by Traefik (`d3st.dev`, `d3st.org`, `d3strukt0r.me` to `d3strukt0r.dev`) |
 | [`kube-prometheus-stack`](components/kube-prometheus-stack/README.md) | Prometheus, Alertmanager, Grafana; the cluster's own alerts |
