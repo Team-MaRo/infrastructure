@@ -29,6 +29,9 @@ SEEN_PER_DOMAIN = 1000
 STATE_CONFIGMAP = "mailomat-watch-state"
 TOKEN_LABEL = "d3strukt0r.dev/mailomat-token"
 EVENT_TYPES = ["accepted", "not_accepted", "delivered", "failure_tmp", "failure_perm", "opened", "clicked"]
+# Loki takes a line's level from this field instead of guessing from words like "failure" in it:
+# a retry is normal, only a lost mail is an error. Everything else is info.
+LEVELS = {"failure_tmp": "warn", "failure_perm": "error", "not_accepted": "error"}
 SERVICE_ACCOUNT = "/var/run/secrets/kubernetes.io/serviceaccount"
 
 INTERVAL = int(os.environ.get("POLL_INTERVAL_SECONDS", "300"))
@@ -163,7 +166,8 @@ def poll(state, domains):
                 poll_errors_total[domain] += 1
             continue
         for event in events:
-            print(json.dumps({**event, "domain": domain}, ensure_ascii=False), flush=True)
+            line = {**event, "domain": domain, "level": LEVELS.get(event["eventType"], "info")}
+            print(json.dumps(line, ensure_ascii=False), flush=True)
         with metrics_lock:
             for event in events if known else []:
                 key = (domain, event["eventType"])

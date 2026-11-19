@@ -23,7 +23,11 @@ mail raises an alert from mailomat's own events - not from a count of ours or fr
   application/json` - `application/ld+json` answers 406) for the newest events, 100 per page,
   newest first, until a page holds one it has already seen. The API has no date filter.
 - **Each new event is one log line**, oldest first: the complete JSON as mailomat returns it,
-  plus `"domain"`. Alloy takes the pod's log into Loki like any other.
+  plus `"domain"` and `"level"`. Alloy takes the pod's log into Loki like any other. The level is
+  set here so Loki does not guess it from words in the line (it marked every retry red, since the
+  payload says "failure" and "error"): `failure_perm` and `not_accepted` - a lost mail - are
+  `error`, `failure_tmp` - a retry, normal - is `warn`, everything else `info`. Red in Grafana's
+  log volume therefore means what `MailomatMailLost` reports.
 - **Event types**: `accepted` (once per mail, with all recipients), `delivered`, `failure_tmp`
   (every failed attempt; mailomat retries for about three days), `failure_perm` (given up for
   good), `not_accepted` (refused, e.g. over the limit), `opened`/`clicked` (only with tracking,
