@@ -96,11 +96,12 @@ k3s_config:
 # map is replaced as a whole.
 #
 # kubeReserved and systemReserved take memory that k3s itself and the OS use out of the node's
-# allocatable, so the scheduler stops placing pods into it. Measured 2026-10-06: k3s (API server,
-# etcd, controllers, kubelet, containerd) 1.9-2.7 GiB, the rest of the OS with the kernel about
-# 0.2 GiB. kubeReserved is k3s's baseline with embedded etcd (about 1.5 GiB per k3s's resource
-# profiling) - less than measured, so the largest node's pod requests still fit; raise it once
-# requests are trimmed. The pods together are capped at capacity minus both reservations (the
+# allocatable, so the scheduler stops placing pods into it. Measured 2026-11-13..19 with
+# GOMEMLIMIT 2304MiB: k3s (API server, etcd, controllers, kubelet) peaked at 2.5-2.6 GiB, the OS
+# with containerd and the kernel about 0.4 GiB besides. kubeReserved is sized for k3s under the
+# 2048MiB limit below (~2.3 GiB) plus that 0.4 GiB, minus systemReserved, rounded down to 2304Mi
+# so the pods of a drained prod-01 still fit on the other nodes (~1 GiB to spare). The agents
+# reserve less (inventories/group_vars/prod_agents.yml). The pods together are capped at capacity minus both reservations (the
 # kubelet's default enforceNodeAllocatable: [pods]); k3s and the OS are not - enforcing their
 # reservations would put a hard memory limit on k3s and etcd.
 #
@@ -116,7 +117,7 @@ k3s_kubelet_config:
     imagefs.available: 5%
     nodefs.available: 5%
   kubeReserved:
-    memory: 1536Mi
+    memory: 2304Mi
   systemReserved:
     memory: 256Mi
   imageMaximumGCAge: 72h
@@ -132,10 +133,11 @@ k3s_kubelet_config_overrides: {}
 # 2.1-2.4 GiB RSS (peaks 2.8-3.1 GiB in 7 days) for a live heap of 0.6-0.9 GiB (peak 1.35 GiB on
 # the leader of etcd, the controller manager and the scheduler). Near the limit Go collects more
 # often; above it Go caps the collector at about half the CPU and lets memory grow, so it never
-# kills k3s - but a live heap at the limit costs that CPU, hence ~950 MiB of room above the peak
-# for a new leader rebuilding its caches. In Go's units (MiB). Agents run no API server or etcd
+# kills k3s - but a live heap at the limit costs that CPU. 2304MiB from 2026-11-13 cut the peaks
+# to 2.5-2.6 GiB (from 2.8-3.1) while garbage collection took at most 4 % of k3s's CPU (0.6 % on
+# average), so 2048MiB since 2026-11-19. In Go's units (MiB). Agents run no API server or etcd
 # and get none.
-k3s_gomemlimit: 2304MiB
+k3s_gomemlimit: 2048MiB
 
 # containerd's registry settings, written to /etc/rancher/k3s/registries.yaml on every node; a
 # change restarts one node at a time, like k3s_config (README "Pulling through zot"). The six

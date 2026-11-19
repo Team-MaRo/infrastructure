@@ -13,6 +13,14 @@ It manages the zones, every DNS record, and six security and TLS zone settings
 `tls_1_3`, `security_level`). Page rules, WAF, Workers and the remaining ~54 zone settings
 stay in the dashboard.
 
+The WAF is the Free plan's managed ruleset, which Cloudflare deploys on every zone by default:
+Security → Security rules shows "Cloudflare Managed Response Firewall Default", action Execute,
+for all incoming requests (checked on d3st.dev, 2026-11-19). It includes the rules Cloudflare
+added against PHP2Shell on 2026-10-21. **There are no IP access rules**: ten account-wide
+"Allow" rules for old hosting addresses and `127.0.0.1`, without notes, were deleted on
+2026-11-19 - an Allow rule lets its address past the WAF on every zone of the account. A new
+one belongs in this module (`cloudflare_access_rule`), not the dashboard.
+
 The SSL mode itself (`ssl`: flexible, full, strict) is **not** managed. Every zone uses
 Automatic SSL/TLS: Cloudflare scans the origin and picks the strictest mode that works, so
 `ssl` is only the latest scan's result. Writing it would switch the zone to manual mode;

@@ -71,25 +71,28 @@ What it sets, and why (measured 2026-10-06):
   down to 78 MiB available. `memory.available: 200Mi` has the kubelet evict pods (those
   furthest over their requests first) before the kernel's OOM killer chooses, which could hit
   k3s or etcd. The two disk values are k3s's, repeated because the map is replaced.
-- **`kubeReserved: 1536Mi` and `systemReserved: 256Mi`** take memory k3s itself and the OS use
-  out of the node's allocatable, so the scheduler stops placing pods into it: allocatable drops
-  from 7.6 GiB to about 5.6 GiB on a cx33 (on `prod-01`, a cx43 since 2026-11-05: from 15.3 GiB
-  to about 13.3 GiB). Measured: k3s (API server, etcd, controllers, kubelet, containerd) holds
-  1.9-2.7 GiB, the rest of the OS including the kernel about 0.2 GiB. 1.5 GiB is k3s's baseline
-  with embedded etcd ([resource profiling](https://docs.k3s.io/reference/resource-profiling));
-  above that it grows mostly with the CRDs - 133 here, whose schemas the API server keeps parsed
-  several times over - and the controllers watching them. Less than measured, so the largest
-  node's pod requests keep fitting; raise it once oversized requests are trimmed.
-- **`GOMEMLIMIT=2304MiB` for k3s on the servers** (`k3s_gomemlimit`), not a kubelet setting: an
+- **`kubeReserved: 2304Mi` and `systemReserved: 256Mi`** on the servers take memory k3s itself
+  and the OS use out of the node's allocatable, so the scheduler stops placing pods into it:
+  allocatable drops from 7.6 GiB to 4998 MiB on a cx33 (on `prod-01`, a cx43 since 2026-11-05:
+  from 15.3 GiB to 12861 MiB). Measured 2026-11-13..19 under a 2304MiB GOMEMLIMIT: k3s (API
+  server, etcd, controllers, kubelet) peaked at 2.5-2.6 GiB, containerd, the rest of the OS and
+  the kernel about 0.4 GiB besides. 1.5 GiB is k3s's baseline with embedded etcd ([resource
+  profiling](https://docs.k3s.io/reference/resource-profiling)); above that it grows mostly with
+  the CRDs - 133 here, whose schemas the API server keeps parsed several times over - and the
+  controllers watching them. 2304Mi (from 1536Mi on 2026-11-19) fits k3s under the 2048MiB limit
+  plus the OS, rounded down so a drained `prod-01`'s pods still fit on the other nodes (about
+  1 GiB to spare). The workers reserve 512Mi (below).
+- **`GOMEMLIMIT=2048MiB` for k3s on the servers** (`k3s_gomemlimit`), not a kubelet setting: an
   `Environment=` line in the systemd drop-in `/etc/systemd/system/k3s.service.d/50-ansible.conf`.
   Go otherwise lets k3s's heap grow to twice what is live before collecting: measured 2026-11-13,
   2.1-2.4 GiB RSS (peaks 2.8-3.1 GiB in 7 days) for a live heap of 0.6-0.9 GiB, 1.35 GiB at most
   on the server holding the leaders of etcd, the controller manager and the scheduler - which
   server that is changes with restarts. The limit is soft: near it Go collects more often, above
   it Go caps the collector at about half the CPU and lets memory grow, so it never kills k3s. A
-  live heap at the limit would cost that CPU, hence the room above the peak. Agents run no API
-  server or etcd and get none. `kubeReserved` is the scheduler's view of the same memory; it
-  follows once a week with the limit has been measured.
+  live heap at the limit would cost that CPU. 2304MiB (2026-11-13) cut k3s's peaks to 2.5-2.6
+  GiB from 2.8-3.1 while garbage collection took at most 4 % of k3s's CPU, 0.6 % on average - so
+  2048MiB since 2026-11-19. Agents run no API server or etcd and get none. `kubeReserved` is the
+  scheduler's view of the same memory, sized from this measurement.
 - **`imageMaximumGCAge: 72h`** deletes images no container has used for three days, however full
   the disk is. Without it only the kubelet's threshold cleans, above 85 % of the 37 GiB, and old
   versions from floating tags and chart releases pile up: 13.8-18.6 GiB of images per node on
@@ -105,16 +108,16 @@ What it sets, and why (measured 2026-10-06):
 
 **What is capped and what is not.** The kubelet's default `enforceNodeAllocatable: [pods]`
 turns the reservation into a hard limit **for the pods together**: their cgroup
-(`kubepods.slice`) gets `memory.max` = capacity minus both reservations, 5965 MiB on a cx33
-(13829 MiB on `prod-01`). k3s and the OS get **no** limit - enforcing `kubeReserved`/`systemReserved`
-would put one on k3s and etcd, so the role does not. Three things can then happen as memory fills
-up, per node (the figures for a cx33):
+(`kubepods.slice`) gets `memory.max` = capacity minus both reservations, 5198 MiB on a cx33
+server (13061 MiB on `prod-01`, 6990 MiB on the worker). k3s and the OS get **no** limit -
+enforcing `kubeReserved`/`systemReserved` would put one on k3s and etcd, so the role does not.
+Three things can then happen as memory fills up, per node (the figures for a cx33 server):
 
 | What | When | Effect |
 |---|---|---|
-| Eviction, pods' share | pods together above ~5.6 GiB (allocatable minus 200 MiB) | the kubelet evicts pods |
+| Eviction, pods' share | pods together above ~4.9 GiB (allocatable minus 200 MiB) | the kubelet evicts pods |
 | Eviction, whole node | less than 200 MiB free of the 7.6 GiB - k3s grew past its reservation | the kubelet evicts pods |
-| Cgroup limit | pods together at 5965 MiB, faster than the kubelet reacted | the kernel kills a process inside a pod - never k3s |
+| Cgroup limit | pods together at 5198 MiB, faster than the kubelet reacted | the kernel kills a process inside a pod - never k3s |
 
 Pods using more than their requests go first, the PriorityClass `stateful-core` last among those
 ([`kubernetes/components/priority-classes/README.md`](../../../kubernetes/components/priority-classes/README.md)).
