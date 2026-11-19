@@ -22,7 +22,10 @@ containers, PostgreSQL and Redis - too much for four small nodes (research 2026-
   (`tofu/objectstorage`), users and API keys in [`valkey-state`](../valkey-state/README.md)
   database 4 (`remoteCache` + `cacheDriver` redis), so a new pod anywhere has everything. zot's
   scale-out mode gives each repository one owner instance, so more replicas would not make it
-  highly available; the nodes' embedded registry is the plan for that (Ansible, k3s role).
+  highly available. While it is down, the nodes pull public images from their origin registries;
+  images only in this registry cannot be pulled by a node that lacks them (the nodes' embedded
+  registry, which would have covered that, is off: it froze floating tags - k3s role README,
+  "Pulling through zot").
 - **Deduplication and garbage collection as zot ships them** (both on by default): a layer that
   several repositories share is stored once. From 2026-10 to 2026-11 deduplication was off,
   because with it on S3 garbage collection deleted freshly pushed layers (zot#4550, fixed in
@@ -87,11 +90,12 @@ valkey-state's data is lost, they are gone and must be made again.
 
 zot fetches from the six registries on demand, under a prefix per registry:
 `registry.d3strukt0r.dev/docker.io/library/busybox` is `docker.io/library/busybox`. The nodes are
-pointed at it in `/etc/rancher/k3s/registries.yaml`, with the `cluster` user's API key, and share
-images among themselves first (embedded registry); they fall back to the origin registry when
-zot fails ([`ansible/roles/k3s/README.md`](../../../ansible/roles/k3s/README.md), "Pulling through
-zot"). Docker Hub limits anonymous pulls per address; zot's cache keeps
-that low.
+pointed at it in `/etc/rancher/k3s/registries.yaml`, with the `cluster` user's API key, and fall
+back to the origin registry when zot fails ([`ansible/roles/k3s/README.md`](../../../ansible/roles/k3s/README.md),
+"Pulling through zot"). **Every tag request is checked upstream** (zot v2.1.23's on-demand
+default, `manifestCheckInterval` unset: a HEAD request, which Docker Hub does not count against
+its pull limit), so a floating tag always answers with the image it points to now; a new image is
+downloaded once. Docker Hub limits anonymous pulls per address; zot's cache keeps that low.
 
 **zot gives up on upstream within seconds**, so containerd's fallback comes quickly - containerd
 waits as long as zot holds a request, it has no response timeout for a mirror. On 2026-11-09,

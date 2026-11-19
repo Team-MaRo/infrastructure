@@ -97,7 +97,7 @@ What it sets, and why (measured 2026-10-06):
   every start it deletes nothing by age until the full period has passed, then every image not
   used since that start (`freeOldImages` in its source). k3s restarted after 11, 5, 1-2 and 3 days
   in the 17 days before - with a week, the cleanup would have run once. A deleted image comes back
-  from a peer node or zot when a pod needs it; k3s's pinned pause image is never deleted. The
+  from zot when a pod needs it; k3s's pinned pause image is never deleted. The
   first age-based cleanup comes 72 h after a node's restart; `k3s crictl --timeout 60s rmi
   --prune` on a node frees the space at once (only images no container uses). With crictl's
   default 2 s timeout most removals report `DeadlineExceeded`, although containerd completes them
@@ -293,26 +293,35 @@ what is k3s configuration is here.
 
 Every node's containerd pulls through the cluster's own registry, zot at
 `registry.d3strukt0r.dev` ([`kubernetes/components/zot/README.md`](../../../kubernetes/components/zot/README.md)):
-`/etc/rancher/k3s/registries.yaml` from `k3s_registries`, plus `embedded-registry: true` in
-`k3s_config`.
+`/etc/rancher/k3s/registries.yaml` from `k3s_registries`.
 
 - **The six allowed registries** (`docker.io`, `ghcr.io`, `quay.io`, `registry.k8s.io`,
   `public.ecr.aws`, `us-docker.pkg.dev`) go through zot's mirror: a `rewrite` puts the name under zot's prefix, so
   `docker.io/library/busybox` is fetched as `registry.d3strukt0r.dev/docker.io/library/busybox`.
   Manifests keep the original names, and Kyverno's allowed registries are unchanged.
-- **Order per pull**: a peer node first (the embedded registry, Spegel, on 5001 and 6443 over the
-  private network, which Hetzner's firewall does not filter), then zot, then the origin registry,
-  which k3s always tries last. A broken zot slows pulls down; it does not stop them - zot gives up
-  on an unreachable upstream within about 8 s, so the origin comes next (zot README "Mirror";
-  before 2026-11-12 it held a pull for minutes). A peer may answer 404 for an image it deleted
-  recently - its announcement outlives the image, as after the one-off prune on 2026-11-08 and
-  after every age-based cleanup ("Memory" above) - and the next source follows within
-  milliseconds. Only images
-  of registries under `mirrors` are shared between peers, and **never `latest` tags** (k3s's
-  rule) - the Keel apps on floating tags pull from zot or the origin every time.
-- **Our own registry** is listed without an endpoint: pulls go to it directly, and the embedded
-  registry shares its images. A peer hands them out without asking for credentials - all nodes
-  are equally trusted.
+- **Order per pull**: zot, then the origin registry, which k3s always tries last. A broken zot
+  slows pulls down; it does not stop them - zot gives up on an unreachable upstream within about
+  8 s, so the origin comes next (zot README "Mirror"; before 2026-11-12 it held a pull for
+  minutes). zot asks the origin for every tag (a HEAD request, which Docker Hub does not count
+  against its pull limit), so a floating tag always resolves to the image it points to now.
+- **No embedded registry** (k3s's `embedded-registry`, Spegel; off since 2026-11-19). It let the
+  nodes pull from each other first, and **k3s's Spegel answers every tag except `latest` from
+  whichever node has it, without asking upstream** - by design, with no setting to change it
+  (k3s#12799; checked in v1.37.2's `pkg/spegel/spegel.go`). So floating tags never moved:
+  measured 2026-11-19, `wordpress:7-php8.5-fpm` and `matomo:5-fpm` were on three different old
+  images across the four nodes while zot and Docker Hub had the new one, and Keel's restarts kept
+  getting the old image. A standalone Spegel with `resolveTags: false` was weighed and dropped:
+  k3s rewrites containerd's `certs.d` on every start, which silently removes Spegel's entries
+  until its pod restarts; it needs root; and without tag resolution our own images by tag would
+  still need zot. What is lost: images no longer come from a neighbour, so every node pulls from
+  zot (which reads them from Object Storage), and **our own registry has no fallback while zot is
+  down** - a node that does not have such an image yet cannot start it then (no workload uses one
+  yet).
+- **Our own registry** (`registry.d3strukt0r.dev`) is not under `mirrors`: pulls go to it
+  directly, with the login below.
+- **Checking that a node has a tag's current image**: `k3s ctr -n k8s.io images ls | grep
+  '<image>:<tag>'` on the nodes (`ansible prod -b -m shell -a ...`) against the digest zot
+  answers for it.
 - **The login**: zot wants one for everything; the nodes use the API key of its read-only user
   `cluster`, from 1Password at run time (`k3s_registry_password` in `group_vars/prod.yml`, item
   [`Zot | Prod | cluster`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=od76biljijf6a7umrlojyd45ya&h=my.1password.com),

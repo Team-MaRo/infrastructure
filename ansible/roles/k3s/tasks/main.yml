@@ -94,7 +94,7 @@
   register: k3s_kubelet_dropin
 
 - name: Write the registry configuration
-  # Pulls through zot and the embedded registry (k3s_registries). containerd reads it only when
+  # Pulls through zot (k3s_registries). containerd reads it only when
   # k3s starts, so a change restarts the node below. Holds the API key: root only, never logged.
   ansible.builtin.copy:
     content: "{{ k3s_registries | to_nice_yaml(indent=2) }}"
