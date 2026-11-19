@@ -66,10 +66,10 @@ rebuilt from our copies is ours, not mailomat's. Going over the limit shows up a
 In Grafana (Explore, Loki):
 
 ```logql
-{namespace="mailomat-watch"} | json                                              # everything
-{namespace="mailomat-watch"} | json | recipient="someone@example.com"            # one recipient
-{namespace="mailomat-watch"} | json | eventType=~"failure_perm|not_accepted"     # lost mails
-sum by (domain) (count_over_time({namespace="mailomat-watch"} | json | eventType="accepted" [30d]))   # mails per domain, by hand
+{namespace="mailomat-watch", container="watch"} | json                                              # everything
+{namespace="mailomat-watch", container="watch"} | json | recipient="someone@example.com"            # one recipient
+{namespace="mailomat-watch", container="watch"} | json | eventType=~"failure_perm|not_accepted"     # lost mails
+sum by (domain) (count_over_time({namespace="mailomat-watch", container="watch"} | json | eventType="accepted" [30d]))   # mails per domain, by hand
 ```
 
 ## The tokens

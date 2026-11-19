@@ -20,7 +20,7 @@ spec:
               The mail is lost: it bounced for good (failure_perm) or mailomat refused it
               (not_accepted - also over the free plan's limit). Recipient, subject and the
               receiving server's answer in Loki:
-              {namespace="mailomat-watch"} | json | domain="{{ $labels.domain }}" | eventType="{{ $labels.event_type }}"
+              {namespace="mailomat-watch", container="watch"} | json | domain="{{ $labels.domain }}" | eventType="{{ $labels.event_type }}"
         # After about a day mailomat no longer has the events, so this fires well before.
         - alert: MailomatWatchStale
           expr: >-

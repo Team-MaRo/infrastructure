@@ -28,9 +28,12 @@ PAGE_SIZE = 100
 SEEN_PER_DOMAIN = 1000
 STATE_CONFIGMAP = "mailomat-watch-state"
 TOKEN_LABEL = "d3strukt0r.dev/mailomat-token"
+EVENT_TYPES = ["accepted", "not_accepted", "delivered", "failure_tmp", "failure_perm", "opened", "clicked"]
 SERVICE_ACCOUNT = "/var/run/secrets/kubernetes.io/serviceaccount"
 
 INTERVAL = int(os.environ.get("POLL_INTERVAL_SECONDS", "300"))
+# Longer than Prometheus' scrape interval (30 s).
+SCRAPE_WAIT = int(os.environ.get("SCRAPE_WAIT_SECONDS", "75"))
 
 metrics_lock = threading.Lock()
 events_total = {}
@@ -127,15 +130,21 @@ def new_events(token, seen):
 
 
 def track(domains):
-    """Metrics for the domains that have a token now. A new one starts its last success at the
-    moment it appears, so a token that never works still ages into MailomatWatchStale; one whose
-    app left stops being reported, so it does not either."""
+    """Metrics for the domains that have a token now. Every event counter starts at 0, since
+    Prometheus' increase() cannot see a series that is born at 1 - the first lost mail would not
+    alert. A new domain starts its last success at the moment it appears, so a token that never
+    works still ages into MailomatWatchStale; one whose app left stops being reported, so it does
+    not either."""
     with metrics_lock:
         for domain in domains:
             poll_errors_total.setdefault(domain, 0)
             poll_last_success.setdefault(domain, time.time())
+            for event_type in EVENT_TYPES:
+                events_total.setdefault((domain, event_type), 0)
         for domain in set(poll_last_success) - set(domains):
             del poll_last_success[domain]
+            for key in [key for key in events_total if key[0] == domain]:
+                del events_total[key]
 
 
 def poll(state, domains):
@@ -214,13 +223,18 @@ def main():
     server = http.server.ThreadingHTTPServer(("", int(os.environ.get("METRICS_PORT", "9100"))), Handler)
     threading.Thread(target=server.serve_forever, daemon=True).start()
     state, exists = load_state()
+    # Counters at 0 first, then a wait, so Prometheus scrapes the 0 before a poll can count an
+    # event - after a restart too (track()).
+    domains = tokens()
+    track(domains)
+    time.sleep(SCRAPE_WAIT)
     while True:
-        domains = tokens()
-        track(domains)
         if poll(state, domains):
             save_state(state, exists)
             exists = True
         loop_alive = time.time()
+        domains = tokens()
+        track(domains)
         time.sleep(INTERVAL)
 
 
