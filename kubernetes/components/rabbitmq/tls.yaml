@@ -1,0 +1,57 @@
+---
+# The broker's certificate chain, all in this namespace: a self-signed Issuer makes the CA, the CA
+# signs the server certificate. Apps verify the server with the CA, which trust-manager copies
+# into their namespaces (components/trust-manager, Bundle rabbitmq-ca); the CA's key never
+# leaves this namespace.
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: rabbitmq-selfsigned
+spec:
+  selfSigned: {}
+---
+# Five years: a new CA means every app must trust it before the server certificate switches, so
+# it should be rare. trust-manager follows a renewal at once (README "Certificates").
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: rabbitmq-ca
+spec:
+  isCA: true
+  commonName: rabbitmq-ca
+  secretName: rabbitmq-ca
+  duration: 43800h
+  renewBefore: 720h
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+  issuerRef:
+    kind: Issuer
+    name: rabbitmq-selfsigned
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: rabbitmq-ca
+spec:
+  ca:
+    secretName: rabbitmq-ca
+---
+# The server certificate for every name an app, Traefik or Prometheus uses; cert-manager's
+# default lifetime (90 days, renewed 30 days before).
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: rabbitmq-tls
+spec:
+  secretName: rabbitmq-tls
+  dnsNames:
+    - rabbitmq
+    - rabbitmq.rabbitmq.svc
+    - rabbitmq.rabbitmq.svc.cluster.local
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+  issuerRef:
+    kind: Issuer
+    name: rabbitmq-ca

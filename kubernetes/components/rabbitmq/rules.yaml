@@ -1,0 +1,76 @@
+---
+# Alerts for the shared broker, from RabbitMQ's own figures (pod-monitor.yaml). The container's
+# memory is kube-prometheus-stack's ContainerMemoryNearLimit. A queue whose messages are meant to
+# wait - Messenger's `failed` transport - is left out by name.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: rabbitmq
+spec:
+  groups:
+    - name: rabbitmq
+      rules:
+        - alert: RabbitMQDown
+          expr: absent(up{job="rabbitmq/rabbitmq"} == 1)
+          for: 5m
+          labels:
+            severity: critical
+            namespace: rabbitmq
+          annotations:
+            summary: "RabbitMQ does not answer."
+            description: >-
+              Apps cannot send or receive messages; their work piles up on their side. Check the
+              pod and its volume (kubectl -n rabbitmq get pods,pvc) and the RabbitmqCluster's
+              status (README "Checking it").
+        # At the memory watermark or the free-disk limit RabbitMQ blocks every publisher.
+        - alert: RabbitMQAlarm
+          expr: rabbitmq_alarms_memory_used_watermark == 1 or rabbitmq_alarms_free_disk_space_watermark == 1
+          for: 5m
+          labels:
+            severity: critical
+            namespace: rabbitmq
+          annotations:
+            summary: "RabbitMQ blocks publishers: its memory or disk alarm is raised."
+            description: >-
+              No app can send messages until it clears. Find the queue that grows
+              (rabbitmq_detailed_queue_messages) - usually one without a consumer - and drain or
+              fix its consumer; then size the memory watermark or the volume (README "Design").
+        - alert: RabbitMQQueueWithoutConsumer
+          expr: >-
+            rabbitmq_detailed_queue_consumers{queue!~".*failed.*"} == 0
+            and on (vhost, queue) rabbitmq_detailed_queue_messages_ready{queue!~".*failed.*"} > 0
+          for: 15m
+          labels:
+            severity: warning
+            namespace: rabbitmq
+          annotations:
+            summary: "Queue {{ $labels.vhost }}/{{ $labels.queue }} has messages and no consumer."
+            description: >-
+              The app's worker is down or no longer subscribes; its jobs wait. Check the app's
+              worker Deployment.
+        # Waiting messages that never drop to zero within an hour and are more than an hour ago.
+        - alert: RabbitMQQueueBacklog
+          expr: >-
+            min_over_time(rabbitmq_detailed_queue_messages_ready{queue!~".*failed.*"}[1h]) > 0
+            and rabbitmq_detailed_queue_messages_ready
+              > rabbitmq_detailed_queue_messages_ready offset 1h
+          labels:
+            severity: warning
+            namespace: rabbitmq
+          annotations:
+            summary: "Queue {{ $labels.vhost }}/{{ $labels.queue }} has grown for an hour."
+            description: >-
+              Its consumers do not keep up ({{ $value }} messages waiting). Check the app's
+              worker - slow jobs, errors, or too few workers.
+        # Delivered but not acknowledged for an hour: a consumer hangs on its messages.
+        - alert: RabbitMQMessagesUnacked
+          expr: rabbitmq_detailed_queue_messages_unacked{queue!~".*failed.*"} > 0
+          for: 1h
+          labels:
+            severity: warning
+            namespace: rabbitmq
+          annotations:
+            summary: "Queue {{ $labels.vhost }}/{{ $labels.queue }} has messages unacknowledged for an hour."
+            description: >-
+              A consumer took them and neither finished nor gave them back - usually a hung
+              worker. Restarting it returns the messages to the queue.

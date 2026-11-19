@@ -1,0 +1,42 @@
+---
+# The management UI at rabbitmq.d3strukt0r.dev (its own record in tofu/cloudflare). No Zitadel
+# gate in front: RabbitMQ logs in through Zitadel itself (rabbitmq-cluster.yaml). No className:
+# Traefik is the cluster's default IngressClass. The operator names the Service after the
+# cluster; with TLS its UI port is management-tls (15671).
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: rabbitmq
+  annotations:
+    # cert-manager creates the Certificate from spec.tls (components/cert-manager).
+    cert-manager.io/cluster-issuer: letsencrypt
+    # Only Cloudflare reaches it (charts/cloudflare-only).
+    traefik.ingress.kubernetes.io/router.middlewares: rabbitmq_cloudflare-only@kubernetescrd
+spec:
+  tls:
+    - hosts:
+        - rabbitmq.d3strukt0r.dev
+      secretName: rabbitmq-ui-tls
+  rules:
+    - host: rabbitmq.d3strukt0r.dev
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: rabbitmq
+                port:
+                  name: management-tls
+---
+# How Traefik reaches the UI: HTTPS, verifying the broker's certificate against our own CA, which
+# trust-manager keeps in this namespace (namespace.yaml). The Service points here by annotation
+# (rabbitmq-cluster.yaml). Traefik connects to the pod's address, so the name to check is given.
+apiVersion: traefik.io/v1alpha1
+kind: ServersTransport
+metadata:
+  name: rabbitmq
+spec:
+  serverName: rabbitmq.rabbitmq.svc
+  rootCAs:
+    - configMap: rabbitmq-ca

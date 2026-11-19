@@ -1,0 +1,24 @@
+---
+# The shared RabbitMQ broker (README): the RabbitmqCluster the Cluster Operator runs
+# (components/rabbitmq-operators), its certificates, the UI and monitoring. Apps bring their own
+# vhost and user (README "Adding an app").
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# No namespace here: the Application's destination puts the namespaced objects into rabbitmq, and
+# the GeneratingPolicy (network-policy.yaml) is cluster-scoped.
+resources:
+  - namespace.yaml
+  - tls.yaml
+  - ca-reader.yaml
+  - rabbitmq-cluster.yaml
+  - ingress.yaml
+  - network-policy.yaml
+  - pod-monitor.yaml
+  - rules.yaml
+  # Only Cloudflare reaches its proxied routes (charts/cloudflare-only).
+  - ../../charts/cloudflare-only/files
+
+# The sync option for every monitor and rule here (shared/).
+components:
+  - ../../shared/monitoring-sync-options

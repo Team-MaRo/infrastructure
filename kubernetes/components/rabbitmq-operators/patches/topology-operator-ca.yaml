@@ -1,0 +1,26 @@
+# The topology operator talks to the broker's management API over HTTPS (the broker has no plain
+# listener), so it must trust the broker's own CA. Go reads every directory in SSL_CERT_DIR; the
+# image's system CAs stay in /etc/ssl/certs. Optional, so the operator starts before
+# trust-manager has written the ConfigMap; a mounted ConfigMap follows a CA renewal by itself.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: messaging-topology-operator
+  namespace: rabbitmq-system
+spec:
+  template:
+    spec:
+      containers:
+        - name: manager
+          env:
+            - name: SSL_CERT_DIR
+              value: /etc/ssl/certs:/etc/rabbitmq-ca
+          volumeMounts:
+            - name: rabbitmq-ca
+              mountPath: /etc/rabbitmq-ca
+              readOnly: true
+      volumes:
+        - name: rabbitmq-ca
+          configMap:
+            name: rabbitmq-ca
+            optional: true

@@ -44,7 +44,7 @@ component is deleted.
   external-secrets, kyverno, cloudnative-pg, the mariadb-operator ones,
   system-upgrade-controller, kube-prometheus-stack, kubeelasti, trust-manager,
   vertical-pod-autoscaler, rabbitmq-operators. **Never on an
-  app with a volume** (openbao, mariadb, postgres, loki, kube-prometheus-stack, valkey-state): a mistakenly
+  app with a volume** (openbao, mariadb, postgres, loki, kube-prometheus-stack, valkey-state, rabbitmq): a mistakenly
   deleted file must not take its data along. **Never on the foundation**: root, private,
   argocd, hcloud-csi, traefik, coredns (it tracks k3s's CoreDNS Deployment; deleting it with
   the app would take the cluster's DNS). **Never on `priority-classes`**: a pod naming a class that does

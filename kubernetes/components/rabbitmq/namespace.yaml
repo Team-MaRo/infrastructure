@@ -1,0 +1,11 @@
+---
+# Brought along rather than CreateNamespace for its label; the Application has no finalizer (the
+# broker holds a volume), so removing it never deletes the namespace.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: rabbitmq
+  labels:
+    # trust-manager puts the broker's own CA here as ConfigMap rabbitmq-ca: Traefik and Prometheus
+    # verify the broker's certificate with it (ingress.yaml, pod-monitor.yaml).
+    trust.d3strukt0r.dev/rabbitmq-ca: "true"

@@ -1,0 +1,26 @@
+---
+# Lets trust-manager's copy (components/trust-manager/ca-copies.yaml) read the CA Secret - this
+# one Secret, only `get` - so the CA certificate reaches the apps. Here rather than with the copy,
+# since this namespace comes with this Application.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: trust-manager-ca-reader
+rules:
+  - apiGroups: [""]
+    resources: [secrets]
+    resourceNames: [rabbitmq-ca]
+    verbs: [get]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: trust-manager-ca-reader
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: trust-manager-ca-reader
+subjects:
+  - kind: ServiceAccount
+    name: database-ca-reader
+    namespace: trust-manager

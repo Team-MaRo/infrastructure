@@ -20,6 +20,12 @@ The two operators behind the shared RabbitMQ broker, deployed by the Application
   own directory because both declare the namespace `rabbitmq-system`, which Kustomize refuses
   twice - `topology-operator/namespace.yaml` deletes the second copy.
 - **Both already meet the restricted Pod Security Standard**; the namespace is not exempt.
+- **The topology operator trusts the broker's own CA**: the broker has no plain-text listener, so
+  the operator declares vhosts and users over HTTPS. Its namespace carries the label
+  `trust.d3strukt0r.dev/rabbitmq-ca` (`cluster-operator/namespace.yaml`), trust-manager puts the
+  CA there as ConfigMap `rabbitmq-ca`, and `patches/topology-operator-ca.yaml` mounts it and adds
+  its directory to Go's `SSL_CERT_DIR`. The volume is optional, so the operator starts before the
+  ConfigMap exists. Tested in kind 2026-11-19: Vhost, User and Permission became Ready over HTTPS.
 - **Resources** (`patches/resources.yaml`, both operators): no CPU limit (they throttle an idle
   node) and the cluster's default request of 50m instead of upstream's 200m and 300m; memory
   **48Mi / 128Mi** instead of upstream's 500Mi / 500Mi and 128Mi / 512Mi, which would have

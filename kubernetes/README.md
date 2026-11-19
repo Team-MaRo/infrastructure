@@ -48,6 +48,7 @@ kubernetes/
 │       ├── mariadb-operator-crds.yaml  # the operator's CRDs - never pruned
 │       ├── mariadb-operator.yaml  # the operator running the app database
 │       ├── rabbitmq-operators.yaml  # RabbitMQ's two operators: pinned manifests, CRDs - never pruned
+│       ├── rabbitmq.yaml          # the shared AMQP broker itself
 │       ├── mariadb.yaml           # the app database itself
 │       ├── cloudnative-pg.yaml    # the PostgreSQL operator and its backup plugin: charts (patch ranges) here
 │       ├── postgres.yaml          # the shared PostgreSQL itself
@@ -150,7 +151,17 @@ kubernetes/
     │   ├── kustomization.yaml     # both operators: no CPU limits, measured memory
     │   ├── cluster-operator/      # its pinned release manifest
     │   ├── topology-operator/     # its pinned release manifest, minus the shared namespace
-    │   └── patches/resources.yaml
+    │   └── patches/               # resources; the topology operator's trust in the broker's CA
+    ├── rabbitmq/
+    │   ├── kustomization.yaml
+    │   ├── namespace.yaml         # labelled for the broker's CA (trust-manager)
+    │   ├── tls.yaml               # its own CA and server certificate (cert-manager)
+    │   ├── ca-reader.yaml         # trust-manager may read the CA certificate
+    │   ├── rabbitmq-cluster.yaml  # one node, TLS only, Zitadel login for the UI, restricted PSS
+    │   ├── ingress.yaml           # rabbitmq.d3strukt0r.dev; Traefik verifies the broker's certificate
+    │   ├── network-policy.yaml    # AMQPS only for labelled namespaces; Traefik per node (Kyverno)
+    │   ├── pod-monitor.yaml       # /metrics and two per-queue families, over TLS
+    │   └── rules.yaml             # alerts: down, memory/disk alarm, queues without consumer, backlog, unacked
     ├── mariadb/
     │   ├── kustomization.yaml
     │   ├── mariadb.yaml           # primary + replica, the failover settings
@@ -362,6 +373,7 @@ kubernetes/
 | [`alloy`](components/alloy/README.md) | Log collection on every node; receives traces and forwards them to Tempo; counts the upload scan's lines for its alerts |
 | [`mariadb-operator`](components/mariadb-operator/README.md) | The operator running the app database |
 | [`rabbitmq-operators`](components/rabbitmq-operators/README.md) | RabbitMQ's operators: the broker from a RabbitmqCluster, vhosts and users as objects in Git |
+| [`rabbitmq`](components/rabbitmq/README.md) | The shared AMQP broker: a vhost and user per app, TLS only, the UI with Zitadel login |
 | [`mariadb`](components/mariadb/README.md) | The shared MariaDB: failover, backups, restore runbooks |
 | [`cloudnative-pg`](components/cloudnative-pg/README.md) | The PostgreSQL operator and its backup plugin |
 | [`postgres`](components/postgres/README.md) | The shared PostgreSQL: adding an app, failover, restore runbooks |

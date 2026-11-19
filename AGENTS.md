@@ -221,7 +221,7 @@ rule, 2026-10-02). Where a name cannot hold a hyphen, the hyphens become undersc
     cert-manager, external-secrets, kyverno, cloudnative-pg, the mariadb-operator ones,
     system-upgrade-controller, kube-prometheus-stack, kubeelasti, trust-manager,
     vertical-pod-autoscaler, rabbitmq-operators. **Never on an
-    app with a volume** (openbao, mariadb, postgres, loki, kube-prometheus-stack, valkey-state). **Never on the
+    app with a volume** (openbao, mariadb, postgres, loki, kube-prometheus-stack, valkey-state, rabbitmq). **Never on the
     foundation**: root, private, argocd, hcloud-csi, traefik, coredns (it tracks k3s's CoreDNS
     Deployment). **Never on `priority-classes`**: a pod naming a missing class is refused.
   - An app with the finalizer brings its own `namespace.yaml` instead of `CreateNamespace`,
@@ -297,6 +297,9 @@ rule, 2026-10-02). Where a name cannot hold a hyphen, the hyphens become undersc
   CA reaches the app through a label on its namespace (trust-manager)
   ([`kubernetes/components/postgres/README.md`](kubernetes/components/postgres/README.md),
   [`kubernetes/components/mariadb/README.md`](kubernetes/components/mariadb/README.md)).
+  **So is the AMQP broker**: one RabbitMQ, a vhost and user per app, as `Vhost`/`User`/`Permission`
+  in the app's component with `namespace: rabbitmq`, its CA through the same kind of label
+  ([`kubernetes/components/rabbitmq/README.md`](kubernetes/components/rabbitmq/README.md)).
 - **Persistent data is on Hetzner Volumes** (`hcloud-volumes`, `Retain`), never a node disk;
   consolidate at the service, not the disk
   ([`kubernetes/components/hcloud-csi/README.md`](kubernetes/components/hcloud-csi/README.md)).
@@ -418,6 +421,7 @@ component); update it in the same change.
 | [`kubernetes/components/alloy/README.md`](kubernetes/components/alloy/README.md) | Log collection on every node; the traces' entry on the way to Tempo; the counter behind alerts on log lines |
 | [`kubernetes/components/mariadb-operator/README.md`](kubernetes/components/mariadb-operator/README.md) | The MariaDB operator, its CRDs and webhook |
 | [`kubernetes/components/rabbitmq-operators/README.md`](kubernetes/components/rabbitmq-operators/README.md) | RabbitMQ's Cluster and Messaging Topology operators: pinned manifests, upgrading |
+| [`kubernetes/components/rabbitmq/README.md`](kubernetes/components/rabbitmq/README.md) | The shared AMQP broker: TLS only, its CA, the UI's Zitadel login, alerts, adding an app |
 | [`kubernetes/components/mariadb/README.md`](kubernetes/components/mariadb/README.md) | The shared MariaDB: failover, backups, PITR, runbooks |
 | [`kubernetes/components/cloudnative-pg/README.md`](kubernetes/components/cloudnative-pg/README.md) | The PostgreSQL operator and the Barman Cloud plugin |
 | [`kubernetes/components/postgres/README.md`](kubernetes/components/postgres/README.md) | The shared PostgreSQL: adding an app, failover, restore |

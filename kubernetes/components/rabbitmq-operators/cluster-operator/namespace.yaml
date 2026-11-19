@@ -1,0 +1,8 @@
+# trust-manager puts the broker's CA here as ConfigMap rabbitmq-ca; the topology operator verifies
+# the broker's HTTPS API with it (../patches/topology-operator-ca.yaml).
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: rabbitmq-system
+  labels:
+    trust.d3strukt0r.dev/rabbitmq-ca: "true"

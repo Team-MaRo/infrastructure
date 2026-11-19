@@ -21,3 +21,5 @@ patches:
       kind: Deployment
       name: messaging-topology-operator
     path: patches/resources.yaml
+  # Trust in the broker's own CA (the patch explains).
+  - path: patches/topology-operator-ca.yaml

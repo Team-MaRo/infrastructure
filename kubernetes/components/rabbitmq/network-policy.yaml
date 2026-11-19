@@ -1,0 +1,91 @@
+---
+# The broker only for those that use it: AMQPS (5671) from namespaces labelled
+# rabbitmq.d3strukt0r.dev/client (each app sets it on its own namespace); the UI and its API
+# (15671) from the topology operator, which declares vhosts and users through it; the metrics
+# (15691) from Prometheus. Traefik reaches the UI from the nodes' host network, admitted per node
+# below. Each app's user is limited to its own vhost anyway; this keeps everyone else from even
+# trying. kube-router admits a node's own traffic regardless (components/kube-prometheus-stack).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: rabbitmq
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: rabbitmq
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              rabbitmq.d3strukt0r.dev/client: "true"
+      ports:
+        - port: 5671
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: rabbitmq-system
+      ports:
+        - port: 15671
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+      ports:
+        - port: 15691
+---
+# Traefik runs on its node's host network: towards a pod on another node it arrives from that
+# node's WireGuard address, the .0 of the node's pod range. So every ingress node gets a
+# NetworkPolicy rabbitmq-from-<node> admitting its .0 on the UI's port - the same mechanism as
+# prometheus-from-nodes (components/kube-prometheus-stack/network-policy.yaml, which explains it
+# and grants Kyverno the rights both need).
+apiVersion: policies.kyverno.io/v1
+kind: GeneratingPolicy
+metadata:
+  name: rabbitmq-from-nodes
+  annotations:
+    # The CRD comes with Kyverno, another Application.
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  evaluation:
+    generateExisting:
+      enabled: true
+    synchronize:
+      enabled: true
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: [v1]
+        operations: [CREATE, UPDATE]
+        resources: [nodes]
+  matchConditions:
+    - name: has-pod-range
+      expression: has(object.spec.podCIDR) && object.spec.podCIDR != ''
+    - name: ingress-node
+      expression: >-
+        has(object.metadata.labels) &&
+        object.metadata.labels[?'node-role.kubernetes.io/ingress'].orValue('') == 'true'
+  variables:
+    - name: networkPolicy
+      expression: >-
+        [
+          {
+            "apiVersion": dyn("networking.k8s.io/v1"),
+            "kind": dyn("NetworkPolicy"),
+            "metadata": dyn({
+              "name": "rabbitmq-from-" + object.metadata.name,
+              "namespace": "rabbitmq"
+            }),
+            "spec": dyn({
+              "podSelector": {"matchLabels": {"app.kubernetes.io/name": "rabbitmq"}},
+              "policyTypes": ["Ingress"],
+              "ingress": [{
+                "from": [{"ipBlock": {"cidr": object.spec.podCIDR.split("/")[0] + "/32"}}],
+                "ports": [{"port": 15671}]
+              }]
+            })
+          }
+        ]
+  generate:
+    - expression: generator.Apply("rabbitmq", variables.networkPolicy)

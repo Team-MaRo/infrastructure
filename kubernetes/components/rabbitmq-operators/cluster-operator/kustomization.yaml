@@ -7,3 +7,6 @@ kind: Kustomization
 
 resources:
   - https://github.com/rabbitmq/cluster-operator/releases/download/v2.23.3/cluster-operator.yml
+
+patches:
+  - path: namespace.yaml

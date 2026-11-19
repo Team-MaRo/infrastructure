@@ -1,0 +1,92 @@
+---
+# The shared broker (README): one node, run by the Cluster Operator (components/rabbitmq-operators).
+# Apps connect over AMQPS only, each to its own vhost with its own user (README "Adding an app").
+apiVersion: rabbitmq.com/v1beta1
+kind: RabbitmqCluster
+metadata:
+  name: rabbitmq
+spec:
+  replicas: 1
+  # An exact tag: the operator owns the StatefulSet, so Keel must not change its image, and the
+  # operator's own default lags (v2.23.3 starts 4.3.4). Raising it is the upgrade (README).
+  image: docker.io/library/rabbitmq:4.4.1-management
+  # Measured 2026-11-19 in a local kind cluster: working set 206-216 MiB, cgroup peak 445 MiB
+  # with file cache - the request rounded up from the working set, the limit that peak ÷ 0.8.
+  # Re-sized by the rule after a week on prod.
+  resources:
+    requests:
+      cpu: 50m
+      memory: 224Mi
+    limits:
+      memory: 576Mi
+  persistence:
+    storageClassName: hcloud-volumes
+    storage: 10Gi
+  # TLS on every listener (AMQP, the UI and its API, the metrics); nothing listens in plain text.
+  tls:
+    secretName: rabbitmq-tls
+    disableNonTLSListeners: true
+  # Traefik talks HTTPS to the UI and verifies it with our CA (ingress.yaml).
+  service:
+    annotations:
+      traefik.ingress.kubernetes.io/service.serversscheme: https
+      # <namespace>_<name>: Traefik's CRD provider runs with safeNaming (components/traefik).
+      traefik.ingress.kubernetes.io/service.serverstransport: rabbitmq_rabbitmq@kubernetescrd
+  rabbitmq:
+    additionalPlugins:
+      - rabbitmq_auth_backend_oauth2
+    # Apps log in with passwords (internal); people log in to the UI through Zitadel (oauth2).
+    # Zitadel's access token is a JWT for the RabbitMQ app (tofu/zitadel/apps_rabbitmq.tf) whose
+    # audience is that app's client ID; its `groups` list (the groups webhook) holds the
+    # project role infra-admin, which the alias maps onto RabbitMQ's administrator rights.
+    # RabbitMQ fetches Zitadel's signing keys through Cloudflare, whose certificate covers
+    # auth.d3strukt0r.dev only as *.d3strukt0r.dev - Erlang's hostname check accepts that wildcard
+    # only with hostname_verification = wildcard (off by default; without it every login fails
+    # with "Not authorized", 2026-11-19). Zitadel's access token carries no preferred_username
+    # (only its ID token does), so the user shown and logged falls back to `sub`, the Zitadel
+    # user ID - otherwise "unknown".
+    # The memory watermark below the limit, so RabbitMQ blocks publishers before the kernel
+    # kills it. Below 512 MB free on the volume it blocks publishers too, while it still has room
+    # for its own writes and for paging memory to disk (at least the watermark, per RabbitMQ's
+    # docs) - a full disk would crash it instead.
+    additionalConfig: |
+      auth_backends.1 = internal
+      auth_backends.2 = rabbit_auth_backend_oauth2
+      auth_oauth2.issuer = https://auth.d3strukt0r.dev
+      auth_oauth2.https.hostname_verification = wildcard
+      auth_oauth2.resource_server_id = 400334089078440102
+      auth_oauth2.scope_prefix = rabbitmq.
+      auth_oauth2.additional_scopes_key = groups
+      auth_oauth2.scope_aliases.infra-admin = rabbitmq.tag:administrator rabbitmq.read:*/* rabbitmq.write:*/* rabbitmq.configure:*/*
+      auth_oauth2.preferred_username_claims.1 = preferred_username
+      auth_oauth2.preferred_username_claims.2 = sub
+      management.oauth_enabled = true
+      management.oauth_client_id = 400334089078440102
+      management.oauth_provider_url = https://auth.d3strukt0r.dev
+      management.oauth_scopes = openid profile
+      vm_memory_high_watermark.absolute = 384MiB
+      disk_free_limit.absolute = 512MB
+  # Restricted Pod Security: the operator's StatefulSet lacks these; verified in a local kind
+  # cluster with the namespace enforcing restricted (2026-11-19).
+  override:
+    statefulSet:
+      spec:
+        template:
+          spec:
+            priorityClassName: stateful-core
+            securityContext:
+              runAsNonRoot: true
+              seccompProfile:
+                type: RuntimeDefault
+            containers:
+              - name: rabbitmq
+                securityContext:
+                  allowPrivilegeEscalation: false
+                  capabilities:
+                    drop: [ALL]
+            initContainers:
+              - name: setup-container
+                securityContext:
+                  allowPrivilegeEscalation: false
+                  capabilities:
+                    drop: [ALL]

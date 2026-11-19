@@ -15,16 +15,18 @@ updated when the CA rotates, instead of a copy per app.
 
 ## Design
 
-- **Two Bundles, one per database** (`bundles.yaml`), so an app trusts only the database it uses:
+- **One Bundle per CA** (`bundles.yaml`), so an app trusts only the service it uses - the two
+  databases and the RabbitMQ broker:
 
   | Bundle = ConfigMap | Key | From | Namespace label |
   |---|---|---|---|
   | `postgres-ca` | `ca.crt` | CloudNativePG's Secret `postgres-ca` | `trust.d3strukt0r.dev/postgres-ca: "true"` |
   | `mariadb-ca` | `ca.crt` | mariadb-operator's Secret `mariadb-ca-bundle` | `trust.d3strukt0r.dev/mariadb-ca: "true"` |
+  | `rabbitmq-ca` | `ca.crt` | cert-manager's Secret `rabbitmq-ca` ([`../rabbitmq/README.md`](../rabbitmq/README.md)) | `trust.d3strukt0r.dev/rabbitmq-ca: "true"` |
 
 - **Sources only from its trust namespace.** trust-manager cannot read sources from another
-  namespace, so `ca-copies.yaml` copies the two certificates into `trust-manager` once - External
-  Secrets' Kubernetes provider, with a ServiceAccount that may read exactly those two Secrets, and
+  namespace, so `ca-copies.yaml` copies the three certificates into `trust-manager` once - External
+  Secrets' Kubernetes provider, with a ServiceAccount that may read exactly those three Secrets, and
   only their `ca.crt` (CloudNativePG's Secret also holds the CA's private key). trust-manager reads
   only the named key and writes the certificates out again from what it parsed, refusing
   anything that is not a certificate.

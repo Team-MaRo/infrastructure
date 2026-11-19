@@ -2,8 +2,9 @@
 # The databases' CA certificates, copied into trust-manager's trust namespace - the only place it
 # reads sources from. Once here, for every app; bundles.yaml distributes them. External Secrets
 # reads each through its Kubernetes provider with this ServiceAccount, which may read exactly
-# those two Secrets and nothing else. Only `ca.crt` is copied: CloudNativePG's Secret also holds
-# the CA's private key, which never leaves the postgres namespace.
+# those Secrets and nothing else. Only `ca.crt` is copied: CloudNativePG's and RabbitMQ's Secrets
+# also hold the CA's private key, which never leaves their namespace. RabbitMQ's Role is in
+# components/rabbitmq/ca-reader.yaml, since its namespace comes with that Application.
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -121,4 +122,36 @@ spec:
     - secretKey: ca.crt
       remoteRef:
         key: mariadb-ca-bundle
+        property: ca.crt
+---
+apiVersion: external-secrets.io/v1
+kind: SecretStore
+metadata:
+  name: rabbitmq
+spec:
+  provider:
+    kubernetes:
+      remoteNamespace: rabbitmq
+      server:
+        caProvider:
+          type: ConfigMap
+          name: kube-root-ca.crt
+          key: ca.crt
+      auth:
+        serviceAccount:
+          name: database-ca-reader
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: rabbitmq-ca
+spec:
+  refreshInterval: 5m
+  secretStoreRef:
+    kind: SecretStore
+    name: rabbitmq
+  data:
+    - secretKey: ca.crt
+      remoteRef:
+        key: rabbitmq-ca
         property: ca.crt

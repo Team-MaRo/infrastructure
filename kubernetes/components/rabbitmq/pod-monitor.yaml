@@ -1,0 +1,35 @@
+---
+# RabbitMQ's own Prometheus endpoint (plugin rabbitmq_prometheus, port 15691 with TLS): the
+# aggregated figures on /metrics (memory, alarms, connections), and per queue on
+# /metrics/detailed - only the two families the alerts read (rules.yaml), not every per-object
+# metric. Verified against our CA like the UI (ingress.yaml). The job is rabbitmq/rabbitmq.
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: rabbitmq
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: rabbitmq
+  podMetricsEndpoints:
+    - port: prometheus-tls
+      scheme: https
+      tlsConfig:
+        serverName: rabbitmq.rabbitmq.svc
+        ca:
+          configMap:
+            name: rabbitmq-ca
+            key: ca.crt
+    - port: prometheus-tls
+      scheme: https
+      path: /metrics/detailed
+      params:
+        family:
+          - queue_coarse_metrics
+          - queue_consumer_count
+      tlsConfig:
+        serverName: rabbitmq.rabbitmq.svc
+        ca:
+          configMap:
+            name: rabbitmq-ca
+            key: ca.crt

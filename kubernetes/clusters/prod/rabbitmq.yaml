@@ -1,0 +1,26 @@
+---
+# The shared RabbitMQ broker, from kubernetes/components/rabbitmq. No finalizer: it holds a
+# volume, and a mistakenly deleted file must not take the broker and its queues along.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: rabbitmq
+  namespace: argocd
+  annotations:
+    # The operators default fields in the RabbitmqCluster and the topology objects.
+    argocd.argoproj.io/compare-options: ServerSideDiff=true
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Team-MaRo/infrastructure.git
+    targetRevision: master
+    path: kubernetes/components/rabbitmq
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: rabbitmq
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - ServerSideApply=true
