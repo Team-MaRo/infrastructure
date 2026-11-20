@@ -209,7 +209,7 @@ k3s_psa_exempt_namespaces:
   - spegel
   # The one app here, not infrastructure: its images (d3strukt0r/wedding-manuele-robine:api-latest
   # and :pwa-latest) run supervisord, nginx, php-fpm and cron as root on port 80, which the
-  # restricted standard refuses (kubernetes/components/wedding-manuele-robine).
-  # TODO: make the images rootless (an unprivileged user, port 8080), then remove this entry.
+  # restricted standard refuses (kubernetes/components/wedding-manuele-robine). The app is frozen
+  # until its successor replaces it; this entry goes with it.
   - wedding-manuele-robine
 

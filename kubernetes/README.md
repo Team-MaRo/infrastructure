@@ -386,7 +386,7 @@ kubernetes/
 | [`keel`](components/keel/README.md) | Rolls out new images under floating tags without a commit |
 | [`valkey-cache`](components/valkey-cache/README.md) | The shared cache (Valkey): a database per app, the WordPress object cache |
 | [`valkey-state`](components/valkey-state/README.md) | The shared state (Valkey) on a volume: sessions, locks, zot's logins |
-| [`zot`](components/zot/README.md) | The container registry `registry.d3strukt0r.dev`: our own images, the mirror |
+| [`zot`](components/zot/README.md) | The container registry `registry.d3strukt0r.dev`: the mirror, our own images where decided per image |
 | [`spegel`](components/spegel/README.md) | Image layers from the other nodes, by digest; tags always from zot |
 | [`wedding-manuele-robine`](components/wedding-manuele-robine/README.md) | The wedding website (moved from prod-old) |
 | [`robines-portfolio`](components/robines-portfolio/README.md) | The old WordPress portfolio at old.robines.space (moved from prod-old), from the WordPress chart |
