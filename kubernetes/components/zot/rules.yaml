@@ -1,7 +1,7 @@
 ---
 # Alerts for zot. While it is down the nodes fall back to the origin registries for mirrored
-# images (once they pull through zot, ansible/roles/k3s), but our own images exist only here: a
-# pod that needs a new one cannot start, and CI cannot push.
+# images (ansible/roles/k3s, "Pulling through zot"); only an image kept solely in zot - decided
+# per image, none while ours go to Docker Hub - cannot be pulled by a node that lacks it.
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
@@ -20,7 +20,8 @@ spec:
           annotations:
             summary: "zot, the container registry, does not answer."
             description: >-
-              Pods that need one of our own images cannot start, and CI cannot push. Check the
-              pod and its log (kubectl -n zot get pods; kubectl -n zot logs deploy/zot) - a
-              failed start usually names the configuration, S3 or Valkey (README, "Checking
-              it").
+              Nodes pull mirrored images from their origin registries meanwhile, more slowly;
+              an image kept only in zot cannot be pulled. Check the pod and its log
+              (kubectl --context d3strukt0r-prod-admin -n zot get pods; kubectl --context
+              d3strukt0r-prod-admin -n zot logs deploy/zot) - a failed start usually names the
+              configuration, S3 or Valkey (README, "Checking it").

@@ -36,9 +36,8 @@ spec:
   collate: utf8mb4_unicode_ci
   cleanupPolicy: Skip
 ---
-# TODO: require TLS (`require: {ssl: true}`) once the app connects with it - Doctrine's PDO only
-# does with TLS options in the app's doctrine.yaml. Until then the connection is plain inside the
-# cluster; between nodes WireGuard still encrypts it.
+# No TLS required: the app is frozen (README), and Doctrine's PDO would need TLS options in its
+# doctrine.yaml. The connection is plain inside the cluster; between nodes WireGuard encrypts it.
 apiVersion: k8s.mariadb.com/v1alpha1
 kind: User
 metadata:

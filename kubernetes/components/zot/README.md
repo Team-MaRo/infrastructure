@@ -4,7 +4,8 @@ Back to [`kubernetes/README.md`](../../README.md).
 
 The container registry at `registry.d3strukt0r.dev` (`kubernetes/clusters/prod/zot.yaml`, the zot
 Helm chart pinned there with `values.yaml` and this directory's manifests, namespace `zot`). It
-holds our own images - only here, never pushed to ghcr.io or Docker Hub - and mirrors the
+can hold our own images - decided per image; for now they go to Docker Hub (user decision
+2026-11-19) - and mirrors the
 registries Kyverno allows (`docker.io`, `ghcr.io`, `quay.io`, `registry.k8s.io`,
 `public.ecr.aws`, `us-docker.pkg.dev`). Its web UI is at `https://registry.d3strukt0r.dev/`, login through Zitadel
 ("Sign in with OpenID Connect", role `infra-admin`).

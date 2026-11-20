@@ -266,8 +266,11 @@ rule, 2026-10-02). Where a name cannot hold a hyphen, the hyphens become undersc
 - **Images come only from `docker.io`, `ghcr.io`, `quay.io`, `registry.k8s.io`,
   `public.ecr.aws`, `us-docker.pkg.dev` and our own `registry.d3strukt0r.dev`** (Kyverno's
   `allowed-registries`); a new registry is one entry there, one in zot's mirror and one in the
-  nodes' `k3s_registries` (`ansible/roles/k3s/README.md`, "Pulling through zot"). Our own images are only in `registry.d3strukt0r.dev` (zot),
-  never pushed to ghcr.io or Docker Hub ([`kubernetes/components/zot/README.md`](kubernetes/components/zot/README.md)).
+  nodes' `k3s_registries` (`ansible/roles/k3s/README.md`, "Pulling through zot"). **Our own
+  images go to Docker Hub for now** (user decision 2026-11-19); zot (`registry.d3strukt0r.dev`)
+  holds an image of ours only where that is decided for that image, not as a rule. Either way
+  the nodes pull Docker Hub through zot's mirror. A Docker Hub image on a free account is public:
+  nothing secret goes into it ([`kubernetes/components/zot/README.md`](kubernetes/components/zot/README.md)).
 - **Secret values never enter git or OpenTofu state.** They go into OpenBao with
   `bao kv put` (JSON on stdin) and reach workloads through an ExternalSecret against the
   `ClusterSecretStore` `openbao`
@@ -319,8 +322,8 @@ in `ansible/roles/k3s/README.md`.
 - **Infrastructure namespaces are exempt** (`k3s_psa_exempt_namespaces` in
   `ansible/roles/k3s/defaults/main.yml`). A new infrastructure component that needs more than
   the restricted standard goes onto that list in the commit that deploys it. One app is on it as
-  a temporary exception with a TODO (`wedding-manuele-robine`, root images); apps otherwise
-  never are.
+  a temporary exception (`wedding-manuele-robine`, root images, frozen until its successor
+  replaces it); apps otherwise never are.
 - **The namespace label can override the default.** A namespace labelled
   `pod-security.kubernetes.io/enforce: baseline` (or `privileged`) gets that instead, so
   whoever may edit namespaces - today only the admin - can loosen it. Prefer adding a
@@ -433,10 +436,10 @@ component); update it in the same change.
 | [`kubernetes/components/trust-manager/README.md`](kubernetes/components/trust-manager/README.md) | The databases' CA certificates in the apps' namespaces |
 | [`kubernetes/components/valkey-cache/README.md`](kubernetes/components/valkey-cache/README.md) | The shared cache: a database per app, its users, adding an app |
 | [`kubernetes/components/valkey-state/README.md`](kubernetes/components/valkey-state/README.md) | The shared state on a volume: sessions, locks, zot's logins; a database per app, adding an app |
-| [`kubernetes/components/zot/README.md`](kubernetes/components/zot/README.md) | The container registry: our own images, the mirror, logins, API keys, restoring a layer |
+| [`kubernetes/components/zot/README.md`](kubernetes/components/zot/README.md) | The container registry: the mirror, our own images where decided per image, logins, API keys, restoring a layer |
 | [`kubernetes/components/spegel/README.md`](kubernetes/components/spegel/README.md) | Layer sharing between the nodes: tags refused, the k3s endpoints, its open bugs, checking it |
 | [`kubernetes/components/keel/README.md`](kubernetes/components/keel/README.md) | Rolling out new images under floating tags, opting an app in |
-| [`kubernetes/components/wedding-manuele-robine/README.md`](kubernetes/components/wedding-manuele-robine/README.md) | The wedding website; its two TODOs; moving it from prod-old |
+| [`kubernetes/components/wedding-manuele-robine/README.md`](kubernetes/components/wedding-manuele-robine/README.md) | The wedding website, frozen until its successor replaces it; moving it from prod-old |
 | [`kubernetes/shared/external-secret-defaults/README.md`](kubernetes/shared/external-secret-defaults/README.md) | The Kustomize Component giving every ExternalSecret its store and refresh interval |
 | [`kubernetes/shared/monitoring-sync-options/README.md`](kubernetes/shared/monitoring-sync-options/README.md) | The Kustomize Component giving every monitor and rule its Argo CD sync option |
 | [`kubernetes/shared/valkey-acl-sync/README.md`](kubernetes/shared/valkey-acl-sync/README.md) | The Kustomize Component with the sidecar scripts that apply both Valkeys' users while they run; when a line is refused |

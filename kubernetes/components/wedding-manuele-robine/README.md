@@ -5,6 +5,11 @@ plain manifests in this directory, namespace `wedding-manuele-robine`). Moved fr
 ran under Docker Compose. How the cluster's manifests fit together is in
 [`kubernetes/README.md`](../../README.md).
 
+**Frozen** (decision 2026-11-19): the app is not developed further - no image rebuilds, no CI, no
+fixes to the points below. Its successor, a multi-tenant wedding app with this wedding as its
+first tenant, replaces it; this component is removed then. Until then its images stay as they
+are.
+
 ## What runs
 
 | Part | Image | Reached at |
@@ -18,14 +23,11 @@ ran under Docker Compose. How the cluster's manifests fit together is in
 
 - **Root images, exempt from restricted Pod Security** - the one app on
   `k3s_psa_exempt_namespaces` (`ansible/roles/k3s/defaults/main.yml`). Both images run
-  supervisord, nginx and php-fpm as root on port 80. **TODO: make the images rootless** (an
-  unprivileged user, port 8080), then remove the exemption and give the pods the restricted
-  securityContext.
-- **The database without TLS** - **TODO: TLS to MariaDB.** Doctrine's PDO only connects with TLS
-  given options in the app's `doctrine.yaml` (`PDO::MYSQL_ATTR_SSL_CA` with the CA from
-  trust-manager's `mariadb-ca`); then label the namespace `trust.d3strukt0r.dev/mariadb-ca` and set
-  `require.ssl` on the `User`. Until then the connection is plain inside the cluster; between
-  nodes WireGuard encrypts it.
+  supervisord, nginx and php-fpm as root on port 80. Not changed while frozen; the exemption goes
+  with the component.
+- **The database without TLS**: Doctrine's PDO would need TLS options in the app's `doctrine.yaml`,
+  which a frozen image does not get. The connection is plain inside the cluster; between nodes
+  WireGuard encrypts it.
 - **Floating tags, rolled out by Keel**; both Deployments carry Keel's annotations,
   `imagePullPolicy: Always` and the image without `docker.io/`
   ([`../keel/README.md`](../keel/README.md)). Watchtower did this on prod-old.
@@ -37,8 +39,8 @@ ran under Docker Compose. How the cluster's manifests fit together is in
 - **One API replica, `Recreate`**: it runs Doctrine's migrations at start, and its sessions are
   files on an emptyDir - a restart logs admins out, nothing else is lost.
 - **One container does everything** - supervisord runs nginx, php-fpm, the Messenger worker and
-  cron, and the start script runs the migrations. **TODO: split the API by kind of process**, one
-  image with a command per role, so the same image runs under Docker Compose as well:
+  cron, and the start script runs the migrations. Splitting it by kind of process was planned and
+  is not done while frozen (the successor is built that way):
   - **web** - nginx and php-fpm as two containers of one Deployment (nginx's image a build target
     holding `public/`); several replicas once sessions live in Valkey (`valkey-state`) instead of
     files;
@@ -80,9 +82,8 @@ ran under Docker Compose. How the cluster's manifests fit together is in
   guests' login, so Cloudflare caches none - a load is ~675 requests over ~20 s (php-fpm's five
   workers set the pace), up to 265 in one second; the default refused 559 per load on 2026-11-18
   ([`../../charts/cloudflare-only/README.md`](../../charts/cloudflare-only/README.md), "Raising
-  the limit for one app"). **TODO: lazy-load the gallery's thumbnails** (only those on screen,
-  plus `Cache-Control: private, max-age=...` so a browser keeps them), then the limit can come
-  back down.
+  the limit for one app"). Lazy-loading the thumbnails would let the limit come back down; not
+  done while frozen.
 - Dropped from prod-old: the app's own MariaDB (now the shared one, backed up by the operator),
   phpMyAdmin (the shared one at `phpmyadmin.d3strukt0r.dev`) and tiredofit/db-backup.
 

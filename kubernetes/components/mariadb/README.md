@@ -160,15 +160,30 @@ manifests fit together is in [`kubernetes/README.md`](../../README.md).
   "as late as possible" still works by giving `LAST RECOVERABLE TIME` exactly (the end of
   the newest file is accepted). Without strict mode a restore that falls short reports
   success anyway.
-- **Every switch of the primary leaves a hole in the archive until the next physical
-  backup**: a failover, but also the planned switch of an update or a node drain. The old
-  primary's last binary log (up to ten minutes) never reaches the bucket (only the primary
-  archives), the new primary does not log the transactions it replicated, and the restore timeline
-  follows the server the backup came from - so `LAST RECOVERABLE TIME` stays at the old
-  primary's last upload. No data is lost, only restorability past that point. Seen in the
-  failover test, 2026-09-28; closed within about 15 minutes by the after-switchover backup.
-  `LAST RECOVERABLE TIME` only moves once something writes after that backup; the apps and the
-  flush CronJob do every ten minutes, so `MariaDBPointInTimeRecoveryBehind` allows two hours.
+- **Every switch of the primary leaves a hole in the archive that no later backup closes**: a
+  failover, but also the planned switch of an update or a node drain. Reproduced 2026-11-19 in a
+  local test cluster with prod's versions (mariadb-operator#2058, open):
+  - **The old primary's binary logs since its last upload never reach the bucket** - only the
+    primary archives, every ten minutes, never the active file, and nothing uploads the rest at
+    the switch; the new primary does not log the transactions it replicated. Points in that
+    window (up to about ten minutes before the switch, less with the flush CronJob) **cannot be
+    restored at all** - the live database still has the data, only point-in-time recovery lacks
+    it.
+  - **Nothing after the switch restores from a backup taken before it**: the timeline follows
+    the server the backup came from and stops at the hole. The after-switchover backup (below)
+    makes points *after it* restorable, not the hole: a target in the hole still starts from
+    the older backup. Worse, `LAST RECOVERABLE TIME` then moves past the hole, so it no longer
+    shows it.
+  - **After a switch back to the old primary, restores can be silently incomplete**: it uploads
+    its missing files after all, but its file active at the first switch now jumps over every
+    transaction the other server committed. A restore to a time between the two switches then
+    reports success - `strictMode` included, `BinlogsReplayed=True` - with that server's
+    transactions missing (in the test 632 rows instead of 859). So every restore gets checked
+    against what it should contain (runbook "Restore to a point in time").
+
+  `LAST RECOVERABLE TIME` only moves once something writes after the after-switchover backup;
+  the apps and the flush CronJob do every ten minutes, so `MariaDBPointInTimeRecoveryBehind`
+  allows two hours.
 - **A replica recovery restarts that server's binary log numbering** (its data directory is
   rebuilt from a backup), and the archive holds its old files under the same names in
   `server-<id>/`. Once that server is primary again, the agent finds each name already there,
@@ -360,7 +375,8 @@ itself, nothing to do.
    `kubectl --context d3strukt0r-prod-admin taint nodes <node> node.kubernetes.io/out-of-service-`.
 
 **After every switch of the primary** point-in-time recovery cannot go past the old primary's
-last upload until a backup from the new primary exists. The CronJob
+last upload until a backup from the new primary exists, and the minutes just before the switch
+stay unrestorable even then ("Backups and restore", the switch bullet). The CronJob
 `mariadb-backup-after-switchover` starts one within 15 minutes; its log says what it decided
 (`kubectl --context d3strukt0r-prod-admin -n mariadb logs job/<latest job>`). To start one by
 hand - also when `MariaDBBackupFailed` fires:
@@ -488,7 +504,17 @@ A restore creates a **new** MariaDB from the backups; the running one is not tou
 3. Wait for it to be ready, and **check the condition `BinlogsReplayed`**:
    `kubectl --context d3strukt0r-prod-admin -n mariadb get mariadb mariadb-restore -o jsonpath='{.status.conditions}' | jq`.
    Ready without it means only the nightly backup was restored.
-4. Copy what is needed back (`mariadb-dump` from the restored instance), or switch the app to
+4. **Check that it holds what it should** - `BinlogsReplayed=True` is not proof. Around a switch
+   of the primary a restore can stop early or skip the other server's transactions and still
+   report success ("Backups and restore", the switch bullet; mariadb-operator#2058). Compare
+   the newest rows of a table that is written to often against the target time - e.g. the
+   latest `created_at`/`ts` in the app's busiest table, which should lie just before
+   `targetRecoveryTime` - and the time of the last switch of the primary (the `PrimarySwitched`
+   condition; earlier switches only in the operator's log in Loki):
+   `kubectl --context d3strukt0r-prod-admin -n mariadb get mariadb mariadb -o jsonpath='{.status.conditions[?(@.type=="PrimarySwitched")].lastTransitionTime}'`.
+   A gap between those newest rows and the target, or a target within about ten minutes before
+   a switch, means the data for that time is not in the archive.
+5. Copy what is needed back (`mariadb-dump` from the restored instance), or switch the app to
    it. Then delete the restored MariaDB, and its PVCs and Hetzner volumes by hand (Retain).
 
 **The target time cannot be changed** once applied. A failed restore is retried by deleting
