@@ -391,6 +391,14 @@ prometheus-node-exporter:
   service:
     port: 9101
     targetPort: 9101
+  # The textfile collector reads the numbers ansible/roles/node_metrics writes (inotify use),
+  # through the host's root the chart already mounts at /host/root. A list replaces the chart's
+  # default rather than adding to it, so its two filesystem excludes are repeated as they are
+  # in kube-prometheus-stack 93.4.
+  extraArgs:
+    - --collector.filesystem.mount-points-exclude=^/(dev|proc|sys|run/containerd/.+|var/lib/docker/.+|var/lib/kubelet/.+)($|/)
+    - --collector.filesystem.fs-types-exclude=^(autofs|binfmt_misc|bpf|cgroup2?|configfs|debugfs|devpts|devtmpfs|fusectl|hugetlbfs|iso9660|mqueue|nsfs|overlay|proc|procfs|pstore|rpc_pipefs|securityfs|selinuxfs|squashfs|sysfs|tracefs|erofs)$
+    - --collector.textfile.directory=/host/root/var/lib/prometheus/node-exporter
   # kube-system has no LimitRange, so these are its only resources. Over 2026-10-23..11-02: real
   # memory p95 42 MiB, the request; working set p95 48 MiB, peak 58 MiB, the limit twice that p95.
   resources:

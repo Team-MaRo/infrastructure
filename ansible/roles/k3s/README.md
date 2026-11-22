@@ -141,8 +141,13 @@ ansible 'prod:!prod_agents' -b -m ansible.builtin.shell \
 
 **Kernel parameters (`k3s_sysctls`) and node labels (`k3s_node_labels`)** are the role's
 too. The sysctls go to `/etc/sysctl.d/50-ansible-k3s.conf` and apply at once, without a
-restart; today only `net.ipv4.ip_unprivileged_port_start = 80`, so Traefik can listen on
-80/443 on the host network without root. Labels are set with `k3s kubectl label` on
+restart. `net.ipv4.ip_unprivileged_port_start = 80` lets Traefik listen on 80/443 on the host
+network without root. `fs.inotify.max_user_instances = 1024` replaces Debian's 128: containerd,
+k3s and every container running as root share root's inotify instances, prod-01 held 114 of
+the 128 on 2026-11-20, and at the limit new containers that watch files fail to start ("too
+many open files"). Watches stay at the kernel's default (at most 665 used of 61023,
+2026-11-22). Use and limit are measured by [`node_metrics`](../node_metrics/README.md), and
+`NodeInotifyInstancesHigh` warns at 80 %. Labels are set with `k3s kubectl label` on
 `k3s_init_node`, after reading the current ones, because k3s's `node-label` only applies at a
 node's first registration and a kubelet may not set `node-role.kubernetes.io/*` on itself. That
 uses the admin kubeconfig every server has and agents lack. `group_vars/prod.yml` labels every

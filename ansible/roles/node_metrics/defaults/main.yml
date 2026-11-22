@@ -1,0 +1,5 @@
+---
+# node-exporter's textfile collector reads every *.prom file here (kube-prometheus-stack
+# values: --collector.textfile.directory under its /host/root mount). Debian's own convention,
+# so the prometheus-node-exporter-collectors package could write here too.
+node_metrics_textfile_dir: /var/lib/prometheus/node-exporter

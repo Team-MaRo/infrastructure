@@ -115,6 +115,12 @@ The operator does not resize an existing volume. Grow the volume before pushing 
   (failover test, 2026-09-28).
 - **node-exporter listens on 9101**, not its default 9100: Traefik's metrics entrypoint holds
   9100 on the same host network. Both are closed by the Hetzner firewall.
+- **node-exporter reads text files** from `/var/lib/prometheus/node-exporter` on each node
+  (`--collector.textfile.directory`, through the host root the chart mounts at `/host/root`),
+  where [`ansible/roles/node_metrics`](../../../ansible/roles/node_metrics/README.md) writes
+  numbers it cannot read itself - today the inotify instances per user and their limit. Setting
+  `extraArgs` replaces the chart's list, so its two filesystem excludes are repeated in
+  `values.yaml`; check them against the new default at a chart minor or major.
 - **The admission webhook's certificate comes from cert-manager**
   (`admissionWebhooks.certManager`), which removes the chart's Helm hook Jobs. The chart
   renders the webhooks without a `caBundle` and cert-manager's cainjector fills it in; since
@@ -140,8 +146,10 @@ The operator does not resize an existing volume. Grow the volume before pushing 
 - **Own alerts** (`rules.yaml`): a node cordoned for over 2 hours (a failed upgrade Job or a
   drain that cannot finish), a node waiting for its reboot for over 26 hours (kured blocked by
   the MariaDB primary that could not be moved away, `../kured/README.md`), a server without a successful etcd snapshot upload for 13 hours
-  or with a failed one, and a k3s certificate within 30 days of expiry (k3s renews at start
-  within 120 days, so this means renewal failed). Their descriptions say what to do. The
+  or with a failed one, a k3s certificate within 30 days of expiry (k3s renews at start
+  within 120 days, so this means renewal failed), a user holding over 80 % of a node's inotify
+  instance limit for 15 minutes (`NodeInotifyInstancesHigh`), and node-exporter's text files
+  going stale or unreadable (`NodeTextfileStale`, `NodeTextfileScrapeError`). Their descriptions say what to do. The
   missing-upload alert reads the age of each node's newest S3 snapshot from k3s's
   `ETCDSnapshotFile` records, not from k3s's upload counter: after a k3s restart the counter
   reappears only with the next upload, already at 1, and `increase()` reads that as none - it

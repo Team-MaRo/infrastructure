@@ -38,6 +38,46 @@ spec:
               mariadb-primary-off-rebooting-node in the mariadb namespace, which says why it
               did not switch - see kubernetes/components/kured/README.md.
 
+        # inotify instances are limited per user, and containerd, k3s and every container
+        # running as root share root's (ansible/roles/node_metrics README). At the limit, new
+        # containers that watch files fail to start with "too many open files".
+        - alert: NodeInotifyInstancesHigh
+          expr: >-
+            max by (instance, uid) (node_inotify_instances)
+              / on (instance) group_left max by (instance) (node_inotify_max_user_instances)
+            > 0.8
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: "{{ $labels.instance }}: user {{ $labels.uid }} holds {{ $value | humanizePercentage }} of the inotify instance limit."
+            description: >-
+              Find what holds them (the command in ansible/roles/node_metrics/README.md,
+              "Running it"); if it is genuine use, raise fs.inotify.max_user_instances in
+              k3s_sysctls (ansible/roles/k3s/defaults/main.yml) and run the k3s role.
+        # The node_metrics timers rewrite their files every minute; one older than 10 minutes
+        # means a timer stopped, and NodeInotifyInstancesHigh would then judge stale numbers.
+        - alert: NodeTextfileStale
+          expr: time() - node_textfile_mtime_seconds > 600
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "{{ $labels.instance }}: {{ $labels.file }} has not been rewritten for over 10 minutes."
+            description: >-
+              Check the timer on the node: systemctl status node-metrics-inotify.timer and
+              journalctl -u node-metrics-inotify.service (ansible/roles/node_metrics).
+        - alert: NodeTextfileScrapeError
+          expr: node_textfile_scrape_error == 1
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "{{ $labels.instance }}: node-exporter cannot read its text files."
+            description: >-
+              node-exporter's log in kube-system says which file is unreadable or malformed
+              (ansible/roles/node_metrics writes them).
+
         # Every server uploads a snapshot at 00:00 and 12:00 UTC. The age of each node's newest
         # snapshot in S3 comes from k3s's own records (ETCDSnapshotFile, through kube-state-
         # metrics), not from k3s's upload counter: after a restart the counter reappears only
