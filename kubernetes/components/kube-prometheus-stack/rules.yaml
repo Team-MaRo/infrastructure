@@ -37,6 +37,33 @@ spec:
               Check kured's log on the node ("blocked") and the last line of the job log of
               mariadb-primary-off-rebooting-node in the mariadb namespace, which says why it
               did not switch - see kubernetes/components/kured/README.md.
+        # unattended-upgrades installs from stable and stable-security every night at 03:30, so
+        # an update from either still pending after two days means it stopped installing.
+        # stable-updates is not among its origins and waits for Debian's next point release.
+        - alert: NodeUpdatesPending
+          expr: >-
+            sum by (instance) (apt_upgrades_pending{origin=~"(.*,)?[^,]*/stable(-security)?(,.*)?"}) > 0
+          for: 48h
+          labels:
+            severity: warning
+          annotations:
+            summary: "{{ $labels.instance }}: {{ $value }} updates have waited over two days."
+            description: >-
+              unattended-upgrades should have installed them at 03:30. Check journalctl -u
+              apt-daily-upgrade.service and /var/log/unattended-upgrades/ on the node
+              (ansible/roles/os_updates).
+        # The package lists are fetched every night at 03:00; without that, nothing new is seen
+        # and NodeUpdatesPending stays silent.
+        - alert: NodePackageListsStale
+          expr: time() - apt_package_cache_timestamp_seconds > 2 * 86400
+          for: 1h
+          labels:
+            severity: warning
+          annotations:
+            summary: "{{ $labels.instance }}: the package lists were last fetched over two days ago."
+            description: >-
+              Check journalctl -u apt-daily.service on the node; the fetch is moved to 03:00 by
+              ansible/roles/os_updates.
 
         # inotify instances are limited per user, and containerd, k3s and every container
         # running as root share root's (ansible/roles/node_metrics README). At the limit, new
@@ -55,18 +82,22 @@ spec:
               Find what holds them (the command in ansible/roles/node_metrics/README.md,
               "Running it"); if it is genuine use, raise fs.inotify.max_user_instances in
               k3s_sysctls (ansible/roles/k3s/defaults/main.yml) and run the k3s role.
-        # The node_metrics timers rewrite their files every minute; one older than 10 minutes
-        # means a timer stopped, and NodeInotifyInstancesHigh would then judge stale numbers.
+        # The node_metrics timers rewrite inotify.prom every minute and apt.prom every 15; a file
+        # several runs old means its timer stopped, and the alerts on it judge stale numbers.
         - alert: NodeTextfileStale
-          expr: time() - node_textfile_mtime_seconds > 600
+          expr: >-
+            time() - node_textfile_mtime_seconds{file!~".*/apt\\.prom"} > 600
+            or
+            time() - node_textfile_mtime_seconds{file=~".*/apt\\.prom"} > 2400
           for: 10m
           labels:
             severity: warning
           annotations:
-            summary: "{{ $labels.instance }}: {{ $labels.file }} has not been rewritten for over 10 minutes."
+            summary: "{{ $labels.instance }}: {{ $labels.file }} has not been rewritten for several of its timer's runs."
             description: >-
-              Check the timer on the node: systemctl status node-metrics-inotify.timer and
-              journalctl -u node-metrics-inotify.service (ansible/roles/node_metrics).
+              Check its timer on the node: systemctl status node-metrics-inotify.timer
+              (inotify.prom) or prometheus-node-exporter-apt.timer (apt.prom), and journalctl
+              -u for the service of the same name (ansible/roles/node_metrics).
         - alert: NodeTextfileScrapeError
           expr: node_textfile_scrape_error == 1
           for: 10m

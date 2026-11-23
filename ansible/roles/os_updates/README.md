@@ -19,6 +19,9 @@ zone in `OnCalendar` itself.
   only installs; it changes nothing on the node, so it may overlap the k3s upgrades.
 - Debian's `Automatic-Reboot` stays off: it would reboot every node at the same time.
   Reboots are kured's.
+- Watched by alerts on apt's own numbers ([`roles/node_metrics`](../node_metrics/README.md)):
+  `NodeUpdatesPending` when an update unattended-upgrades should take has waited two days,
+  `NodePackageListsStale` when the 03:00 fetch has not run for two days.
 
 ## Running it
 

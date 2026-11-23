@@ -61,3 +61,30 @@
     daemon_reload: "{{ node_metrics_units is changed }}"
   # A --check run writes no unit files, so a timer that is new cannot be found yet.
   when: not (ansible_check_mode and node_metrics_units is changed)
+
+# The package enables and starts all its collectors' timers; these four need tools the nodes do
+# not have and would only fail. A mask set before the install survives it: the package's postinst
+# removes only masks it recorded itself.
+- name: Mask the collectors' timers that do not apply
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    masked: true
+  loop:
+    - prometheus-node-exporter-ipmitool-sensor.timer
+    - prometheus-node-exporter-mellanox-hca-temp.timer
+    - prometheus-node-exporter-nvme.timer
+    - prometheus-node-exporter-smartmon.timer
+
+- name: Install the apt collector
+  ansible.builtin.apt:
+    name: prometheus-node-exporter-collectors
+    install_recommends: false
+  register: node_metrics_collectors
+
+- name: Start the apt collector's timer
+  ansible.builtin.systemd_service:
+    name: prometheus-node-exporter-apt.timer
+    enabled: true
+    state: started
+  # A --check run installs nothing, so the package's timer does not exist yet.
+  when: not (ansible_check_mode and node_metrics_collectors is changed)

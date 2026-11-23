@@ -118,7 +118,8 @@ The operator does not resize an existing volume. Grow the volume before pushing 
 - **node-exporter reads text files** from `/var/lib/prometheus/node-exporter` on each node
   (`--collector.textfile.directory`, through the host root the chart mounts at `/host/root`),
   where [`ansible/roles/node_metrics`](../../../ansible/roles/node_metrics/README.md) writes
-  numbers it cannot read itself - today the inotify instances per user and their limit.
+  numbers it cannot read itself - today the inotify instances per user and their limit, and the
+  pending apt updates per origin.
 - **node-exporter reads systemd** (`--collector.systemd`, off by default): the state of every
   service and timer on the node, over the host's system bus at
   `/host/root/run/dbus/system_bus_socket` (`DBUS_SYSTEM_BUS_ADDRESS`; listing units needs no
@@ -156,7 +157,9 @@ The operator does not resize an existing volume. Grow the volume before pushing 
   the MariaDB primary that could not be moved away, `../kured/README.md`), a server without a successful etcd snapshot upload for 13 hours
   or with a failed one, a k3s certificate within 30 days of expiry (k3s renews at start
   within 120 days, so this means renewal failed), a user holding over 80 % of a node's inotify
-  instance limit for 15 minutes (`NodeInotifyInstancesHigh`), and node-exporter's text files
+  instance limit for 15 minutes (`NodeInotifyInstancesHigh`), updates unattended-upgrades should
+  have installed still pending after two days (`NodeUpdatesPending`) or package lists not
+  fetched for two days (`NodePackageListsStale`), node-exporter's text files
   going stale or unreadable (`NodeTextfileStale`, `NodeTextfileScrapeError`), and node-exporter
   unable to read systemd (`NodeSystemdCollectorFailed`, which would otherwise silence the chart's
   two systemd alerts). Their descriptions say what to do. The
