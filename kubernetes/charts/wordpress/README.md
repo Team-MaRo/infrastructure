@@ -34,6 +34,17 @@ and `uploads-proxy`, the PodMonitor `php-fpm`, and in the namespace `mariadb` th
 site's database is dumped every night with all the others (`components/mariadb` README,
 "Dumping and importing one database").
 
+**The database's collation is WordPress' own, `utf8mb4_unicode_520_ci`** (since 2026-11-23;
+before, `utf8mb4_unicode_ci` from prod-old). WordPress creates its tables with
+`$wpdb->get_charset_collate()`, which picks that collation here; a plugin table that names none
+falls to the database default, which now gives the same (Jetpack's WAF block log does that,
+Automattic/jetpack#55365). Every site's tables were converted to it the same day - the old core
+tables of the sites from prod-old were still three-byte `utf8mb3`, and Yoast creates
+`yoast_expiring_store` in `utf8mb3` (its migration library falls back to `utf8`,
+Yoast/wordpress-seo#23825). Converting a table later: `ALTER TABLE … CONVERT TO CHARACTER SET
+utf8mb4 COLLATE utf8mb4_unicode_520_ci` on the primary, after a fresh dump and a check that no
+unique index collides under the new collation.
+
 ## Names from the release
 
 The Application's name is the release name and the namespace; these follow from it, so the
