@@ -122,6 +122,7 @@ DNS-only CNAME to `direct.prod.d3strukt0r.dev` instead):
 |---|---|---|---|
 | `arepazo.ch`, `www.arepazo.ch` | arepazo (WooCommerce shop) - arepazo account | - | on |
 | `old.robines.space` | robines-portfolio (archive of the old WordPress site) | - | on |
+| `old.wundexpertinplus.com` | wundexpertinplus (the old WordPress site) - personal account | - | on |
 | `manuele-robine.wedding`, `www.manuele-robine.wedding`, `wedding-manuele-robine.d3strukt0r.dev` | wedding-manuele-robine, the website (pwa) | - | on |
 | `api-wedding-manuele-robine.d3strukt0r.dev` | wedding-manuele-robine, its API | - | on |
 | `status.d3strukt0r.dev` | Gatus status page | - | on |

@@ -22,6 +22,19 @@ resource "cloudflare_dns_record" "wundexpertinplus_com_aaaa_www" {
   zone_id = local.zone_ids["wundexpertinplus.com"]
 }
 
+# The old WordPress site on the cluster (kubernetes/components/wundexpertinplus); the apex and
+# www are the Cloudflare Worker (the AAAA records above).
+resource "cloudflare_dns_record" "wundexpertinplus_com_cname_old" {
+  provider = cloudflare.personal
+
+  content = "prod.d3strukt0r.dev"
+  name    = "old.wundexpertinplus.com"
+  proxied = true
+  ttl     = 1
+  type    = "CNAME"
+  zone_id = local.zone_ids["wundexpertinplus.com"]
+}
+
 # mailomat.swiss sends mail for this domain (smarthost, see "Sending through mailomat" in the
 # README). The domain receives no mail, but its records still sit on a subdomain, so an MX on
 # the apex stays free for a mail service of its own; the subdomain is the return path for

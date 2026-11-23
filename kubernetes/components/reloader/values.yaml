@@ -29,6 +29,7 @@ reloader:
     - valkey-cache
     - valkey-state
     - wedding-manuele-robine
+    - wundexpertinplus
     - zitadel
     - zot
   # A changed Secret would otherwise start a CronJob's Job at once and recreate Jobs.

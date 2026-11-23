@@ -93,6 +93,29 @@ endpoints:
     alerts:
       - type: ntfy
 
+  - name: Wund Expertin Plus (old)
+    group: Apps
+    # The login page, as for Robines Portfolio above.
+    url: https://old.wundexpertinplus.com/wp-login.php
+    interval: 5m
+    conditions:
+      - "[STATUS] == 200"
+    alerts:
+      - type: ntfy
+
+  # Its uploads through the uploads proxy, as for Robines Portfolio above.
+  - name: Wund Expertin Plus (old) uploads
+    group: Apps
+    url: http://web.wundexpertinplus.svc/wp-content/uploads/healthcheck.txt?nocache=1
+    interval: 5m
+    conditions:
+      - "[STATUS] == 200"
+      - "[BODY] == ok"
+    ui:
+      hide-url: true
+    alerts:
+      - type: ntfy
+
   - name: Arepazo
     group: Apps
     # The login page, which the page cache never keeps: the home page would come from Varnish's

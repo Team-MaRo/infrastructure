@@ -1,0 +1,78 @@
+---
+# wundexpertinplus, the old WordPress site of Wund Expertin Plus at old.wundexpertinplus.com
+# (wundexpertinplus.com itself is a Cloudflare Worker), from the chart kubernetes/charts/wordpress
+# (README). Only what differs from the chart's defaults. Brought back as it ran on prod-old until
+# 2026-05-19; the clean-up follows (README "Next").
+
+hosts:
+  - old.wundexpertinplus.com
+
+# The plugins active on prod-old, at today's versions (README "As it was").
+plugins:
+  - bulk-delete
+  - duplicator
+  - google-analytics-for-wordpress
+  - jetpack
+  - loginizer
+  - polylang
+  - wordpress-importer
+  - wordpress-seo
+  - wp-mail-smtp
+  - wpforms-lite
+themes:
+  - customify
+
+languages:
+  - de_CH
+
+# Its mail's events in mailomat-watch (token: api-token in secret/wundexpertinplus-mailomat).
+mailomatWatch:
+  domain: mailomat.wundexpertinplus.com
+
+# Varnish in front (chart README "Page cache") stays off, like on the other sites.
+pageCache:
+  enabled: false
+
+# Every secret the site reads: per entry in the secret store (key), which of its fields become
+# which environment variable (env), with the 1Password item the entry comes from. They reach the
+# WordPress containers through the Secret web (charts/wordpress, README "Secrets").
+secrets:
+  # 1Password "MariaDB | Prod | wundexpertinplus"
+  #   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=iuehqp5c4rhsnawqp5zhvjwgty&h=my.1password.com
+  - key: mariadb-apps/wundexpertinplus
+    env:
+      WORDPRESS_DB_PASSWORD: password
+  # 1Password "Wund Expertin Plus CMS | Prod | App" (keys and salts, prod-old's)
+  #   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=6uuspv364f2hs7apwlmevbcujy&h=my.1password.com
+  - key: wundexpertinplus
+    env:
+      WORDPRESS_AUTH_KEY: auth-key
+      WORDPRESS_SECURE_AUTH_KEY: secure-auth-key
+      WORDPRESS_LOGGED_IN_KEY: logged-in-key
+      WORDPRESS_NONCE_KEY: nonce-key
+      WORDPRESS_AUTH_SALT: auth-salt
+      WORDPRESS_SECURE_AUTH_SALT: secure-auth-salt
+      WORDPRESS_LOGGED_IN_SALT: logged-in-salt
+      WORDPRESS_NONCE_SALT: nonce-salt
+  # 1Password "Hetzner | S3 | prod wundexpertinplus" (writes the uploads)
+  #   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=zyx2nlhgljreoo2fsjin3asxde&h=my.1password.com
+  - key: wundexpertinplus-s3
+    env:
+      S3_KEY: access-key
+      S3_SECRET: secret-key
+  # 1Password "Mailomat | Prod | wundexpertinplus" (the website's SMTP login at mailomat)
+  #   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=2nr3n556yfo6aejcrmfqdzgaom&h=my.1password.com
+  - key: wundexpertinplus-mailomat
+    env:
+      SMTP_USERNAME: username
+      SMTP_PASSWORD: password
+
+uploadsProxy:
+  # The uploads proxy's read-only key (Secret uploads-proxy).
+  secrets:
+    # 1Password "Hetzner | S3 | prod wundexpertinplus uploads-proxy"
+    #   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=efxryvkeefiviz5rcpdtufguye&h=my.1password.com
+    - key: wundexpertinplus-uploads-proxy-s3
+      env:
+        AWS_ACCESS_KEY_ID: access-key
+        AWS_SECRET_ACCESS_KEY: secret-key

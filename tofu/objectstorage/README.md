@@ -15,6 +15,7 @@ own docs use.
 | `d3strukt0r-prod-wedding-manuele-robine` | bucket, versioning, lifecycle, policy | only the app's key and the admin key; only the admin key may change the bucket or delete an old version |
 | `d3strukt0r-prod-robines-portfolio` | bucket, versioning, lifecycle, policy, `uploads/healthcheck.txt` | only the app's key, its uploads proxy's key (read only) and the admin key; only the admin key may change the bucket or delete an old version |
 | `d3strukt0r-prod-arepazo` | bucket, versioning, lifecycle, policy, `uploads/healthcheck.txt` | as robines-portfolio's: the app's key, its uploads proxy's key (read only), the admin key |
+| `d3strukt0r-prod-wundexpertinplus` | bucket, versioning, lifecycle, policy, `uploads/healthcheck.txt` | as robines-portfolio's: the app's key, its uploads proxy's key (read only), the admin key |
 | `d3strukt0r-prod-matomo` | bucket, versioning, lifecycle, policy | only Matomo's key and the admin key; only the admin key may change the bucket or delete an old version |
 | `d3strukt0r-prod-clamav` | bucket, lifecycle, policy | only clamd's key and the admin key; only the admin key may change the bucket. The last good virus signatures, so clamd starts without ClamAV's mirror ([`kubernetes/components/clamav`](../../kubernetes/components/clamav/README.md)) |
 | `d3strukt0r-prod-zot` | bucket, versioning (old versions kept 14 days), lifecycle, policy | only the registry zot's key and the admin key; only the admin key may change the bucket or delete an old version. Versioned so a layer deleted by zot's garbage collection, a bug or a mistake can be restored: a rebuilt image gets a new digest |
@@ -30,9 +31,9 @@ way to scope one is a bucket policy, so `tofu/objectstorage` writes every policy
 (`local.etcd_principal`, `local.loki_principal`, `local.mariadb_backups_principal`,
 `local.postgres_backups_principal`, `local.openbao_snapshots_principal`,
 `local.wedding_manuele_robine_principal`, `local.robines_portfolio_principal`,
-`local.arepazo_principal`, `local.matomo_principal`, `local.zot_principal`, `local.clamav_principal`; the WordPress sites' buckets also name
+`local.arepazo_principal`, `local.wundexpertinplus_principal`, `local.matomo_principal`, `local.zot_principal`, `local.clamav_principal`; the WordPress sites' buckets also name
 their uploads proxy's read-only key, `local.robines_portfolio_uploads_proxy_principal`,
-`local.arepazo_uploads_proxy_principal`).
+`local.arepazo_uploads_proxy_principal`, `local.wundexpertinplus_uploads_proxy_principal`).
 That covers keys that do not exist yet, so
 **each key the cluster holds reaches only its own bucket**. The cluster keys' access key IDs
 (not their secrets) are `etcd_access_key_id`, `loki_access_key_id`,
@@ -175,7 +176,12 @@ below). **Whether Hetzner expires current objects depends on versioning**, both 
   `prod arepazo uploads-proxy` (1Password [`Hetzner | S3 | prod arepazo uploads-proxy`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=gs5mn5w3sfbqsljokq3ukhjtjy&h=my.1password.com),
   OpenBao `secret/arepazo-uploads-proxy-s3`). It also holds invoice PDFs with customer data, which
   the site's nginx never hands to the proxy.
-- **Both WordPress buckets hold `uploads/healthcheck.txt`** (`ok`, a `minio_s3_object` next to
+- **`d3strukt0r-prod-wundexpertinplus`: the same for the old Wund Expertin Plus site** - keys
+  `prod wundexpertinplus` (1Password [`Hetzner | S3 | prod wundexpertinplus`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=zyx2nlhgljreoo2fsjin3asxde&h=my.1password.com),
+  OpenBao `secret/wundexpertinplus-s3`) and `prod wundexpertinplus uploads-proxy` (1Password
+  [`Hetzner | S3 | prod wundexpertinplus uploads-proxy`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=efxryvkeefiviz5rcpdtufguye&h=my.1password.com),
+  OpenBao `secret/wundexpertinplus-uploads-proxy-s3`).
+- **The WordPress buckets hold `uploads/healthcheck.txt`** (`ok`, a `minio_s3_object` next to
   the bucket): Gatus fetches it through the site's uploads proxy every 5 minutes
   ([`../../kubernetes/components/gatus/README.md`](../../kubernetes/components/gatus/README.md)).
   WordPress does not know it; deleting it turns the site's uploads check red.
@@ -211,7 +217,8 @@ Needs `project_id`, `etcd_access_key_id`, `loki_access_key_id`, `tempo_access_ke
 `mariadb_backups_access_key_id`, `postgres_backups_access_key_id`,
 `openbao_snapshots_access_key_id`, `wedding_manuele_robine_access_key_id`,
 `robines_portfolio_access_key_id`, `robines_portfolio_uploads_proxy_access_key_id`,
-`arepazo_access_key_id`, `arepazo_uploads_proxy_access_key_id`, `matomo_access_key_id`,
+`arepazo_access_key_id`, `arepazo_uploads_proxy_access_key_id`,
+`wundexpertinplus_access_key_id`, `wundexpertinplus_uploads_proxy_access_key_id`, `matomo_access_key_id`,
 `zot_access_key_id` and `clamav_access_key_id` in
 `objectstorage/terraform.tfvars` - the key IDs are the username fields of the keys'
 1Password items, never the secrets. The provider cannot read

@@ -26,6 +26,8 @@ locals {
   robines_portfolio_uploads_proxy_principal = "arn:aws:iam:::user/p${var.project_id}:${var.robines_portfolio_uploads_proxy_access_key_id}"
   arepazo_principal                         = "arn:aws:iam:::user/p${var.project_id}:${var.arepazo_access_key_id}"
   arepazo_uploads_proxy_principal           = "arn:aws:iam:::user/p${var.project_id}:${var.arepazo_uploads_proxy_access_key_id}"
+  wundexpertinplus_principal                = "arn:aws:iam:::user/p${var.project_id}:${var.wundexpertinplus_access_key_id}"
+  wundexpertinplus_uploads_proxy_principal  = "arn:aws:iam:::user/p${var.project_id}:${var.wundexpertinplus_uploads_proxy_access_key_id}"
   matomo_principal                          = "arn:aws:iam:::user/p${var.project_id}:${var.matomo_access_key_id}"
   zot_principal                             = "arn:aws:iam:::user/p${var.project_id}:${var.zot_access_key_id}"
   clamav_principal                          = "arn:aws:iam:::user/p${var.project_id}:${var.clamav_access_key_id}"

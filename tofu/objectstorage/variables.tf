@@ -147,6 +147,30 @@ variable "arepazo_uploads_proxy_access_key_id" {
   }
 }
 
+# 1Password "Hetzner | S3 | prod wundexpertinplus"
+#   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=zyx2nlhgljreoo2fsjin3asxde&h=my.1password.com
+variable "wundexpertinplus_access_key_id" {
+  description = "Access key ID of the S3 key wundexpertinplus' WordPress stores its uploads with (1Password: Hetzner | S3 | prod wundexpertinplus, username). Set in terraform.tfvars."
+  type        = string
+
+  validation {
+    condition     = can(regex("^[A-Z0-9]{20}$", var.wundexpertinplus_access_key_id))
+    error_message = "wundexpertinplus_access_key_id must be a 20-character Hetzner access key ID."
+  }
+}
+
+# 1Password "Hetzner | S3 | prod wundexpertinplus uploads-proxy"
+#   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=efxryvkeefiviz5rcpdtufguye&h=my.1password.com
+variable "wundexpertinplus_uploads_proxy_access_key_id" {
+  description = "Access key ID of the read-only S3 key wundexpertinplus' uploads proxy serves the uploads with (1Password: Hetzner | S3 | prod wundexpertinplus uploads-proxy, username). Set in terraform.tfvars."
+  type        = string
+
+  validation {
+    condition     = can(regex("^[A-Z0-9]{20}$", var.wundexpertinplus_uploads_proxy_access_key_id))
+    error_message = "wundexpertinplus_uploads_proxy_access_key_id must be a 20-character Hetzner access key ID."
+  }
+}
+
 # 1Password "Hetzner | S3 | prod matomo"
 #   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=4vhpkhsjy4meb3pqhgvhu2zsge&h=my.1password.com
 variable "matomo_access_key_id" {
