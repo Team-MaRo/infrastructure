@@ -46,14 +46,45 @@ if [ -n "${MATOMO_GA_IMPORTER_KEY:-}" ]; then
   printf '\n[GoogleAnalyticsImporter]\nencryption_key = "%s"\n' "$MATOMO_GA_IMPORTER_KEY" >> config/config.ini.php
 fi
 
+# Installs the newest stable version of a Marketplace plugin within a range (README "Upgrades"),
+# read as npm does: ~X.Y.Z and ~X.Y take patches, ~X minors; ^X.Y.Z minors and patches, below
+# 1.0.0 only what the first non-zero part allows (^0.2.3 patches).
+plugin_install() {
+  version=$(curl -fsSL --retry 3 "https://plugins.matomo.org/api/2.0/plugins/$1/info" | php -r '
+    if (!preg_match("/^([~^])(\d+)(?:\.(\d+))?(?:\.(\d+))?$/", $argv[1], $m)) exit(2);
+    [$op, $parts] = [$m[1], array_map("intval", array_slice(array_filter($m, "strlen"), 2))];
+    $min = implode(".", array_pad($parts, 3, 0));
+    // The part that may not change: ~ keeps the minor when given, ^ the first non-zero one.
+    $keep = $op === "~" ? min(count($parts), 2) - 1 : count($parts) - 1;
+    if ($op === "^") {
+      foreach ($parts as $i => $part) {
+        if ($part !== 0) { $keep = $i; break; }
+      }
+    }
+    $upper = array_slice($parts, 0, $keep + 1);
+    $upper[$keep]++;
+    $below = implode(".", array_pad($upper, 3, 0));
+    $best = null;
+    foreach (json_decode(stream_get_contents(STDIN), true)["versions"] ?? [] as $v) {
+      $n = $v["name"];
+      if (preg_match("/^\d+\.\d+\.\d+$/", $n) && version_compare($n, $min, ">=")
+        && version_compare($n, $below, "<") && ($best === null || version_compare($n, $best, ">"))) {
+        $best = $n;
+      }
+    }
+    if ($best === null) exit(1);
+    echo $best;
+  ' "$2") || { echo "$1: no version in $2 on the Marketplace (a range is ~ or ^ and X, X.Y or X.Y.Z)"; exit 1; }
+  echo "$1 $version ($2)"
+  curl -fsSL --retry 3 -o "/tmp/$1.zip" "https://plugins.matomo.org/api/2.0/plugins/$1/download/$version"
+  rm -rf "plugins/$1"
+  php -r '$zip = new ZipArchive(); if ($zip->open($argv[1]) !== true || !$zip->extractTo("plugins")) exit(1);' "/tmp/$1.zip"
+}
+
 # GoogleAnalyticsImporter (README "Google Analytics history"), in the archive pod as well: the
 # imported days have reports but no raw visits, and only the loaded plugin stops Matomo from
-# rebuilding such a day from nothing if it is ever invalidated.
-gaimporter=5.2.4
-curl -fsSL --retry 3 -o /tmp/gaimporter.zip \
-  "https://plugins.matomo.org/api/2.0/plugins/GoogleAnalyticsImporter/download/$gaimporter"
-rm -rf plugins/GoogleAnalyticsImporter
-php -r '$zip = new ZipArchive(); if ($zip->open("/tmp/gaimporter.zip") !== true || !$zip->extractTo("plugins")) exit(1);'
+# rebuilding such a day from nothing if it is ever invalidated. 6.x needs Matomo 6.
+plugin_install GoogleAnalyticsImporter '^5.2.4'
 
 # Archiving (which also sends the scheduled email reports) needs neither the login nor locations,
 # and the web pod updates the database alone - and activates the plugins only after that update.
@@ -62,17 +93,9 @@ if [ "${1:-}" = archive ]; then
   exit 0
 fi
 
-# RebelOIDC, the Zitadel login (README "Login through Zitadel"), with one line patched: it decodes
-# the tokens as plain base64 instead of base64url, so a login fails whenever a token holds - or _
-# (upstream issue #47). If a new version no longer has that line, the start fails here, so the
-# patch is reviewed rather than silently skipped.
-rebeloidc=5.1.6
-curl -fsSL --retry 3 "https://github.com/Digitalist-Open-Cloud/Matomo-Plugin-RebelOIDC/archive/refs/tags/$rebeloidc.tar.gz" | tar -xz -C /tmp
-rm -rf plugins/RebelOIDC
-mv "/tmp/Matomo-Plugin-RebelOIDC-$rebeloidc" plugins/RebelOIDC
-sed -i 's|base64_decode($parts\[1\])|base64_decode(strtr($parts[1], "-_", "+/"))|' plugins/RebelOIDC/Controller.php
-grep -q 'base64_decode(strtr($parts\[1\], "-_", "+/"))' plugins/RebelOIDC/Controller.php \
-  || { echo "RebelOIDC $rebeloidc: the base64url patch did not apply - check upstream issue #47"; exit 1; }
+# RebelOIDC, the Zitadel login (README "Login through Zitadel"); patches only, since a minor can
+# change its security checks and settings (5.2).
+plugin_install RebelOIDC '~5.2.0'
 
 # The visitors' locations (README "GeoIP"), from the bucket the geoip CronJob fills; if the bucket
 # fails, this month's file straight from DB-IP, as the CronJob fetches it. Without either Matomo

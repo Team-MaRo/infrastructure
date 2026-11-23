@@ -166,13 +166,13 @@ rights follow these roles at every login, and Zitadel refuses anyone without a r
   right gone at the next login, and rights given inside Matomo vanish at the next login too. Role
   check on: without any Matomo role Zitadel refuses the login, so the plugin's own role gate
   stays off. A site's roles are added here when the site is added to Matomo.
-- **The admin of all of Matomo** holds `matomo:superuser` here and Matomo's superuser flag
-  there. The claim can only name single sites, so the role only gets its holder past the role
-  check (the webhook makes no site right of it); the flag is set once in Matomo (Administration →
-  Benutzer → Superuser-Zugriff) and covers every site, future ones too. Taking the role away
-  blocks the login, not the flag - remove that in Matomo as well.
+- **The admin of all of Matomo** holds `matomo:superuser`. The webhook makes no site right of
+  it; RebelOIDC finds it in the `groups` claim and sets Matomo's superuser flag at every login,
+  which covers every site, future ones too. Taking the role away blocks the login, and the flag
+  goes at the next one - except for Matomo's last superuser.
 - **The access token is a JWT**: RebelOIDC reads the claims by decoding the access and ID
-  tokens it receives from the token endpoint.
+  tokens it receives from the token endpoint, and trusts them only when their signature checks
+  out against the keys Zitadel publishes (found through the discovery URL).
 - **The client secret** is regenerated in the console after creation, like the WordPress sites'
   (the one Zitadel returns at creation is in the state), and entered in Matomo's plugin settings.
 - **Logging out** ends the Zitadel session too and returns to `https://matomo.d3strukt0r.dev/`

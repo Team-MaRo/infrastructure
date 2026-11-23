@@ -9,7 +9,7 @@ since every site's visitors call them. It replaces Google Analytics on the WordP
 
 - **The stock image, no build** (`matomo:5-fpm`), assembled at every start like the WordPress
   chart's pods: the init container `prepare` runs `prepare.sh` - the code from the image into an
-  emptyDir, the RebelOIDC plugin from GitHub, the configuration, the GeoIP database from the
+  emptyDir, the RebelOIDC plugin from the Matomo Marketplace, the configuration, the GeoIP database from the
   bucket, `core:update` and the plugin's activation. php-fpm runs it, nginx serves it
   (`default.conf`, after Matomo's own nginx configuration: PHP only through `index.php`,
   `matomo.php`, `piwik.php` and `js/index.php`, the code's directories denied).
@@ -134,20 +134,19 @@ stops with "Matomo is not installed in its database yet". Once, in this order:
    `kubectl --context d3strukt0r-prod-admin -n matomo create job --from=cronjob/geoip geoip-initial`,
    then restart the deployment again.
 8. **In Matomo**, logged in as `admin`:
-   - Administration → System → Allgemeine Einstellungen → RebelOIDC: Authorize URL
-     `https://auth.d3strukt0r.dev/oauth/v2/authorize`, Token URL
-     `https://auth.d3strukt0r.dev/oauth/v2/token`, Userinfo URL
-     `https://auth.d3strukt0r.dev/oidc/v1/userinfo`, End session URL
-     `https://auth.d3strukt0r.dev/oidc/v1/end_session`, client ID (`tofu output -raw
-     matomo_client_id` in `tofu/zitadel`) and secret, scope `openid email profile`, "Erstelle
-     automatisch einen neuen Account …" on, "Deaktiviere Passwortbestätigung" on (OIDC users know
-     no Matomo password), "Feingranulare Zugriffsrechte nutzen" on, "Name" `OpenID Connect` (the
-     login button's label, AGENTS.md; set 2026-10-29) - then **Speichern**, confirmed
-     with the admin password.
+   - Administration → System → Allgemeine Einstellungen → RebelOIDC: Discovery URL
+     `https://auth.d3strukt0r.dev/.well-known/openid-configuration` with the Authorize, Token,
+     Userinfo, End session and Keys URLs and the Issuer left **empty** (a filled-in URL wins over
+     the published one; with the keys known, the plugin checks the tokens' signatures), client ID
+     (`tofu output -raw matomo_client_id` in `tofu/zitadel`) and secret, scope
+     `openid email profile`, "Erstelle automatisch einen neuen Account …" on, "Deaktiviere
+     Passwortbestätigung" on (OIDC users know no Matomo password), "Linked users cannot set a
+     password" on, "Feingranulare Zugriffsrechte nutzen" on, "Roles claim" `groups`, "Role that
+     gives super user access" `matomo:superuser`, "Name" `OpenID Connect` (the login button's
+     label, AGENTS.md; set 2026-10-29) - then **Speichern**, confirmed with the admin password.
+     The settings 5.2.0 added have no German labels.
    - Administration → System → Geolokalisierung: the DBIP / GeoIP 2 provider, automatic updates
      **never** (the CronJob updates it; Matomo's own download would land on the pod and vanish).
-   - Log in once through "OpenID Connect", then as `admin` give that user superuser access
-     (Administration → Benutzer).
 
 ## Email
 
@@ -161,17 +160,18 @@ against mailomat's 200 mails a month shared by every app. The settings are in
 
 ## Login through Zitadel
 
-RebelOIDC 5.1.6 with the project "Matomo" in `tofu/zitadel` (README there, "Matomo"): a user is
+RebelOIDC 5.2.0 with the project "Matomo" in `tofu/zitadel` (README there, "Matomo"): a user is
 created at their first login, and their site rights are set at every login from their Zitadel
 roles `matomo:<siteID>:<view|write|admin>` - rights given inside Matomo vanish at the next login,
-so they are always given in Zitadel. `matomo:superuser` only gets its holder past Zitadel's role
-check; the superuser flag is set in Matomo.
+so they are always given in Zitadel. **The superuser flag follows `matomo:superuser`** (settings
+"Roles claim" `groups`, "Role that gives super user access"): set or removed at every login
+through Zitadel, except that the last superuser keeps it. The local `admin` never logs in through
+Zitadel and stays a superuser. A login during an outage of Zitadel's groups webhook carries no
+roles, so it drops the flag (and the site rights) until the next login.
 
-**The plugin is patched** at every start (`prepare.sh`): it decodes tokens as plain base64
-instead of base64url, so a login fails at random whenever a token holds `-` or `_` (found
-2026-10-23 in the local trial; upstream issue #47, open since 2026-03-20, the same fix in it). If
-a new plugin version no longer has the line, `prepare` stops with "the base64url patch did not
-apply": check whether #47 is fixed in that version, then drop the patch.
+Up to 5.1.6 the plugin decoded tokens as plain base64 instead of base64url, so a login failed at
+random whenever a token held `-` or `_`; `prepare.sh` patched it until 5.2.0 fixed it (upstream
+issue #47).
 
 What each right allows (Matomo's FAQ): `view` sees the reports and makes its own segments;
 `write` also creates goals, funnels and the like; `admin` also changes the site's settings and
@@ -370,6 +370,13 @@ parallel processes (many sites, long runs), the way is an image of our own with 
   for a GoogleAnalyticsImporter release for 6 - without the importer the Google history is
   rebuilt as zeros ("Google Analytics history"); 5.x gets fixes for at least 12 months after 6.0
   (Matomo's LTS policy).
-- **RebelOIDC** is pinned in `prepare.sh`; a new version is a one-line change there, after
-  checking issue #47 (above). So is **GoogleAnalyticsImporter** (`gaimporter=`); its versions
-  are listed on plugins.matomo.org.
+- **The plugins follow a version range** (`plugin_install` in `prepare.sh`): at every start
+  `prepare` takes the newest stable version within the range from the Matomo Marketplace
+  (plugins.matomo.org) and logs which one. Ranges are read as npm reads them: `~X.Y.Z` and `~X.Y`
+  take patches, `~X` minors; `^X.Y.Z` (or `^X.Y`, `^X`) minors and patches, below 1.0.0 only what
+  the first non-zero part allows; anything else stops the start.
+  **RebelOIDC** is on `~5.2.0`: a minor can change its security checks and settings (5.2.0 did),
+  so the next minor is a deliberate change of the range, after reading its changelog against
+  "Login through Zitadel". **GoogleAnalyticsImporter** is on `^5.2.4`: 6.x needs Matomo 6. If the
+  Marketplace cannot be reached or has no version in the range, the start fails; during a rollout
+  the old pod keeps serving.

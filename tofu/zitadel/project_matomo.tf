@@ -14,8 +14,8 @@ resource "zitadel_project" "matomo" {
   has_project_check = true
 }
 
-# `matomo:superuser` only lets its holder past Zitadel's role check; the webhook makes no site
-# right of it, and the superuser flag itself is set once in Matomo (README "Matomo").
+# `matomo:superuser` gives Matomo's superuser flag: the plugin sets or removes it at every login
+# from the `groups` claim; the webhook makes no site right of it (README "Matomo").
 resource "zitadel_project_role" "matomo" {
   # A site's roles join when it is added to Matomo (README "Matomo"), e.g.
   # "matomo:3:admin" = "arepazo.ch admin".
@@ -36,8 +36,8 @@ resource "zitadel_user_grant" "d3strukt0r_matomo" {
   role_keys  = [zitadel_project_role.matomo["matomo:superuser"].role_key]
 }
 
-# Matomo's login (RebelOIDC, kubernetes/components/matomo). The plugin has no PKCE and sends the
-# client secret in the request body, which Zitadel accepts for BASIC apps. The secret Zitadel
+# Matomo's login (RebelOIDC, kubernetes/components/matomo). The plugin sends a PKCE challenge and
+# the client secret in the request body, which Zitadel accepts for BASIC apps. The secret Zitadel
 # returns at creation lands in this state, so it is regenerated in the console right after; the
 # live secret is kept in 1Password and in Matomo's plugin settings only. The plugin reads roles
 # and site rights by decoding the access token, so that must be a JWT.
