@@ -77,6 +77,19 @@ spec:
             description: >-
               node-exporter's log in kube-system says which file is unreadable or malformed
               (ansible/roles/node_metrics writes them).
+        # The chart's NodeSystemdServiceFailed and NodeSystemdServiceCrashlooping go silent when
+        # node-exporter cannot reach systemd, so that failure alerts on its own.
+        - alert: NodeSystemdCollectorFailed
+          expr: node_scrape_collector_success{collector="systemd"} == 0
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "{{ $labels.instance }}: node-exporter cannot read systemd's units."
+            description: >-
+              node-exporter's log in kube-system has the D-Bus error. It talks to the host's
+              system bus through DBUS_SYSTEM_BUS_ADDRESS (values.yaml); check that
+              /run/dbus/system_bus_socket exists on the node.
 
         # Every server uploads a snapshot at 00:00 and 12:00 UTC. The age of each node's newest
         # snapshot in S3 comes from k3s's own records (ETCDSnapshotFile, through kube-state-
