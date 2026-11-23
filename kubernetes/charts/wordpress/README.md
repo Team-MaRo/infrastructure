@@ -412,6 +412,11 @@ at registration, not by WordPress; their first login creates the account.
      second one with their address.
    - **An account nobody uses any more** is deleted in wp-admin, its content handed to someone.
 4. **The site's values**: `oidc.clientId` and the `secrets` block for `OIDC_CLIENT_SECRET`; push.
+   During that one rollout the old pod, which has no OpenID Connect plugin yet, may serve a
+   wp-admin page after the new pod's init container activated it; WordPress then deactivates it in
+   the shared database ("wurde aufgrund eines Fehlers deaktiviert: Diese Plugindatei existiert
+   nicht", wundexpertinplus 2026-11-23). One `rollout restart` once only new pods run activates it
+   again.
 5. **The links** (below), once the new pod runs.
 6. **Each linked person logs in through the button once**, and the break-glass administrator
    with the form.
