@@ -26,7 +26,7 @@ spec:
   channel: https://update.k3s.io/v1-release/channels/stable
   # First in the night's order, right after the scheduled etcd snapshot at 00:00 UTC, so
   # every upgrade starts from a fresh one in Object Storage. OS updates follow at 03:30 and
-  # kured's reboots at 04:30; Jobs start only inside the window but may run past its end.
+  # kured's reboots at 04:00; Jobs start only inside the window but may run past its end.
   window:
     days: [monday, tuesday, wednesday, thursday, friday, saturday, sunday]
     startTime: "02:30"

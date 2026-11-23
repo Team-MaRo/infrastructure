@@ -11,10 +11,12 @@ replacements on the empty one.
 
 ## What it does
 
-- **A CronJob at 06:30 Zurich time** (`timeZone: Europe/Zurich`), after kured's window
-  (04:30-06:00, [`../kured/README.md`](../kured/README.md)) with room for a drain that started
-  just before 06:00 - see "The night's maintenance order" in [`AGENTS.md`](../../../AGENTS.md).
-  It looks at the nodes once, evicts, and exits. Never during the day.
+- **A CronJob at 05:50 Zurich time** (`timeZone: Europe/Zurich`), 20 minutes after kured's
+  window (04:00-05:30, [`../kured/README.md`](../kured/README.md)) for a drain that started just
+  before 05:30, and still at night - see "The night's maintenance order" in
+  [`AGENTS.md`](../../../AGENTS.md). It looks at the nodes once, evicts, and exits. Never during
+  the day. (Until 2026-11-23 it ran at 06:30, and its moves took the single-replica sites
+  offline in the morning, below.)
 - **Only `LowNodeUtilization`.** The values replace the chart's profile, which would also
   evict for duplicates, restarts, affinity and taints. It counts **requests**, as the scheduler
   does, not live usage: a node below 20 % in all of CPU, memory and pod count receives pods; a
@@ -41,9 +43,11 @@ replacements on the empty one.
 - **A pod that would not fit elsewhere** (`nodeFit`).
 - **Beyond a PodDisruptionBudget**: evictions go through the Eviction API, like kured's drain.
 
-A single-replica app is down from its eviction until its new pod is Ready - seconds to a minute,
-the same gap the night's drain gave it. Gatus alerts only after three failed checks, so this
-stays quiet.
+A single-replica app is down from its eviction until its new pod is Ready, the same gap the
+night's drain gave it. For a WordPress site that is minutes, not seconds - its init containers
+copy WordPress and install the plugins first: on 2026-11-23 arepazo was down 2 min 23 s,
+robines-portfolio about a minute, and Jetpack's uptime check mailed "offline". That
+is why the run is in the night.
 
 ## Design
 

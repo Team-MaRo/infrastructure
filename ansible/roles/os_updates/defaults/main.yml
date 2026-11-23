@@ -1,7 +1,7 @@
 ---
 # When unattended-upgrades installs, as a systemd calendar spec. Debian's default is 06:00 on
 # the node's clock (UTC here) plus up to an hour. This slots it into the night's order:
-# k3s upgrades 02:30-03:30, OS updates 03:30, kured reboots 04:30-06:00 - all Zurich time.
+# k3s upgrades 02:30-03:30, OS updates 03:30, kured reboots 04:00-05:30 - all Zurich time.
 # systemd honours the time zone in the spec, so the nodes themselves stay on UTC.
 os_updates_on_calendar: "*-*-* 03:30 Europe/Zurich"
 

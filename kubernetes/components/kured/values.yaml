@@ -2,11 +2,13 @@
 # Only what differs from the chart's defaults is set.
 
 configuration:
-  # Last in the night's order - after k3s upgrades (02:30-03:30) and OS updates (03:30) - and done
-  # by 06:00. The sentinel is checked every 10 minutes rather than the default hour, so all three
-  # nodes fit into the 90 minutes if one kernel reached them all.
-  startTime: "04:30"
-  endTime: "06:00"
+  # After k3s upgrades (02:30-03:30) and OS updates (03:30, installed within minutes), and early
+  # enough for the descheduler to run at 05:50 and everything to be done by 06:00 - the pods it
+  # moves are down briefly, which belongs in the night. The sentinel is checked every 10 minutes
+  # rather than the default hour, so all nodes fit into the 90 minutes if one kernel reached them
+  # all.
+  startTime: "04:00"
+  endTime: "05:30"
   timeZone: Europe/Zurich
   period: 10m
   # Never drain the MariaDB primary's node: an evicted primary fails over without being demoted

@@ -344,8 +344,8 @@ etcd members at once. All times are Europe/Zurich; the nodes' clocks stay on UTC
 | 02:30-03:30 | k3s upgrades (system-upgrade-controller Plan window) |
 | 03:00 + up to 5 min | package lists fetched (changes nothing on the node) |
 | 03:30 + up to 15 min | OS updates (unattended-upgrades) |
-| 04:30-06:00 | reboots by kured, only where a kernel update asks for one |
-| 06:30 | pods moved back onto a node the reboots left empty (descheduler; moves pods, never touches a node) |
+| 04:00-05:30 | reboots by kured, only where a kernel update asks for one |
+| 05:50 | pods moved back onto a node the reboots left empty (descheduler; moves pods, never touches a node - a moved single-replica site is down for minutes, so this stays in the night) |
 
 Each window is described with its owner: etcd snapshots in
 [`kubernetes/clusters/prod/etcd-snapshots/README.md`](kubernetes/clusters/prod/etcd-snapshots/README.md),

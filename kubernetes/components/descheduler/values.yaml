@@ -1,9 +1,10 @@
 # Helm values for the descheduler; the chart version is pinned in the cluster's Application. Only
 # what differs from the chart's and the descheduler's defaults is set.
 
-# Once a morning, after kured's reboot window (04:30-06:00), with room for a drain that started
-# just before 06:00. Never during the day.
-schedule: "30 6 * * *"
+# Once a night, 20 minutes after kured's reboot window (04:00-05:30) for a drain that started
+# just before 05:30, and still at night: a moved single-replica site is down until its new pod
+# is Ready (WordPress 1-2.5 minutes, 2026-11-23). Never during the day.
+schedule: "50 5 * * *"
 timeZone: Europe/Zurich
 
 # No CPU limit (they throttle an idle node); memory from the namespace's defaults (Kyverno's

@@ -7,11 +7,13 @@ in `kubernetes/clusters/prod/kured.yaml`, so its patch releases arrive by themse
 window and the rest in `kubernetes/components/kured/values.yaml`, in `kube-system`; until
 2026-11-17 the pinned release manifest). A kernel update leaves
 `/var/run/reboot-required` behind - written by unattended-upgrades' hook in
-`/etc/kernel/postinst.d/` - and kured, checking every 10 minutes inside its window (04:30-06:00
+`/etc/kernel/postinst.d/` - and kured, checking every 10 minutes inside its window (04:00-05:30
 Zurich time), takes a lock on its own DaemonSet, cordons and **drains** the node, reboots it and
 uncordons it once it is back; then the next node may take the lock. The pods a drain moved
 stay where they landed, so the last node rebooted comes back nearly empty; the descheduler
-moves some back at 06:30 ([`../descheduler/README.md`](../descheduler/README.md)). How that window fits
+moves some back at 05:50 ([`../descheduler/README.md`](../descheduler/README.md)); the window
+ends at 05:30 so that this happens at night too (since 2026-11-23; before, 04:30-06:00 with the
+descheduler at 06:30, whose moves took sites offline for minutes in the morning). How that window fits
 between the k3s upgrades and the OS updates is "The night's maintenance order" in
 [`AGENTS.md`](../../../AGENTS.md).
 
@@ -54,7 +56,7 @@ between the k3s upgrades and the OS updates is "The night's maintenance order" i
 ## Watching and testing it
 
 kured reboots a node when a kernel update asks for it (`/var/run/reboot-required`), one
-node at a time and only between 04:30 and 06:00 Zurich time: cordon, drain, reboot,
+node at a time and only between 04:00 and 05:30 Zurich time: cordon, drain, reboot,
 uncordon.
 
 ```shell
