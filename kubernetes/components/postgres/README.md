@@ -60,7 +60,8 @@ in the last 30 days. How the cluster's manifests fit together is in
   - **A `.sql.gz` of every database every night** (since 2026-11-18, `database-dumps.yaml`): the
     CronJob `database-dumps` at 22:30 UTC dumps each database (but `postgres`, the templates and
     the unused `app`) with `pg_dump` from a replica (`postgres-ro`), verified TLS, and uploads
-    `logical/<database>.<UTC time>.sql.gz`; files older than 30 days are deleted there (the
+    `logical/<database>.<UTC time>.sql.gz` with its SHA-1 next to it (`.sql.gz.sha1`, `sha1sum`
+    format, of the compressed file); files older than 30 days are deleted there (the
     bucket has no expiry of its own). Plain SQL, content only - no `CREATE DATABASE` or
     `\connect`, `--no-owner --no-privileges` -, so a dump imports into whatever database it is
     pointed at ("Dumping and importing one database"). CloudNativePG has no logical backup of
@@ -180,7 +181,11 @@ since CloudNativePG retains it. Nothing else uses it.
 ```sh
 aws --profile d3strukt0r-hetzner --endpoint-url https://nbg1.your-objectstorage.com s3 ls s3://d3strukt0r-prod-postgres-backups/logical/ | grep <database>
 aws --profile d3strukt0r-hetzner --endpoint-url https://nbg1.your-objectstorage.com s3 cp s3://d3strukt0r-prod-postgres-backups/logical/<database>.<UTC time>.sql.gz .
+aws --profile d3strukt0r-hetzner --endpoint-url https://nbg1.your-objectstorage.com s3 cp s3://d3strukt0r-prod-postgres-backups/logical/<database>.<UTC time>.sql.gz.sha1 .
+shasum -a 1 -c <database>.<UTC time>.sql.gz.sha1   # "OK", or the file is damaged - take another night's
 ```
+
+Dumps from before 2026-11-23 have no `.sha1`.
 
 A dump holds only the database's content, without owners or grants, so it goes into whichever
 database the import names: the original or a copy.

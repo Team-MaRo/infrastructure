@@ -82,6 +82,9 @@ spec:
                       SELECT datname FROM pg_database
                       WHERE NOT datistemplate AND datname NOT IN ('postgres', 'app')"); do
                     pg_dump --dbname="$db" --no-owner --no-privileges | gzip >"/dumps/$db.$time.sql.gz"
+                    # From inside /dumps, so the file names the dump without a path and
+                    # `sha1sum -c` works wherever both are downloaded to.
+                    (cd /dumps && sha1sum "$db.$time.sql.gz" >"$db.$time.sql.gz.sha1")
                     echo "$db: $(wc -c <"/dumps/$db.$time.sql.gz") bytes"
                   done
               securityContext:

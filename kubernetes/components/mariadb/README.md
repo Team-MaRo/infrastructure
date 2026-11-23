@@ -100,7 +100,8 @@ manifests fit together is in [`kubernetes/README.md`](../../README.md).
   - **A `.sql.gz` of every database every night** (since 2026-11-18, `database-dumps.yaml`): the
     CronJob `database-dumps` at 22:30 UTC dumps each database the server has (but its own) from
     the replica, verified TLS, as the read-only user `dumps`, and uploads
-    `logical/<database>.<UTC time>.sql.gz`; files older than 30 days are deleted there. Content
+    `logical/<database>.<UTC time>.sql.gz` with its SHA-1 next to it (`.sql.gz.sha1`, `sha1sum`
+    format, of the compressed file); files older than 30 days are deleted there. Content
     only - no `CREATE DATABASE` or `USE` -, so a dump imports into whatever database it is
     pointed at ("Dumping and importing one database"); the physical backups stay the way back for
     the whole server. Not the operator's logical `Backup`: it always dumps with `--databases`,
@@ -291,7 +292,11 @@ To look into the databases by hand, phpMyAdmin is at `https://phpmyadmin.d3struk
 ```sh
 aws --profile d3strukt0r-hetzner --endpoint-url https://nbg1.your-objectstorage.com s3 ls s3://d3strukt0r-prod-mariadb-backups/logical/ | grep <database>
 aws --profile d3strukt0r-hetzner --endpoint-url https://nbg1.your-objectstorage.com s3 cp s3://d3strukt0r-prod-mariadb-backups/logical/<database>.<UTC time>.sql.gz .
+aws --profile d3strukt0r-hetzner --endpoint-url https://nbg1.your-objectstorage.com s3 cp s3://d3strukt0r-prod-mariadb-backups/logical/<database>.<UTC time>.sql.gz.sha1 .
+shasum -a 1 -c <database>.<UTC time>.sql.gz.sha1   # "OK", or the file is damaged - take another night's
 ```
+
+Dumps from before 2026-11-23 have no `.sha1`.
 
 A dump holds only the database's content - no `CREATE DATABASE`, no `USE` -, so it goes into
 whichever database the import names: the original or a copy.
