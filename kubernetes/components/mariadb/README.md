@@ -134,10 +134,12 @@ manifests fit together is in [`kubernetes/README.md`](../../README.md).
     `PrimarySwitched` condition's time with the backup's `lastScheduleTime`; its Role may only
     read that MariaDB and patch that PhysicalBackup. Image `docker.io/alpine/kubectl`, pinned
     like the others - kubectl alone has no shell for the comparison.
-  - Alerts: `MariaDBBinlogArchivingFailing` (`BinlogsArchived` not True for 30 minutes),
+  - Alerts: `MariaDBBinlogArchivingFailing` (`BinlogsArchived` not True for 30 minutes, counted
+    per MariaDB, so a kube-state-metrics rollout does not restart them),
     `MariaDBPointInTimeRecoveryBehind` (the archive the MariaDB names can only restore up to more
     than two hours ago, or has no `LAST RECOVERABLE TIME` - also when the agent believes it
-    archived), `MariaDBReplicaRecovered` (while a replica recovery runs and for a day after it,
+    archived; one series per object, so the overlapping pods of a kube-state-metrics rollout
+    cannot stop it from evaluating), `MariaDBReplicaRecovered` (while a replica recovery runs and for a day after it,
     keyed on `ReplicaRecovered=False`, which only a recovery sets - the time of `True` also moves
     when the operator merely re-sets the condition; the cue for the runbooks "A replica recovery
     hangs" and "After a replica recovery") and

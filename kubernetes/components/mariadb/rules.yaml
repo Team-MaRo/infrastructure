@@ -46,9 +46,10 @@ spec:
               and blocks switchovers.
         # From the operator's status conditions (kube-state-metrics' custom resource metrics,
         # configured in the kube-prometheus-stack values). Archiving stops at a file it cannot
-        # read, and point-in-time recovery then stays at the last good one; writes go on.
+        # read, and point-in-time recovery then stays at the last good one; writes go on. One
+        # series per MariaDB, so a new kube-state-metrics pod does not restart the 30 minutes.
         - alert: MariaDBBinlogArchivingFailing
-          expr: kube_customresource_condition{customresource_kind="MariaDB", namespace="mariadb", type="BinlogsArchived", status!="True"}
+          expr: max by (namespace, name, reason) (kube_customresource_condition{customresource_kind="MariaDB", namespace="mariadb", type="BinlogsArchived", status!="True"})
           for: 30m
           labels:
             severity: warning
@@ -64,19 +65,21 @@ spec:
         # MariaDB archives into can restore. Only that one; older ones are frozen on purpose.
         # Writes and the flush CronJob move it every ten minutes; a switch of the primary holds it
         # back until the after-switchover backup and the next upload, well under an hour. Absent
-        # when the object has no lastRecoverableTime at all.
+        # when the object has no lastRecoverableTime at all. Both sides are reduced to one series
+        # per object: while kube-state-metrics' rolling update runs its old and new pod side by
+        # side, every series exists twice, and the match then refuses to evaluate (2026-11-23).
         - alert: MariaDBPointInTimeRecoveryBehind
           expr: |-
             time() - (
-              kube_customresource_last_recoverable_time{namespace="mariadb", customresource_kind="PointInTimeRecovery"}
+              max by (namespace, name) (kube_customresource_last_recoverable_time{namespace="mariadb", customresource_kind="PointInTimeRecovery"})
               * on (namespace, name)
-              label_replace(kube_customresource_pitr_ref{namespace="mariadb", customresource_kind="MariaDB"}, "name", "$1", "pitr", "(.+)")
+              max by (namespace, name) (label_replace(kube_customresource_pitr_ref{namespace="mariadb", customresource_kind="MariaDB"}, "name", "$1", "pitr", "(.+)"))
             ) > 2 * 3600
             or
             absent(
-              kube_customresource_last_recoverable_time{namespace="mariadb", customresource_kind="PointInTimeRecovery"}
+              max by (namespace, name) (kube_customresource_last_recoverable_time{namespace="mariadb", customresource_kind="PointInTimeRecovery"})
               * on (namespace, name)
-              label_replace(kube_customresource_pitr_ref{namespace="mariadb", customresource_kind="MariaDB"}, "name", "$1", "pitr", "(.+)")
+              max by (namespace, name) (label_replace(kube_customresource_pitr_ref{namespace="mariadb", customresource_kind="MariaDB"}, "name", "$1", "pitr", "(.+)"))
             )
           for: 30m
           labels:
