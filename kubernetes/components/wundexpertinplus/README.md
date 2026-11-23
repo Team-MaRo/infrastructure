@@ -28,7 +28,11 @@ The database is `wundexpertinplus` in the shared MariaDB, the uploads are in the
   password until the clean-up decides with the owner.
 - **Mail leaves through mailomat** (`web@mailomat.wundexpertinplus.com`): the chart's constants
   override WP Mail SMTP's stored settings, which still name prod-old's provider.
-- Not yet: the login through Zitadel, Matomo, the object cache, the consent banner - "Next".
+- **Login through Zitadel** (the project "Wund Expertin Plus" in `tofu/zitadel`,
+  `project_wundexpertinplus.tf`), with the button first on `wp-login.php`; `D3strukt0r` is linked
+  to its Zitadel user and has only a random password nobody knows (chart README "Linking an
+  existing account"). The break-glass `admin` and `stephan.buergi` keep the form.
+- Not yet: Matomo, the object cache, the consent banner, Content through Claude - "Next".
 
 ## Bringing it back (done once, 2026-11-23)
 
@@ -77,13 +81,12 @@ answers with its installer until the database is in.
 
 ## Next
 
-First the login through Zitadel (chart README "Switching a site to the login through
-Zitadel"), so that `D3strukt0r` is linked and keeps only a random password nobody knows. Then
-the clean-up, each step decided on its own: `stephan.buergi` (with the owner), the plugins that are tools rather than features
+The clean-up, each step decided on its own: `stephan.buergi` (with the owner: a Zitadel user and
+grant, then linked), the plugins that are tools rather than features
 (Bulk Delete, Duplicator, WordPress Importer) and those the cluster replaces (MonsterInsights by
-Matomo, Loginizer by the login rate limit, maybe Jetpack); the cluster's standards (login through
-Zitadel with a local break-glass `admin`, posts by a linked author, Matomo, the consent banner, the
-object cache, Content through Claude); the leftover tables of plugins gone long ago (LiteSpeed
+Matomo, Loginizer by the login rate limit, maybe Jetpack); the cluster's standards (posts by a
+linked author instead of `admin`, Matomo, the consent banner, the object cache, Content through
+Claude); the leftover tables of plugins gone long ago (LiteSpeed
 Cache and others) and the 15 tables still in three-byte `utf8mb3`.
 
 ## Secrets
@@ -95,3 +98,4 @@ Cache and others) and the 15 tables still in three-byte `utf8mb3`.
 | `secret/wundexpertinplus-s3` | [`Hetzner | S3 | prod wundexpertinplus`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=zyx2nlhgljreoo2fsjin3asxde&h=my.1password.com) | the key that writes the uploads |
 | `secret/wundexpertinplus-uploads-proxy-s3` | [`Hetzner | S3 | prod wundexpertinplus uploads-proxy`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=efxryvkeefiviz5rcpdtufguye&h=my.1password.com) | the uploads proxy's read-only key |
 | `secret/wundexpertinplus-mailomat` | [`Mailomat | Prod | wundexpertinplus`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=2nr3n556yfo6aejcrmfqdzgaom&h=my.1password.com) | the SMTP login and the API token mailomat-watch reads |
+| `secret/wundexpertinplus-oidc` | [`Zitadel | Prod | wundexpertinplus`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=2kjoqiwcmo6dtdyuseajil6ymm&h=my.1password.com) | the client secret of the login through Zitadel |

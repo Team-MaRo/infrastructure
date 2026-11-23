@@ -33,6 +33,11 @@ mailomatWatch:
 pageCache:
   enabled: false
 
+# Login through Zitadel: the app wundexpertinplus in the project "Wund Expertin Plus"
+# (tofu/zitadel, project_wundexpertinplus.tf); its secret below (OIDC_CLIENT_SECRET).
+oidc:
+  clientId: "400903700693975791"
+
 # Every secret the site reads: per entry in the secret store (key), which of its fields become
 # which environment variable (env), with the 1Password item the entry comes from. They reach the
 # WordPress containers through the Secret web (charts/wordpress, README "Secrets").
@@ -66,6 +71,11 @@ secrets:
     env:
       SMTP_USERNAME: username
       SMTP_PASSWORD: password
+  # 1Password "Zitadel | Prod | wundexpertinplus" (the app's client secret)
+  #   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=2kjoqiwcmo6dtdyuseajil6ymm&h=my.1password.com
+  - key: wundexpertinplus-oidc
+    env:
+      OIDC_CLIENT_SECRET: client-secret
 
 uploadsProxy:
   # The uploads proxy's read-only key (Secret uploads-proxy).
