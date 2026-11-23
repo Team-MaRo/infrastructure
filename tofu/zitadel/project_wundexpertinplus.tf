@@ -54,6 +54,30 @@ output "wundexpertinplus_client_id" {
   sensitive = true
 }
 
+# Claude (claude.ai, Claude Desktop, Claude Code) editing the site over MCP as the person who
+# connects it (charts/wordpress, README "Content through Claude"). A public client with PKCE - the
+# connector holds no secret; in this project, so the role check applies to it as to the login. The
+# site checks its tokens with Zitadel at every request, so deactivating someone here ends their
+# access within a minute.
+resource "zitadel_application_oidc" "wundexpertinplus_claude" {
+  org_id     = local.org_id
+  project_id = zitadel_project.wundexpertinplus.id
+  name       = "wundexpertinplus-claude"
+
+  app_type         = "OIDC_APP_TYPE_NATIVE"
+  auth_method_type = "OIDC_AUTH_METHOD_TYPE_NONE"
+  grant_types      = ["OIDC_GRANT_TYPE_AUTHORIZATION_CODE", "OIDC_GRANT_TYPE_REFRESH_TOKEN"]
+  response_types   = ["OIDC_RESPONSE_TYPE_CODE"]
+
+  # claude.ai's connectors, and Claude Code on its fixed callback port (--callback-port 33418).
+  redirect_uris = ["https://claude.ai/api/mcp/auth_callback", "http://localhost:33418/callback"]
+}
+
+output "wundexpertinplus_claude_client_id" {
+  # A public client's ID; the provider marks every client_id sensitive.
+  value = nonsensitive(zitadel_application_oidc.wundexpertinplus_claude.client_id)
+}
+
 # The user's WordPress account `D3strukt0r` is linked to this user by hand (charts/wordpress,
 # README "Linking an existing account").
 resource "zitadel_user_grant" "d3strukt0r_wundexpertinplus" {

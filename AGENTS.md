@@ -447,7 +447,7 @@ component); update it in the same change.
 | [`kubernetes/charts/wordpress/README.md`](kubernetes/charts/wordpress/README.md) | The WordPress chart every site uses: values, design, rolling out a chart change, adding a site |
 | [`kubernetes/components/robines-portfolio/README.md`](kubernetes/components/robines-portfolio/README.md) | The old WordPress portfolio: its values for the WordPress chart and what is particular to it |
 | [`kubernetes/components/arepazo/README.md`](kubernetes/components/arepazo/README.md) | The WooCommerce shop: its values for the WordPress chart (private files, memory, languages) |
-| [`kubernetes/components/wundexpertinplus/README.md`](kubernetes/components/wundexpertinplus/README.md) | The old Wund Expertin Plus site: its values for the WordPress chart, bringing it back from prod-old's backup, the clean-up to come |
+| [`kubernetes/components/wundexpertinplus/README.md`](kubernetes/components/wundexpertinplus/README.md) | The old Wund Expertin Plus site: its values for the WordPress chart, bringing it back from prod-old's backup, what was cleaned up, Content through Claude |
 | [`kubernetes/components/matomo/README.md`](kubernetes/components/matomo/README.md) | Web analytics for every site: Zitadel login, installing, GeoIP, archiving, adding a site |
 | [`kubernetes/components/kubeelasti/README.md`](kubernetes/components/kubeelasti/README.md) | Scale to zero, letting an app sleep |
 | [`kubernetes/components/vertical-pod-autoscaler/README.md`](kubernetes/components/vertical-pod-autoscaler/README.md) | The VPA recommender: its formula, floors, history, open bugs, reading a recommendation |

@@ -16,7 +16,11 @@ The database is `wundexpertinplus` in the shared MariaDB, the uploads are in the
 ## As it was
 
 - **Its own address, `old.wundexpertinplus.com`.** The content's URLs were rewritten from
-  `www.wundexpertinplus.com` at the import (below).
+  `www.wundexpertinplus.com` at the import (below). On prod-old the site also answered on
+  `wundexpertinplus.ch` and `wundexpertin-bl.ch`, and on `wundexpertinplus.d3strukt0r.dev`
+  (now GitHub Pages); the two `.ch` domains still exist but resolve nothing - what they are and
+  what is open about them is in `tofu/cloudflare/README.md`. The admin address
+  `cms@wundexpertinplus.ch` from those days receives no mail.
 - **The theme prod-old had active** (Customify), at today's version from wordpress.org, language
   `de_CH`; Polylang's languages (only German) are in the database.
 - **Plugins**: what the site uses - Polylang, Yoast SEO, WPForms Lite, WP Mail SMTP, Jetpack -
@@ -32,12 +36,18 @@ The database is `wundexpertinplus` in the shared MariaDB, the uploads are in the
   1Password at the import (step 5 below); `D3strukt0r` is linked to Zitadel with the site's
   Zitadel login (the step after the import); `stephan.buergi`, the owner's, keeps its own
   password.
+- **The content is the owner's** (2026-11-23): every page, upload and menu item prod-old had under
+  `admin` belongs to `stephan.buergi`, so the break-glass account appears nowhere public. Its
+  public name is not its login: slug `inhaber`, display name "Stephan" - the user list
+  (`/wp-json/wp/v2/users`) and author pages would otherwise hand out the login of an account that
+  logs in with a password.
 - **Jetpack's modules as on the other sites** (2026-11-23): Protect (brute force, firewall,
   account protection), Monitor, Activity Log, Backup, Blocks, Notifications, JSON API, Site
   Verification stay; Secure Sign On (a way in past Zitadel), Stats, Blaze, AI, Newsletter, the
   image and asset CDNs (visitors would load from WordPress.com), comments and the blog extras
-  were switched off. The CDNs' switches did not save in wp-admin (Jetpack is still connected
-  under prod-old's WordPress.com site); `Jetpack::deactivate_module()` through `php -r` did.
+  were switched off. The CDNs' switches did not save in wp-admin; `Jetpack::deactivate_module()`
+  through `php -r` did. Jetpack is connected to WordPress.com afresh, as
+  `old.wundexpertinplus.com` (not as prod-old's site of `www.`).
 - **Counted in Matomo** (site 4, since 2026-11-23; the chart's "Web analytics"): cookieless for
   everyone, with cookies for whoever allows statistics in the WPConsent banner
   (`wpconsent-cookies-banner-privacy-suite` with `wp-consent-api`), set up as robines-portfolio's
@@ -66,7 +76,18 @@ The database is `wundexpertinplus` in the shared MariaDB, the uploads are in the
   to its Zitadel user and has only a random password nobody knows (chart README "Linking an
   existing account"). The break-glass `admin` and `stephan.buergi` keep the form; the owner's
   account stays a local one with its own password (decided 2026-11-23).
-- Not yet: the object cache, Content through Claude - "Next".
+- **No object cache** (decided 2026-11-23): seven pages gain little from one, and the site shows
+  how a WordPress site runs without it. It can get one later like the other sites (the chart's
+  `objectCache`).
+- **Content through Claude** (since 2026-11-23; the chart's "Content through Claude"): the app
+  `wundexpertinplus-claude` in `tofu/zitadel`. claude.ai / Claude Desktop: Add custom connector,
+  URL `https://old.wundexpertinplus.com/wp-json/mcp/mcp-adapter-default-server`, "Use your own
+  OAuth client" with client ID `400934183486161647`, no secret. Only a Zitadel user linked to a
+  WordPress account gets in, so `stephan.buergi` cannot. Claude Code:
+
+  ```shell
+  claude mcp add --transport http --scope user --client-id 400934183486161647 --callback-port 33418 wundexpertinplus https://old.wundexpertinplus.com/wp-json/mcp/mcp-adapter-default-server
+  ```
 
 ## Bringing it back (done once, 2026-11-23)
 
@@ -101,7 +122,7 @@ answers with its installer until the database is in.
 
 4. **In wp-admin**: Einstellungen → Lesen → "Suchmaschinen davon abhalten, diese Website zu
    indexieren" on - an archive under a second name must not compete with the live site in search
-   engines. Jetpack stays disconnected until "Next" decides about it.
+   engines.
 
 5. **A new password for the break-glass `admin`**, generated in its existing 1Password item
    (which also gets the new address) and piped into WordPress (never on a command line); it also
@@ -112,11 +133,6 @@ answers with its installer until the database is in.
    op item get 'Wund Expertin Plus CMS | Prod | Admin' --account my.1password.com --fields password --reveal \
      | kubectl --context d3strukt0r-prod-admin -n wundexpertinplus exec -i deploy/web -c php-fpm -- php -r 'require "/var/www/html/wp-load.php"; $u = get_user_by("login", "admin"); wp_set_password(trim(stream_get_contents(STDIN)), $u->ID); echo "ok\n";'
    ```
-
-## Next
-
-The rest of the clean-up, each step decided on its own: the cluster's standards (posts by a
-linked author instead of `admin`, the object cache, Content through Claude).
 
 ## Secrets
 

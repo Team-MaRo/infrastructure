@@ -48,6 +48,11 @@ pageCache:
 oidc:
   clientId: "400903700693975791"
 
+# Content through Claude (chart README); the client ID of the app wundexpertinplus-claude in
+# tofu/zitadel.
+mcp:
+  clientId: "400934183486161647"
+
 # Every secret the site reads: per entry in the secret store (key), which of its fields become
 # which environment variable (env), with the 1Password item the entry comes from. They reach the
 # WordPress containers through the Secret web (charts/wordpress, README "Secrets").

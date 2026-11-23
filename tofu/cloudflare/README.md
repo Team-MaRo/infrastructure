@@ -8,6 +8,19 @@ separate logins.
 | personal | `brenda` / `wesley`.ns.cloudflare.com | the nine Infomaniak domains, plus `wundexpertinplus.com` (registered at GoDaddy and managed by its owner) |
 | arepazo | `abdullah` / `fish`.ns.cloudflare.com | `arepazo.ch` (registered and managed by its owner) |
 
+**Two domains are delegated here without a zone: `wundexpertinplus.ch` and
+`wundexpertin-bl.ch`** (checked 2026-11-23). Like `wundexpertinplus.com`, both are the owner's,
+at GoDaddy since 2020-06-01, and their nameservers are the personal account's pair - but neither
+has a zone in that account, so neither resolves. They used to be further names of the old
+WordPress site on prod-old (`kubernetes/components/wundexpertinplus`), and `.ch` also carried
+its mail (the site's admin address `cms@wundexpertinplus.ch`). On 2024-06-09 their nameservers
+were unset at the registry (the domains lapsed or were suspended), and Cloudflare deleted both
+zones on 2024-06-16 as it announces; later the delegation came back, presumably with a renewal at
+GoDaddy, and the registry has sent queries to the account's nameservers again since, which answer
+REFUSED. A delegation with no zone should not stay: either add both here as zones (a redirect to
+`www.wundexpertinplus.com`, as `components/domain-redirects` does for other domains), or have the
+owner let them lapse or point their nameservers elsewhere.
+
 It manages the zones, every DNS record, and six security and TLS zone settings
 (`ssl_automatic_mode`, `always_use_https`, `min_tls_version`, `automatic_https_rewrites`,
 `tls_1_3`, `security_level`). Page rules, WAF, Workers and the remaining ~54 zone settings
