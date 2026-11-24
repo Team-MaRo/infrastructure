@@ -140,6 +140,29 @@ endpoints:
     alerts:
       - type: ntfy
 
+  - name: D3strukt0r Portfolio (old)
+    group: Apps
+    # The login page, as for Robines Portfolio above.
+    url: https://old.d3strukt0r.dev/wp-login.php
+    interval: 5m
+    conditions:
+      - "[STATUS] == 200"
+    alerts:
+      - type: ntfy
+
+  # Its uploads through the uploads proxy, as for Robines Portfolio above.
+  - name: D3strukt0r Portfolio (old) uploads
+    group: Apps
+    url: http://web.d3strukt0r-portfolio.svc/wp-content/uploads/healthcheck.txt?nocache=1
+    interval: 5m
+    conditions:
+      - "[STATUS] == 200"
+      - "[BODY] == ok"
+    ui:
+      hide-url: true
+    alerts:
+      - type: ntfy
+
   - name: Weleda WebCenter Text Export
     group: Apps
     url: https://weleda-webcenter-text-export.d3strukt0r.dev/

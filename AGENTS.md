@@ -213,7 +213,7 @@ rule, 2026-10-02). Where a name cannot hold a hyphen, the hyphens become undersc
   only the Application goes and its resources keep running, untracked.
   - It is on apps whose data lives elsewhere or does not matter: `gatus`, `zitadel`,
     `oauth2-proxy`, `phpmyadmin`, `pgadmin`, `reloader`, `keel`, `wedding-manuele-robine`,
-    `robines-portfolio`, `arepazo`, `wundexpertinplus`, `weleda-webcenter-text-export`, `matomo`, `kured`, `alloy`, `etcd-snapshots`,
+    `robines-portfolio`, `arepazo`, `wundexpertinplus`, `d3strukt0r-portfolio`, `weleda-webcenter-text-export`, `matomo`, `kured`, `alloy`, `etcd-snapshots`,
     `cluster-rbac`, `tempo`, `argocd-integrations`, `valkey-cache`, `hetzner-watch`, `mailomat-watch`, `domain-redirects`, `clamav`, `goldilocks`, `descheduler`, `spegel`. A Postgres app's database
     and role stay when it goes (CloudNativePG's reclaim policies default to `retain`); a MariaDB
     app's objects set `cleanupPolicy: Skip`, since mariadb-operator's default is `Delete`.
@@ -454,6 +454,7 @@ component); update it in the same change.
 | [`kubernetes/components/robines-portfolio/README.md`](kubernetes/components/robines-portfolio/README.md) | The old WordPress portfolio: its values for the WordPress chart and what is particular to it |
 | [`kubernetes/components/arepazo/README.md`](kubernetes/components/arepazo/README.md) | The WooCommerce shop: its values for the WordPress chart (private files, memory, languages) |
 | [`kubernetes/components/wundexpertinplus/README.md`](kubernetes/components/wundexpertinplus/README.md) | The old Wund Expertin Plus site: its values for the WordPress chart, bringing it back from prod-old's backup, what was cleaned up, Content through Claude |
+| [`kubernetes/components/d3strukt0r-portfolio/README.md`](kubernetes/components/d3strukt0r-portfolio/README.md) | The WordPress portfolio at old.d3strukt0r.dev: its values for the WordPress chart, installing it fresh, its accounts |
 | [`kubernetes/components/weleda-webcenter-text-export/README.md`](kubernetes/components/weleda-webcenter-text-export/README.md) | The Web Center text converter: its image, tag policy and the Worker it replaced |
 | [`kubernetes/components/matomo/README.md`](kubernetes/components/matomo/README.md) | Web analytics for every site: Zitadel login, installing, GeoIP, archiving, adding a site |
 | [`kubernetes/components/kubeelasti/README.md`](kubernetes/components/kubeelasti/README.md) | Scale to zero, letting an app sleep |

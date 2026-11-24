@@ -67,6 +67,7 @@ kubernetes/
 │       ├── robines-portfolio.yaml  # the old WordPress portfolio: the WordPress chart and its values
 │       ├── arepazo.yaml       # the WooCommerce shop: the WordPress chart and its values
 │       ├── wundexpertinplus.yaml  # the old Wund Expertin Plus site: the WordPress chart and its values
+│       ├── d3strukt0r-portfolio.yaml  # the WordPress portfolio: the WordPress chart and its values
 │       ├── weleda-webcenter-text-export.yaml  # the Web Center text converter
 │       ├── matomo.yaml            # web analytics for every site
 │       ├── kubeelasti.yaml        # scale to zero: chart (patch range) here, values in components/
@@ -332,6 +333,8 @@ kubernetes/
     │   └── values.yaml            # the WordPress chart's values: www.arepazo.ch, the shop's plugins
     ├── wundexpertinplus/
     │   └── values.yaml            # the WordPress chart's values: old.wundexpertinplus.com, its plugins
+    ├── d3strukt0r-portfolio/
+    │   └── values.yaml            # the WordPress chart's values: old.d3strukt0r.dev, its plugins
     ├── weleda-webcenter-text-export/
     │   └── deployment.yaml        # the converter's server, its Service and Ingress beside it
     ├── matomo/
@@ -398,6 +401,7 @@ kubernetes/
 | [`robines-portfolio`](components/robines-portfolio/README.md) | The old WordPress portfolio at old.robines.space (moved from prod-old), from the WordPress chart |
 | [`arepazo`](components/arepazo/README.md) | The WooCommerce shop at www.arepazo.ch (moved from prod-old), from the WordPress chart |
 | [`wundexpertinplus`](components/wundexpertinplus/README.md) | The old Wund Expertin Plus site at old.wundexpertinplus.com (from prod-old's last backup), from the WordPress chart |
+| [`d3strukt0r-portfolio`](components/d3strukt0r-portfolio/README.md) | The WordPress portfolio at old.d3strukt0r.dev (a fresh install), from the WordPress chart |
 | [`weleda-webcenter-text-export`](components/weleda-webcenter-text-export/README.md) | Esko Web Center's XML exports as plain-text leaflets (moved from a Cloudflare Worker) |
 | [`matomo`](components/matomo/README.md) | Web analytics for every site at matomo.d3strukt0r.dev, with its own Zitadel login |
 | [`kubeelasti`](components/kubeelasti/README.md) | Scale to zero; letting an app sleep |

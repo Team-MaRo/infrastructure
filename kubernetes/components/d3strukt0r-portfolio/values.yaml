@@ -1,0 +1,97 @@
+---
+# d3strukt0r-portfolio, the WordPress portfolio at old.d3strukt0r.dev (d3strukt0r.dev itself is a
+# Cloudflare Worker), from the chart kubernetes/charts/wordpress (README). Only what differs from
+# the chart's defaults. A fresh install (README "Installing it").
+
+hosts:
+  - old.d3strukt0r.dev
+
+plugins:
+  - jetpack
+  - jetpack-boost
+  - jetpack-protect
+  # German and English side by side (README).
+  - polylang
+  - wordpress-seo
+  - wp-mail-smtp
+  # The consent banner and the API Matomo's tracking reads it through (the chart's README "Web
+  # analytics").
+  - wpconsent-cookies-banner-privacy-suite
+  - wp-consent-api
+  # Connect Matomo: Matomo's reports in wp-admin, read with a view-only user. Its own tracking
+  # stays off - the chart's mu-plugin counts once matomo.siteId is set.
+  - wp-piwik
+
+# English is WordPress' own; German needs its packs.
+languages:
+  - de_CH
+
+# Its mail's events in mailomat-watch (token: api-token in secret/d3strukt0r-portfolio-mailomat).
+# mailomat.d3strukt0r.dev is shared with Zitadel and Matomo, whose token mailomat-watch also gets
+# from secret/mailomat-watch; it keys tokens by domain, so the domain is watched once
+# (components/mailomat-watch README).
+mailomatWatch:
+  domain: mailomat.d3strukt0r.dev
+
+# Varnish in front (chart README "Page cache") stays off, like on the other sites.
+pageCache:
+  enabled: false
+
+# Login through Zitadel: the app d3strukt0r-portfolio in the project "D3strukt0r Portfolio"
+# (tofu/zitadel, project_d3strukt0r_portfolio.tf); its secret below (OIDC_CLIENT_SECRET).
+oidc:
+  clientId: "401010431033869039"
+
+# Content through Claude (chart README); the client ID of the app d3strukt0r-portfolio-claude in
+# tofu/zitadel.
+mcp:
+  clientId: "401010431017222895"
+
+# Every secret the site reads: per entry in the secret store (key), which of its fields become
+# which environment variable (env), with the 1Password item the entry comes from. They reach the
+# WordPress containers through the Secret web (charts/wordpress, README "Secrets").
+secrets:
+  # 1Password "MariaDB | Prod | d3strukt0r-portfolio"
+  #   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=ynbq6adr5vij4uow4oq25olnr4&h=my.1password.com
+  - key: mariadb-apps/d3strukt0r-portfolio
+    env:
+      WORDPRESS_DB_PASSWORD: password
+  # 1Password "D3strukt0r Portfolio CMS | Prod | App" (keys and salts)
+  #   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=32xvupsw7o63vz5esnvnouf7tq&h=my.1password.com
+  - key: d3strukt0r-portfolio
+    env:
+      WORDPRESS_AUTH_KEY: auth-key
+      WORDPRESS_SECURE_AUTH_KEY: secure-auth-key
+      WORDPRESS_LOGGED_IN_KEY: logged-in-key
+      WORDPRESS_NONCE_KEY: nonce-key
+      WORDPRESS_AUTH_SALT: auth-salt
+      WORDPRESS_SECURE_AUTH_SALT: secure-auth-salt
+      WORDPRESS_LOGGED_IN_SALT: logged-in-salt
+      WORDPRESS_NONCE_SALT: nonce-salt
+  # 1Password "Hetzner | S3 | prod d3strukt0r-portfolio" (writes the uploads)
+  #   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=wyr7zalw5eg53ne2a7onksizr4&h=my.1password.com
+  - key: d3strukt0r-portfolio-s3
+    env:
+      S3_KEY: access-key
+      S3_SECRET: secret-key
+  # 1Password "Mailomat | Prod | d3strukt0r-portfolio" (the website's SMTP login at mailomat)
+  #   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=mokr7pmg3u45vjqjrnbeyu5dou&h=my.1password.com
+  - key: d3strukt0r-portfolio-mailomat
+    env:
+      SMTP_USERNAME: username
+      SMTP_PASSWORD: password
+  # 1Password "Zitadel | Prod | d3strukt0r-portfolio" (the app's client secret)
+  #   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=qu73xjkska72yjinngqeion22e&h=my.1password.com
+  - key: d3strukt0r-portfolio-oidc
+    env:
+      OIDC_CLIENT_SECRET: client-secret
+
+uploadsProxy:
+  # The uploads proxy's read-only key (Secret uploads-proxy).
+  secrets:
+    # 1Password "Hetzner | S3 | prod d3strukt0r-portfolio uploads-proxy"
+    #   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=46pr4rdzkhd5cwevum44y74lui&h=my.1password.com
+    - key: d3strukt0r-portfolio-uploads-proxy-s3
+      env:
+        AWS_ACCESS_KEY_ID: access-key
+        AWS_SECRET_ACCESS_KEY: secret-key

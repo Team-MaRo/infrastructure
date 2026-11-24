@@ -1,0 +1,36 @@
+---
+# The WordPress portfolio at old.d3strukt0r.dev: the chart
+# kubernetes/charts/wordpress with the values in kubernetes/components/d3strukt0r-portfolio.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: d3strukt0r-portfolio
+  namespace: argocd
+  # Removing this file removes everything it deployed, namespace included; its database and user
+  # in the shared MariaDB stay (cleanupPolicy Skip), and so do its uploads in Object Storage.
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  sources:
+    # The chart from master, like the values: Argo CD refuses a $values source at another revision
+    # of the same repository, so a chart change reaches every site at once
+    # (charts/wordpress/README.md, "Rolling out a chart change").
+    - repoURL: https://github.com/Team-MaRo/infrastructure.git
+      targetRevision: master
+      path: kubernetes/charts/wordpress
+      helm:
+        valueFiles:
+          - $values/kubernetes/components/d3strukt0r-portfolio/values.yaml
+    - repoURL: https://github.com/Team-MaRo/infrastructure.git
+      targetRevision: master
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: d3strukt0r-portfolio
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - ServerSideApply=true

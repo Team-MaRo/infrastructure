@@ -70,6 +70,7 @@ themselves (Gatus' config, Alertmanager's ntfy secret, Alloy, Argo CD's webhook 
 | `web` (robines-portfolio) | Secrets `web`, `uploads-proxy` | environment variables (WordPress's keys, database password, the two S3 keys) |
 | `web` (arepazo) | Secrets `web`, `uploads-proxy` | as robines-portfolio's |
 | `web` (wundexpertinplus) | Secrets `web`, `uploads-proxy` | as robines-portfolio's |
+| `web` (d3strukt0r-portfolio) | Secrets `web`, `uploads-proxy` | as robines-portfolio's |
 | `zitadel` | Secret `zitadel-db` | environment variable |
 | `zitadel-groups` | ConfigMap `zitadel-groups` | Python loads the script once |
 | `oauth2-proxy` | Secret `oauth2-proxy` | environment variables |

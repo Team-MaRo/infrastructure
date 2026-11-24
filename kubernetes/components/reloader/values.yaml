@@ -30,6 +30,7 @@ reloader:
     - valkey-state
     - wedding-manuele-robine
     - wundexpertinplus
+    - d3strukt0r-portfolio
     - zitadel
     - zot
   # A changed Secret would otherwise start a CronJob's Job at once and recreate Jobs.

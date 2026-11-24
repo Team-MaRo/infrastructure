@@ -89,7 +89,7 @@ reported, so `MailomatWatchStale` does not fire for an app that was removed.
 | Domain | Brought by | Token in OpenBao |
 |---|---|---|
 | `mailomat.arepazo.ch`, `mailomat.robines.space`, `mailomat.wundexpertinplus.com`, the private repository's site | the WordPress chart, `mailomatWatch.domain` in the site's values (`kubernetes/charts/wordpress/templates/mailomat-token.yaml`) | field `api-token` of `secret/<site>-mailomat`, next to the site's SMTP login |
-| `mailomat.d3strukt0r.dev` (Zitadel, Matomo - no single owner) | this component, `external-secrets.yaml` (`mailomat-token-shared`) | `secret/mailomat-watch`, one field per domain; 1Password [`Mailomat | API | mailomat.d3strukt0r.dev`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=3h3sz5lq3fi2n647in6k73iham&h=my.1password.com) |
+| `mailomat.d3strukt0r.dev` (Zitadel, Matomo, the WordPress site d3strukt0r-portfolio - no single owner) | this component, `external-secrets.yaml` (`mailomat-token-shared`); the site d3strukt0r-portfolio brings the same token again through the WordPress chart (its `secret/d3strukt0r-portfolio-mailomat`), harmless since the pod keys tokens by domain | `secret/mailomat-watch`, one field per domain; 1Password [`Mailomat | API | mailomat.d3strukt0r.dev`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=3h3sz5lq3fi2n647in6k73iham&h=my.1password.com) |
 
 Creating a token: mailomat → the domain (selector at the top) → API → "Neues API Token
 erstellen" (shown once). Into 1Password and OpenBao:
