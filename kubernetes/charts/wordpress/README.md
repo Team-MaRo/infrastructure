@@ -239,6 +239,15 @@ variable, stops the rendering with a message naming it.
   exempted there too. The list may change: compare it with Jetpack's
   when its connection test (Site Health) fails again. The address nginx checks is Cloudflare's
   `CF-Connecting-IP`, with the caveat of the next bullet.
+- **Jetpack belongs to a person's linked account, never to the break-glass `admin`** (user rule,
+  2026-11-24): the site's WordPress.com connection is made by the owner's account linked to
+  Zitadel, with the owner's WordPress.com account; a customer's site by the customer's own
+  WordPress.com account (arepazo: `arepazogmbh`), with the admin's linked as a second
+  administrator. One WordPress.com account can be linked to only one user per site, so moving a
+  connection off `admin` means "Disconnect site" as `admin` and connecting again as the owner -
+  the site keeps its WordPress.com ID, its modules and its history (done 2026-11-24 on the
+  admin's sites). **Jetpack Monitor stays off on a site behind basic auth**: it checks the front
+  page without credentials and reports every 401 as an outage.
 - **The opcache holds every site's code** (`files/php.ini`): 256 MB (its interned strings
   included, measured), 32 MB of strings, 32,531 files, and no timestamp checks - the files never
   change while the pod runs. The image's 128 MB, 8 MB and 4,000 files were full on every site
@@ -501,7 +510,7 @@ nothing, an editor only what an editor may. Who may is decided in Zitadel alone.
   <url>` (`--scope user`: in every project; the default `local` sets it up for the current
   directory only), then `/mcp` to log in (the app allows exactly that callback). Each site's
   README has its finished command and connector values. Claude Code is tested on every site
-  (the first three 2026-10-22, wundexpertinplus 2026-11-23); claude.ai and Claude Desktop are not yet - no account at hand that may add a
+  (the first three 2026-10-22, wundexpertinplus 2026-11-23, d3strukt0r-portfolio 2026-11-24); claude.ai and Claude Desktop are not yet - no account at hand that may add a
   custom connector - so a first connection there may still meet a surprise.
 - **What Claude may do** is fixed in `files/mcp.php`, not in the plugin's settings page
   (`pre_option_*`, so a click in wp-admin changes nothing): read and write content - posts,
@@ -758,6 +767,11 @@ running pods stay. A renamed or removed value changes in the same commit as ever
 4. `kubernetes/clusters/prod/<site>.yaml`: an Application named after the site, copied from
    robines-portfolio's, with the finalizer. Its namespace into Reloader's list
    (`components/reloader`) unless `reloader: false`.
+5. A new site without a database to import (`components/d3strukt0r-portfolio/README.md`,
+   "Installing it"): install it by command right after the first pod is Ready - the installer is
+   public until then -, activate the values' plugins (a fresh database has none active), set the
+   permalinks to `/%postname%/` (without them `/wp-json/` and every page path fall through to the
+   front page), then connect Jetpack as the owner's linked account.
 
 ### Plugins
 

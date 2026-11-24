@@ -25,18 +25,35 @@ in `tofu/cloudflare`.
   [`D3strukt0r Portfolio CMS | Prod | Admin`](https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=razxvuhrdiur32yu7xsi7xtacm&h=my.1password.com),
   and WordPress' admin address `d3strukt0r-portfolio-admin@d3strukt0r.dev`.
 - **Content through Claude** (the chart's "Content through Claude"): the app
-  `d3strukt0r-portfolio-claude` in `tofu/zitadel`. Claude Code:
+  `d3strukt0r-portfolio-claude` in `tofu/zitadel`. Claude Code (tested 2026-11-24):
 
   ```shell
-  claude mcp add --transport http --scope user --client-id 401010431017222895 --callback-port 33418 d3strukt0r-portfolio https://old.d3strukt0r.dev/wp-json/mcp/mcp-adapter-default-server
+  claude mcp add --transport http --scope user --client-id 401010431017222895 --callback-port 33418 portfolio-d3strukt0r https://old.d3strukt0r.dev/wp-json/mcp/mcp-adapter-default-server
   ```
+
+  Connect only after the permalinks are set (install step 5): Claude Code remembers the OAuth
+  discovery of a failed first attempt (without permalinks `/wp-json/` answered HTML, so it fell
+  back to `/authorize` on the site itself), and removing and adding the server under the same
+  name does not clear that - hence the name `portfolio-d3strukt0r`.
 - **Mail leaves through mailomat** as `d3strukt0r-portfolio@mailomat.d3strukt0r.dev`, a login of
   the domain Zitadel and Matomo send through too. The chart wants every mailomat site to bring
   its domain's API token to mailomat-watch, so this one brings the shared domain's token a second
   time; mailomat-watch keys tokens by domain, so the domain is still watched once.
 - **Counted in Matomo** as site 6 (since 2026-11-24, `https://old.d3strukt0r.dev`, site search
   on; the chart's "Web analytics"), with WPConsent's banner and Connect Matomo's reports as on
-  the other sites.
+  the other sites (Connect Matomo's view-only user `d3strukt0r-portfolio-reports`, 1Password
+  `Matomo | Prod | d3strukt0r-portfolio-reports`). The banner, its categories, the Matomo service,
+  the cookies and the page "Cookie-Richtlinie" were set up like robines-portfolio's on
+  2026-11-24, plus Polylang's `pll_language` cookie. WPConsent's free version has one set of
+  texts, so English visitors see the German banner too. After changing cookies by script,
+  WPConsent's transients (`wpconsent_preference_cookies` and the like) need clearing, or the
+  cookie table shows the old list. The banner and the cookie page link to
+  `/datenschutzerklaerung/`, WordPress' privacy page renamed and filled on 2026-11-24 from
+  robines-portfolio's (the same hosting, Jetpack, Matomo and login), without its embeds, with
+  `D3strukt0r` and `d3strukt0r-portfolio-admin@d3strukt0r.dev` as responsible and contact - no
+  surname, no postal address. Its English translation is `/en/privacy-policy/`, linked to it in
+  Polylang (made through Claude, 2026-11-24); the cookie page and the banner stay German. Content the site embeds later (videos, posts
+  from other platforms) needs its section added there.
 - **No object cache, no page cache**, like wundexpertinplus: a small site gains little from them.
 - **Hidden from search engines** (Einstellungen → Lesen) while it is being built.
 
@@ -68,7 +85,12 @@ right after its first pod is Ready, never in the browser.
    (`activate_plugin()` for each of `values.yaml`'s, through `php -r` as above; Query Monitor
    stays off).
 
-5. **The owner's account**: log in through "OpenID Connect" once.
+5. **Permalinks `/%postname%/`**, like every other site (`update_option("permalink_structure",
+   "/%postname%/"); flush_rewrite_rules();`): a fresh install has plain `?p=` addresses, under which
+   `/wp-json/` - the MCP route, the REST API - Polylang's `/en/` and every page path fall through
+   to the front page.
+
+6. **The owner's account**: log in through "OpenID Connect" once.
 
 ## Secrets
 
