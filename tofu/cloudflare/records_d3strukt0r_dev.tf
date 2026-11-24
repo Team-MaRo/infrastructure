@@ -302,6 +302,19 @@ resource "cloudflare_dns_record" "d3strukt0r_dev_cname_dk2_domainkey" {
   zone_id = local.zone_ids["d3strukt0r.dev"]
 }
 
+# The WordPress portfolio on the cluster (kubernetes/components/d3strukt0r-portfolio); the apex and
+# www are the Cloudflare Worker.
+resource "cloudflare_dns_record" "d3strukt0r_dev_cname_old" {
+  provider = cloudflare.personal
+
+  content = "prod.d3strukt0r.dev"
+  name    = "old.d3strukt0r.dev"
+  proxied = true
+  ttl     = 1
+  type    = "CNAME"
+  zone_id = local.zone_ids["d3strukt0r.dev"]
+}
+
 resource "cloudflare_dns_record" "d3strukt0r_dev_cname_wundexpertinplus" {
   provider = cloudflare.personal
 

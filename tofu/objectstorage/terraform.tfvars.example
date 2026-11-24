@@ -50,6 +50,12 @@ wundexpertinplus_access_key_id = ""
 # 1Password "Hetzner | S3 | prod wundexpertinplus uploads-proxy"
 #   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=efxryvkeefiviz5rcpdtufguye&h=my.1password.com
 wundexpertinplus_uploads_proxy_access_key_id = ""
+# 1Password "Hetzner | S3 | prod d3strukt0r-portfolio"
+#   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=wyr7zalw5eg53ne2a7onksizr4&h=my.1password.com
+d3strukt0r_portfolio_access_key_id = ""
+# 1Password "Hetzner | S3 | prod d3strukt0r-portfolio uploads-proxy"
+#   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=46pr4rdzkhd5cwevum44y74lui&h=my.1password.com
+d3strukt0r_portfolio_uploads_proxy_access_key_id = ""
 # 1Password "Hetzner | S3 | prod matomo"
 #   https://start.1password.com/open/i?a=RWQYBTIV4BG3RD74KLKHPJVTXU&v=rgb7ahgkjpry4bld5uyx5ya5au&i=4vhpkhsjy4meb3pqhgvhu2zsge&h=my.1password.com
 matomo_access_key_id = ""

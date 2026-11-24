@@ -136,6 +136,7 @@ DNS-only CNAME to `direct.prod.d3strukt0r.dev` instead):
 | `arepazo.ch`, `www.arepazo.ch` | arepazo (WooCommerce shop) - arepazo account | - | on |
 | `old.robines.space` | robines-portfolio (archive of the old WordPress site) | - | on |
 | `old.wundexpertinplus.com` | wundexpertinplus (the old WordPress site) - personal account | - | on |
+| `old.d3strukt0r.dev` | d3strukt0r-portfolio (the WordPress portfolio) | - | on |
 | `weleda-webcenter-text-export.d3strukt0r.dev` | weleda-webcenter-text-export (the Web Center text converter; a Cloudflare Worker until 2026-11-24) | - | on |
 | `webcenter-text-export.manuele-vaccari.ch` | weleda-webcenter-text-export: 302 to `https://weleda-webcenter-text-export.d3strukt0r.dev`, path kept (GitHub Pages until 2026-11-24) | - | **off** |
 | `manuele-robine.wedding`, `www.manuele-robine.wedding`, `wedding-manuele-robine.d3strukt0r.dev` | wedding-manuele-robine, the website (pwa) | - | on |
