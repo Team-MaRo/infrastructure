@@ -1,0 +1,50 @@
+---
+# The converter's server-side rendering (React Router), built and published by its own repository.
+# Converting happens in the visitor's browser; the server only renders the page and, with
+# JavaScript off, converts the one file sent to it - nothing is kept.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+  annotations:
+    keel.sh/policy: force
+    keel.sh/matchTag: "true"
+    keel.sh/trigger: poll
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: web
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: web
+    spec:
+      securityContext:
+        # The image runs as 65532 (its own user), so no runAsUser here.
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: web
+          # 3.2 follows the patch releases; a new minor is a deliberate change (README).
+          image: d3strukt0r/weleda-webcenter-text-export:3.2
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 3000
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 30

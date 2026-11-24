@@ -140,6 +140,15 @@ endpoints:
     alerts:
       - type: ntfy
 
+  - name: Weleda WebCenter Text Export
+    group: Apps
+    url: https://weleda-webcenter-text-export.d3strukt0r.dev/
+    interval: 5m
+    conditions:
+      - "[STATUS] == 200"
+    alerts:
+      - type: ntfy
+
   - name: Matomo
     group: Apps
     # The tracking endpoint the sites' visitors call, through nginx and PHP: the public half of

@@ -1,0 +1,27 @@
+---
+# Its record is in tofu/cloudflare. No className: Traefik is the cluster's default IngressClass.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: web
+  annotations:
+    # cert-manager creates the Certificate from spec.tls (components/cert-manager).
+    cert-manager.io/cluster-issuer: letsencrypt
+    # Only Cloudflare reaches it (charts/cloudflare-only).
+    traefik.ingress.kubernetes.io/router.middlewares: weleda-webcenter-text-export_cloudflare-only@kubernetescrd
+spec:
+  tls:
+    - hosts:
+        - weleda-webcenter-text-export.d3strukt0r.dev
+      secretName: web-tls
+  rules:
+    - host: weleda-webcenter-text-export.d3strukt0r.dev
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: web
+                port:
+                  name: http

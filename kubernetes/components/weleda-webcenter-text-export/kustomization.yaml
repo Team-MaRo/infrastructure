@@ -1,0 +1,14 @@
+---
+# weleda-webcenter-text-export: Esko Web Center's GS1 XML exports as plain-text leaflets, at
+# weleda-webcenter-text-export.d3strukt0r.dev. No database, no secrets, no volume.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - namespace.yaml
+  - deployment.yaml
+  - service.yaml
+  - ingress.yaml
+  - redirect.yaml
+  # Only Cloudflare reaches its proxied routes (charts/cloudflare-only).
+  - ../../charts/cloudflare-only/files

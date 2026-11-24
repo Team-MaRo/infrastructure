@@ -1,0 +1,26 @@
+---
+# weleda-webcenter-text-export for this cluster, from kubernetes/components/weleda-webcenter-text-export.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: weleda-webcenter-text-export
+  namespace: argocd
+  # Removing this file removes everything it deployed, namespace included; it keeps no data.
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Team-MaRo/infrastructure.git
+    targetRevision: master
+    path: kubernetes/components/weleda-webcenter-text-export
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: weleda-webcenter-text-export
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      # Not required here (no large CRDs); used for consistency.
+      - ServerSideApply=true

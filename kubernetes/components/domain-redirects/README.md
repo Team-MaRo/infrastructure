@@ -6,6 +6,10 @@ Whole domains that send their visitors to another one (`kubernetes/clusters/prod
 plain manifests in this directory, namespace `domain-redirects`). Traefik answers the redirect
 itself, so there are no pods.
 
+Only redirects to targets **outside** the cluster live here (AGENTS.md, "A redirect lives with the
+app it leads to"): a name that leads to an app on the cluster is redirected in that app's own
+component. When a target here moves onto the cluster, its redirects move into its component.
+
 | From | To |
 |---|---|
 | `d3st.dev`, `d3st.org`, `d3strukt0r.me` | `https://d3strukt0r.dev`, path and query kept |

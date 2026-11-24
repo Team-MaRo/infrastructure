@@ -1,0 +1,38 @@
+---
+# The converter's former name, a GitHub Pages site until 2026-11-24, to its current one. Temporary
+# (302): browsers keep a permanent redirect forever. The path and query go along.
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: to-current-name
+spec:
+  redirectRegex:
+    regex: ^https?://[^/]+(.*)$
+    replacement: https://weleda-webcenter-text-export.d3strukt0r.dev${1}
+---
+# Its record is in tofu/cloudflare. The redirect answers before the backend is reached.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: redirect
+  annotations:
+    # cert-manager creates the Certificate from spec.tls (components/cert-manager).
+    cert-manager.io/cluster-issuer: letsencrypt
+    # Only Cloudflare reaches it (charts/cloudflare-only), then the redirect.
+    traefik.ingress.kubernetes.io/router.middlewares: weleda-webcenter-text-export_cloudflare-only@kubernetescrd,weleda-webcenter-text-export_to-current-name@kubernetescrd
+spec:
+  tls:
+    - hosts:
+        - webcenter-text-export.manuele-vaccari.ch
+      secretName: redirect-tls
+  rules:
+    - host: webcenter-text-export.manuele-vaccari.ch
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: web
+                port:
+                  name: http

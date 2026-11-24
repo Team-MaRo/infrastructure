@@ -15,6 +15,8 @@ paths:
   `allowPrivilegeEscalation: false`, `capabilities.drop: [ALL]`, `seccompProfile:
   RuntimeDefault`, no host namespaces, host paths or privileged mode. A namespace that needs
   more goes onto `k3s_psa_exempt_namespaces` in `ansible/roles/k3s/defaults/main.yml`.
+- A redirect lives with the app it leads to (a Middleware and an Ingress in its component, 302);
+  `components/domain-redirects` holds only redirects to targets outside the cluster.
 - Images only from `docker.io`, `ghcr.io`, `quay.io`, `registry.k8s.io`, `public.ecr.aws`,
   `us-docker.pkg.dev`; write them fully qualified where an operator deploys them.
 - No CPU limits. Set memory only where Kyverno's defaults (32Mi request, 128Mi limit) do not
