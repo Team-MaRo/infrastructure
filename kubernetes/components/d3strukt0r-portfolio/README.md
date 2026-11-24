@@ -34,8 +34,9 @@ in `tofu/cloudflare`.
   the domain Zitadel and Matomo send through too. The chart wants every mailomat site to bring
   its domain's API token to mailomat-watch, so this one brings the shared domain's token a second
   time; mailomat-watch keys tokens by domain, so the domain is still watched once.
-- **Counted in Matomo** once it has its site there (`matomo.siteId`, the chart's "Web
-  analytics"), with WPConsent's banner and Connect Matomo's reports as on the other sites.
+- **Counted in Matomo** as site 6 (since 2026-11-24, `https://old.d3strukt0r.dev`, site search
+  on; the chart's "Web analytics"), with WPConsent's banner and Connect Matomo's reports as on
+  the other sites.
 - **No object cache, no page cache**, like wundexpertinplus: a small site gains little from them.
 - **Hidden from search engines** (Einstellungen → Lesen) while it is being built.
 
@@ -62,7 +63,12 @@ right after its first pod is Ready, never in the browser.
    (chart README "Plugins"; once the rollout race deactivates one, a second restart):
    `kubectl --context d3strukt0r-prod-admin -n d3strukt0r-portfolio rollout restart deployment web`.
 
-4. **The owner's account**: log in through "OpenID Connect" once.
+4. **The site's plugins activated**: the chart activates only its own (the login, MCP, S3
+   uploads); which of the site's are active is the database's, and a fresh one has none
+   (`activate_plugin()` for each of `values.yaml`'s, through `php -r` as above; Query Monitor
+   stays off).
+
+5. **The owner's account**: log in through "OpenID Connect" once.
 
 ## Secrets
 

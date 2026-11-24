@@ -26,6 +26,11 @@ plugins:
 languages:
   - de_CH
 
+# The site is site 6 in Matomo (components/matomo), since 2026-11-24 (the chart's README "Web
+# analytics").
+matomo:
+  siteId: 6
+
 # Its mail's events in mailomat-watch (token: api-token in secret/d3strukt0r-portfolio-mailomat).
 # mailomat.d3strukt0r.dev is shared with Zitadel and Matomo, whose token mailomat-watch also gets
 # from secret/mailomat-watch; it keys tokens by domain, so the domain is watched once
