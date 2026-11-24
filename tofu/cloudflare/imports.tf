@@ -208,11 +208,6 @@ import {
 }
 
 import {
-  to = cloudflare_dns_record.d3strukt0r_dev_aaaa_weleda_webcenter_text_export
-  id = "1a6f0bb01dc074c1a03af0f173aef29f/12f72c87d8b9a0b15efd6b1f03651923"
-}
-
-import {
   to = cloudflare_dns_record.d3strukt0r_dev_aaaa_www
   id = "1a6f0bb01dc074c1a03af0f173aef29f/56c3ba8757dc0dd686c3869a9b3520cd"
 }

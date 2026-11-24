@@ -136,6 +136,8 @@ DNS-only CNAME to `direct.prod.d3strukt0r.dev` instead):
 | `arepazo.ch`, `www.arepazo.ch` | arepazo (WooCommerce shop) - arepazo account | - | on |
 | `old.robines.space` | robines-portfolio (archive of the old WordPress site) | - | on |
 | `old.wundexpertinplus.com` | wundexpertinplus (the old WordPress site) - personal account | - | on |
+| `weleda-webcenter-text-export.d3strukt0r.dev` | weleda-webcenter-text-export (the Web Center text converter; a Cloudflare Worker until 2026-11-24) | - | on |
+| `webcenter-text-export.manuele-vaccari.ch` | weleda-webcenter-text-export: 302 to `https://weleda-webcenter-text-export.d3strukt0r.dev`, path kept (GitHub Pages until 2026-11-24) | - | **off** |
 | `manuele-robine.wedding`, `www.manuele-robine.wedding`, `wedding-manuele-robine.d3strukt0r.dev` | wedding-manuele-robine, the website (pwa) | - | on |
 | `api-wedding-manuele-robine.d3strukt0r.dev` | wedding-manuele-robine, its API | - | on |
 | `status.d3strukt0r.dev` | Gatus status page | - | on |
@@ -166,11 +168,9 @@ DNS-only CNAME to `direct.prod.d3strukt0r.dev` instead):
 | Name | Serves | HTTPS |
 |---|---|---|
 | `d3strukt0r.dev`, `www.d3strukt0r.dev` | Cloudflare Worker (`100::`) | on |
-| `weleda-webcenter-text-export.d3strukt0r.dev` | Cloudflare Worker (`100::`) | on |
 | `robines.space`, `www.robines.space` (+ wildcard) | Cloudflare Worker (`100::`) - the live portfolio | on |
 | `wundexpertinplus.com`, `www.wundexpertinplus.com` | Cloudflare Worker (`100::`) | on |
 | `wundexpertinplus.d3strukt0r.dev` | GitHub Pages (`team-maro.github.io`) | on |
-| `webcenter-text-export.manuele-vaccari.ch` | GitHub Pages (`d3strukt0r.github.io`) | **off** |
 
 `rubyn.li` and `sponte.me` have no web records (mail only). Checked against the live cluster
 with:
@@ -218,8 +218,8 @@ mailomat and reach the cluster through OpenBao.
 
 ## Records Cloudflare owns but OpenTofu now tracks
 
-Seven AAAA records point at `100::` with `meta.origin_worker_id` set and
-`meta.read_only = true` - `d3strukt0r.dev` apex and www, `weleda-webcenter-text-export`,
+Six AAAA records point at `100::` with `meta.origin_worker_id` set and
+`meta.read_only = true` - `d3strukt0r.dev` apex and www,
 `robines.space` apex and www, `wundexpertinplus.com` apex and www. Cloudflare creates
 and maintains these for Workers routes. They imported cleanly, but if a Worker route
 changes Cloudflare rewrites them and a plan will report drift that nothing in this repo

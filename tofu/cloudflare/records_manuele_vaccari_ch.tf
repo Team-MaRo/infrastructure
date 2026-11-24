@@ -24,10 +24,12 @@ resource "cloudflare_dns_record" "manuele_vaccari_ch_cname_apex" {
   zone_id = local.zone_ids["manuele-vaccari.ch"]
 }
 
+# The converter's former name, redirected to its current one by the cluster
+# (kubernetes/components/weleda-webcenter-text-export, redirect.yaml); GitHub Pages before.
 resource "cloudflare_dns_record" "manuele_vaccari_ch_cname_webcenter_text_export" {
   provider = cloudflare.personal
 
-  content = "d3strukt0r.github.io"
+  content = "prod.d3strukt0r.dev"
   name    = "webcenter-text-export.manuele-vaccari.ch"
   proxied = true
   ttl     = 1

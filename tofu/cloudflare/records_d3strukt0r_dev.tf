@@ -426,14 +426,16 @@ resource "cloudflare_dns_record" "d3strukt0r_dev_aaaa_apex" {
   zone_id = local.zone_ids["d3strukt0r.dev"]
 }
 
-resource "cloudflare_dns_record" "d3strukt0r_dev_aaaa_weleda_webcenter_text_export" {
+# On the cluster since 2026-11-24 (kubernetes/components/weleda-webcenter-text-export); a
+# Cloudflare Worker before.
+resource "cloudflare_dns_record" "d3strukt0r_dev_cname_weleda_webcenter_text_export" {
   provider = cloudflare.personal
 
-  content = "100::"
+  content = "prod.d3strukt0r.dev"
   name    = "weleda-webcenter-text-export.d3strukt0r.dev"
   proxied = true
   ttl     = 1
-  type    = "AAAA"
+  type    = "CNAME"
   zone_id = local.zone_ids["d3strukt0r.dev"]
 }
 
