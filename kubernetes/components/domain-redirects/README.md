@@ -9,8 +9,9 @@ itself, so there are no pods.
 | From | To |
 |---|---|
 | `d3st.dev`, `d3st.org`, `d3strukt0r.me` | `https://d3strukt0r.dev`, path and query kept |
+| `wundexpertinplus.ch`, `wundexpertin-bl.ch` and their `www.` | `https://www.wundexpertinplus.com`, path and query kept (the old site's former names, since 2026-11-23) |
 
-Only the apexes: their wildcards (`*.d3st.dev`, ...) reach the cluster too and still get Traefik's
+The `d3st...` domains only at their apexes: their wildcards (`*.d3st.dev`, ...) reach the cluster too and still get Traefik's
 404 ([`tofu/cloudflare/README.md`](../../../tofu/cloudflare/README.md), "Names and what serves them").
 
 ## Design

@@ -70,3 +70,14 @@ resource "cloudflare_dns_record" "wundexpertinplus_com_mx_mailomat" {
   type     = "MX"
   zone_id  = local.zone_ids["wundexpertinplus.com"]
 }
+
+resource "cloudflare_dns_record" "wundexpertinplus_com_txt_dmarc" {
+  provider = cloudflare.personal
+
+  comment = "DMARC, DKIM relaxed (no adkim=s): mailomat signs as mailomat.wundexpertinplus.com"
+  content = "\"v=DMARC1; p=quarantine\""
+  name    = "_dmarc.wundexpertinplus.com"
+  ttl     = 1
+  type    = "TXT"
+  zone_id = local.zone_ids["wundexpertinplus.com"]
+}

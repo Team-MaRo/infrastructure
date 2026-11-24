@@ -5,21 +5,21 @@ separate logins.
 
 | Account | Nameservers | Zones |
 |---|---|---|
-| personal | `brenda` / `wesley`.ns.cloudflare.com | the nine Infomaniak domains, plus `wundexpertinplus.com` (registered at GoDaddy and managed by its owner) |
+| personal | `brenda` / `wesley`.ns.cloudflare.com | the nine Infomaniak domains, plus `wundexpertinplus.com`, `wundexpertinplus.ch` and `wundexpertin-bl.ch` (registered at GoDaddy and managed by their owner) |
 | arepazo | `abdullah` / `fish`.ns.cloudflare.com | `arepazo.ch` (registered and managed by its owner) |
 
-**Two domains are delegated here without a zone: `wundexpertinplus.ch` and
-`wundexpertin-bl.ch`** (checked 2026-11-23). Like `wundexpertinplus.com`, both are the owner's,
-at GoDaddy since 2020-06-01, and their nameservers are the personal account's pair - but neither
-has a zone in that account, so neither resolves. They used to be further names of the old
-WordPress site on prod-old (`kubernetes/components/wundexpertinplus`), and `.ch` also carried
-its mail (the site's admin address `cms@wundexpertinplus.ch`). On 2024-06-09 their nameservers
-were unset at the registry (the domains lapsed or were suspended), and Cloudflare deleted both
-zones on 2024-06-16 as it announces; later the delegation came back, presumably with a renewal at
-GoDaddy, and the registry has sent queries to the account's nameservers again since, which answer
-REFUSED. A delegation with no zone should not stay: either add both here as zones (a redirect to
-`www.wundexpertinplus.com`, as `components/domain-redirects` does for other domains), or have the
-owner let them lapse or point their nameservers elsewhere.
+**`wundexpertinplus.ch` and `wundexpertin-bl.ch` redirect to `www.wundexpertinplus.com`** (since
+2026-11-23, `kubernetes/components/domain-redirects`). Like `wundexpertinplus.com`, both are the
+owner's, at GoDaddy since 2020-06-01, with the personal account's pair as nameservers. They used to
+be further names of the old WordPress site on prod-old (`kubernetes/components/wundexpertinplus`),
+and `.ch` also carried its mail (the site's old admin address `cms@wundexpertinplus.ch`); both
+now refuse mail in either direction (null MX, SPF `-all`, DMARC `p=reject`). On
+2024-06-09 their nameservers were unset at the registry (the domains lapsed or were suspended),
+and Cloudflare deleted both zones on 2024-06-16 as it announces; later the delegation came back,
+presumably with a renewal at GoDaddy, but without zones - the account's nameservers answered
+REFUSED until both zones were added again by hand on 2026-11-23 and adopted here. A delegation
+must never point at this account without a zone: if the owner gives a domain up, its zone goes
+only after the nameservers at the registry have moved away.
 
 It manages the zones, every DNS record, and six security and TLS zone settings
 (`ssl_automatic_mode`, `always_use_https`, `min_tls_version`, `automatic_https_rewrites`,
@@ -157,6 +157,7 @@ DNS-only CNAME to `direct.prod.d3strukt0r.dev` instead):
 | `registry.d3strukt0r.dev` | zot, the container registry - **DNS-only**, CNAME to `direct.prod.d3strukt0r.dev`: a push sends each layer in one request, and the proxy takes at most 100 MB | zot's own | - |
 | `d3st.dev`, `d3st.org` | domain-redirects: 302 to `https://d3strukt0r.dev`, path kept | - | on |
 | `d3strukt0r.me` | domain-redirects: 302 to `https://d3strukt0r.dev`, path kept | - | **off** |
+| `wundexpertinplus.ch`, `www.wundexpertinplus.ch`, `wundexpertin-bl.ch`, `www.wundexpertin-bl.ch` | domain-redirects: 302 to `https://www.wundexpertinplus.com`, path kept | - | on |
 | wildcards of `d3st.dev`, `d3st.org` | nothing yet, Traefik answers 404 | - | on |
 | `manuele-vaccari.ch`, wildcard of `d3strukt0r.me` and `manuele-vaccari.ch` | nothing yet, Traefik answers 404 | - | **off** |
 
@@ -202,7 +203,8 @@ with three records, keeping the apex's MX free: SPF (`include:mailomat.cloud`) a
 **apex SPF records stay untouched**. That needs DKIM alignment left relaxed: `d3strukt0r.dev`'s
 and `robines.space`'s DMARC records had `adkim=s`, under which mailomat's signature
 (`d=mailomat.<domain>`) does not count and its mail passes on SPF alone - which breaks whenever a
-mail is forwarded; both are relaxed now (2026-10-06, 2026-10-18). `d3st.dev`
+mail is forwarded; both are relaxed now (2026-10-06, 2026-10-18), and `wundexpertinplus.com`, which
+had no DMARC record, got the same relaxed `p=quarantine` (2026-11-24). `d3st.dev`
 and `d3st.org` keep `adkim=s`; only addy sends for them, signing as exactly those domains. No
 DMARC record asks for reports (`rua`) yet: they are to go to the planned mail server, which
 evaluates them, not into a mailbox.

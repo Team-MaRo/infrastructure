@@ -16,6 +16,13 @@ spec:
       services:
         - name: noop@internal
           kind: TraefikService
+    - match: Host(`wundexpertinplus.ch`) || Host(`www.wundexpertinplus.ch`) || Host(`wundexpertin-bl.ch`) || Host(`www.wundexpertin-bl.ch`)
+      middlewares:
+        - name: cloudflare-only
+        - name: to-www-wundexpertinplus-com
+      services:
+        - name: noop@internal
+          kind: TraefikService
   tls:
     secretName: domain-redirects-tls
 ---
@@ -33,6 +40,13 @@ spec:
       middlewares:
         - name: cloudflare-only
         - name: to-d3strukt0r-dev
+      services:
+        - name: noop@internal
+          kind: TraefikService
+    - match: Host(`wundexpertinplus.ch`) || Host(`www.wundexpertinplus.ch`) || Host(`wundexpertin-bl.ch`) || Host(`www.wundexpertin-bl.ch`)
+      middlewares:
+        - name: cloudflare-only
+        - name: to-www-wundexpertinplus-com
       services:
         - name: noop@internal
           kind: TraefikService

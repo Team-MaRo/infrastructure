@@ -500,8 +500,8 @@ nothing, an editor only what an editor may. Who may is decided in Zitadel alone.
   `claude mcp add --transport http --scope user --client-id <id> --callback-port 33418 <site>
   <url>` (`--scope user`: in every project; the default `local` sets it up for the current
   directory only), then `/mcp` to log in (the app allows exactly that callback). Each site's
-  README has its finished command and connector values. Claude Code is tested on all three sites
-  (2026-10-22); claude.ai and Claude Desktop are not yet - no account at hand that may add a
+  README has its finished command and connector values. Claude Code is tested on every site
+  (the first three 2026-10-22, wundexpertinplus 2026-11-23); claude.ai and Claude Desktop are not yet - no account at hand that may add a
   custom connector - so a first connection there may still meet a surprise.
 - **What Claude may do** is fixed in `files/mcp.php`, not in the plugin's settings page
   (`pre_option_*`, so a click in wp-admin changes nothing): read and write content - posts,

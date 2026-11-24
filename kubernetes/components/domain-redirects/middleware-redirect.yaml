@@ -9,3 +9,13 @@ spec:
   redirectRegex:
     regex: ^https?://[^/]+(.*)$
     replacement: https://d3strukt0r.dev${1}
+---
+# The old site's former domains to the live site, also temporary: the owner may use them again.
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: to-www-wundexpertinplus-com
+spec:
+  redirectRegex:
+    regex: ^https?://[^/]+(.*)$
+    replacement: https://www.wundexpertinplus.com${1}

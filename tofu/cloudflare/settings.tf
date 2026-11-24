@@ -19,6 +19,8 @@ locals {
     "rubyn.li"               = { ssl_automatic_mode = "auto", always_use_https = "off", min_tls_version = "1.2", automatic_https_rewrites = "on", tls_1_3 = "on", security_level = "medium" }
     "sponte.me"              = { ssl_automatic_mode = "auto", always_use_https = "off", min_tls_version = "1.2", automatic_https_rewrites = "on", tls_1_3 = "on", security_level = "medium" }
     "wundexpertinplus.com"   = { ssl_automatic_mode = "auto", always_use_https = "on", min_tls_version = "1.2", automatic_https_rewrites = "on", tls_1_3 = "zrt", security_level = "medium" }
+    "wundexpertinplus.ch"    = { ssl_automatic_mode = "auto", always_use_https = "on", min_tls_version = "1.2", automatic_https_rewrites = "on", tls_1_3 = "on", security_level = "medium" }
+    "wundexpertin-bl.ch"     = { ssl_automatic_mode = "auto", always_use_https = "on", min_tls_version = "1.2", automatic_https_rewrites = "on", tls_1_3 = "on", security_level = "medium" }
     "arepazo.ch"             = { ssl_automatic_mode = "auto", always_use_https = "on", min_tls_version = "1.2", automatic_https_rewrites = "on", tls_1_3 = "zrt", security_level = "medium" }
   }
 

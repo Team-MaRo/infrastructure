@@ -1,5 +1,5 @@
 ---
-# A valid certificate on the three names, so Cloudflare's automatic SSL/TLS scan finds HTTPS
+# A valid certificate on every name, so Cloudflare's automatic SSL/TLS scan finds HTTPS
 # working there and can move their zones off flexible (README).
 apiVersion: cert-manager.io/v1
 kind: Certificate
@@ -11,6 +11,10 @@ spec:
     - d3st.dev
     - d3st.org
     - d3strukt0r.me
+    - wundexpertinplus.ch
+    - www.wundexpertinplus.ch
+    - wundexpertin-bl.ch
+    - www.wundexpertin-bl.ch
   issuerRef:
     kind: ClusterIssuer
     name: letsencrypt

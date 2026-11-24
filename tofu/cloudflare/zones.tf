@@ -17,6 +17,8 @@ locals {
     "rubyn.li"               = { id = "8b9387dc511856989c9fa6bf261eb29a", account = "personal" }
     "sponte.me"              = { id = "d9e566857db35c2c68b4b4afd406c2dc", account = "personal" }
     "wundexpertinplus.com"   = { id = "2889e840f9c25c8c2f0283940d549746", account = "personal" }
+    "wundexpertinplus.ch"    = { id = "1efcc8df89daa7f01b8272d31c383471", account = "personal" }
+    "wundexpertin-bl.ch"     = { id = "dc69e0b4bf0a27371e910821c1349b50", account = "personal" }
     "arepazo.ch"             = { id = "643779bc80b781ad8246192ed73cc559", account = "arepazo" }
   }
 

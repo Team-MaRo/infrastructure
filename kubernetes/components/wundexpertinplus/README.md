@@ -16,11 +16,16 @@ The database is `wundexpertinplus` in the shared MariaDB, the uploads are in the
 ## As it was
 
 - **Its own address, `old.wundexpertinplus.com`.** The content's URLs were rewritten from
-  `www.wundexpertinplus.com` at the import (below). On prod-old the site also answered on
+  `www.wundexpertinplus.com` at the import (below), and those still naming
+  `www.wundexpertinplus.ch` - the profile picture on Home, the privacy policy's address, Yoast's
+  and Jetpack's logo URLs, `admin`'s e-mail - on 2026-11-24, once that domain had become a
+  redirect; the posts' GUIDs keep it, as WordPress wants. On prod-old the site also answered on
   `wundexpertinplus.ch` and `wundexpertin-bl.ch`, and on `wundexpertinplus.d3strukt0r.dev`
-  (now GitHub Pages); the two `.ch` domains still exist but resolve nothing - what they are and
-  what is open about them is in `tofu/cloudflare/README.md`. The admin address
-  `cms@wundexpertinplus.ch` from those days receives no mail.
+  (now GitHub Pages); the two `.ch` domains redirect to the live site since 2026-11-23
+  (`kubernetes/components/domain-redirects`, their history in `tofu/cloudflare/README.md`). The admin address,
+  `cms@wundexpertinplus.com`, receives no mail (the domain has no MX), like the contact form's
+  recipient; a change to `cms@wundexpertinplus.ch` that was left waiting for its confirmation was
+  cancelled on 2026-11-23.
 - **The theme prod-old had active** (Customify), at today's version from wordpress.org, language
   `de_CH`; Polylang's languages (only German) are in the database.
 - **Plugins**: what the site uses - Polylang, Yoast SEO, WPForms Lite, WP Mail SMTP, Jetpack -
@@ -83,7 +88,10 @@ The database is `wundexpertinplus` in the shared MariaDB, the uploads are in the
   `wundexpertinplus-claude` in `tofu/zitadel`. claude.ai / Claude Desktop: Add custom connector,
   URL `https://old.wundexpertinplus.com/wp-json/mcp/mcp-adapter-default-server`, "Use your own
   OAuth client" with client ID `400934183486161647`, no secret. Only a Zitadel user linked to a
-  WordPress account gets in, so `stephan.buergi` cannot. Claude Code:
+  WordPress account gets in, so `stephan.buergi` cannot. A page Claude creates is authored by
+  whoever connected it (today `D3strukt0r`) and puts that account back into the public user list:
+  set its author to Stephan afterwards (wp-admin → the page → Autor); edits keep the author.
+  Claude Code:
 
   ```shell
   claude mcp add --transport http --scope user --client-id 400934183486161647 --callback-port 33418 wundexpertinplus https://old.wundexpertinplus.com/wp-json/mcp/mcp-adapter-default-server
